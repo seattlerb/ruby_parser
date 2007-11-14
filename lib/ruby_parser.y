@@ -272,10 +272,17 @@ cmd_brace_block : tLBRACE_ARG {
                   }
 
 command      : operation command_args = tLOWEST {
-                 result = s(:fcall, val[0].value.to_sym, nil, val[1])
+                 result = new_fcall(val[0].value.to_sym, val[1])
                }
              | operation command_args cmd_brace_block {
-                 result = s(:fcall, val[0].value.to_sym, val[1], val[2])
+                 result = new_fcall(val[0].value.to_sym, val[1])
+                 if val[2] then
+                   if result[0] == :block_pass then
+                      raise "both block arg and actual block given"
+                   end
+                   val[2] << result
+                   result = val[2]
+                 end
                }
              | primary_value tDOT operation2 command_args = tLOWEST {
                  result = s(:call, val[0], val[2], val[3]);
@@ -319,10 +326,10 @@ mlhs_basic    : mlhs_head {
                   result = s(:masgn, val[0], s(:star))
                 }
               | tSTAR mlhs_node {
-                  result = s(:masgn, nil, val[1]);
+                  result = s(:masgn, val[1]);
                 }
               | tSTAR {
-                  result = s(:masgn, nil, s(:star))
+                  result = s(:masgn, s(:star))
                 }
 
 mlhs_item     : mlhs_node
@@ -463,9 +470,17 @@ reswords     : k__LINE__ | k__FILE__  | klBEGIN | klEND  | kALIAS  | kAND
              | kSUPER    | kTHEN      | kTRUE   | kUNDEF | kWHEN   | kYIELD
              | kIF_MOD   | kUNLESS_MOD | kWHILE_MOD | kUNTIL_MOD | kRESCUE_MOD
 
-arg           : lhs '=' arg {
-                  result = val[0] << val[2]
-                }
+arg          : lhs '=' arg {
+                 case val[0].first
+                 when :attrasgn, :call then
+                   result = val[0]
+                   result << s(:array) unless
+                     Sexp === result[-1] && result[-1][0] == :array
+                   result[-1] << val[2]
+                 else
+                   result = val[0] << val[2]
+                 end
+               }
              | lhs '=' arg kRESCUE_MOD arg {
                  result = s(:lasgn, val[0].last.to_sym,
                             s(:rescue, val[2],
@@ -476,14 +491,13 @@ arg           : lhs '=' arg {
                  asgn_op = val[1].value;
 
                  if asgn_op == "||" then
-                   val[0] = s(:lasgn, val[0], val[2])  # HACK
-                   # val[0][2] = (val[2]);
-                   result = s(:op_asgn_or, support.gettable2(name), val[0]);
+                   val[0] = s(:lasgn, name, val[2])
+                   result = s(:op_asgn_or, support.gettable(name), val[0]);
                  elsif asgn_op == "&&" then
-                   # val[0][2] = (val[2]);
-                   result = s(:op_asgn_and, support.gettable2(name), val[0]);
+                   val[0] = s(:lasgn, name, val[2])
+                   result = s(:op_asgn_and, support.gettable(name), val[0]);
                  else
-                   val[0][2] = s(:call, support.gettable2(name), asgn_op, val[2])
+                   val[0][2] = s(:call, support.gettable(name), asgn_op, val[2])
                    result = val[0];
                  end
                  }
@@ -669,11 +683,7 @@ call_args    : command {
                   result = s(:array, val[0])
                  }
              | args opt_block_arg {
-                 if val[1] then
-                   result = val[1] << val[0]
-                 else
-                   result = val[0]
-                 end
+                 result = support.arg_blk_pass(val[0], val[1]);
                }
              | args ',' tSTAR arg_value opt_block_arg {
                  result = support.arg_concat(val[0], val[3]);
@@ -696,23 +706,22 @@ call_args    : command {
                  result = support.arg_blk_pass(result, val[6]);
                }
              | tSTAR arg_value opt_block_arg {
-                  result = s(:splat, val[1])
-                  result << val[2] if val[2] # HACK
+                  result = support.arg_blk_pass(s(:splat, val[1]), val[2])
                  }
              | block_arg
 
 call_args2    : arg_value ',' args opt_block_arg {
-                  result = support.arg_blk_pass(s(:array, val[0]).add_all(val[2]), val[3]);
+                  result = support.arg_blk_pass(s(:array, val[0], val[2]), val[3])
                  }
              | arg_value ',' block_arg {
-                  result = support.arg_blk_pass(s(:array, val[0]), val[2]);
+                  result = support.arg_blk_pass(val[0], val[2]);
                  }
              | arg_value ',' tSTAR arg_value opt_block_arg {
                   result = support.arg_concat(s(:array, val[0]), val[3]);
                   result = support.arg_blk_pass(result, val[4]);
                  }
              | arg_value ',' args ',' tSTAR arg_value opt_block_arg {
-                  result = support.arg_concat(s(:array, val[0]).add_all(s(:hash, val[2])), val[5]);
+                  result = support.arg_concat(s(:array, val[0], s(:hash, val[2])), val[5])
                   result = support.arg_blk_pass(result, val[6]);
                  }
              | assocs opt_block_arg {
@@ -720,12 +729,12 @@ call_args2    : arg_value ',' args opt_block_arg {
                   result = support.arg_blk_pass(result, val[1]);
                  }
              | assocs ',' tSTAR arg_value opt_block_arg {
-                  result = support.arg_concat(s(:array, s(:hash, val[0])), val[3]);
-                  result = support.arg_blk_pass(result, val[4]);
+                  result = s(:array, s(:hash, val[0]), val[3])
+                  result = support.arg_blk_pass(result, val[4])
                  }
              | arg_value ',' assocs opt_block_arg {
-                  result = s(:array, val[0]).add(s(:hash, val[2]));
-                  result = support.arg_blk_pass(result, val[3]);
+                  result = s(:array, val[0], s(:hash, val[2]))
+                  result = support.arg_blk_pass(result, val[3])
                  }
              | arg_value ',' args ',' assocs opt_block_arg {
                   result = s(:array, val[0]).add_all(val[2]).add(s(:hash, val[4]));
@@ -787,7 +796,7 @@ mrhs         : args ',' arg_value {
                  result << val[2]
                }
              | args ',' tSTAR arg_value {
-                 result = s(:argscat, val[0], val[3])
+                 result = arg_concat(val[0], val[3])
                }
              | tSTAR arg_value {
                  result = s(:splat, val[1])
@@ -868,9 +877,7 @@ primary      : literal
 #                  raise SyntaxException "Both block arg and actual block given."
 #                end
                  call = val[0]
-                 # TODO: this is where we need to clean up env vars
-                 iter = val[1] # .find_and_replace_all(:lvar, :dvar)
-                 # iter[1][0] = :dasgn_curr if iter[1][0] == :dvar
+                 iter = val[1]
                  iter.insert 1, call
                  result = iter
                }
@@ -888,10 +895,8 @@ primary      : literal
                  }
              | kWHILE {
                  lexer.cond.push true
-d :while1 => lexer.cond
                } expr_value do {
                  lexer.cond.pop
-d :while2 => lexer.cond
                } compstmt kEND {
                   block = val[5]
                   block = nil if block == s(:block) # HACK
@@ -1100,7 +1105,7 @@ block_call    : command do_block {
               }
 
 method_call   : operation paren_args {
-                  result = s(:fcall, val[0].value.to_sym, val[1])
+                  result = new_fcall(val[0].value.to_sym, val[1])
                 }
               | primary_value tDOT operation2 opt_paren_args {
                   result = s(:call, val[0], val[2].value.to_sym)
@@ -1125,7 +1130,7 @@ brace_block   : tLCURLY {
                 } opt_block_var compstmt tRCURLY {
                   args = val[2]
                   body = val[3] == s(:block) ? nil : val[3]
-                  args[0] = :dasgn_curr if args[0] == :dasgn
+                  args[0] = :dasgn_curr if args and args[0] == :dasgn
                   result = s(:iter)
                   result << args
                   result << body if body
@@ -1172,8 +1177,10 @@ opt_rescue    : kRESCUE exc_list exc_var then compstmt opt_rescue {
 
                   result = s(:resbody)
                   result << val[1] # if val[1]
-                  body = body.last if body.size == 2 and body[0] == :block
-                  result << body if body
+                  if body then
+                    body = body.last if body.size == 2 and body[0] == :block
+                    result << body
+                  end
                   result << val[5] if val[5]
                  }
              | {result = nil;}

@@ -6,7 +6,7 @@ $: << File.expand_path("~/Work/p4/zss/src/ParseTree/dev/lib")
 require 'sexp'
 
 def d s
-  # warn s.inspect
+  warn s.inspect
 end
 
 class RubyParser < Racc::Parser
@@ -72,8 +72,6 @@ class RubyParser < Racc::Parser
     id = lhs.value.to_sym
     id = id.value.to_sym if Token === id
 
-d :assignable!
-
     raise SyntaxError, "Can't change the value of #{id}" if
       id.to_s =~ /^(?:self|nil|true|false|__LINE__|__FILE__)$/
 
@@ -100,8 +98,6 @@ d :assignable!
              end
 
     self.env[id.to_sym] = self.env.dynamic? ? :dvar : :lvar
-
-d result => env
 
     result << value if value
 
@@ -164,31 +160,35 @@ d result => env
   end
 
   def new_yield(node)
-    state = true
-
     if node then
       raise SyntaxException, "Block argument should not be given." if
         node.node_type == :block_pass
 
-      if node.node_type == :array and node.size == 2 then
-        node = node.last
-        state = false
-      else
-        p :wtf? => node.inspect
-      end
-
-      if node and node.node_type == :splat then
-        state = true
-      end
-    else
-      state = false
+      node = node.last if node.node_type == :array and node.size == 2
     end
 
     return s(:yield, node)
   end
 
-  def arg_blk_pass a, b
-    a << b # complete and total hack
+  def new_fcall m, a
+    if a and a[0] == :block_pass then
+      args = a.array(true) || a.argscat(true) || a.splat(true)
+      call = s(:fcall, m)
+      call << args if args
+      a << call
+      return a
+    end
+
+    return s(:fcall, m, a)
+  end
+
+  def arg_blk_pass node1, node2
+    if node2 then
+      node2.insert 1, node1
+      return node2
+    else
+      node1
+    end
   end
 
   def get_match_node lhs, rhs
@@ -249,18 +249,6 @@ d result => env
     self.env.unextend
   end
 
-#   def method_missing(meth, *args)
-#     c = caller
-#     warn "RubyParser: you shouldn't be doing #{meth}: from #{c[0]}"
-#     if meth.to_s =~ /Node/ then
-#       Token.sexp meth, *args
-#     else
-#       # Object.const_get(meth).new(*args)
-#       # self
-#       nil
-#     end
-#   end
-
   def append_to_block head, tail
     return head if tail.nil?
     return tail if head.nil?
@@ -305,7 +293,6 @@ class Environment
 
   def []= k, v
     raise "no" if v == true
-d [k, v, caller[0]]
     self.current[k] = v
   end
 
@@ -326,11 +313,7 @@ d [k, v, caller[0]]
   end
 
   def dasgn_curr? name
-d [name, has_key?(name), @dyn.first, current.has_key?(name)]
-d self
-    r = ((! has_key?(name) && @dyn.first) || current.has_key?(name))
-d r
-    r
+    (! has_key?(name) && @dyn.first) || current.has_key?(name)
   end
 
   def extend dyn = false
@@ -452,11 +435,7 @@ class SyntaxException < SyntaxError
 end
 
 class StackState # TODO: nuke this fucker
-  # attr_reader :stack
-
-  def stack
-    @stack
-end
+  attr_reader :stack
 
   def inspect
     "StackState(#{@name}, #{@stack.inspect})"
@@ -465,13 +444,11 @@ end
   def initialize(name)
     @name = name
     @stack = [false]
-d :initialize
   end
 
   def pop
     raise if @stack.size == 0
     self.stack.pop
-d :pop => self
   end
 
   def lexpop
@@ -479,14 +456,11 @@ d :pop => self
     a = self.stack.pop
     b = self.stack.pop
     self.stack.push(a || b)
-
-d :lexpop => self
   end
 
   def push val
     raise if val != true and val != false
     self.stack.push val
-d :push => [self, caller[0]]
   end
 
   def is_in_state
@@ -881,53 +855,6 @@ class Float
   INFINITY = 1.0 / 0
 end
 
-class Node
-#   attr_reader :args
-#   attr_accessor :node_type
-
-  def initialize(*args)
-    raise "No"
-#     @args = args
-#     @node_type = nil
-  end
-
-#   def == o
-#     self.node_type == o.node_type and self.args == o.args
-#   end
-
-#   def pos
-#     raise "no"
-#   end
-#   def pos= o
-#     raise "no"
-#   end
-
-#   alias :setPosition :pos=
-#   alias :position :pos
-
-#   def longValue
-#     bitch
-#     self.args.first
-#   end
-
-#   def inspect
-#     sexp_str = self.args.map {|x|x.inspect}.join(', ')
-#     "s(#{self.node_type.inspect}, #{sexp_str})"
-#   end
-
-#   def pretty_print(q) # :nodoc:
-#     q.group(1, 's(', ')') do
-#       q.text self.node_type.inspect
-#       q.text ", "
-#       q.seplist(self.args) {|v| q.pp v }
-#     end
-#   end
-
-#   def self.method_missing(type, *args)
-#     Token.sexp(type, *args)
-#   end
-end
-
 class Visibility
   PUBLIC = Visibility.new
   PROTECTED = Visibility.new
@@ -943,58 +870,11 @@ class Visibility
   end
 end
 
-# class Object
-#   def this
-#     bitch
-#     self
-#   end
-# end
-
-# def new klass
-#   bitch
-#   Class === klass ? klass.new : klass
-# end
-
-# def null
-#   bitch
-#   nil
-# end
-
-# def instanceof(o)
-#   bitch
-#   o === self
-# end
-
-class Object
-#   def self.const_missing(k)
-#     c = caller
-#     warn "Object: you shouldn't be doing #{k}: from #{c[0]}"
-#     Node.const_set k, Class.new(Node) unless Node.constants.include? k.to_s
-#     Node.const_get k
-#   end
-end
-
 # END HACK
 ############################################################
 
 
 class RubyLexer
-  ############################################################
-  # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-
-#   def method_missing(meth, *args)
-#     c = caller
-#     warn "RubyLexer: you shouldn't be doing #{meth}: from #{c[0]}"
-#     if meth.to_s =~ /Node/ then
-#       Token.sexp(meth, *args)
-#     else
-#       Object.const_get(meth).new(*args)
-#     end
-#   end
-
-  # END HACK
-  ############################################################$
-
   attr_accessor :command_start
   attr_accessor :cmdarg
   attr_accessor :cond
@@ -1307,115 +1187,6 @@ class RubyLexer
     # HACK parser_support.result.add_comment(Node.comment(token_buffer.to_s))
 
     return c
-  end
-
-  ##
-  # Not normally used, but is left in here since it can be useful in
-  # debugging grammar and lexing problems.
-
-  def print_token(token)
-    case token
-    when Tokens.yy_error_code then   $stderr.print("yy_error_code,")
-    when Tokens.kCLASS then          $stderr.print("k_class,")
-    when Tokens.kMODULE then         $stderr.print("k_module,")
-    when Tokens.kDEF then            $stderr.print("kDEF,")
-    when Tokens.kUNDEF then          $stderr.print("kUNDEF,")
-    when Tokens.kBEGIN then          $stderr.print("kBEGIN,")
-    when Tokens.kRESCUE then         $stderr.print("kRESCUE,")
-    when Tokens.kENSURE then         $stderr.print("kENSURE,")
-    when Tokens.kEND then            $stderr.print("kEND,")
-    when Tokens.kIF then             $stderr.print("kIF,")
-    when Tokens.kUNLESS then         $stderr.print("kUNLESS,")
-    when Tokens.kTHEN then           $stderr.print("kTHEN,")
-    when Tokens.kELSIF then          $stderr.print("kELSIF,")
-    when Tokens.kELSE then           $stderr.print("kELSE,")
-    when Tokens.kCASE then           $stderr.print("kCASE,")
-    when Tokens.kWHEN then           $stderr.print("kWHEN,")
-    when Tokens.kWHILE then          $stderr.print("kWHILE,")
-    when Tokens.kUNTIL then          $stderr.print("kUNTIL,")
-    when Tokens.kFOR then            $stderr.print("kFOR,")
-    when Tokens.kBREAK then          $stderr.print("kBREAK,")
-    when Tokens.kNEXT then           $stderr.print("kNEXT,")
-    when Tokens.kREDO then           $stderr.print("kREDO,")
-    when Tokens.kRETRY then          $stderr.print("kRETRY,")
-    when Tokens.kIN then             $stderr.print("kIN,")
-    when Tokens.kDO then             $stderr.print("kDO,")
-    when Tokens.kDO_COND then        $stderr.print("kDO_COND,")
-    when Tokens.kDO_BLOCK then       $stderr.print("kDO_BLOCK,")
-    when Tokens.kRETURN then         $stderr.print("kRETURN,")
-    when Tokens.kYIELD then          $stderr.print("kYIELD,")
-    when Tokens.kSUPER then          $stderr.print("kSUPER,")
-    when Tokens.kSELF then           $stderr.print("kSELF,")
-    when Tokens.kNIL then            $stderr.print("kNIL,")
-    when Tokens.kTRUE then           $stderr.print("kTRUE,")
-    when Tokens.kFALSE then          $stderr.print("kFALSE,")
-    when Tokens.kAND then            $stderr.print("kAND,")
-    when Tokens.kOR then             $stderr.print("kOR,")
-    when Tokens.kNOT then            $stderr.print("kNOT,")
-    when Tokens.kIF_MOD then         $stderr.print("kIF_MOD,")
-    when Tokens.kUNLESS_MOD then     $stderr.print("kUNLESS_MOD,")
-    when Tokens.kWHILE_MOD then      $stderr.print("kWHILE_MOD,")
-    when Tokens.kUNTIL_MOD then      $stderr.print("kUNTIL_MOD,")
-    when Tokens.kRESCUE_MOD then     $stderr.print("kRESCUE_MOD,")
-    when Tokens.kALIAS then          $stderr.print("kALIAS,")
-    when Tokens.kDEFINED then        $stderr.print("kDEFINED,")
-    when Tokens.klBEGIN then         $stderr.print("klBEGIN,")
-    when Tokens.klEND then           $stderr.print("klEND,")
-    when Tokens.k__LINE__ then       $stderr.print("k__LINE__,")
-    when Tokens.k__FILE__ then       $stderr.print("k__FILE__,")
-    when Tokens.tIDENTIFIER then     $stderr.print("tIDENTIFIER[#{value}],")
-    when Tokens.tFID then            $stderr.print("tFID[#{value}],")
-    when Tokens.tGVAR then           $stderr.print("tGVAR[#{value}],")
-    when Tokens.tIVAR then           $stderr.print("tIVAR[#{value}],")
-    when Tokens.tCONSTANT then       $stderr.print("tCONSTANT[#{value}],")
-    when Tokens.tCVAR then           $stderr.print("tCVAR,")
-    when Tokens.tINTEGER then        $stderr.print("tINTEGER,")
-    when Tokens.tFLOAT then          $stderr.print("tFLOAT,")
-    when Tokens.tSTRING_CONTENT then $stderr.print("tSTRING_CONTENT[#{yacc_value}],")
-    when Tokens.tSTRING_BEG then     $stderr.print("tSTRING_BEG,")
-    when Tokens.tSTRING_END then     $stderr.print("tSTRING_END,")
-    when Tokens.tSTRING_DBEG then    $stderr.print("tSTRING_DBEG,")
-    when Tokens.tSTRING_DVAR then    $stderr.print("tSTRING_DVAR,")
-    when Tokens.tXSTRING_BEG then    $stderr.print("tXSTRING_BEG,")
-    when Tokens.tREGEXP_BEG then     $stderr.print("tREGEXP_BEG,")
-    when Tokens.tREGEXP_END then     $stderr.print("tREGEXP_END,")
-    when Tokens.tWORDS_BEG then      $stderr.print("tWORDS_BEG,")
-    when Tokens.tQWORDS_BEG then     $stderr.print("tQWORDS_BEG,")
-    when Tokens.tBACK_REF then       $stderr.print("tBACK_REF,")
-    when Tokens.tNTH_REF then        $stderr.print("tNTH_REF,")
-    when Tokens.tUPLUS then          $stderr.print("tUPLUS")
-    when Tokens.tUMINUS then         $stderr.print("tUMINUS,")
-    when Tokens.tPOW then            $stderr.print("tPOW,")
-    when Tokens.tCMP then            $stderr.print("tCMP,")
-    when Tokens.tEQ then             $stderr.print("tEQ,")
-    when Tokens.tEQQ then            $stderr.print("tEQQ,")
-    when Tokens.tNEQ then            $stderr.print("tNEQ,")
-    when Tokens.tGEQ then            $stderr.print("tGEQ,")
-    when Tokens.tLEQ then            $stderr.print("tLEQ,")
-    when Tokens.tANDOP then          $stderr.print("tANDOP,")
-    when Tokens.tOROP then           $stderr.print("tOROP,")
-    when Tokens.tMATCH then          $stderr.print("tMATCH,")
-    when Tokens.tNMATCH then         $stderr.print("tNMATCH,")
-    when Tokens.tDOT2 then           $stderr.print("tDOT2,")
-    when Tokens.tDOT3 then           $stderr.print("tDOT3,")
-    when Tokens.tAREF then           $stderr.print("tAREF,")
-    when Tokens.tASET then           $stderr.print("tASET,")
-    when Tokens.tLSHFT then          $stderr.print("tLSHFT,")
-    when Tokens.tRSHFT then          $stderr.print("tRSHFT,")
-    when Tokens.tCOLON2 then         $stderr.print("tCOLON2,")
-    when Tokens.tCOLON3 then         $stderr.print("tCOLON3,")
-    when Tokens.tOP_ASGN then        $stderr.print("tOP_ASGN,")
-    when Tokens.tASSOC then          $stderr.print("tASSOC,")
-    when Tokens.tLPAREN then         $stderr.print("tLPAREN,")
-    when Tokens.tLPAREN_ARG then     $stderr.print("tLPAREN_ARG,")
-    when Tokens.tLBRACK then         $stderr.print("tLBRACK,")
-    when Tokens.tLBRACE then         $stderr.print("tLBRACE,")
-    when Tokens.tSTAR then           $stderr.print("tSTAR,")
-    when Tokens.tAMPER then          $stderr.print("tAMPER,")
-    when Tokens.tSYMBEG then         $stderr.print("tSYMBEG,")
-    when '\n' then                   $stderr.puts("NL")
-    else                             $stderr.print("'#{token}',")
-    end
   end
 
   ##
@@ -2269,8 +2040,6 @@ class RubyLexer
           # See if it is a reserved word.
           keyword = Keyword.keyword(token_buffer.to_s, token_buffer.length);
 
-d :keyword => keyword
-
           unless keyword.nil? then
             state = lex_state
             self.lex_state = keyword.state
@@ -2281,39 +2050,21 @@ d :keyword => keyword
               self.yacc_value = Token.new(token_buffer.to_s);
             end
 
-d :yacc_value => self.yacc_value
-
             if keyword.id0 == :kDO then # HACK Tokens.kDO then
-
-d :yup => [token_buffer.to_s, cond, cmdarg]
-d keyword
-
-d 1
-d cond
               return Tokens.kDO_COND if cond.is_in_state
-d 2
               return Tokens.kDO_BLOCK if cmdarg.is_in_state &&
                 state != LexState::EXPR_CMDARG
-d 3
               return Tokens.kDO_BLOCK if state == LexState::EXPR_ENDARG
-d 4
               return Tokens.kDO
             end
+            
+            return keyword.id0 if state == LexState::EXPR_BEG
 
-            if (state == LexState::EXPR_BEG) then
-d :fuck1
-              return keyword.id0;
-            end
-            if (keyword.id0 != keyword.id1) then
-d :fuck2
-              self.lex_state = LexState::EXPR_BEG;
-            end
-d :fuck3
+            self.lex_state = LexState::EXPR_BEG unless keyword.id0 == keyword.id1
+
             return keyword.id1;
           end
         end
-
-d :fuck4
 
         if (lex_state == LexState::EXPR_BEG ||
             lex_state == LexState::EXPR_MID ||
@@ -2348,14 +2099,6 @@ d :fuck4
 
       return result;
     end
-  end
-
-  alias :yylex2 :yylex
-
-  def yylex # for debugging
-    self.token = yylex2
-#    print_token(token)
-    return token;
   end
 
   ##
@@ -2558,9 +2301,6 @@ d :fuck4
       else
         src.unread c
         r = number_token(token_buffer.to_s, seen_e || seen_point, nondigit)
-# HACK
-#         p :token => [r, self.yacc_value]
-#         puts caller.join("\n  ")
         return r
       end
       c = src.read
