@@ -2,7 +2,6 @@ require 'pp'
 require 'stringio'
 require 'racc/parser'
 
-# HACK
 $: << File.expand_path("~/Work/p4/zss/src/ParseTree/dev/lib")
 require 'sexp'
 
@@ -26,7 +25,6 @@ class RubyParser < Racc::Parser
   def parse(str)
     raise "bad val: #{str.inspect}" unless String === str
 
-    self.lexer.reset
     self.lexer.src = StringIO.new(str)
 
     @yydebug = ENV.has_key? 'DEBUG'
@@ -70,73 +68,44 @@ class RubyParser < Racc::Parser
     nil
   end
 
-#     private boolean isExpression(Node node) {
-#         expressionLoop: do {
-#             if (node == null) return true;
+  def assignable(lhs, value = nil)
+    id = lhs.value.to_sym
+    id = id.value.to_sym if Token === id
 
-#             switch (node.nodeId) {
-#             case BEGINNODE:
-#                 node = ((BeginNode) node).getBodyNode();
-#                 continue expressionLoop;
-#             case BLOCKNODE:
-#                 node = ((BlockNode) node).getLast();
-#                 continue expressionLoop;
-#             case BREAKNODE:
-#                 node = ((BreakNode) node).getValueNode();
-#                 continue expressionLoop;
-#             case CLASSNODE: case DEFNNODE: case DEFSNODE:
-#             case MODULENODE: case NEXTNODE: case REDONODE:
-#             case RETRYNODE: case RETURNNODE: case UNTILNODE:
-#             case WHILENODE:
-#                 return false;
-#             case IFNODE:
-#                 return isExpression(((IfNode) node).getThenBody()) &&
-#                   isExpression(((IfNode) node).getElseBody());
-#             case NEWLINENODE:
-#                 node = ((NewlineNode) node).getNextNode();
-#                 continue expressionLoop;
-#             default: // Node
-#                 return true;
-#             }
-#         } while (true);
-#     }
+d :assignable!
 
-  def assignable(lhs, value)
-    id = lhs.value
+    raise SyntaxError, "Can't change the value of #{id}" if
+      id.to_s =~ /^(?:self|nil|true|false|__LINE__|__FILE__)$/
 
-    case id
-    when "self", "nil", "true", "false", "__LINE__", "__FILE__" then
-      raise SyntaxException, "Can't change the value of #{id}"
-    else
-      id = id.value.to_sym if Token === id
-      self.env[id.to_sym] = true # HACK
-      case id.to_s
-      when /^@@/ then
-        return s(:cvasgn, id.to_sym)
-      when /^@/ then
-        return s(:iasgn, id.to_sym)
-      else
-        return s(:lasgn, id.to_sym)
-      end
-#       case IdUtil.var_type(id)
-#       when IdUtil.LOCAL_VAR then
-#         return self.env[id] = true # HACK , value
-#       when IdUtil.CONSTANT then
-#         if is_in_def or is_in_single > 0 then
-#           raise SyntaxException("dynamic constant assignment");
-#         end
-#         return s(:const_decl, id, nil, value)
-#       when IdUtil.INSTANCE_VAR then
-#         return s(:inst_asgn, id, value)
-#       when IdUtil.CLASS_VAR then
-#         return s(:class_var_asgn, id, value) if in_def or in_single > 0
-#         return s(:class_var_decl, id, value)
-#       when IdUtil.GLOBAL_VAR then
-#         return s(:global_asgn, id, value)
-#       end
-    end
+    result = case id.to_s
+             when /^@@/ then
+               asgn = in_def or in_single > 0
+               s((asgn ? :cvasgn : :cvdecl), id)
+             when /^@/ then
+               s(:iasgn, id.to_sym)
+             when /^\$/ then
+               s(:gasgn, id.to_sym)
+             when /^[A-Z]/ then
+               s(:cdecl, id.to_sym)
+             else
+               if env.dynamic? then
+                 if env.dasgn_curr? id then
+                   s(:dasgn_curr, id)
+                 else
+                   s(:dasgn, id)
+                 end
+               else
+                 s(:lasgn, id)
+               end
+             end
 
-    raise SyntaxException("identifier #{id} is not valid");
+    self.env[id.to_sym] = self.env.dynamic? ? :dvar : :lvar
+
+d result => env
+
+    result << value if value
+
+    return result
   end
 
   def warnings= warnings
@@ -158,11 +127,41 @@ class RubyParser < Racc::Parser
     Node.lasgn(lhs.last.to_sym, rhs)
   end
 
-  def gettable(name)
-    raise "gettable: #{name.inspect} => #{self.env.inspect}"
-    s(:lvar, name.to_sym) # HACK
+  def gettable(id)
+    id = id.value.to_sym if Token === id  # HACK
+    id = id.last.to_sym  if Sexp === id   # HACK
+    id = id.to_sym       if String === id # HACK
+
+    return s(:self)  if id == :self
+    return s(:nil)   if id == :nil
+    return s(:true)  if id == :true
+    return s(:false) if id == :false
+    raise "not yet"  if id == "__FILE__" # NEW_STR(rb_str_new2(ruby_sourcefile)) 
+    raise "not yet"  if id == "__LINE__" # NEW_LIT(INT2FIX(ruby_sourceline))
+
+    result = case id.to_s
+             when /^@@/ then
+               s(:cvar, id)
+             when /^@/ then
+               s(:ivar, id)
+             when /^\$/ then
+               s(:gvar, id)
+             when /^[A-Z]/ then
+               s(:const, id)
+             else
+               if env.dynamic? and :dvar == env[id] then
+                 s(:dvar, id)
+               elsif env[id] then
+                 s(:lvar, id)
+               else
+                 s(:vcall, id)
+               end
+             end
+
+    return result if result
+
+    raise "identifier #{id.inspect} is not valid"
   end
-  alias :gettable2 :gettable # HACK
 
   def new_yield(node)
     state = true
@@ -220,11 +219,16 @@ class RubyParser < Racc::Parser
       return s(:and, cond0(node[1]), cond0(node[2]))
     when :or then
       return s(:or,  cond0(node[1]), cond0(node[2]))
-    when :dot then
+    when :dot2 then
       return node if node[1][0] == :lit
       label = "flip#{node.hash}"
-      env[label] = true
-      return s(:flip, node[1], node[2], node[3])
+      env[label] = self.env.dynamic? ? :dvar : :lvar
+      return s(:flip2, node[1], node[2])
+    when :dot3 then
+      return node if node[1][0] == :lit
+      label = "flip#{node.hash}"
+      env[label] = self.env.dynamic? ? :dvar : :lvar
+      return s(:flip3, node[1], node[2])
     else
       return node
     end
@@ -237,8 +241,8 @@ class RubyParser < Racc::Parser
     self
   end
 
-  def push_local_scope
-    self.env.extend
+  def push_local_scope dyn = false
+    self.env.extend dyn
   end
 
   def pop_local_scope
@@ -289,7 +293,8 @@ class Environment
 
   attr_reader :env
 
-  def initialize
+  def initialize dyn = false
+    @dyn = []
     @env = []
     self.extend
   end
@@ -299,6 +304,8 @@ class Environment
   end
 
   def []= k, v
+    raise "no" if v == true
+d [k, v, caller[0]]
     self.current[k] = v
   end
 
@@ -314,11 +321,25 @@ class Environment
     @env.first
   end
 
-  def extend
+  def dynamic?
+    @dyn.any?
+  end
+
+  def dasgn_curr? name
+d [name, has_key?(name), @dyn.first, current.has_key?(name)]
+d self
+    r = ((! has_key?(name) && @dyn.first) || current.has_key?(name))
+d r
+    r
+  end
+
+  def extend dyn = false
+    @dyn.unshift dyn
     @env.unshift({})
   end
 
   def unextend
+    @dyn.shift
     @env.shift
     raise "You went too far unextending env" if @env.empty?
   end
@@ -431,22 +452,41 @@ class SyntaxException < SyntaxError
 end
 
 class StackState # TODO: nuke this fucker
-  attr_accessor :stack
+  # attr_reader :stack
 
-  def initialize
-    self.stack = [false]
+  def stack
+    @stack
+end
+
+  def inspect
+    "StackState(#{@name}, #{@stack.inspect})"
+  end
+
+  def initialize(name)
+    @name = name
+    @stack = [false]
+d :initialize
   end
 
   def pop
+    raise if @stack.size == 0
     self.stack.pop
+d :pop => self
   end
 
   def lexpop
-    self.stack[-1] = self.pop
+    raise if @stack.size == 0
+    a = self.stack.pop
+    b = self.stack.pop
+    self.stack.push(a || b)
+
+d :lexpop => self
   end
 
   def push val
+    raise if val != true and val != false
     self.stack.push val
+d :push => [self, caller[0]]
   end
 
   def is_in_state
@@ -780,6 +820,7 @@ class Token
   end
 
   def set_value(v) # TODO: remove
+    bitch
     self.args[0] = v
   end
 
@@ -795,12 +836,10 @@ class Token
   def inspect
     "t(#{args.join.inspect})"
   end
-end
 
-class Tokens
-#   def self.method_missing meth, *args
-#     meth
-#   end
+  def to_sym
+    self.value.to_sym
+  end
 end
 
 class StringTerm
@@ -1022,8 +1061,8 @@ class RubyLexer
   def initialize
     self.parser_support = nil
     self.token_buffer = StringBuffer.new 60
-    self.cond = StackState.new
-    self.cmdarg = StackState.new
+    self.cond = StackState.new(:cond)
+    self.cmdarg = StackState.new(:cmdarg)
 
     reset
   end
@@ -1033,8 +1072,6 @@ class RubyLexer
     self.yacc_value = nil
     self.src = nil
     @lex_state = nil
-    self.cond.stack = [false] # HACK
-    self.cmdarg.stack = [false]
     self.lex_strterm = nil
     self.command_start = true
   end
@@ -1971,13 +2008,12 @@ class RubyLexer
       when '(' then
         c = Tokens.tLPAREN2
         self.command_start = true
-        if (lex_state == LexState::EXPR_BEG ||
-            lex_state == LexState::EXPR_MID) then
+        if lex_state == LexState::EXPR_BEG || lex_state == LexState::EXPR_MID then
           c = Tokens.tLPAREN
-        elsif (space_seen) then
-          if (lex_state == LexState::EXPR_CMDARG) then
+        elsif space_seen then
+          if lex_state == LexState::EXPR_CMDARG then
             c = Tokens.tLPAREN_ARG
-          elsif (lex_state == LexState::EXPR_ARG) then
+          elsif lex_state == LexState::EXPR_ARG then
             warnings.warn("don't put space before argument parentheses")
             c = Tokens.tLPAREN2
           end
@@ -2233,6 +2269,8 @@ class RubyLexer
           # See if it is a reserved word.
           keyword = Keyword.keyword(token_buffer.to_s, token_buffer.length);
 
+d :keyword => keyword
+
           unless keyword.nil? then
             state = lex_state
             self.lex_state = keyword.state
@@ -2243,12 +2281,15 @@ class RubyLexer
               self.yacc_value = Token.new(token_buffer.to_s);
             end
 
-            if keyword.id0 == Tokens.kDO then
+d :yacc_value => self.yacc_value
+
+            if keyword.id0 == :kDO then # HACK Tokens.kDO then
 
 d :yup => [token_buffer.to_s, cond, cmdarg]
 d keyword
 
 d 1
+d cond
               return Tokens.kDO_COND if cond.is_in_state
 d 2
               return Tokens.kDO_BLOCK if cmdarg.is_in_state &&
@@ -2260,14 +2301,19 @@ d 4
             end
 
             if (state == LexState::EXPR_BEG) then
+d :fuck1
               return keyword.id0;
             end
             if (keyword.id0 != keyword.id1) then
+d :fuck2
               self.lex_state = LexState::EXPR_BEG;
             end
+d :fuck3
             return keyword.id1;
           end
         end
+
+d :fuck4
 
         if (lex_state == LexState::EXPR_BEG ||
             lex_state == LexState::EXPR_MID ||

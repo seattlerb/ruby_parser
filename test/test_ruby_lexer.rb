@@ -17,6 +17,14 @@ class TestRubyLexer < Test::Unit::TestCase
     @lex.advance
   end
 
+  def test_stack_state
+    s = StackState.new :test
+    s.push true
+    s.push false
+    s.lexpop
+    assert_equal [false, true], s.stack
+  end
+
   def test_is_next_identchar
     assert @lex.is_next_identchar
   end

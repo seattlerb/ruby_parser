@@ -17,21 +17,21 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
   def test_lasgn_env
     rb = 'a = 42'
     pt = s(:lasgn, :a, s(:lit, 42))
-    expected_env = { :a => true }
+    expected_env = { :a => :lvar }
     
     assert_equal pt, @processor.parse(rb)
     assert_equal expected_env, @processor.env.all
   end
 
   def test_call_env
-    @processor.env[:a] = true
+    @processor.env[:a] = :lvar
     expected = s(:call, s(:lvar, :a), :happy)
 
     assert_equal expected, @processor.parse('a.happy')
   end
 
   eval ParseTreeTestCase.testcases.map { |node, data|
-    next if node.to_s =~ /bmethod|dmethod|dx?str|dx?sym|flip|block_pass|attrasgn|argspush|op_asgn/
+    next if node.to_s =~ /bmethod|dmethod|dx?str|dx?sym|dx?regx|op_asgn|block_pass|attrasgn|argspush/
     next if Array === data['Ruby'] # runtime only crap
     "def test_#{node}
        rb = #{data['Ruby'].inspect}
