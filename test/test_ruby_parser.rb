@@ -31,7 +31,7 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
   end
 
   eval ParseTreeTestCase.testcases.map { |node, data|
-    next if node.to_s =~ /bmethod|dmethod|dx?str|dx?sym|dx?regx|argspush/
+    next if node.to_s =~ /bmethod|dmethod|dx?str|dx?sym|dx?regx/
     next if Array === data['Ruby'] # runtime only crap
     "def test_#{node}
        rb = #{data['Ruby'].inspect}

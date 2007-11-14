@@ -118,9 +118,27 @@ class RubyParser < Racc::Parser
     raise "no"
   end
 
+  def arg_add(node1, node2)
+    return s(:array, node2) unless node1
+    return node1 << node2 if node1[0] == :array
+    return s(:argspush, node1, node2)
+  end
+
   def node_assign(lhs, rhs)
-    raise "no"
-    Node.lasgn(lhs.last.to_sym, rhs)
+    return nil unless lhs
+
+    # value_expr(rhs);
+
+    case lhs[0]
+    when :gasgn, :iasgn, :lasgn, :dasgn, :dasgn_curr,
+      :masgn, :cdecl, :cvdecl, :cvasgn then
+      lhs << rhs
+    when :attrasgn, :call then
+      args = lhs.array(true) || lhs.argscat(true) || lhs.splat(true) # FIX: fragile
+      lhs << arg_add(args, rhs)
+    end
+
+    lhs
   end
 
   def gettable(id)
@@ -157,6 +175,44 @@ class RubyParser < Racc::Parser
     return result if result
 
     raise "identifier #{id.inspect} is not valid"
+  end
+
+  def block_append(head, tail)
+d :woot => :block_append
+    # NODE *nnd, *h = head;
+    nnd = nil
+    h = head
+
+d :nnd => nnd, :tail => tail, :h => h, :head => head
+
+    return head unless tail
+
+     # again:
+    return tail unless h
+
+    case h[0]
+    when :newline then
+      h = h.last
+      # goto again # HACK
+    when :lit, :str then
+      parser_warning(h, "unused literal ignored")
+      return tail
+    when :block then
+      nnd = h.last
+      break;
+    else
+      h = nnd = s(:block, head)
+      head = nnd;
+    end
+
+    tail = s(:block, tail) unless tail[0] == :block
+
+d :nnd => nnd, :tail => tail, :h => h, :head => head
+
+# HACK
+#     nnd->nd_next = tail;
+#     h->nd_nnd = tail->nd_nnd;
+    return head;
   end
 
   def new_yield(node)

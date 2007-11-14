@@ -154,7 +154,7 @@ stmt          : kALIAS fitem {
                  result = s(:iter, s(:postexe), nil, val[2])
                  }
              | lhs '=' command_call {
-                  result = s(:lasgn, val[0].last.to_sym, val[2])
+                  result = support.node_assign(val[0], val[2])
                  }
              | mlhs '=' command_call {
                   val[0][2] = if val[0][1] then
@@ -195,7 +195,7 @@ stmt          : kALIAS fitem {
                   support.backref_assign_error(val[0]);
                  }
              | lhs '=' mrhs {
-                  result = s(:lasgn, val[0].last.to_sym, s(:svalue, val[2]))
+                  result = support.node_assign(val[0], s(:svalue, val[2]))
                  }
              | mlhs '=' arg_value {
                  val[0][2] = if val[0][1] then
@@ -471,18 +471,10 @@ reswords     : k__LINE__ | k__FILE__  | klBEGIN | klEND  | kALIAS  | kAND
              | kIF_MOD   | kUNLESS_MOD | kWHILE_MOD | kUNTIL_MOD | kRESCUE_MOD
 
 arg          : lhs '=' arg {
-                 case val[0].first
-                 when :attrasgn, :call then
-                   result = val[0]
-                   result << s(:array) unless
-                     Sexp === result[-1] && result[-1][0] == :array
-                   result[-1] << val[2]
-                 else
-                   result = val[0] << val[2]
-                 end
+                 result = support.node_assign(val[0], val[2])
                }
              | lhs '=' arg kRESCUE_MOD arg {
-                 result = s(:lasgn, val[0].last.to_sym,
+                 result = support.node_assign(val[0],
                             s(:rescue, val[2],
                               s(:resbody, nil, val[4], nil), nil))
                  }
