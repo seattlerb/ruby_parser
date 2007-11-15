@@ -13,7 +13,7 @@ class RubyParser < Racc::Parser
   VERSION = '1.0.0'
 
   attr_reader :warnings
-  attr_accessor :support, :lexer, :in_def, :in_single
+  attr_accessor :lexer, :in_def, :in_single
   attr_reader :env
 
   alias :old_yyerror :yyerror
@@ -110,14 +110,6 @@ class RubyParser < Racc::Parser
     self.lexer.warnings = warnings
   end
 
-  def position(a = nil, b = false)
-    raise "no"
-  end
-
-  def position2 pos
-    raise "no"
-  end
-
   def arg_add(node1, node2)
     return s(:array, node2) unless node1
     return node1 << node2 if node1[0] == :array
@@ -178,12 +170,9 @@ class RubyParser < Racc::Parser
   end
 
   def block_append(head, tail)
-d :woot => :block_append
     # NODE *nnd, *h = head;
     nnd = nil
     h = head
-
-d :nnd => nnd, :tail => tail, :h => h, :head => head
 
     return head unless tail
 
@@ -206,8 +195,6 @@ d :nnd => nnd, :tail => tail, :h => h, :head => head
     end
 
     tail = s(:block, tail) unless tail[0] == :block
-
-d :nnd => nnd, :tail => tail, :h => h, :head => head
 
 # HACK
 #     nnd->nd_next = tail;
@@ -326,6 +313,44 @@ d :nnd => nnd, :tail => tail, :h => h, :head => head
 
   def arg_concat node1, node2
     return node2.nil? ? node1 : s(:argscat, node1, node2)
+  end
+
+  def list_append list, item
+    return s(:array, item) unless list
+    list.push(*item[1..-1])
+    list
+  end
+
+  def literal_concat head, tail
+    return tail unless head
+    return head unless tail
+
+    htype = head[0]
+
+    if htype == :evstr then
+      node = s(:dstr, '')
+      head = list_append(node, head);
+    end
+
+    case tail[0]
+    when :str then
+      if htype == :str
+        head[-1] += tail[-1]
+      else
+        head << tail
+      end
+    when :dstr then
+      if htype == :str then
+        head[-1] += tail[-1]
+      else
+        head << s(:str, tail[-1])
+      end
+    when :evstr then
+      head[0] = :dstr if htype == :str
+      head = list_append(head, tail);
+    end
+
+    return head;
   end
 
   # END HACK
@@ -524,22 +549,25 @@ class StackState # TODO: nuke this fucker
   end
 end
 
-class StringIO
+class StringIO # HACK: everything in here is a hack
+  alias :old_read :read
   def read
     c = self.getc
-    if c then
+    if c and c != 0 then
       c.chr
     else
       ::RubyLexer::EOF
     end
   end
 
-  def unread(c)
-    self.ungetc c[0] if c
+  def peek expected
+    c = self.read
+    self.unread c
+    c == expected
   end
 
-  def position(*args)
-    raise "no"
+  def unread(c)
+    self.ungetc c[0] if c
   end
 end
 
@@ -574,15 +602,15 @@ class Keyword
   MAX_HASH_VALUE  = 55
   # maximum key range = 50, duplicates = 0
 
-  EXPR_BEG    = LexState::EXPR_BEG # ignore newline, +/- is a sign.
-  EXPR_END    = LexState::EXPR_END # newline significant, +/- is a operator.
-  EXPR_ARG    = LexState::EXPR_ARG # newline significant, +/- is a operator.
+  EXPR_BEG    = LexState::EXPR_BEG    # ignore newline, +/- is a sign.
+  EXPR_END    = LexState::EXPR_END    # newline significant, +/- is a operator.
+  EXPR_ARG    = LexState::EXPR_ARG    # newline significant, +/- is a operator.
   EXPR_CMDARG = LexState::EXPR_CMDARG # newline significant, +/- is a operator.
   EXPR_ENDARG = LexState::EXPR_ENDARG # newline significant, +/- is a operator.
-  EXPR_MID    = LexState::EXPR_MID # newline significant, +/- is a operator.
-  EXPR_FNAME  = LexState::EXPR_FNAME # ignore newline, no reserved words.
-  EXPR_DOT    = LexState::EXPR_DOT # right after `.' or `::', no reserved words.
-  EXPR_CLASS  = LexState::EXPR_CLASS # immediate after `class', no here document.
+  EXPR_MID    = LexState::EXPR_MID    # newline significant, +/- is a operator.
+  EXPR_FNAME  = LexState::EXPR_FNAME  # ignore newline, no reserved words.
+  EXPR_DOT    = LexState::EXPR_DOT    # right after . or ::, no reserved words.
+  EXPR_CLASS  = LexState::EXPR_CLASS  # immediate after class, no here document.
 
   # TODO: remove this and inline below
   K_CLASS          = Tokens.kCLASS
@@ -810,14 +838,6 @@ def bitch
   warn "bitch: you shouldn't be doing #{m}: from #{c[1]}"
 end
 
-class Fixnum
-  def intValue
-    raise "no" # FIX
-    bitch
-    self
-  end
-end
-
 class NilClass
   def method_missing msg, *args # HACK
     c = caller
@@ -832,35 +852,12 @@ class Token
     @args = Array(token)
   end
 
-  def self.sexp(meth, *args)
-    meth = meth.to_s
-    meth = meth.sub(/Node$/, '') if meth =~ /Node/
-    node_type = meth.gsub(/([A-Z])([a-z])/) { "#{$1.downcase}#{$2}" }.to_sym
-    s(node_type, *args)
-  end
-
-  def pos
-    raise "no"
-  end
-
-  alias :position :pos
-
   def value # TODO: eventually phase this out (or make it official)
     self.args.first
   end
 
-  def set_value(v) # TODO: remove
-    bitch
-    self.args[0] = v
-  end
-
   def first # HACK
     self.args.first
-  end
-
-  def setValue v
-    bitch
-    self.args = [ v ]
   end
 
   def inspect
@@ -872,72 +869,18 @@ class Token
   end
 end
 
-class StringTerm
-  attr_accessor :string_type, :term, :open
-  def initialize(string_type, term, open)
-    @string_type, @term, @open = string_type, term, open
-  end
-
-  def parse_string lexer, io
-    result = []
-
-    c = io.getc.chr
-
-    if c == self.term then
-      lexer.yacc_value = Token.new c
-      if self.string_type == RubyLexer::STR_REGEXP then
-        return Tokens.tREGEXP_END
-      else
-        return Tokens.tSTRING_END
-      end
-    end
-
-    io.ungetc c[0]
-
-    begin
-      c = io.getc.chr
-      break if c == self.term
-      result << c
-    end until io.eof?
-
-    io.ungetc c[0]
-
-    lexer.yacc_value = s(:str, result.join)
-    return Tokens::tSTRING_CONTENT
-  end
-end
-
-class Float
-  INFINITY = 1.0 / 0
-end
-
-class Visibility
-  PUBLIC = Visibility.new
-  PROTECTED = Visibility.new
-  PRIVATE = Visibility.new
-  MODULE_FUNCTION = Visibility.new
-
-  def is_private
-    return this == PRIVATE
-  end
-
-  def is_protected
-    return this == PROTECTED
-  end
-end
-
 # END HACK
 ############################################################
-
 
 class RubyLexer
   attr_accessor :command_start
   attr_accessor :cmdarg
   attr_accessor :cond
+  attr_accessor :nest
 
   # Additional context surrounding tokens that both the lexer and
   # grammar use.
-  attr_accessor :lex_state
+  attr_reader :lex_state
 
   def lex_state= o
     raise "wtf?" if o.nil?
@@ -968,8 +911,8 @@ class RubyLexer
 
   # TODO: remove all of these
   alias :source= :src=
-  alias :src_term :lex_strterm
-  alias :src_term= :lex_strterm=
+  alias :str_term :lex_strterm
+  alias :str_term= :lex_strterm=
   alias :state :lex_state
   alias :state= :lex_state=
   alias :value :yacc_value
@@ -999,6 +942,7 @@ class RubyLexer
     self.token_buffer = StringBuffer.new 60
     self.cond = StackState.new(:cond)
     self.cmdarg = StackState.new(:cmdarg)
+    self.nest = 0
 
     reset
   end
@@ -1022,16 +966,221 @@ class RubyLexer
     return r != EOF
   end
 
-  def position(*args)
-    raise "no"
-  end
-
   def is_next_identchar # TODO: ?
     c = src.read
     src.unread c
 
     return c != EOF && c =~ /\w/
   end
+
+  def nextc # HACK
+    src.read
+  end
+
+  def pushback c # HACK
+    src.ungetc c[0]
+  end
+
+  def parse_string(quote)
+    _, string_type, term, open, nest = quote
+
+    space = false
+    func = string_type
+    paren = open
+
+    return Tokens.tSTRING_END unless func
+
+    c = nextc
+
+    if (func & STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
+      begin
+        c = nextc
+        break if c == RubyLexer::EOF # HACK UGH
+      end while String === c and c =~ /\s/
+      space = true
+    end
+
+    if c == term && ! nest then
+      if func & STR_FUNC_QWORDS != 0 then
+        quote[1] = nil
+        return ' '
+      end
+      return Tokens.tSTRING_END unless func & STR_FUNC_REGEXP != 0
+      # HACK yylval.num = self.regx_options
+      return Tokens.tREGEXP_END
+    end
+
+    if space then
+      pushback(c)
+      return ' '
+    end
+
+    token_buffer = []
+
+    if (func & STR_FUNC_EXPAND) != 0 && c == '#' then
+      case c = nextc
+      when '$', '@' then
+        pushback(c)
+        return Tokens.tSTRING_DVAR
+      when '{' then
+        return Tokens.tSTRING_DBEG
+      end
+      token_buffer << '#'
+    end
+
+    pushback(c)
+
+    if (tokadd_string(func, term, paren, token_buffer) == -1) then
+      # ruby_sourceline = nd_line(quote);
+      # HACK rb_compile_error("unterminated string meets end of file");
+      return Tokens.tSTRING_END;
+    end
+    
+    self.yacc_value = s(:str, token_buffer.join)
+    return Tokens.tSTRING_CONTENT
+  end
+
+  def tokadd_string(func, term, paren, buffer)
+    while ((c = src.read()) != RubyLexer::EOF)
+      if (paren != '\0' && c == paren) then
+        self.nest += 1;
+      elsif (c == term) then
+        if (nest == 0) then
+          src.unread(c);
+          break
+        end
+        self.nest -= 1
+      elsif ((func & RubyLexer::STR_FUNC_EXPAND) != 0 && c == '#' && !src.peek('\n')) then
+        c2 = src.read();
+
+        if (c2 == '$' || c2 == '@' || c2 == '{') then
+          src.unread(c2);
+          src.unread(c);
+          break
+        end
+        src.unread(c2);
+      elsif (c == '\\') then
+        c = src.read();
+        case c
+        when '\n' then
+          break if ((func & RubyLexer::STR_FUNC_QWORDS) != 0) # TODO: check break
+          next  if ((func & RubyLexer::STR_FUNC_EXPAND) != 0)
+
+          buffer << '\\'
+        when '\\' then
+          buffer << c if ((func & RubyLexer::STR_FUNC_ESCAPE) != 0)
+        else
+          if ((func & RubyLexer::STR_FUNC_REGEXP) != 0) then
+            src.unread(c);
+            parseEscapeIntoBuffer(src, buffer);
+            continue;
+          elsif ((func & RubyLexer::STR_FUNC_EXPAND) != 0) then
+            src.unread(c);
+            if ((func & RubyLexer::STR_FUNC_ESCAPE) != 0) then
+              buffer << '\\'
+            end
+            c = src.readEscape();
+          elsif ((func & RubyLexer::STR_FUNC_QWORDS) != 0 &&
+                 Character.isWhitespace(c)) then
+            # ignore backslashed spaces in %w
+          elsif (c != term && !(paren != '\0' && c == paren)) then
+            buffer << '\\'
+          end
+        end
+      elsif ((func & RubyLexer::STR_FUNC_QWORDS) != 0 &&
+             Character.isWhitespace(c)) then
+        src.unread(c);
+      end
+      if (c == '\0' && (func & RubyLexer::STR_FUNC_SYMBOL) != 0) then
+        throw new SyntaxException(src.getPosition(), "symbol cannot contain '\\0'");
+      end
+      buffer << c
+    end # while
+    return c;
+  end
+
+  # static int
+  # here_document(here)
+  #     NODE *here;
+  # {
+  #     int c, func, indent = 0;
+  #     char *eos, *p, *pend;
+  #     long len;
+  #     VALUE str = 0;
+
+  #     eos = RSTRING(here->nd_lit)->ptr;
+  #     len = RSTRING(here->nd_lit)->len - 1;
+  #     indent = (func = *eos++) & STR_FUNC_INDENT;
+
+  #     if ((c = nextc()) == -1) then
+  #       error:
+  #         rb_compile_error("can't find string \"%s\" anywhere before EOF", eos);
+  #         heredoc_restore(lex_strterm);
+  #         lex_strterm = nil
+  #         return 0;
+  #     end
+  #     if (was_bol() && whole_match_p(eos, len, indent)) then
+  #         heredoc_restore(lex_strterm);
+  #         return tSTRING_END;
+  #     end
+
+  #     if (!(func & STR_FUNC_EXPAND)) then
+  #         begin
+  #             p = RSTRING(lex_lastline)->ptr;
+  #             pend = lex_pend;
+  #             if (pend > p) then
+  #                 switch (pend[-1]) then
+  #                   case '\n':
+  #                     if (--pend == p || pend[-1] != '\r') then
+  #                         pend++;
+  #                         break;
+  #                     end
+  #                   case '\r':
+  #                     --pend;
+  #                 end
+  #             end
+  #             if (str)
+  #                 rb_str_cat(str, p, pend - p);
+  #             else
+  #                 str = rb_str_new(p, pend - p);
+  #             if (pend < lex_pend) rb_str_cat(str, "\n", 1);
+  #             lex_p = lex_pend;
+  #             if (nextc() == -1) then
+  #                 if (str) dispose_string(str);
+  #                 goto error;
+  #             end
+  #         end while (!whole_match_p(eos, len, indent));
+  #     end
+  #     else then
+  #         newtok();
+  #         if (c == '#') then
+  #             switch (c = nextc()) then
+  #               case '$':
+  #               case '@':
+  #                 pushback(c);
+  #                 return tSTRING_DVAR;
+  #               case '{':
+  #                 return tSTRING_DBEG;
+  #             end
+  #             tokadd('#');
+  #         end
+  #         begin
+  #             pushback(c);
+  #             if ((c = tokadd_string(func, '\n', 0, NULL)) == -1) goto error;
+  #             if (c != '\n') then
+  #                 yylval.node = NEW_STR(rb_str_new(tok(), toklen()));
+  #                 return tSTRING_CONTENT;
+  #             end
+  #             tokadd(nextc());
+  #             if ((c = nextc()) == -1) goto error;
+  #         end while (!whole_match_p(eos, len, indent));
+  #         str = rb_str_new(tok(), toklen());
+  #     end
+  #     heredoc_restore(lex_strterm);
+  #     lex_strterm = NEW_STRTERM(nil, 0, 0);
+  #     yylval.node = NEW_STR(str);
+  #     return tSTRING_CONTENT;
+  # end
 
   ##
   # Do the next characters from the source match provided String in a
@@ -1152,7 +1301,7 @@ class RubyLexer
       raise SyntaxException("Unknown type of %string. Expected 'Q', 'q', 'w', 'x', 'r' or any non letter character, but found '" + c + "'.")
     end
 
-    self.lex_strterm = StringTerm.new(string_type, nnd, beg)
+    self.lex_strterm = s(:strterm, string_type, nnd, beg)
 
     return token_type
   end
@@ -1203,7 +1352,7 @@ class RubyLexer
 
     line = src.read_line + '\n'
     tok = token_buffer.to_s
-    self.lex_strterm = HeredocTerm.new(tok, func, line)
+    self.lex_strterm = s(:heredoc, tok, func, line)
 
     if term == '`' then
       self.yacc_value = Token.new("`")
@@ -1257,13 +1406,23 @@ class RubyLexer
     space_seen = false
     command_state = false
 
-    if lex_strterm != nil then
-      tok = lex_strterm.parse_string(self, src) # FIX OMG this sucks
-      if tok == Tokens.tSTRING_END || tok == Tokens.tREGEXP_END then
-        self.lex_strterm = nil
-        self.lex_state = LexState::EXPR_END
+    if lex_strterm then
+      token = nil
+      if lex_strterm[0] == :heredoc then
+        token = here_document(lex_strterm)
+        if token == Tokens.tSTRING_END then
+          self.lex_strterm = nil
+          self.lex_state = LexState::EXPR_END
+        end
+      else
+        token = parse_string(lex_strterm)
+        if (token == Tokens.tSTRING_END || token == Tokens.tREGEXP_END) then
+          self.lex_strterm = nil
+          self.lex_state = LexState::EXPR_END
+        end
       end
-      return tok
+
+      return token
     end
 
     command_state = command_start
@@ -1485,7 +1644,7 @@ class RubyLexer
         self.yacc_value = Token.new(">")
         return Tokens.tGT
       when '"' then
-        self.lex_strterm = StringTerm.new(STR_DQUOTE, '"', "\0")
+        self.lex_strterm = s(:strterm, STR_DQUOTE, '"', "\0") # TODO: question this
         self.yacc_value = Token.new("\"")
         return Tokens.tSTRING_BEG
       when '`' then
@@ -1502,10 +1661,10 @@ class RubyLexer
           end
           return Tokens.tBACK_REF2
         end
-        self.lex_strterm = StringTerm.new(STR_XQUOTE, '`', "\0")
+        self.lex_strterm = s(:strterm, STR_XQUOTE, '`', "\0")
         return Tokens.tXSTRING_BEG
       when '\'' then
-        self.lex_strterm = StringTerm.new(STR_SQUOTE, '\'', "\0")
+        self.lex_strterm = s(:strterm, STR_SQUOTE, '\'', "\0")
         self.yacc_value = Token.new("'")
         return Tokens.tSTRING_BEG
       when '?' then
@@ -1757,9 +1916,9 @@ class RubyLexer
         end
         case c
         when '\'' then
-          self.lex_strterm = StringTerm.new(STR_SSYM, c, "\0")
+          self.lex_strterm = s(:strterm, STR_SSYM, c, "\0")
         when '"' then
-          self.lex_strterm = StringTerm.new(STR_DSYM, c, "\0")
+          self.lex_strterm = s(:strterm, STR_DSYM, c, "\0")
         else
           src.unread c
         end
@@ -1769,7 +1928,7 @@ class RubyLexer
       when '/' then
         if (lex_state == LexState::EXPR_BEG ||
             lex_state == LexState::EXPR_MID) then
-          self.lex_strterm = StringTerm.new(STR_REGEXP, '/', "\0")
+          self.lex_strterm = s(:strterm, STR_REGEXP, '/', "\0")
           self.yacc_value = Token.new("/")
           return Tokens.tREGEXP_BEG
         end
@@ -1783,7 +1942,7 @@ class RubyLexer
         if (lex_state.is_argument && space_seen) then
           unless c =~ /\s/ then
             arg_ambiguous
-            self.lex_strterm = StringTerm.new(STR_REGEXP, '/', "\0")
+            self.lex_strterm = s(:strterm, STR_REGEXP, '/', "\0")
             self.yacc_value = Token.new("/")
             return Tokens.tREGEXP_BEG
           end
@@ -2065,7 +2224,7 @@ class RubyLexer
           result = Tokens.tIVAR
         end
       else
-        last = token_buffer.char_at -1
+        last = token_buffer.char_at(-1)
         if (last == '!' || last == '?') then
           result = Tokens.tFID;
         else

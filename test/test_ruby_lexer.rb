@@ -56,8 +56,7 @@ class TestRubyLexer < Test::Unit::TestCase
     @lex.src = StringIO.new 'blah)'
     node = @lex.parse_quote('(')
     assert_equal Tokens.tSTRING_BEG, node
-    assert_equal ")", @lex.lex_strterm.term
-    assert_equal "(", @lex.lex_strterm.open
+    assert_equal s(:strterm, RubyLexer::STR_DQUOTE, ")", "("), @lex.lex_strterm
     assert_equal ["%)"], @lex.yacc_value.args # FIX double check this
   end
 

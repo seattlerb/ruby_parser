@@ -1,0 +1,11 @@
+# -*- ruby -*-
+
+Autotest.add_hook :initialize do |at|
+  at.test_mappings[/^lib\/.*\.y$/] = proc { |filename, _|
+    at.files_matching %r%^test/.*#{File.basename(filename, '.y').gsub '_', '_?'}.rb$%
+  }
+end
+
+Autotest.add_hook :run_command do |at|
+  system "rake parser"
+end

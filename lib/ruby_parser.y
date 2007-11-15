@@ -230,8 +230,6 @@ expr          : command_call
                  result = val[0]
                  }
 
-# expr_value    : expr # TODO: value_expr(val[0]) -> value_expr0(remove_begin(node))
-
 expr_value    : expr {
                   result = if val[0].size == 2 and val[0][0] == :begin then
                              val[0].last
@@ -1292,7 +1290,7 @@ qword_list     : {
 
 string_contents: { result = s(:str, "") }
                | string_contents string_content {
-                   result = s(:str, val[0].value + val[1].value)
+                   result = literal_concat(val[0], val[1])
                  }
 
 xstring_contents: { result = s(:xstr, "") }
@@ -1321,7 +1319,7 @@ string_content : tSTRING_CONTENT {
                    lexer.str_term = val[1]
                    lexer.cond.lexpop
                    lexer.cmdarg.lexpop
-                   result = support.new_ev_str_node(val[2]);
+                   result = s(:evstr, val[2])
                  }
 
 string_dvar    : tGVAR {

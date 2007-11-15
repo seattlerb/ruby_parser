@@ -11,6 +11,9 @@ require 'pt_testcase'
 class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
   def setup
     super
+
+    # puts self.name
+
     @processor = RubyParser.new
   end
 
@@ -31,7 +34,7 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
   end
 
   eval ParseTreeTestCase.testcases.map { |node, data|
-    next if node.to_s =~ /bmethod|dmethod|dx?str|dx?sym|dx?regx/
+    next if node.to_s =~ /bmethod|dmethod|dxstr|dx?sym|dx?regx/
     next if Array === data['Ruby'] # runtime only crap
     "def test_#{node}
        rb = #{data['Ruby'].inspect}
@@ -44,5 +47,3 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
      end"
   }.compact.join("\n")
 end
-
-# p Regexp.union(*ParseTreeTestCase.testcases.sort_by { |k,v| v.inspect.size }[20...40].map { |k,v| k }.sort)

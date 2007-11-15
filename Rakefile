@@ -15,7 +15,9 @@ Hoe.new('RubyParser', RubyParser::VERSION) do |p|
   p.changes = p.paragraphs_of('History.txt', 0..1).join("\n\n")
 end
 
-task :test => ["lib/ruby_parser.rb"]
+task :test => :parser
+
+task :parser => ["lib/ruby_parser.rb"]
 
 Rake::TestTask.new do |t|
   t.libs << "test"
