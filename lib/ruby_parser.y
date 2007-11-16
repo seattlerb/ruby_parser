@@ -614,7 +614,7 @@ arg          : lhs '=' arg {
                   result = s(:call, val[0], :">>", s(:array, val[2]))
                  }
              | arg tANDOP arg {
-                  result = support.new_and_node(val[0], val[2]);
+                  result = s(:and, val[0], val[2])
                  }
              | arg tOROP arg {
                   result = s(:or, val[0], val[2])
@@ -744,10 +744,10 @@ call_args2    : arg_value ',' args opt_block_arg {
              | block_arg {}
 
 command_args  : {
-                  val[0] = lexer.cmdarg.stack
+                  result = lexer.cmdarg.stack
                   lexer.cmdarg.push true
                 } open_args {
-                  lexer.cmdarg.stack = val[0]
+                  lexer.cmdarg.stack.replace val[0]
                   result = val[1]
                 }
 
@@ -1359,10 +1359,10 @@ dsym           : tSYMBEG xstring_contents tSTRING_END {
 numeric      : tINTEGER
              | tFLOAT
              | tUMINUS_NUM tINTEGER = tLOWEST {
-                 result = support.negate_integer(val[1]);
+                 result = -val[1] # TODO: pt_testcase
                }
              | tUMINUS_NUM tFLOAT = tLOWEST {
-                 result = support.negate_float(val[1]);
+                 result = -val[1] # TODO: pt_testcase
                }
 
 #  Token:variable - name (special and normal onces)

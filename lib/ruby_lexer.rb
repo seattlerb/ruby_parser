@@ -259,9 +259,9 @@ class RubyParser < Racc::Parser
         return node
       end
     when :and then
-      return s(:and, cond0(node[1]), cond0(node[2]))
+      return s(:and, cond(node[1]), cond(node[2]))
     when :or then
-      return s(:or,  cond0(node[1]), cond0(node[2]))
+      return s(:or,  cond(node[1]), cond(node[2]))
     when :dot2 then
       return node if node[1][0] == :lit
       label = "flip#{node.hash}"
@@ -454,58 +454,16 @@ class LexState
     self.debug = debug
   end
 
-  EXPR_BEG    = LexState.new "EXPR_BEG"
-  EXPR_END    = LexState.new "EXPR_END"
-  EXPR_ARG    = LexState.new "EXPR_ARG"
-  EXPR_CMDARG = LexState.new "EXPR_CMDARG"
-  EXPR_ENDARG = LexState.new "EXPR_ENDARG"
-  EXPR_MID    = LexState.new "EXPR_MID"
-  EXPR_FNAME  = LexState.new "EXPR_FNAME"
-  EXPR_DOT    = LexState.new "EXPR_DOT"
-  EXPR_CLASS  = LexState.new "EXPR_CLASS"
-
-  def is_expr_beg
-    return self == EXPR_BEG
+  def self.const_missing name # HACK
+    c = caller
+    warn "called #{name} on LexState: from #{c[0]}"
+    name.to_s.downcase.to_sym
   end
+end
 
-  def is_expr_end
-    return self == EXPR_END
-  end
-
-  def is_expr_arg
-    return self == EXPR_ARG
-  end
-
-  def is_expr_cmd_arg
-    return self == EXPR_CMDARG
-  end
-
-  def is_expr_end_arg
-    return self == EXPR_ENDARG
-  end
-
-  def is_expr_mid
-    return self == EXPR_MID
-  end
-
-  def is_expr_fname
-    return self == EXPR_FNAME
-  end
-
-  def is_expr_dot
-    return self == EXPR_DOT
-  end
-
-  def is_expr_class
-    return self == EXPR_CLASS
-  end
-
-  def is_argument
-    return self == EXPR_ARG || self == EXPR_CMDARG
-  end
-
-  def to_s
-    return debug
+class Symbol
+  def is_argument # TODO: phase this out
+    return self == :expr_arg || self == :expr_cmdarg
   end
 end
 
@@ -573,6 +531,8 @@ end
 
 class Tokens
   def self.method_missing meth, *args
+    c = caller
+    warn "called #{meth} on Tokens: from #{c[0]}"
     meth
   end
 end
@@ -1092,7 +1052,7 @@ class RubyLexer
         src.unread(c);
       end
       if (c == '\0' && (func & RubyLexer::STR_FUNC_SYMBOL) != 0) then
-        throw new SyntaxException(src.getPosition(), "symbol cannot contain '\\0'");
+        raise SyntaxError, "symbol cannot contain '\\0'"
       end
       buffer << c
     end # while
@@ -1425,7 +1385,7 @@ class RubyLexer
       return token
     end
 
-    command_state = command_start
+    command_state = self.command_start
     self.command_start = false
 
     last_state = lex_state
@@ -2259,16 +2219,17 @@ class RubyLexer
             state = lex_state
             self.lex_state = keyword.state
 
-            if state.is_expr_fname then
+            if state == :expr_fname then
               self.yacc_value = Token.new(keyword.name);
             else
               self.yacc_value = Token.new(token_buffer.to_s);
             end
 
-            if keyword.id0 == :kDO then # HACK Tokens.kDO then
-              return Tokens.kDO_COND if cond.is_in_state
-              return Tokens.kDO_BLOCK if cmdarg.is_in_state &&
-                state != LexState::EXPR_CMDARG
+            if keyword.id0 == :kDO then
+d :kDO => [cond.is_in_state, cmdarg.is_in_state, state]
+              self.command_start = true
+              return Tokens.kDO_COND  if cond.is_in_state
+              return Tokens.kDO_BLOCK if cmdarg.is_in_state && state != LexState::EXPR_CMDARG
               return Tokens.kDO_BLOCK if state == LexState::EXPR_ENDARG
               return Tokens.kDO
             end

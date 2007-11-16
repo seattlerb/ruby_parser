@@ -46,4 +46,24 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
        assert_equal Sexp.from_array(pt), @processor.parse(rb)
      end"
   }.compact.join("\n")
+
+  unless ENV['FAST'] then
+    require 'parse_tree'
+
+    files = Dir["/usr/lib/ruby/1.8/**/*.rb"] # TODO: drop 1.8 so I get gems
+
+    eval files.map { |file|
+      name = file.split(/\//)[4..-1].join('_').gsub(/\W+/, '_')
+      eval "def test_#{name}
+       file = #{file.inspect}
+       rb = File.read(file)
+
+       pt = ParseTree.new.parse_tree_for_string rb
+       assert_not_nil pt, \"ParseTree for #{name} undefined\"
+
+       rp = @processor.parse rb
+       assert_equal Sexp.from_array(pt), rp, \"RP different from PT\"
+     end"
+    }.compact.join("\n")
+  end
 end
