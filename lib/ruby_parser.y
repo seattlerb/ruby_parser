@@ -52,27 +52,23 @@ program       : {
                  }
 
 bodystmt      : compstmt opt_rescue opt_else opt_ensure {
-                  body = val[0] == s(:block) ? nil : val[0]
+                  result = val[0]
+                  result = nil if result == s(:block)
 
-                  if not val[1].nil? then
-                    body = s(:rescue, body, val[1]).compact
-                    body << val[2] if val[2]
+                  if val[1] then
+                    result = s(:rescue, result, val[1])
+                    result << val[2] if val[2]
+                    result.delete_at 1 if result[1].nil?
                   elsif not val[2].nil? then
                     warnings.warn("else without rescue is useless")
-                    if body.nil? then
-                      body = val[2]
-                    else
-                      body << val[2]
-                    end
+                    result = block_append(result, val[2])
                   end
 
-                  body = s(:ensure, body, val[3]) if val[3]
-
-                  result = body
-                 }
+                  result = s(:ensure, result, val[3]) if val[3]
+                }
 
 compstmt     : stmts opt_terms {
-                 result = val[0]
+                 result = void_stmts(val[0])
                }
 
 stmts        : none { result = s(:block) }
@@ -140,9 +136,8 @@ stmt          : kALIAS fitem {
                  end
                  support.push_local_scope;
                } tLCURLY compstmt tRCURLY {
-                 # support.result.add_begin_node(s(:pre_exe, support.current_scope, val[3]));
-                 # support.pop_local_scope;
-                 result = nil; # XXX 0;
+                 raise "HACK - not supported yet"
+                 result = nil
                }
              | klEND tLCURLY compstmt tRCURLY {
                  if (support.is_in_def || support.is_in_single > 0) then
@@ -946,9 +941,7 @@ primary      : literal
                   end
                   support.push_local_scope;
                 } bodystmt kEND {
-                  scope = val[4]
-                  scope = s(:scope) if scope == s(:block) or scope.nil?
-                  scope = s(:scope, scope) if scope and scope.first != :scope
+                  scope = s(:scope, val[4]).compact
                   result = s(:class, val[1].last.to_sym, val[2], scope)
                   support.pop_local_scope;
                  }
@@ -960,39 +953,32 @@ primary      : literal
                   support.in_single = 0
                   support.push_local_scope;
                 } bodystmt kEND {
-
-                  scope = val[6] # REFACTOR
-                  scope = s(:scope) if scope == s(:block)
-                  scope = s(:scope, scope) unless scope.first == :scope
-
-                  result = s(:sclass, val[2], scope);
+                  scope = s(:scope, val[6]).compact
+                  result = s(:sclass, val[2], scope)
                   support.pop_local_scope;
-                  support.in_def = val[3] # FIX  HUH?
+                  support.in_def = val[3]
                   support.in_single = val[5] ? 1 : 0 # HACK
                  }
              | kMODULE cpath {
-                 if (support.is_in_def || support.is_in_single > 0) then
-                      yyerror("module definition in method body");
-                 end
+                 yyerror("module definition in method body") if
+                   support.is_in_def or support.is_in_single > 0
+
                  support.push_local_scope;
                } bodystmt kEND {
-                  body = val[3]
-                  body[0] = :scope if body[0] == :block # not sure
-                  result = s(:module, val[1].last.to_sym, body);
-                  support.pop_local_scope;
-                 }
+                 result = s(:module, val[1].last.to_sym, s(:scope, val[3]))
+                 support.pop_local_scope;
+               }
              | kDEF fname {
                   self.in_def = true
                   support.push_local_scope
                 } f_arglist bodystmt kEND {
-                    name = val[1].value.to_sym
-                    args = val[3]
-                    body = val[4].nil? ? s(:nil) : val[4]
+                    body = val[4] || s(:nil)
+                    body = s(:block, s(:nil)) if body == s(:block) # FIX - so tired
                     body = s(:block, body) unless body[0] == :block
-                    body.insert 1, args
-                    block_arg = args.block_arg(true)
+                    block_arg = val[3].block_arg(:remove)
+                    body.insert 1, val[3]
                     body.insert 2, block_arg if block_arg
-                    result = s(:defn, name, s(:scope, body))
+                    result = s(:defn, val[1].value.to_sym, s(:scope, body))
                   support.pop_local_scope
                   self.in_def = false
                  }

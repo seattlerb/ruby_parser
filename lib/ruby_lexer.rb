@@ -341,6 +341,14 @@ class RubyParser < Racc::Parser
     return head
   end
 
+  def void_stmts node
+    return nil unless node
+    return node unless node[0] == :block
+
+    node = node[1] while node[0] == :block and node.size == 2
+    node
+  end
+
   ############################################################
   # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 
@@ -462,21 +470,6 @@ class RubyLexer
     return r != RubyLexer::EOF
   end
 
-  def is_next_identchar # TODO: ?
-    c = src.read
-    src.unread c
-
-    return c != RubyLexer::EOF && c =~ /\w/
-  end
-
-  def nextc # HACK
-    src.read
-  end
-
-  def pushback c # HACK
-    src.ungetc c[0]
-  end
-
   def parse_string(quote)
     _, string_type, term, open, nest = quote
 
@@ -560,7 +553,7 @@ class RubyLexer
 
   def tokadd_string(func, term, paren, buffer)
     while ((c = src.read()) != RubyLexer::EOF)
-      if (paren != '\0' && c == paren) then
+      if (paren != "\0" && c == paren) then
         self.nest += 1
       elsif (c == term) then
         if self.nest == 0 then
@@ -568,7 +561,7 @@ class RubyLexer
           break
         end
         self.nest -= 1
-      elsif ((func & RubyLexer::STR_FUNC_EXPAND) != 0 && c == '#' && !src.peek('\n')) then
+      elsif ((func & RubyLexer::STR_FUNC_EXPAND) != 0 && c == '#' && !src.peek("\n")) then
         c2 = src.read
 
         if (c2 == '$' || c2 == '@' || c2 == '{') then
@@ -577,15 +570,15 @@ class RubyLexer
           break
         end
         src.unread(c2)
-      elsif (c == '\\') then
+      elsif (c == "\\") then
         c = src.read();
         case c
-        when '\n' then
+        when "\n" then
           break if ((func & RubyLexer::STR_FUNC_QWORDS) != 0) # TODO: check break
           next  if ((func & RubyLexer::STR_FUNC_EXPAND) != 0)
 
-          buffer << '\\'
-        when '\\' then
+          buffer << "\\"
+        when "\\" then
           buffer << c if ((func & RubyLexer::STR_FUNC_ESCAPE) != 0)
         else
           if ((func & RubyLexer::STR_FUNC_REGEXP) != 0) then
@@ -595,21 +588,21 @@ class RubyLexer
           elsif ((func & RubyLexer::STR_FUNC_EXPAND) != 0) then
             src.unread(c);
             if ((func & RubyLexer::STR_FUNC_ESCAPE) != 0) then
-              buffer << '\\'
+              buffer << "\\"
             end
             c = src.read_escape
           elsif ((func & RubyLexer::STR_FUNC_QWORDS) != 0 &&
                  Character.isWhitespace(c)) then
             # ignore backslashed spaces in %w
-          elsif (c != term && !(paren != '\0' && c == paren)) then
-            buffer << '\\'
+          elsif (c != term && !(paren != "\0" && c == paren)) then
+            buffer << "\\"
           end
         end
       elsif ((func & RubyLexer::STR_FUNC_QWORDS) != 0 &&
              Character.isWhitespace(c)) then
         src.unread(c);
       end
-      if (c == '\0' && (func & RubyLexer::STR_FUNC_SYMBOL) != 0) then
+      if (c == "\0" && (func & RubyLexer::STR_FUNC_SYMBOL) != 0) then
         raise SyntaxError, "symbol cannot contain '\\0'"
       end
       buffer << c
@@ -648,12 +641,12 @@ class RubyLexer
   #             pend = lex_pend;
   #             if (pend > p) then
   #                 switch (pend[-1]) then
-  #                   case '\n':
-  #                     if (--pend == p || pend[-1] != '\r') then
+  #                   case "\n":
+  #                     if (--pend == p || pend[-1] != "\r") then
   #                         pend++;
   #                         break;
   #                     end
-  #                   case '\r':
+  #                   case "\r":
   #                     --pend;
   #                 end
   #             end
@@ -684,8 +677,8 @@ class RubyLexer
   #         end
   #         begin
   #             pushback(c);
-  #             if ((c = tokadd_string(func, '\n', 0, NULL)) == -1) goto error;
-  #             if (c != '\n') then
+  #             if ((c = tokadd_string(func, "\n", 0, NULL)) == -1) goto error;
+  #             if (c != "\n") then
   #                 yylval.node = NEW_STR(rb_str_new(tok(), toklen()));
   #                 return tSTRING_CONTENT;
   #             end
@@ -709,47 +702,6 @@ class RubyLexer
   #
   # @param s to be matched against
   # @return string if string matches, null otherwise
-
-  def is_next_no_case(s) # TODO: ?
-    buf = StringBuffer.new
-
-    s.each_byte do |b|
-      c = b.chr
-      r = src.read
-      buf.append(r)
-
-      if c.downcase != r.downcase then
-        src.unread_many(buf)
-        return null
-      end
-    end
-
-    return buf.to_s
-  end
-
-  ##
-  # @param c the character to test
-  # @return true if character is a hex value (0-9a-f)
-
-  def is_hex_char(c) # TODO: ?
-    c =~ /[a-f0-9]/i
-  end
-
-  ##
-  # @param c the character to test
-  # @return true if character is an octal value (0-7)
-
-  def is_oct_char(c) # TODO: ?
-    c =~ /[0-7]/
-  end
-
-  ##
-  # @param c is character to be compared
-  # @return whether c is an identifier or not
-
-  def is_identifier_char(c) # TODO: ?
-    c =~ /\w/
-  end
 
   ##
   # What type/kind of quote are we dealing with?
@@ -777,7 +729,7 @@ class RubyLexer
       raise SyntaxError, "unterminated quoted string meets nnd of file"
     end
 
-    # Figure nnd-char.  '\0' is special to indicate beg=nnd and that no nesting?
+    # Figure nnd-char.  "\0" is special to indicate beg=nnd and that no nesting?
     nnd = case beg
           when '(' then
             ')'
@@ -788,7 +740,7 @@ class RubyLexer
           when '<' then
             '>'
           else
-            nnd, beg = beg, '\0'
+            nnd, beg = beg, "\0"
             nnd
           end
 
@@ -834,8 +786,8 @@ class RubyLexer
       func = STR_FUNC_INDENT
     end
 
-    if c == '\'' || c == '"' || c == '`' then
-      if c == '\'' then
+    if c == "\'" || c == '"' || c == '`' then
+      if c == "\'" then
         func |= STR_SQUOTE
       elsif c == '"'
         func |= STR_DQUOTE
@@ -868,7 +820,7 @@ class RubyLexer
       src.unread c
     end
 
-    line = src.read_line + '\n'
+    line = src.read_line + "\n"
     tok = token_buffer.to_s
     self.lex_strterm = s(:heredoc, tok, func, line)
 
@@ -1181,8 +1133,8 @@ class RubyLexer
         end
         self.lex_strterm = s(:strterm, STR_XQUOTE, '`', "\0")
         return :tXSTRING_BEG
-      when '\'' then
-        self.lex_strterm = s(:strterm, STR_SQUOTE, '\'', "\0")
+      when "\'" then
+        self.lex_strterm = s(:strterm, STR_SQUOTE, "\'", "\0")
         self.yacc_value = Token.new("'")
         return :tSTRING_BEG
       when '?' then
@@ -1433,7 +1385,7 @@ class RubyLexer
           return ':'
         end
         case c
-        when '\'' then
+        when "\'" then
           self.lex_strterm = s(:strterm, STR_SSYM, c, "\0")
         when '"' then
           self.lex_strterm = s(:strterm, STR_DSYM, c, "\0")
@@ -1676,8 +1628,8 @@ class RubyLexer
         token_buffer.clear
         token_buffer.append('@');
         if (c == '@') then
-            token_buffer.append('@');
-            c = src.read;
+          token_buffer.append('@');
+          c = src.read;
         end
         if c =~ /\d/ then
           if (token_buffer.length == 1) then
@@ -2055,6 +2007,69 @@ class RubyLexer
     self.yacc_value = number.to_i
     return :tINTEGER
   end
+
+  ############################################################
+  # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+
+  def nextc # HACK
+    src.read
+  end
+
+  def pushback c # HACK
+    src.ungetc c[0]
+  end
+
+  def is_next_identchar # TODO: ?
+    c = src.read
+    src.unread c
+
+    return c != RubyLexer::EOF && c =~ /\w/
+  end
+
+  def is_next_no_case(s) # TODO: ?
+    buf = StringBuffer.new
+
+    s.each_byte do |b|
+      c = b.chr
+      r = src.read
+      buf.append(r)
+
+      if c.downcase != r.downcase then
+        src.unread_many(buf)
+        return null
+      end
+    end
+
+    return buf.to_s
+  end
+
+  ##
+  # @param c the character to test
+  # @return true if character is a hex value (0-9a-f)
+
+  def is_hex_char(c) # TODO: ?
+    c =~ /[a-f0-9]/i
+  end
+
+  ##
+  # @param c the character to test
+  # @return true if character is an octal value (0-7)
+
+  def is_oct_char(c) # TODO: ?
+    c =~ /[0-7]/
+  end
+
+  ##
+  # @param c is character to be compared
+  # @return whether c is an identifier or not
+
+  def is_identifier_char(c) # TODO: ?
+    c =~ /\w/
+  end
+
+  # END HACK
+  ############################################################$
+
 end
 
 class Keyword
@@ -2373,6 +2388,10 @@ class StringIO # HACK: everything in here is a hack
 
   def unread(c)
     self.ungetc c[0] if c
+  end
+
+  def was_begin_of_line # HACK OMG I am a bad person
+    false
   end
 end
 
