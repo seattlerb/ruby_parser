@@ -744,7 +744,7 @@ call_args2    : arg_value ',' args opt_block_arg {
              | block_arg {}
 
 command_args  : {
-                  result = lexer.cmdarg.stack
+                  result = lexer.cmdarg.stack.dup
                   lexer.cmdarg.push true
                 } open_args {
                   lexer.cmdarg.stack.replace val[0]
@@ -1238,7 +1238,7 @@ xstring       : tXSTRING_BEG xstring_contents tSTRING_END {
                  }
 
 regexp        : tREGEXP_BEG xstring_contents tREGEXP_END {
-                  result = s(:lit, Regexp.new(val[1].value)) # HACK: deal with options for real
+                  result = s(:lit, Regexp.new(val[1][1])) # HACK: deal with options for real
                   # HACK result[0] = :dregex if val[1][0] = :dstr
 # HACK
 #                   options = val[2].get_options;
@@ -1293,9 +1293,9 @@ string_contents: { result = s(:str, "") }
                    result = literal_concat(val[0], val[1])
                  }
 
-xstring_contents: { result = s(:xstr, "") }
+xstring_contents: { result = nil }
                 | xstring_contents string_content {
-                    result = s(:xstr, val[0].value + val[1].value)
+                    result = literal_concat(val[0], val[1])
                   }
 
 string_content : tSTRING_CONTENT {
@@ -1384,9 +1384,11 @@ variable     : tIDENTIFIER
                  result = s(:false)
                }
              | k__FILE__ {
+                 result = :"__FILE__" # TODO
                  result = Token.new("__FILE__")
                }
              | k__LINE__ {
+                 result = :"__LINE__" # TODO
                  result = Token.new("__LINE__")
                }
 
@@ -1590,11 +1592,13 @@ assocs        : assoc
                   more = val[2][1..-1]
                   list.push(*more) unless more.empty?
                   result = list
+#                  result = list_concat(val[0], val[2])
                 }
 
 #  ListNode:assoc - A single hash value pair (e.g. a => b)
 assoc         : arg_value tASSOC arg_value {
                   result = s(:array, val[0], val[2])
+#                  result = list_append(s(:array, val[0]), val[2])
                 }
 
 operation     : tIDENTIFIER | tCONSTANT | tFID

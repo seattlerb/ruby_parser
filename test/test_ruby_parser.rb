@@ -26,6 +26,15 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     assert_equal expected_env, @processor.env.all
   end
 
+  def test_do_bug
+    rb = "a 1\na.b do |c|\n  # do nothing\nend"
+    pt = s(:block,
+           s(:fcall, :a, s(:array, s(:lit, 1))),
+           s(:iter, s(:call, s(:vcall, :a), :b), s(:dasgn_curr, :c)))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
   def test_call_env
     @processor.env[:a] = :lvar
     expected = s(:call, s(:lvar, :a), :happy)
@@ -47,10 +56,10 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
      end"
   }.compact.join("\n")
 
-  unless ENV['FAST'] then
+  if ENV['ZOMGPONIES'] or File.exist? 'zomgponies' then
     require 'parse_tree'
 
-    files = Dir["/usr/lib/ruby/1.8/**/*.rb"] # TODO: drop 1.8 so I get gems
+    files = Dir["/usr/lib/ruby/1.8/test/**/*.rb"] # TODO: drop 1.8 so I get gems
 
     eval files.map { |file|
       name = file.split(/\//)[4..-1].join('_').gsub(/\W+/, '_')
@@ -62,7 +71,7 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
        assert_not_nil pt, \"ParseTree for #{name} undefined\"
 
        rp = @processor.parse rb
-       assert_equal Sexp.from_array(pt), rp, \"RP different from PT\"
+       assert_equal Sexp.from_array(pt).first, rp, \"RP different from PT\"
      end"
     }.compact.join("\n")
   end

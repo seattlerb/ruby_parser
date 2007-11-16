@@ -16,6 +16,14 @@ class RubyParser < Racc::Parser
   attr_accessor :lexer, :in_def, :in_single
   attr_reader :env
 
+  def initialize
+    super
+    self.lexer = RubyLexer.new
+    self.in_def = false
+    self.in_single = 0
+    @env = Environment.new
+  end
+
   alias :old_yyerror :yyerror
   def yyerror msg=nil
     warn msg if msg
@@ -51,21 +59,6 @@ class RubyParser < Racc::Parser
     else
       return [false, '$end']
     end
-  end
-
-  def initialize
-    super
-    self.lexer = RubyLexer.new
-    self.in_def = false
-    self.in_single = 0
-    @env = Environment.new
-  end
-
-  alias :is_in_def :in_def # HACK
-  alias :is_in_single :in_single # HACK
-
-  def current_scope # HACK
-    nil
   end
 
   def assignable(lhs, value = nil)
@@ -119,7 +112,7 @@ class RubyParser < Racc::Parser
   def node_assign(lhs, rhs)
     return nil unless lhs
 
-    # value_expr(rhs);
+    # value_expr(rhs)
 
     case lhs[0]
     when :gasgn, :iasgn, :lasgn, :dasgn, :dasgn_curr,
@@ -142,8 +135,8 @@ class RubyParser < Racc::Parser
     return s(:nil)   if id == :nil
     return s(:true)  if id == :true
     return s(:false) if id == :false
-    raise "not yet"  if id == "__FILE__" # NEW_STR(rb_str_new2(ruby_sourcefile)) 
-    raise "not yet"  if id == "__LINE__" # NEW_LIT(INT2FIX(ruby_sourceline))
+    raise "not yet"  if id == :"__FILE__" # NEW_STR(rb_str_new2(ruby_sourcefile)) 
+    raise "not yet"  if id == :"__LINE__" # NEW_LIT(INT2FIX(ruby_sourceline))
 
     result = case id.to_s
              when /^@@/ then
@@ -170,7 +163,6 @@ class RubyParser < Racc::Parser
   end
 
   def block_append(head, tail)
-    # NODE *nnd, *h = head;
     nnd = nil
     h = head
 
@@ -188,23 +180,22 @@ class RubyParser < Racc::Parser
       return tail
     when :block then
       nnd = h.last
-      break;
     else
       h = nnd = s(:block, head)
-      head = nnd;
+      head = nnd
     end
 
     tail = s(:block, tail) unless tail[0] == :block
 
 # HACK
-#     nnd->nd_next = tail;
-#     h->nd_nnd = tail->nd_nnd;
-    return head;
+#     nnd->nd_next = tail
+#     h->nd_nnd = tail->nd_nnd
+    return head
   end
 
   def new_yield(node)
     if node then
-      raise SyntaxException, "Block argument should not be given." if
+      raise SyntaxError, "Block argument should not be given." if
         node.node_type == :block_pass
 
       node = node.last if node.node_type == :array and node.size == 2
@@ -277,21 +268,6 @@ class RubyParser < Racc::Parser
     end
   end
 
-  ############################################################
-  # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-
-  def support
-    self
-  end
-
-  def push_local_scope dyn = false
-    self.env.extend dyn
-  end
-
-  def pop_local_scope
-    self.env.unextend
-  end
-
   def append_to_block head, tail
     return head if tail.nil?
     return tail if head.nil?
@@ -329,7 +305,7 @@ class RubyParser < Racc::Parser
 
     if htype == :evstr then
       node = s(:dstr, '')
-      head = list_append(node, head);
+      head = list_append(node, head)
     end
 
     case tail[0]
@@ -347,10 +323,32 @@ class RubyParser < Racc::Parser
       end
     when :evstr then
       head[0] = :dstr if htype == :str
-      head = list_append(head, tail);
+      head = list_append(head, tail)
     end
 
-    return head;
+    return head
+  end
+
+  ############################################################
+  # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+
+  alias :is_in_def :in_def # HACK
+  alias :is_in_single :in_single # HACK
+
+  def support
+    self
+  end
+
+  def push_local_scope dyn = false
+    self.env.extend dyn
+  end
+
+  def pop_local_scope
+    self.env.unextend
+  end
+
+  def current_scope # HACK
+    nil
   end
 
   # END HACK
@@ -369,8 +367,7 @@ class RubyLexer
   attr_reader :lex_state
 
   def lex_state= o
-    raise "wtf?" if o.nil?
-    raise "wtf?" if Fixnum === o
+    raise "wtf?" unless Symbol === o
     @lex_state = o
   end
 
@@ -406,7 +403,8 @@ class RubyLexer
   alias :getCmdArgumentState :cmdarg
 
   # Give a name to a value.  Enebo: This should be used more.
-  EOF = 0
+  # HACK OMG HORRIBLE KILL ME NOW. Enebo, no. this shouldn't be used more
+  EOF = nil # was 0... ugh
 
   # ruby constants for strings (should this be moved somewhere else?)
   STR_FUNC_ESCAPE=0x01
@@ -434,7 +432,7 @@ class RubyLexer
   end
 
   def reset
-    self.token = 0
+    self.token = nil
     self.yacc_value = nil
     self.src = nil
     @lex_state = nil
@@ -449,14 +447,14 @@ class RubyLexer
   def advance
     r = yylex
     self.token = r
-    return r != EOF
+    return r != RubyLexer::EOF
   end
 
   def is_next_identchar # TODO: ?
     c = src.read
     src.unread c
 
-    return c != EOF && c =~ /\w/
+    return c != RubyLexer::EOF && c =~ /\w/
   end
 
   def nextc # HACK
@@ -517,9 +515,9 @@ class RubyLexer
     pushback(c)
 
     if (tokadd_string(func, term, paren, token_buffer) == -1) then
-      # ruby_sourceline = nd_line(quote);
-      # HACK rb_compile_error("unterminated string meets end of file");
-      return :tSTRING_END;
+      # HACK ruby_sourceline = nd_line(quote)
+      # HACK rb_compile_error("unterminated string meets end of file")
+      return :tSTRING_END
     end
     
     self.yacc_value = s(:str, token_buffer.join)
@@ -529,22 +527,22 @@ class RubyLexer
   def tokadd_string(func, term, paren, buffer)
     while ((c = src.read()) != RubyLexer::EOF)
       if (paren != '\0' && c == paren) then
-        self.nest += 1;
+        self.nest += 1
       elsif (c == term) then
-        if (nest == 0) then
-          src.unread(c);
+        if self.nest == 0 then
+          src.unread(c)
           break
         end
         self.nest -= 1
       elsif ((func & RubyLexer::STR_FUNC_EXPAND) != 0 && c == '#' && !src.peek('\n')) then
-        c2 = src.read();
+        c2 = src.read
 
         if (c2 == '$' || c2 == '@' || c2 == '{') then
-          src.unread(c2);
-          src.unread(c);
+          src.unread(c2)
+          src.unread(c)
           break
         end
-        src.unread(c2);
+        src.unread(c2)
       elsif (c == '\\') then
         c = src.read();
         case c
@@ -565,7 +563,7 @@ class RubyLexer
             if ((func & RubyLexer::STR_FUNC_ESCAPE) != 0) then
               buffer << '\\'
             end
-            c = src.readEscape();
+            c = src.read_escape
           elsif ((func & RubyLexer::STR_FUNC_QWORDS) != 0 &&
                  Character.isWhitespace(c)) then
             # ignore backslashed spaces in %w
@@ -737,12 +735,12 @@ class RubyLexer
       short_hand = false
       beg = src.read
       if beg =~ /[a-z0-9]/i then
-        raise SyntaxException("unknown type of %string")
+        raise SyntaxError, "unknown type of %string"
       end
     end
 
-    if c == EOF or beg == EOF then
-      raise SyntaxException("unterminated quoted string meets nnd of file")
+    if c == RubyLexer::EOF or beg == RubyLexer::EOF then
+      raise SyntaxError, "unterminated quoted string meets nnd of file"
     end
 
     # Figure nnd-char.  '\0' is special to indicate beg=nnd and that no nesting?
@@ -784,7 +782,7 @@ class RubyLexer
       string_type, token_type = STR_SSYM, :tSYMBEG
       self.lex_state = :expr_fname
     else
-      raise SyntaxException("Unknown type of %string. Expected 'Q', 'q', 'w', 'x', 'r' or any non letter character, but found '" + c + "'.")
+      raise SyntaxError, "Unknown type of %string. Expected 'Q', 'q', 'w', 'x', 'r' or any non letter character, but found '" + c + "'."
     end
 
     self.lex_strterm = s(:strterm, string_type, nnd, beg)
@@ -794,7 +792,7 @@ class RubyLexer
 
   def here_document_identifier
     c = src.read
-    term = 42
+    term = 42 # HACK
     func = 0
 
     if c == '-' then
@@ -814,25 +812,25 @@ class RubyLexer
       token_buffer.clear
       term = c
 
-      while (c = src.read) != EOF && c != term
+      while (c = src.read) != RubyLexer::EOF && c != term
         token_buffer.append c
       end
 
-      if c == EOF then
-        raise SyntaxException("unterminated here document identifier")
+      if c == RubyLexer::EOF then
+        raise SyntaxError, "unterminated here document identifier"
       end
     else
       unless is_identifier_char c then
         src.unread c
         src.unread '-' if (func & STR_FUNC_INDENT) != 0
-        return 0
+        return 0 # TODO: RubyLexer::EOF?
       end
       token_buffer.clear
       term = '"'
       func |= STR_DQUOTE
       begin
         token_buffer.append c
-      end while (c = src.read) != EOF && is_identifier_char(c)
+      end while (c = src.read) != RubyLexer::EOF && is_identifier_char(c)
       src.unread c
     end
 
@@ -868,7 +866,7 @@ class RubyLexer
     token_buffer.append c
 
     while (c = src.read) != "\n" do
-      break if c == EOF
+      break if c == RubyLexer::EOF
       token_buffer.append c
     end
     src.unread c
@@ -919,13 +917,13 @@ class RubyLexer
     loop do
       c = src.read
       case c
-      when /\004|\032|\000/, 0 then # ^D, ^Z, EOF
-        return 0
+      when /\004|\032|\000/, RubyLexer::EOF then # ^D, ^Z, EOF
+        return RubyLexer::EOF
       when /\ |\t|\f|\r|\13/ then # white spaces, 13 = '\v
         space_seen = true
         next
       when /#|\n/ then
-        return 0 if c == '#' and read_comment(c) == 0
+        return 0 if c == '#' and read_comment(c) == 0 # FIX 0?
         # Replace a string of newlines with a single one
         while ((c = src.read) == "\n")
           # do nothing
@@ -1017,8 +1015,8 @@ class RubyLexer
 #                   token_buffer.append(c)
 #                 end
 
-#                 if (c == EOF) then
-#                   raise SyntaxException("embedded document meets end of file")
+#                 if (c == RubyLexer::EOF) then
+#                   raise SyntaxError, "embedded document meets end of file"
 #                 end
 
 #                 next unless c == '='
@@ -1163,8 +1161,8 @@ class RubyLexer
 
         c = src.read
 
-        if (c == EOF) then
-          raise SyntaxException("incomplete character syntax")
+        if (c == RubyLexer::EOF) then
+          raise SyntaxError, "incomplete character syntax"
         end
 
         if c =~ /\s/ then
@@ -1353,7 +1351,7 @@ class RubyLexer
         end
         src.unread c
         if c =~ /\d/ then
-          raise SyntaxException("no .<digit> floating literal anymore put 0 before dot")
+          raise SyntaxError, "no .<digit> floating literal anymore put 0 before dot"
         end
         self.lex_state = :expr_dot
         self.yacc_value = Token.new(".")
@@ -1649,9 +1647,9 @@ class RubyLexer
         end
         if c =~ /\d/ then
           if (token_buffer.length == 1) then
-            raise SyntaxException("`@" + c + "' is not allowed as an instance variable name");
+            raise SyntaxError, "`@" + c + "' is not allowed as an instance variable name"
           else
-            raise SyntaxException("`@@" + c + "' is not allowed as a class variable name");
+            raise SyntaxError, "`@@" + c + "' is not allowed as a class variable name"
           end
         end
         if (!is_identifier_char(c)) then
@@ -1667,7 +1665,7 @@ class RubyLexer
         token_buffer.clear
       else
         unless is_identifier_char c then
-          raise SyntaxException("Invalid char `\\#{c}' in expression")
+          raise SyntaxError, "Invalid char '#{c.inspect}' in expression"
         end
         token_buffer.clear
       end
@@ -1752,7 +1750,6 @@ class RubyLexer
             end
 
             if keyword.id0 == :kDO then
-# d :kDO => [cond.is_in_state, cmdarg.is_in_state, state]
               self.command_start = true
               return :kDO_COND  if cond.is_in_state
               return :kDO_BLOCK if cmdarg.is_in_state && state != :expr_cmdarg
@@ -1850,9 +1847,9 @@ class RubyLexer
         src.unread c
 
         if token_buffer.length == start_len then
-          raise SyntaxException("Hexadecimal number without hex-digits.")
+          raise SyntaxError, "Hexadecimal number without hex-digits."
         elsif nondigit != "\0" then
-          raise SyntaxException("Trailing '_' in number.")
+          raise SyntaxError, "Trailing '_' in number."
         end
         self.yacc_value = token_buffer.to_s.to_i(16)
         return :tINTEGER
@@ -1876,9 +1873,9 @@ class RubyLexer
         src.unread c
 
         if token_buffer.length == start_len then
-          raise SyntaxException("Binary number without digits.")
+          raise SyntaxError, "Binary number without digits."
         elsif nondigit != "\0" then
-          raise SyntaxException("Trailing '_' in number.")
+          raise SyntaxError, "Trailing '_' in number."
         end
         self.yacc_value = token_buffer.to_s.to_i(2)
         return :tINTEGER
@@ -1902,9 +1899,9 @@ class RubyLexer
         src.unread c
 
         if token_buffer.length == start_len then
-          raise SyntaxException("Binary number without digits.")
+          raise SyntaxError, "Binary number without digits."
         elsif nondigit != "\0" then
-          raise SyntaxException("Trailing '_' in number.")
+          raise SyntaxError, "Trailing '_' in number."
         end
 
         self.yacc_value = token_buffer.to_s.to_i(10)
@@ -1926,14 +1923,14 @@ class RubyLexer
           src.unread c
 
           if nondigit != "\0" then
-            raise SyntaxException("Trailing '_' in number.")
+            raise SyntaxError, "Trailing '_' in number."
           end
 
           self.yacc_value = token_buffer.to_s.to_i(8)
           return :tINTEGER
         end
       when /[89]/ then
-          raise SyntaxException("Illegal octal digit.")
+          raise SyntaxError, "Illegal octal digit."
       when /[\.eE]/ then
         token_buffer.append '0'
       else
@@ -1954,7 +1951,7 @@ class RubyLexer
       when '.' then
         if (nondigit != "\0") then
           src.unread c
-          raise SyntaxException("Trailing '_' in number.")
+          raise SyntaxError, "Trailing '_' in number."
         elsif seen_point or seen_e then
           src.unread c
           return number_token(token_buffer.to_s, true, nondigit)
@@ -1979,7 +1976,7 @@ class RubyLexer
         end
       when /e/i then
         if (nondigit != "\0") then
-          raise SyntaxException("Trailing '_' in number.")
+          raise SyntaxError, "Trailing '_' in number."
         elsif (seen_e) then
           src.unread c
           return number_token(token_buffer.to_s, true, nondigit)
@@ -1997,7 +1994,7 @@ class RubyLexer
         end
       when '_' then #  '_' in number just ignored
         if nondigit != "\0" then
-          raise SyntaxException("Trailing '_' in number.")
+          raise SyntaxError, "Trailing '_' in number."
         end
         nondigit = c
       else
@@ -2012,7 +2009,7 @@ class RubyLexer
   # TODO: remove me
   def number_token(number, is_float, nondigit)
     if (nondigit != "\0") then
-      raise SyntaxException("Trailing '_' in number.")
+      raise SyntaxError, "Trailing '_' in number."
     end
 
     if (is_float) then
@@ -2258,7 +2255,7 @@ class StackState
   end
 end
 
-class Token
+class Token # TODO: nuke this and use sexps
   attr_accessor :args
   def initialize(token)
     @args = Array(token)
@@ -2320,12 +2317,6 @@ end
 class Symbol
   def is_argument # TODO: phase this out
     return self == :expr_arg || self == :expr_cmdarg
-  end
-end
-
-class SyntaxException < SyntaxError # TODO remove
-  def initialize(msg)
-    super(msg)
   end
 end
 
