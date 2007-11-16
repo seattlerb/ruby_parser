@@ -47,10 +47,7 @@ rule
 
 program       : {
                   self.lexer.state = :expr_beg
-                  # HACK support.init_top_local_variables
                 } compstmt {
-# HACK
-#                   support.result.ast = support.add_root_node(val[1])
                    result = val[1]
                  }
 
@@ -424,7 +421,6 @@ cpath         : tCOLON3 cname {
                   result = s(:colon2, val[0], val[2].value);
                  }
 
-#  Token:fname - A function name [!nil]
 fname         : tIDENTIFIER | tCONSTANT | tFID
               | op {
                   lexer.state = :expr_end
@@ -453,13 +449,11 @@ undef_list    : fitem {
                   end
                 }
 
-#  Token:op - inline operations [!nil]
 op           : tPIPE  | tCARET  | tAMPER2 | tCMP    | tEQ      | tEQQ   | tMATCH
              | tGT    | tGEQ    | tLT     | tLEQ    | tLSHFT   | tRSHFT | tPLUS
              | tMINUS | tSTAR2  | tSTAR   | tDIVIDE | tPERCENT | tPOW   | tTILDE
              | tUPLUS | tUMINUS | tAREF   | tASET   | tBACK_REF2
 
-#  Keyword:reswords - reserved words [!nil]
 reswords     : k__LINE__ | k__FILE__  | klBEGIN | klEND  | kALIAS  | kAND
              | kBEGIN    | kBREAK     | kCASE   | kCLASS | kDEF    | kDEFINED
              | kDO       | kELSE      | kELSIF  | kEND   | kENSURE | kFALSE
@@ -547,10 +541,10 @@ arg          : lhs '=' arg {
                  result = s(:call, val[0], :**, s(:array, val[2]))
                  }
              | tUMINUS_NUM tINTEGER tPOW arg {
-                  result = s(:call, s(:call, val[1], :"**", s(:array, val[3])), :"-@");
+                  result = s(:call, s(:call, s(:lit, -val[1]), :"**", s(:array, val[3])), :"-@");
                  }
              | tUMINUS_NUM tFLOAT tPOW arg {
-                  result = s(:call, s(:call, val[1], :"**", s(:array, val[3])), :"-@");
+                  result = s(:call, s(:call, s(:lit, -val[1]), :"**", s(:array, val[3])), :"-@");
                  }
              | tUPLUS arg {
                   if (support.is_literal(val[1])) then
@@ -667,7 +661,6 @@ paren_args    : tLPAREN2 none tRPAREN {
 
 opt_paren_args: none | paren_args
 
-#  Node:call_args - Arguments for a function call
 call_args    : command {
                   warnings.warn("parenthesize argument(s) for future version");
                   result = s(:array, val[0])
@@ -1197,7 +1190,7 @@ opt_ensure    : kENSURE compstmt {
 
 literal       : numeric { result = s(:lit, val[0]) }
               | symbol  { result = s(:lit, val[0]) }
-              | dsym    { result = s(:lit, val[0]) }
+              | dsym
 
 strings       : string {
                   result = s(:dstr, val[0].value) if val[0][0] == :evstr
@@ -1224,35 +1217,64 @@ string1       : tSTRING_BEG string_contents tSTRING_END {
                  }
 
 xstring       : tXSTRING_BEG xstring_contents tSTRING_END {
-                  result = s(:xstr, val[1].value) # TODO: clone?
-                  # result[0] = :dxstr if val[1][0] = :dstr
-#                   if val[1].nil? then
-#                     result = s(:xstr, nil)
-#                   elsif val[1][0] == :str then
-#                     result = s(:xstr, val[1].value)
-#                   elsif val[1][0] == :dstr then
-#                     result = s(:dxstr, val[1].value)
-#                   else
-#                     result = s(:xstr, val[1].value)
-#                   end
-                 }
+                  node = val[1]
+
+                  unless node then
+                    node = s(:xstr, '')
+                  else
+                    case node[0]
+                    when :str
+                      node[0] = :xstr
+                    when :dstr
+                      node[0] = :dxstr
+                    else
+                      node = s(:dxstr, '', *node[1..-1])
+                    end
+                  end
+
+                  result = node
+                }
 
 regexp        : tREGEXP_BEG xstring_contents tREGEXP_END {
-                  result = s(:lit, Regexp.new(val[1][1])) # HACK: deal with options for real
-                  # HACK result[0] = :dregex if val[1][0] = :dstr
-# HACK
-#                   options = val[2].get_options;
-#                   node = val[1];
+                  node = val[1]
+                  options = val[2]
 
-#                   if (node == nil) then
-#                     result = s(:regex, ByteList.create(""), options & ~ReOptions.RE_OPTION_ONCE);
-#                   elsif (node.instanceof StrNode) then
-#                     result = s(:regex,  node.value.clone, options & ~ReOptions.RE_OPTION_ONCE);
-#                   elsif (node.instanceof DStrNode) then
-#                     result = s(:dregex, node, options, (options & ReOptions.RE_OPTION_ONCE) != 0);
-#                   else
-#                     result = s(:dregex, options, (options & ReOptions.RE_OPTION_ONCE) != 0).add(node);
-#                   end
+                  unless node then
+                    o = 0
+                    options.split(//).each do |c| # FIX: this has a better home
+                      case c
+                      when 'x' then
+                        o += Regexp::EXTENDED
+                      when 'i' then
+                        o += Regexp::IGNORECASE
+                      when 'm' then
+                        o += Regexp::MULTILINE
+                      else
+                        warn "unknown regexp option: #{c}" # HACK
+                      end
+                    end
+
+                    node = s(:lit, Regexp.new(//, o))
+                  else
+                    case node[0]
+                    when :str then
+                      node[0] = :lit
+                      node[1] = /#{node[1]}/
+                    when :dstr then
+                      if options =~ /o/ then
+                        node[0] = :dregx_once
+                      else
+                        node[0] = :dregx
+                      end
+                    else
+                      node = s(:dregx, '', *node[1..-1]);
+                      node[0] = :dregx_once if options =~ /o/
+                    end
+                    
+                    # HACK node << options if options
+                  end
+
+                  result = node
                  }
 
 words          : tWORDS_BEG ' ' tSTRING_END {
@@ -1343,19 +1365,12 @@ sym            : fname | tIVAR | tGVAR | tCVAR
 
 dsym           : tSYMBEG xstring_contents tSTRING_END {
                    lexer.state = :expr_end
+                   yyerror("empty symbol literal") if val[1].nil?
 
-                   #  DStrNode: :"some text #{some expression}"
-                   #  StrNode: :"some text"
-                   #  EvStrNode :"#{some expression}"
-                   if (val[1] == nil) then
-                     yyerror("empty symbol literal");
-                   end
-
-                   # HACK if val[1][0] == :dstr then
-                   result = /#{val[1]}/
+                   result = val[1]
+                   result[0] = :dsym if result[0] == :dstr
                  }
 
-#  Node:numeric - numeric value [!nil]
 numeric      : tINTEGER
              | tFLOAT
              | tUMINUS_NUM tINTEGER = tLOWEST {
@@ -1365,7 +1380,6 @@ numeric      : tINTEGER
                  result = -val[1] # TODO: pt_testcase
                }
 
-#  Token:variable - name (special and normal onces)
 variable     : tIDENTIFIER
              | tIVAR
              | tGVAR
@@ -1415,7 +1429,6 @@ superclass   : term {
                  result = nil;
                }
 
-#  f_arglist: Function Argument list for definitions
 f_arglist      : tLPAREN2 f_args opt_nl tRPAREN {
                    result = val[1];
                    lexer.state = :expr_beg
@@ -1570,8 +1583,6 @@ singleton     : var_ref {
                  result = val[2];
                }
 
-#  ListNode:assoc_list - list of hash values pairs, like assocs but also
-#    will accept ordinary list-style (e.g. a,b,c,d or a=>b,c=>d) [?nil]
 assoc_list    : none { #  [!nil]
                   result = s(:array)
                  }
@@ -1585,7 +1596,6 @@ assoc_list    : none { #  [!nil]
                   result = val[0];
                  }
 
-#  ListNode:assocs - list of hash value pairs (e.g. a => b, c => d)
 assocs        : assoc
               | assocs ',' assoc {
                   list = val[0].dup
@@ -1595,7 +1605,6 @@ assocs        : assoc
 #                  result = list_concat(val[0], val[2])
                 }
 
-#  ListNode:assoc - A single hash value pair (e.g. a => b)
 assoc         : arg_value tASSOC arg_value {
                   result = s(:array, val[0], val[2])
 #                  result = list_append(s(:array, val[0]), val[2])

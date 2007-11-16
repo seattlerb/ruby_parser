@@ -226,10 +226,22 @@ class RubyParser < Racc::Parser
   end
 
   def get_match_node lhs, rhs
-    if lhs.first == :lit and Regexp === lhs.last then
-      return s(:match2, lhs, rhs)
-    elsif rhs.first == :lit and Regexp === rhs.last then
-      return s(:match3, rhs, lhs)
+    if lhs then
+      case lhs[0]
+      when :dregx, :dregx_once then
+        return s(:match2, lhs, rhs)
+      when :lit then
+        return s(:match2, lhs, rhs) if Regexp === lhs.last
+      end
+    end
+
+    if rhs then
+      case rhs[0]
+      when :dregx, :dregx_once then
+        return s(:match3, rhs, lhs)
+      when :lit then
+        return s(:match3, rhs, lhs) if Regexp === rhs.last
+      end
     end
 
     return s(:call, lhs, :"=~", s(:array, rhs))
@@ -490,7 +502,7 @@ class RubyLexer
         return ' '
       end
       return :tSTRING_END unless func & STR_FUNC_REGEXP != 0
-      # HACK yylval.num = self.regx_options
+      self.yacc_value = self.regx_options
       return :tREGEXP_END
     end
 
@@ -522,6 +534,28 @@ class RubyLexer
     
     self.yacc_value = s(:str, token_buffer.join)
     return :tSTRING_CONTENT
+  end
+
+  def regx_options
+    kcode = 0;
+    options = []
+    bad = []
+
+    while c = nextc and c =~ /[a-z]/ do
+      case c
+      when /^[xmonesu]$/ then
+        options << c
+      else
+        bad << c
+      end
+    end
+    
+    pushback(c) if c
+    
+    rb_compile_error("unknown regexp option%s - %s" %
+                     [bad.size > 1 ? "s" : "", bad.join]) unless bad.empty?
+
+    return options.join
   end
 
   def tokadd_string(func, term, paren, buffer)
