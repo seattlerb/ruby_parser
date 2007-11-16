@@ -5,7 +5,7 @@ require 'racc/parser'
 $: << File.expand_path("~/Work/p4/zss/src/ParseTree/dev/lib")
 require 'sexp'
 
-def d s
+def d s # HACK
   warn s.inspect
 end
 
@@ -358,480 +358,6 @@ class RubyParser < Racc::Parser
 
 end
 
-class Environment
-
-  attr_reader :env
-
-  def initialize dyn = false
-    @dyn = []
-    @env = []
-    self.extend
-  end
-
-  def [] k
-    self.all[k]
-  end
-
-  def []= k, v
-    raise "no" if v == true
-    self.current[k] = v
-  end
-
-  def has_key? k
-    self.all.has_key? k
-  end
-
-  def all
-    @env.reverse.inject { |env, scope| env.merge scope }
-  end
-
-  def current
-    @env.first
-  end
-
-  def dynamic?
-    @dyn.any?
-  end
-
-  def dasgn_curr? name
-    (! has_key?(name) && @dyn.first) || current.has_key?(name)
-  end
-
-  def extend dyn = false
-    @dyn.unshift dyn
-    @env.unshift({})
-  end
-
-  def unextend
-    @dyn.shift
-    @env.shift
-    raise "You went too far unextending env" if @env.empty?
-  end
-
-  def scope
-    self.extend
-    begin
-      yield
-    ensure
-      self.unextend
-    end
-  end
-end
-
-class StringBuffer # TODO: remove
-  def initialize(n = nil)
-    @s = []
-  end
-
-  def << s
-    @s << s
-  end
-  alias :append :<<
-
-  def to_s
-    @s.join
-  end
-
-  def [](i)
-    self.to_s[i].chr
-  end
-  alias :char_at :[]
-
-  def size
-    @s.size
-  end
-  alias :length :size
-
-  def clear
-    @s.clear
-  end
-end
-
-class LexState
-  attr_accessor :debug
-
-  def initialize debug
-    self.debug = debug
-  end
-
-  def self.const_missing name # HACK
-    c = caller
-    warn "called #{name} on LexState: from #{c[0]}"
-    name.to_s.downcase.to_sym
-  end
-end
-
-class Symbol
-  def is_argument # TODO: phase this out
-    return self == :expr_arg || self == :expr_cmdarg
-  end
-end
-
-class SyntaxException < SyntaxError
-  def initialize(msg)
-    super(msg)
-  end
-end
-
-class StackState # TODO: nuke this fucker
-  attr_reader :stack
-
-  def inspect
-    "StackState(#{@name}, #{@stack.inspect})"
-  end
-
-  def initialize(name)
-    @name = name
-    @stack = [false]
-  end
-
-  def pop
-    raise if @stack.size == 0
-    self.stack.pop
-  end
-
-  def lexpop
-    raise if @stack.size == 0
-    a = self.stack.pop
-    b = self.stack.pop
-    self.stack.push(a || b)
-  end
-
-  def push val
-    raise if val != true and val != false
-    self.stack.push val
-  end
-
-  def is_in_state
-    self.stack.last
-  end
-end
-
-class StringIO # HACK: everything in here is a hack
-  alias :old_read :read
-  def read
-    c = self.getc
-    if c and c != 0 then
-      c.chr
-    else
-      ::RubyLexer::EOF
-    end
-  end
-
-  def peek expected
-    c = self.read
-    self.unread c
-    c == expected
-  end
-
-  def unread(c)
-    self.ungetc c[0] if c
-  end
-end
-
-class Tokens
-  def self.method_missing meth, *args
-    c = caller
-    warn "called #{meth} on Tokens: from #{c[0]}"
-    meth
-  end
-end
-
-class Keyword
-  class KWtable
-    attr_accessor :name, :id, :state
-    def initialize(name, id=[], state=nil)
-      @name = name
-      @id = id
-      @state = state
-    end
-
-    def id0
-      self.id.first
-    end
-
-    def id1
-      self.id.last
-    end
-  end
-
-  TOTAL_KEYWORDS  = 40
-  MIN_WORD_LENGTH =  2
-  MAX_WORD_LENGTH =  8
-  MIN_HASH_VALUE  =  6
-  MAX_HASH_VALUE  = 55
-  # maximum key range = 50, duplicates = 0
-
-  EXPR_BEG    = LexState::EXPR_BEG    # ignore newline, +/- is a sign.
-  EXPR_END    = LexState::EXPR_END    # newline significant, +/- is a operator.
-  EXPR_ARG    = LexState::EXPR_ARG    # newline significant, +/- is a operator.
-  EXPR_CMDARG = LexState::EXPR_CMDARG # newline significant, +/- is a operator.
-  EXPR_ENDARG = LexState::EXPR_ENDARG # newline significant, +/- is a operator.
-  EXPR_MID    = LexState::EXPR_MID    # newline significant, +/- is a operator.
-  EXPR_FNAME  = LexState::EXPR_FNAME  # ignore newline, no reserved words.
-  EXPR_DOT    = LexState::EXPR_DOT    # right after . or ::, no reserved words.
-  EXPR_CLASS  = LexState::EXPR_CLASS  # immediate after class, no here document.
-
-  # TODO: remove this and inline below
-  K_CLASS          = Tokens.kCLASS
-  K_MODULE         = Tokens.kMODULE
-  K_DEF            = Tokens.kDEF
-  K_UNDEF          = Tokens.kUNDEF
-  K_BEGIN          = Tokens.kBEGIN
-  K_RESCUE         = Tokens.kRESCUE
-  K_ENSURE         = Tokens.kENSURE
-  K_END            = Tokens.kEND
-  K_IF             = Tokens.kIF
-  K_UNLESS         = Tokens.kUNLESS
-  K_THEN           = Tokens.kTHEN
-  K_ELSIF          = Tokens.kELSIF
-  K_ELSE           = Tokens.kELSE
-  K_CASE           = Tokens.kCASE
-  K_WHEN           = Tokens.kWHEN
-  K_WHILE          = Tokens.kWHILE
-  K_UNTIL          = Tokens.kUNTIL
-  K_FOR            = Tokens.kFOR
-  K_BREAK          = Tokens.kBREAK
-  K_NEXT           = Tokens.kNEXT
-  K_REDO           = Tokens.kREDO
-  K_RETRY          = Tokens.kRETRY
-  K_IN             = Tokens.kIN
-  K_DO             = Tokens.kDO
-  K_DO_COND        = Tokens.kDO_COND
-  K_DO_BLOCK       = Tokens.kDO_BLOCK
-  K_RETURN         = Tokens.kRETURN
-  K_YIELD          = Tokens.kYIELD
-  K_SUPER          = Tokens.kSUPER
-  K_SELF           = Tokens.kSELF
-  K_NIL            = Tokens.kNIL
-  K_TRUE           = Tokens.kTRUE
-  K_FALSE          = Tokens.kFALSE
-  K_AND            = Tokens.kAND
-  K_OR             = Tokens.kOR
-  K_NOT            = Tokens.kNOT
-  K_IF_MOD         = Tokens.kIF_MOD
-  K_UNLESS_MOD     = Tokens.kUNLESS_MOD
-  K_WHILE_MOD      = Tokens.kWHILE_MOD
-  K_UNTIL_MOD      = Tokens.kUNTIL_MOD
-  K_RESCUE_MOD     = Tokens.kRESCUE_MOD
-  K_ALIAS          = Tokens.kALIAS
-  K_DEFINED        = Tokens.kDEFINED
-  K_lBEGIN         = Tokens.klBEGIN
-  K_lEND           = Tokens.klEND
-  K___LINE__       = Tokens.k__LINE__
-  K___FILE__       = Tokens.k__FILE__
-  T_IDENTIFIER     = Tokens.tIDENTIFIER
-  T_FID            = Tokens.tFID
-  T_GVAR           = Tokens.tGVAR
-  T_IVAR           = Tokens.tIVAR
-  T_CONSTANT       = Tokens.tCONSTANT
-  T_CVAR           = Tokens.tCVAR
-  T_INTEGER        = Tokens.tINTEGER
-  T_FLOAT          = Tokens.tFLOAT
-  T_STRING_CONTENT = Tokens.tSTRING_CONTENT
-  T_NTH_REF        = Tokens.tNTH_REF
-  T_BACK_REF       = Tokens.tBACK_REF
-  T_REGEXP_END     = Tokens.tREGEXP_END
-  T_UPLUS          = Tokens.tUPLUS
-  T_UMINUS         = Tokens.tUMINUS
-  T_POW            = Tokens.tPOW
-  T_CMP            = Tokens.tCMP
-  T_EQ             = Tokens.tEQ
-  T_EQQ            = Tokens.tEQQ
-  T_NEQ            = Tokens.tNEQ
-  T_GEQ            = Tokens.tGEQ
-  T_LEQ            = Tokens.tLEQ
-  T_ANDOP          = Tokens.tANDOP
-  T_OROP           = Tokens.tOROP
-  T_MATCH          = Tokens.tMATCH
-  T_NMATCH         = Tokens.tNMATCH
-  T_DOT2           = Tokens.tDOT2
-  T_DOT3           = Tokens.tDOT3
-  T_AREF           = Tokens.tAREF
-  T_ASET           = Tokens.tASET
-  T_LSHFT          = Tokens.tLSHFT
-  T_RSHFT          = Tokens.tRSHFT
-  T_COLON2         = Tokens.tCOLON2
-  T_COLON3         = Tokens.tCOLON3
-  T_OP_ASGN        = Tokens.tOP_ASGN
-  T_ASSOC          = Tokens.tASSOC
-  T_LPAREN         = Tokens.tLPAREN
-  T_LPAREN_ARG     = Tokens.tLPAREN_ARG
-  T_RPAREN         = Tokens.tRPAREN
-  T_LBRACK         = Tokens.tLBRACK
-  T_LBRACE         = Tokens.tLBRACE
-  T_LBRACE_ARG     = Tokens.tLBRACE_ARG
-  T_STAR           = Tokens.tSTAR
-  T_AMPER          = Tokens.tAMPER
-  T_SYMBEG         = Tokens.tSYMBEG
-  T_STRING_BEG     = Tokens.tSTRING_BEG
-  T_XSTRING_BEG    = Tokens.tXSTRING_BEG
-  T_REGEXP_BEG     = Tokens.tREGEXP_BEG
-  T_WORDS_BEG      = Tokens.tWORDS_BEG
-  T_QWORDS_BEG     = Tokens.tQWORDS_BEG
-  T_STRING_DBEG    = Tokens.tSTRING_DBEG
-  T_STRING_DVAR    = Tokens.tSTRING_DVAR
-  T_STRING_END     = Tokens.tSTRING_END
-  T_LOWEST         = Tokens.tLOWEST
-  T_UMINUS_NUM     = Tokens.tUMINUS_NUM
-  T_LAST_TOKEN     = Tokens.tLAST_TOKEN
-
-  def self.hash(str, len)
-    asso_values = [
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 11, 56, 56, 36, 56,  1, 37,
-                   31,  1, 56, 56, 56, 56, 29, 56,  1, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56,  1, 56, 32,  1,  2,
-                   1,   1,  4, 23, 56, 17, 56, 20,  9,  2,
-                   9,  26, 14, 56,  5,  1,  1, 16, 56, 21,
-                   20,  9, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56
-                  ]
-    hval = len;
-
-    case hval
-    when 2,1 then
-      hval += asso_values[str[0]];
-    else
-      hval += asso_values[str[2]];
-      hval += asso_values[str[0]];
-    end
-
-    hval += asso_values[str[len - 1]];
-    return hval
-  end
-
-  def self.keyword(str, len = str.size)
-    wordlist = [
-                [""], [""], [""], [""], [""], [""],
-                ["end",       [K_END, K_END], EXPR_END],
-                ["else",      [K_ELSE, K_ELSE], EXPR_BEG],
-                ["case",      [K_CASE, K_CASE], EXPR_BEG],
-                ["ensure",    [K_ENSURE, K_ENSURE], EXPR_BEG],
-                ["module",    [K_MODULE, K_MODULE], EXPR_BEG],
-                ["elsif",     [K_ELSIF, K_ELSIF], EXPR_BEG],
-                ["def",       [K_DEF, K_DEF], EXPR_FNAME],
-                ["rescue",    [K_RESCUE, K_RESCUE_MOD], EXPR_MID],
-                ["not",       [K_NOT, K_NOT], EXPR_BEG],
-                ["then",      [K_THEN, K_THEN], EXPR_BEG],
-                ["yield",     [K_YIELD, K_YIELD], EXPR_ARG],
-                ["for",       [K_FOR, K_FOR], EXPR_BEG],
-                ["self",      [K_SELF, K_SELF], EXPR_END],
-                ["false",     [K_FALSE, K_FALSE], EXPR_END],
-                ["retry",     [K_RETRY, K_RETRY], EXPR_END],
-                ["return",    [K_RETURN, K_RETURN], EXPR_MID],
-                ["true",      [K_TRUE, K_TRUE], EXPR_END],
-                ["if",        [K_IF, K_IF_MOD], EXPR_BEG],
-                ["defined?",  [K_DEFINED, K_DEFINED], EXPR_ARG],
-                ["super",     [K_SUPER, K_SUPER], EXPR_ARG],
-                ["undef",     [K_UNDEF, K_UNDEF], EXPR_FNAME],
-                ["break",     [K_BREAK, K_BREAK], EXPR_MID],
-                ["in",        [K_IN, K_IN], EXPR_BEG],
-                ["do",        [K_DO, K_DO], EXPR_BEG],
-                ["nil",       [K_NIL, K_NIL], EXPR_END],
-                ["until",     [K_UNTIL, K_UNTIL_MOD], EXPR_BEG],
-                ["unless",    [K_UNLESS, K_UNLESS_MOD], EXPR_BEG],
-                ["or",        [K_OR, K_OR], EXPR_BEG],
-                ["next",      [K_NEXT, K_NEXT], EXPR_MID],
-                ["when",      [K_WHEN, K_WHEN], EXPR_BEG],
-                ["redo",      [K_REDO, K_REDO], EXPR_END],
-                ["and",       [K_AND, K_AND], EXPR_BEG],
-                ["begin",     [K_BEGIN, K_BEGIN], EXPR_BEG],
-                ["__LINE__",  [K___LINE__, K___LINE__], EXPR_END],
-                ["class",     [K_CLASS, K_CLASS], EXPR_CLASS],
-                ["__FILE__",  [K___FILE__, K___FILE__], EXPR_END],
-                ["END",       [K_lEND, K_lEND], EXPR_END],
-                ["BEGIN",     [K_lBEGIN, K_lBEGIN], EXPR_END],
-                ["while",     [K_WHILE, K_WHILE_MOD], EXPR_BEG],
-                [""], [""], [""], [""], [""], [""], [""], [""], [""],
-                [""],
-                ["alias", [K_ALIAS, K_ALIAS], EXPR_FNAME]
-               ].map { |args| KWtable.new(*args) }
-
-    if (len <= MAX_WORD_LENGTH && len >= MIN_WORD_LENGTH) then
-      key = hash(str, len)
-      if (key <= MAX_HASH_VALUE && key >= 0) then
-        s = wordlist[key].name;
-        return wordlist[key] if str == s
-      end
-    end
-
-    return nil
-  end
-end
-
-############################################################
-# HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-
-class Sexp
-  def value
-    raise "multi item sexp" if size > 2
-    last
-  end
-
-  def node_type
-    first
-  end
-end
-
-def bitch
-  c = caller
-  m = c[0].split.last
-  warn "bitch: you shouldn't be doing #{m}: from #{c[1]}"
-end
-
-class NilClass
-  def method_missing msg, *args # HACK
-    c = caller
-    warn "called #{msg} on nil: from #{c[0]}"
-    nil
-  end
-end
-
-class Token
-  attr_accessor :args
-  def initialize(token)
-    @args = Array(token)
-  end
-
-  def value # TODO: eventually phase this out (or make it official)
-    self.args.first
-  end
-
-  def first # HACK
-    self.args.first
-  end
-
-  def inspect
-    "t(#{args.join.inspect})"
-  end
-
-  def to_sym
-    self.value.to_sym
-  end
-end
-
-# END HACK
-############################################################
-
 class RubyLexer
   attr_accessor :command_start
   attr_accessor :cmdarg
@@ -948,7 +474,7 @@ class RubyLexer
     func = string_type
     paren = open
 
-    return Tokens.tSTRING_END unless func
+    return :tSTRING_END unless func
 
     c = nextc
 
@@ -965,9 +491,9 @@ class RubyLexer
         quote[1] = nil
         return ' '
       end
-      return Tokens.tSTRING_END unless func & STR_FUNC_REGEXP != 0
+      return :tSTRING_END unless func & STR_FUNC_REGEXP != 0
       # HACK yylval.num = self.regx_options
-      return Tokens.tREGEXP_END
+      return :tREGEXP_END
     end
 
     if space then
@@ -981,9 +507,9 @@ class RubyLexer
       case c = nextc
       when '$', '@' then
         pushback(c)
-        return Tokens.tSTRING_DVAR
+        return :tSTRING_DVAR
       when '{' then
-        return Tokens.tSTRING_DBEG
+        return :tSTRING_DBEG
       end
       token_buffer << '#'
     end
@@ -993,11 +519,11 @@ class RubyLexer
     if (tokadd_string(func, term, paren, token_buffer) == -1) then
       # ruby_sourceline = nd_line(quote);
       # HACK rb_compile_error("unterminated string meets end of file");
-      return Tokens.tSTRING_END;
+      return :tSTRING_END;
     end
     
     self.yacc_value = s(:str, token_buffer.join)
-    return Tokens.tSTRING_CONTENT
+    return :tSTRING_CONTENT
   end
 
   def tokadd_string(func, term, paren, buffer)
@@ -1234,29 +760,29 @@ class RubyLexer
             nnd
           end
 
-    string_type, token_type = STR_DQUOTE, Tokens.tSTRING_BEG
+    string_type, token_type = STR_DQUOTE, :tSTRING_BEG
     self.yacc_value = Token.new("%#{c}#{beg}")
 
     case (c)
     when 'Q' then
       self.yacc_value = Token.new("%#{short_hand ? nnd : c + beg}")
     when 'q' then
-      string_type, token_type = STR_SQUOTE, Tokens.tSTRING_BEG
+      string_type, token_type = STR_SQUOTE, :tSTRING_BEG
     when 'W' then
-      string_type, token_type = STR_DQUOTE | STR_FUNC_QWORDS, Tokens.tWORDS_BEG
+      string_type, token_type = STR_DQUOTE | STR_FUNC_QWORDS, :tWORDS_BEG
       begin c = src.read end while c =~ /\s/
       src.unread(c)
     when 'w' then
-      string_type, token_type = STR_SQUOTE | STR_FUNC_QWORDS, Tokens.tQWORDS_BEG
+      string_type, token_type = STR_SQUOTE | STR_FUNC_QWORDS, :tQWORDS_BEG
       begin c = src.read end while c =~ /\s/
       src.unread(c)
     when 'x' then
-      string_type, token_type = STR_XQUOTE, Tokens.tXSTRING_BEG
+      string_type, token_type = STR_XQUOTE, :tXSTRING_BEG
     when 'r' then
-      string_type, token_type = STR_REGEXP, Tokens.tREGEXP_BEG
+      string_type, token_type = STR_REGEXP, :tREGEXP_BEG
     when 's' then
-      string_type, token_type = STR_SSYM, Tokens.tSYMBEG
-      self.lex_state = LexState::EXPR_FNAME
+      string_type, token_type = STR_SSYM, :tSYMBEG
+      self.lex_state = :expr_fname
     else
       raise SyntaxException("Unknown type of %string. Expected 'Q', 'q', 'w', 'x', 'r' or any non letter character, but found '" + c + "'.")
     end
@@ -1316,11 +842,11 @@ class RubyLexer
 
     if term == '`' then
       self.yacc_value = Token.new("`")
-      return Tokens.tXSTRING_BEG
+      return :tXSTRING_BEG
     end
 
     self.yacc_value = Token.new("\"")
-    return Tokens.tSTRING_BEG
+    return :tSTRING_BEG
   end
 
   def arg_ambiguous
@@ -1370,15 +896,15 @@ class RubyLexer
       token = nil
       if lex_strterm[0] == :heredoc then
         token = here_document(lex_strterm)
-        if token == Tokens.tSTRING_END then
+        if token == :tSTRING_END then
           self.lex_strterm = nil
-          self.lex_state = LexState::EXPR_END
+          self.lex_state = :expr_end
         end
       else
         token = parse_string(lex_strterm)
-        if (token == Tokens.tSTRING_END || token == Tokens.tREGEXP_END) then
+        if (token == :tSTRING_END || token == :tREGEXP_END) then
           self.lex_strterm = nil
-          self.lex_state = LexState::EXPR_END
+          self.lex_state = :expr_end
         end
       end
 
@@ -1407,68 +933,68 @@ class RubyLexer
 
         src.unread c
 
-        if (lex_state == LexState::EXPR_BEG   ||
-            lex_state == LexState::EXPR_FNAME ||
-            lex_state == LexState::EXPR_DOT   ||
-            lex_state == LexState::EXPR_CLASS) then
+        if (lex_state == :expr_beg   ||
+            lex_state == :expr_fname ||
+            lex_state == :expr_dot   ||
+            lex_state == :expr_class) then
           next
         end
 
         self.command_start = true
-        self.lex_state = LexState::EXPR_BEG
+        self.lex_state = :expr_beg
         return "\n"
       when '*' then
         c = src.read
         if c == '*' then
           c = src.read
           if c == '=' then
-            self.lex_state = LexState::EXPR_BEG
+            self.lex_state = :expr_beg
             self.yacc_value = Token.new("**")
-            return Tokens.tOP_ASGN
+            return :tOP_ASGN
           end
           src.unread c
           self.yacc_value = Token.new("**")
-          c = Tokens.tPOW
+          c = :tPOW
         else
           if c == '=' then
-            self.lex_state = LexState::EXPR_BEG
+            self.lex_state = :expr_beg
             self.yacc_value = Token.new("*")
-            return Tokens.tOP_ASGN
+            return :tOP_ASGN
           end
           src.unread c
           if lex_state.is_argument && space_seen && c !~ /\s/ then
             warnings.warning("`*' interpreted as argument prefix")
-            c = Tokens.tSTAR
-          elsif (lex_state == LexState::EXPR_BEG ||
-                 lex_state == LexState::EXPR_MID) then
-            c = Tokens.tSTAR
+            c = :tSTAR
+          elsif (lex_state == :expr_beg ||
+                 lex_state == :expr_mid) then
+            c = :tSTAR
           else
-            c = Tokens.tSTAR2
+            c = :tSTAR2
           end
           self.yacc_value = Token.new("*")
         end
 
-        if (lex_state == LexState::EXPR_FNAME ||
-            lex_state == LexState::EXPR_DOT) then
-          self.lex_state = LexState::EXPR_ARG
+        if (lex_state == :expr_fname ||
+            lex_state == :expr_dot) then
+          self.lex_state = :expr_arg
         else
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
         end
 
         return c
       when '!' then
-        self.lex_state = LexState::EXPR_BEG
+        self.lex_state = :expr_beg
         if ((c = src.read) == '=') then
           self.yacc_value = Token.new("!=")
-          return Tokens.tNEQ
+          return :tNEQ
         end
         if (c == '~') then
           self.yacc_value = Token.new("!~")
-          return Tokens.tNMATCH
+          return :tNMATCH
         end
         src.unread(c)
         self.yacc_value = Token.new("!")
-        return Tokens.tBANG
+        return :tBANG
       when '=' then
         # documentation nodes
 #         if (src.was_begin_of_line) then
@@ -1512,10 +1038,10 @@ class RubyLexer
 #           end
 #         end
 
-        if (lex_state == LexState::EXPR_FNAME || lex_state == LexState::EXPR_DOT) then
-          self.lex_state = LexState::EXPR_ARG
+        if (lex_state == :expr_fname || lex_state == :expr_dot) then
+          self.lex_state = :expr_arg
         else
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
         end
 
         c = src.read
@@ -1523,18 +1049,18 @@ class RubyLexer
           c = src.read
           if (c == '=') then
             self.yacc_value = Token.new("===")
-            return Tokens.tEQQ
+            return :tEQQ
           end
           src.unread(c)
           self.yacc_value = Token.new("==")
-          return Tokens.tEQ
+          return :tEQ
         end
         if (c == '~') then
           self.yacc_value = Token.new("=~")
-          return Tokens.tMATCH
+          return :tMATCH
         elsif (c == '>') then
           self.yacc_value = Token.new("=>")
-          return Tokens.tASSOC
+          return :tASSOC
         end
         src.unread(c)
         self.yacc_value = Token.new("=")
@@ -1542,95 +1068,95 @@ class RubyLexer
       when '<' then
         c = src.read
         if (c == '<' &&
-            lex_state != LexState::EXPR_END &&
-            lex_state != LexState::EXPR_DOT &&
-            lex_state != LexState::EXPR_ENDARG &&
-            lex_state != LexState::EXPR_CLASS &&
+            lex_state != :expr_end &&
+            lex_state != :expr_dot &&
+            lex_state != :expr_endarg &&
+            lex_state != :expr_class &&
             (!lex_state.is_argument || space_seen)) then
           tok = here_document_identifier
           return tok unless tok == 0
         end
-        if (lex_state == LexState::EXPR_FNAME ||
-            lex_state == LexState::EXPR_DOT) then
-          self.lex_state = LexState::EXPR_ARG
+        if (lex_state == :expr_fname ||
+            lex_state == :expr_dot) then
+          self.lex_state = :expr_arg
         else
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
         end
         if (c == '=') then
           if ((c = src.read) == '>') then
             self.yacc_value = Token.new("<=>")
-            return Tokens.tCMP
+            return :tCMP
           end
           src.unread c
           self.yacc_value = Token.new("<=")
-          return Tokens.tLEQ
+          return :tLEQ
         end
         if (c == '<') then
           if ((c = src.read) == '=') then
-            self.lex_state = LexState::EXPR_BEG
+            self.lex_state = :expr_beg
             self.yacc_value = Token.new("\<\<")
-            return Tokens.tOP_ASGN
+            return :tOP_ASGN
           end
           src.unread(c)
           self.yacc_value = Token.new("<<")
-          return Tokens.tLSHFT
+          return :tLSHFT
         end
         self.yacc_value = Token.new("<")
         src.unread(c)
-        return Tokens.tLT
+        return :tLT
       when '>' then
-        if (lex_state == LexState::EXPR_FNAME ||
-            lex_state == LexState::EXPR_DOT) then
-          self.lex_state = LexState::EXPR_ARG
+        if (lex_state == :expr_fname ||
+            lex_state == :expr_dot) then
+          self.lex_state = :expr_arg
         else
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
         end
 
         if ((c = src.read) == '=') then
           self.yacc_value = Token.new(">=")
-          return Tokens.tGEQ
+          return :tGEQ
         end
         if (c == '>') then
           if ((c = src.read) == '=') then
-            self.lex_state = LexState::EXPR_BEG
+            self.lex_state = :expr_beg
             self.yacc_value = Token.new(">>")
-            return Tokens.tOP_ASGN
+            return :tOP_ASGN
           end
           src.unread c
           self.yacc_value = Token.new(">>")
-          return Tokens.tRSHFT
+          return :tRSHFT
         end
         src.unread c
         self.yacc_value = Token.new(">")
-        return Tokens.tGT
+        return :tGT
       when '"' then
         self.lex_strterm = s(:strterm, STR_DQUOTE, '"', "\0") # TODO: question this
         self.yacc_value = Token.new("\"")
-        return Tokens.tSTRING_BEG
+        return :tSTRING_BEG
       when '`' then
         self.yacc_value = Token.new("`")
-        if (lex_state == LexState::EXPR_FNAME) then
-          self.lex_state = LexState::EXPR_END
-          return Tokens.tBACK_REF2
+        if (lex_state == :expr_fname) then
+          self.lex_state = :expr_end
+          return :tBACK_REF2
         end
-        if (lex_state == LexState::EXPR_DOT) then
+        if (lex_state == :expr_dot) then
           if (command_state) then
-            self.lex_state = LexState::EXPR_CMDARG
+            self.lex_state = :expr_cmdarg
           else
-            self.lex_state = LexState::EXPR_ARG
+            self.lex_state = :expr_arg
           end
-          return Tokens.tBACK_REF2
+          return :tBACK_REF2
         end
         self.lex_strterm = s(:strterm, STR_XQUOTE, '`', "\0")
-        return Tokens.tXSTRING_BEG
+        return :tXSTRING_BEG
       when '\'' then
         self.lex_strterm = s(:strterm, STR_SQUOTE, '\'', "\0")
         self.yacc_value = Token.new("'")
-        return Tokens.tSTRING_BEG
+        return :tSTRING_BEG
       when '?' then
-        if (lex_state == LexState::EXPR_END ||
-            lex_state == LexState::EXPR_ENDARG) then
-          self.lex_state = LexState::EXPR_BEG
+        if (lex_state == :expr_end ||
+            lex_state == :expr_endarg) then
+          self.lex_state = :expr_beg
           self.yacc_value = Token.new("?")
           return '?'
         end
@@ -1664,213 +1190,213 @@ class RubyLexer
             end
           end
           src.unread c
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
           self.yacc_value = Token.new("?")
           return '?'
 #         elsif (ismbchar(c)) then
 #           rb_warn("multibyte character literal not supported yet; use ?\\" + c)
 #           support.unread c
-#           self.lex_state = LexState::EXPR_BEG
+#           self.lex_state = :expr_beg
 #           return '?'
         elsif c =~ /\w/ && ! src.peek("\n") && is_next_identchar then
           src.unread c
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
           self.yacc_value = Token.new("?")
           return '?'
         elsif (c == "\\") then
           c = src.read_escape
         end
         c &= 0xff
-        self.lex_state = LexState::EXPR_END
+        self.lex_state = :expr_end
         self.yacc_value = c.to_i
-        return Tokens.tINTEGER
+        return :tINTEGER
       when '&' then
         if ((c = src.read) == '&') then
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
           if ((c = src.read) == '=') then
             self.yacc_value = Token.new("&&")
-            self.lex_state = LexState::EXPR_BEG
-            return Tokens.tOP_ASGN
+            self.lex_state = :expr_beg
+            return :tOP_ASGN
           end
           src.unread c
           self.yacc_value = Token.new("&&")
-          return Tokens.tANDOP
+          return :tANDOP
         elsif (c == '=') then
           self.yacc_value = Token.new("&")
-          self.lex_state = LexState::EXPR_BEG
-          return Tokens.tOP_ASGN
+          self.lex_state = :expr_beg
+          return :tOP_ASGN
         end
 
         src.unread c
 
         if lex_state.is_argument && space_seen && c !~ /\s/ then
           warnings.warning("`&' interpreted as argument prefix")
-          c = Tokens.tAMPER
-        elsif (lex_state == LexState::EXPR_BEG || lex_state == LexState::EXPR_MID) then
-          c = Tokens.tAMPER
+          c = :tAMPER
+        elsif (lex_state == :expr_beg || lex_state == :expr_mid) then
+          c = :tAMPER
         else
-          c = Tokens.tAMPER2
+          c = :tAMPER2
         end
 
-        if (lex_state == LexState::EXPR_FNAME ||
-            lex_state == LexState::EXPR_DOT) then
-          self.lex_state = LexState::EXPR_ARG
+        if (lex_state == :expr_fname ||
+            lex_state == :expr_dot) then
+          self.lex_state = :expr_arg
         else
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
         end
         self.yacc_value = Token.new("&")
         return c
       when '|' then
         if ((c = src.read) == '|') then
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
           if ((c = src.read) == '=') then
-            self.lex_state = LexState::EXPR_BEG
+            self.lex_state = :expr_beg
             self.yacc_value = Token.new("||")
-            return Tokens.tOP_ASGN
+            return :tOP_ASGN
           end
           src.unread c
           self.yacc_value = Token.new("||")
-          return Tokens.tOROP
+          return :tOROP
         end
         if (c == '=') then
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
           self.yacc_value = Token.new("|")
-          return Tokens.tOP_ASGN
+          return :tOP_ASGN
         end
-        if (lex_state == LexState::EXPR_FNAME ||
-            lex_state == LexState::EXPR_DOT) then
-          self.lex_state = LexState::EXPR_ARG
+        if (lex_state == :expr_fname ||
+            lex_state == :expr_dot) then
+          self.lex_state = :expr_arg
         else
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
         end
         src.unread c
         self.yacc_value = Token.new("|")
-        return Tokens.tPIPE
+        return :tPIPE
       when '+' then
         c = src.read
-        if (lex_state == LexState::EXPR_FNAME ||
-            lex_state == LexState::EXPR_DOT) then
-          self.lex_state = LexState::EXPR_ARG
+        if (lex_state == :expr_fname ||
+            lex_state == :expr_dot) then
+          self.lex_state = :expr_arg
           if (c == '@') then
             self.yacc_value = Token.new("+@")
-            return Tokens.tUPLUS
+            return :tUPLUS
           end
           src.unread c
           self.yacc_value = Token.new("+")
-          return Tokens.tPLUS
+          return :tPLUS
         end
 
         if (c == '=') then
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
           self.yacc_value = Token.new("+")
-          return Tokens.tOP_ASGN
+          return :tOP_ASGN
         end
 
-        if (lex_state == LexState::EXPR_BEG || lex_state == LexState::EXPR_MID ||
+        if (lex_state == :expr_beg || lex_state == :expr_mid ||
             (lex_state.is_argument && space_seen && c !~ /\s/)) then
           arg_ambiguous if lex_state.is_argument
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
           src.unread c
           if c =~ /\d/ then
             c = '+'
             return parse_number(c)
           end
           self.yacc_value = Token.new("+")
-          return Tokens.tUPLUS
+          return :tUPLUS
         end
-        self.lex_state = LexState::EXPR_BEG
+        self.lex_state = :expr_beg
         src.unread c
         self.yacc_value = Token.new("+")
-        return Tokens.tPLUS
+        return :tPLUS
       when '-' then
         c = src.read
-        if (lex_state == LexState::EXPR_FNAME || lex_state == LexState::EXPR_DOT) then
-          self.lex_state = LexState::EXPR_ARG
+        if (lex_state == :expr_fname || lex_state == :expr_dot) then
+          self.lex_state = :expr_arg
           if (c == '@') then
             self.yacc_value = Token.new("-@")
-            return Tokens.tUMINUS
+            return :tUMINUS
           end
           src.unread c
           self.yacc_value = Token.new("-")
-          return Tokens.tMINUS
+          return :tMINUS
         end
         if (c == '=') then
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
           self.yacc_value = Token.new("-")
-          return Tokens.tOP_ASGN
+          return :tOP_ASGN
         end
-        if (lex_state == LexState::EXPR_BEG || lex_state == LexState::EXPR_MID ||
+        if (lex_state == :expr_beg || lex_state == :expr_mid ||
             (lex_state.is_argument && space_seen && c !~ /\s/)) then
           arg_ambiguous if lex_state.is_argument
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
           src.unread c
           self.yacc_value = Token.new("-")
           if c =~ /\d/ then
-            return Tokens.tUMINUS_NUM
+            return :tUMINUS_NUM
           end
-          return Tokens.tUMINUS
+          return :tUMINUS
         end
-        self.lex_state = LexState::EXPR_BEG
+        self.lex_state = :expr_beg
         src.unread c
         self.yacc_value = Token.new("-")
-        return Tokens.tMINUS
+        return :tMINUS
       when '.' then
-        self.lex_state = LexState::EXPR_BEG
+        self.lex_state = :expr_beg
         if ((c = src.read) == '.') then
           if ((c = src.read) == '.') then
             self.yacc_value = Token.new("...")
-            return Tokens.tDOT3
+            return :tDOT3
           end
           src.unread c
           self.yacc_value = Token.new("..")
-          return Tokens.tDOT2
+          return :tDOT2
         end
         src.unread c
         if c =~ /\d/ then
           raise SyntaxException("no .<digit> floating literal anymore put 0 before dot")
         end
-        self.lex_state = LexState::EXPR_DOT
+        self.lex_state = :expr_dot
         self.yacc_value = Token.new(".")
-        return Tokens.tDOT
+        return :tDOT
       when /[0-9]/ then
         return parse_number(c)
       when ')' then # REFACTOR: omg this is lame... next 3 are all the same
         cond.lexpop
         cmdarg.lexpop
-        self.lex_state = LexState::EXPR_END
+        self.lex_state = :expr_end
         self.yacc_value = Token.new(")")
-        return Tokens.tRPAREN
+        return :tRPAREN
       when ']' then
         cond.lexpop
         cmdarg.lexpop
-        self.lex_state = LexState::EXPR_END
+        self.lex_state = :expr_end
         self.yacc_value = Token.new("]")
-        return Tokens.tRBRACK
+        return :tRBRACK
       when '}' then
         cond.lexpop
         cmdarg.lexpop
-        self.lex_state = LexState::EXPR_END
+        self.lex_state = :expr_end
         self.yacc_value = Token.new("end")
-        return Tokens.tRCURLY
+        return :tRCURLY
       when ':' then
         c = src.read
         if (c == ':') then
-          if (lex_state == LexState::EXPR_BEG ||
-              lex_state == LexState::EXPR_MID ||
-              lex_state == LexState::EXPR_CLASS ||
+          if (lex_state == :expr_beg ||
+              lex_state == :expr_mid ||
+              lex_state == :expr_class ||
               (lex_state.is_argument && space_seen)) then
-            self.lex_state = LexState::EXPR_BEG
+            self.lex_state = :expr_beg
             self.yacc_value = Token.new("::")
-            return Tokens.tCOLON3
+            return :tCOLON3
           end
-          self.lex_state = LexState::EXPR_DOT
+          self.lex_state = :expr_dot
           self.yacc_value = Token.new(":")
-          return Tokens.tCOLON2
+          return :tCOLON2
         end
-        if (lex_state == LexState::EXPR_END ||
-            lex_state == LexState::EXPR_ENDARG || c =~ /\s/) then
+        if (lex_state == :expr_end ||
+            lex_state == :expr_endarg || c =~ /\s/) then
           src.unread c
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
           self.yacc_value = Token.new(":")
           return ':'
         end
@@ -1882,21 +1408,21 @@ class RubyLexer
         else
           src.unread c
         end
-        self.lex_state = LexState::EXPR_FNAME
+        self.lex_state = :expr_fname
         self.yacc_value = Token.new(":")
-        return Tokens.tSYMBEG
+        return :tSYMBEG
       when '/' then
-        if (lex_state == LexState::EXPR_BEG ||
-            lex_state == LexState::EXPR_MID) then
+        if (lex_state == :expr_beg ||
+            lex_state == :expr_mid) then
           self.lex_strterm = s(:strterm, STR_REGEXP, '/', "\0")
           self.yacc_value = Token.new("/")
-          return Tokens.tREGEXP_BEG
+          return :tREGEXP_BEG
         end
 
         if ((c = src.read) == '=') then
           self.yacc_value = Token.new("/")
-          self.lex_state = LexState::EXPR_BEG
-          return Tokens.tOP_ASGN
+          self.lex_state = :expr_beg
+          return :tOP_ASGN
         end
         src.unread c
         if (lex_state.is_argument && space_seen) then
@@ -1904,111 +1430,111 @@ class RubyLexer
             arg_ambiguous
             self.lex_strterm = s(:strterm, STR_REGEXP, '/', "\0")
             self.yacc_value = Token.new("/")
-            return Tokens.tREGEXP_BEG
+            return :tREGEXP_BEG
           end
         end
-        if (lex_state == LexState::EXPR_FNAME ||
-            lex_state == LexState::EXPR_DOT) then
-          self.lex_state = LexState::EXPR_ARG
+        if (lex_state == :expr_fname ||
+            lex_state == :expr_dot) then
+          self.lex_state = :expr_arg
         else
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
         end
         self.yacc_value = Token.new("/")
-        return Tokens.tDIVIDE
+        return :tDIVIDE
       when '^' then
         if ((c = src.read) == '=') then
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
           self.yacc_value = Token.new("^")
-          return Tokens.tOP_ASGN
+          return :tOP_ASGN
         end
-        if (lex_state == LexState::EXPR_FNAME ||
-            self.lex_state == LexState::EXPR_DOT) then
-          self.lex_state = LexState::EXPR_ARG
+        if (lex_state == :expr_fname ||
+            self.lex_state == :expr_dot) then
+          self.lex_state = :expr_arg
         else
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
         end
         src.unread c
         self.yacc_value = Token.new("^")
-        return Tokens.tCARET
+        return :tCARET
       when ';' then
         self.command_start = true
       when ',' then
-        self.lex_state = LexState::EXPR_BEG
+        self.lex_state = :expr_beg
         self.yacc_value = Token.new(",")
         return c
       when '~' then
-        if (lex_state == LexState::EXPR_FNAME ||
-            lex_state == LexState::EXPR_DOT) then
+        if (lex_state == :expr_fname ||
+            lex_state == :expr_dot) then
           if ((c = src.read) != '@') then
             src.unread c
           end
         end
-        if (lex_state == LexState::EXPR_FNAME ||
-            lex_state == LexState::EXPR_DOT) then
-          self.lex_state = LexState::EXPR_ARG
+        if (lex_state == :expr_fname ||
+            lex_state == :expr_dot) then
+          self.lex_state = :expr_arg
         else
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
         end
         self.yacc_value = Token.new("~")
-        return Tokens.tTILDE
+        return :tTILDE
       when '(' then
-        c = Tokens.tLPAREN2
+        c = :tLPAREN2
         self.command_start = true
-        if lex_state == LexState::EXPR_BEG || lex_state == LexState::EXPR_MID then
-          c = Tokens.tLPAREN
+        if lex_state == :expr_beg || lex_state == :expr_mid then
+          c = :tLPAREN
         elsif space_seen then
-          if lex_state == LexState::EXPR_CMDARG then
-            c = Tokens.tLPAREN_ARG
-          elsif lex_state == LexState::EXPR_ARG then
+          if lex_state == :expr_cmdarg then
+            c = :tLPAREN_ARG
+          elsif lex_state == :expr_arg then
             warnings.warn("don't put space before argument parentheses")
-            c = Tokens.tLPAREN2
+            c = :tLPAREN2
           end
         end
         cond.push false
         cmdarg.push false
-        self.lex_state = LexState::EXPR_BEG
+        self.lex_state = :expr_beg
         self.yacc_value = Token.new("(")
         return c
       when '[' then
-        if (lex_state == LexState::EXPR_FNAME ||
-            lex_state == LexState::EXPR_DOT) then
-          self.lex_state = LexState::EXPR_ARG
+        if (lex_state == :expr_fname ||
+            lex_state == :expr_dot) then
+          self.lex_state = :expr_arg
           if ((c = src.read) == ']') then
             if (src.peek('=')) then
               c = src.read
               self.yacc_value = Token.new("[]=")
-              return Tokens.tASET
+              return :tASET
             end
             self.yacc_value = Token.new("[]")
-            return Tokens.tAREF
+            return :tAREF
           end
           src.unread c
           self.yacc_value = Token.new("[")
           return '['
-        elsif (lex_state == LexState::EXPR_BEG ||
-               lex_state == LexState::EXPR_MID) then
-          c = Tokens.tLBRACK
+        elsif (lex_state == :expr_beg ||
+               lex_state == :expr_mid) then
+          c = :tLBRACK
         elsif (lex_state.is_argument && space_seen) then
-          c = Tokens.tLBRACK
+          c = :tLBRACK
         end
-        self.lex_state = LexState::EXPR_BEG
+        self.lex_state = :expr_beg
         cond.push false
         cmdarg.push false
         self.yacc_value = Token.new("[")
         return c
       when '{' then
-        c = Tokens.tLCURLY
+        c = :tLCURLY
 
-        if (lex_state.is_argument || lex_state == LexState::EXPR_END) then
-          c = Tokens.tLCURLY      #  block (primary)
-        elsif (lex_state == LexState::EXPR_ENDARG) then
-          c = Tokens.tLBRACE_ARG  #  block (expr)
+        if (lex_state.is_argument || lex_state == :expr_end) then
+          c = :tLCURLY      #  block (primary)
+        elsif (lex_state == :expr_endarg) then
+          c = :tLBRACE_ARG  #  block (expr)
         else
-          c = Tokens.tLBRACE      #  hash
+          c = :tLBRACE      #  hash
         end
         cond.push false
         cmdarg.push false
-        self.lex_state = LexState::EXPR_BEG
+        self.lex_state = :expr_beg
         self.yacc_value = Token.new("{")
         return c
       when "\\" then
@@ -2021,34 +1547,34 @@ class RubyLexer
         self.yacc_value = Token.new("\\")
         return "\\"
       when '%' then
-        if (lex_state == LexState::EXPR_BEG ||
-            lex_state == LexState::EXPR_MID) then
+        if (lex_state == :expr_beg ||
+            lex_state == :expr_mid) then
           return parse_quote(src.read)
         end
 
         c = src.read
         if c == '=' then
-          self.lex_state = LexState::EXPR_BEG
+          self.lex_state = :expr_beg
           self.yacc_value = Token.new("%")
-          return Tokens.tOP_ASGN
+          return :tOP_ASGN
         end
 
         return parse_quote(c) if lex_state.is_argument && space_seen && c !~ /\s/
 
         self.lex_state = case lex_state
-                         when LexState::EXPR_FNAME, LexState::EXPR_DOT then
-                           LexState::EXPR_ARG
+                         when :expr_fname, :expr_dot then
+                           :expr_arg
                          else
-                           LexState::EXPR_BEG
+                           :expr_beg
                          end
 
         src.unread c
         self.yacc_value = Token.new("%")
 
-        return Tokens.tPERCENT
+        return :tPERCENT
       when '$' then
         last_state = lex_state
-        self.lex_state = LexState::EXPR_END
+        self.lex_state = :expr_end
         token_buffer.clear
         c = src.read
         case c
@@ -2065,7 +1591,7 @@ class RubyLexer
           token_buffer.append('$')
           token_buffer.append(c)
           self.yacc_value = Token.new(token_buffer.to_s)
-          return Tokens.tGVAR
+          return :tGVAR
         when '-' then
             token_buffer.append '$'
           token_buffer.append c
@@ -2077,18 +1603,18 @@ class RubyLexer
           end
           self.yacc_value = Token.new(token_buffer.to_s)
           #  xxx shouldn't check if valid option variable
-          return Tokens.tGVAR
+          return :tGVAR
         when /[\&\`\'\+]/ then
           # Explicit reference to these vars as symbols...
-          if (last_state == LexState::EXPR_FNAME) then
+          if (last_state == :expr_fname) then
             token_buffer.append '$'
             token_buffer.append c
             self.yacc_value = Token.new(token_buffer.to_s)
-            return Tokens.tGVAR
+            return :tGVAR
           end
 
           self.yacc_value = s(:back_ref, c.to_sym)
-          return Tokens.tBACK_REF
+          return :tBACK_REF
         when /[1-9]/ then
           token_buffer.append('$');
           begin
@@ -2096,12 +1622,12 @@ class RubyLexer
             c = src.read;
           end while c =~ /\d/
           src.unread c
-          if (last_state == LexState::EXPR_FNAME) then
+          if (last_state == :expr_fname) then
             self.yacc_value = Token.new(token_buffer.to_s);
-            return Tokens.tGVAR;
+            return :tGVAR;
           else
             self.yacc_value = s(:nth_ref, token_buffer.to_s[1..-1].to_i)
-            return Tokens.tNTH_REF;
+            return :tNTH_REF;
           end
         when '0' then
           token_buffer.append('$');
@@ -2174,26 +1700,26 @@ class RubyLexer
 
       case token_buffer.char_at 0
       when '$' then
-        self.lex_state = LexState::EXPR_END
-        result = Tokens.tGVAR
+        self.lex_state = :expr_end
+        result = :tGVAR
       when '@' then
-        self.lex_state = LexState::EXPR_END
+        self.lex_state = :expr_end
         if token_buffer.char_at(1) == '@' then
-          result = Tokens.tCVAR
+          result = :tCVAR
         else
-          result = Tokens.tIVAR
+          result = :tIVAR
         end
       else
         last = token_buffer.char_at(-1)
         if (last == '!' || last == '?') then
-          result = Tokens.tFID;
+          result = :tFID;
         else
-          if (lex_state == LexState::EXPR_FNAME) then
+          if (lex_state == :expr_fname) then
             if (c = src.read) == '=' then
               c2 = src.read;
 
               if c2 != '~' && c2 != '>' && (c2 != '=' || (c2 == "\n" && src.peek('>'))) then
-                result = Tokens.tIDENTIFIER;
+                result = :tIDENTIFIER;
                 token_buffer.append(c);
                 src.unread(c2);
               else
@@ -2205,13 +1731,13 @@ class RubyLexer
             end
           end
           if result == 0 && token_buffer.char_at(0) =~ /[A-Z]/ then
-            result = Tokens.tCONSTANT;
+            result = :tCONSTANT;
           else
-            result = Tokens.tIDENTIFIER;
+            result = :tIDENTIFIER;
           end
         end
 
-        unless lex_state == LexState::EXPR_DOT then
+        unless lex_state == :expr_dot then
           # See if it is a reserved word.
           keyword = Keyword.keyword(token_buffer.to_s, token_buffer.length);
 
@@ -2226,34 +1752,34 @@ class RubyLexer
             end
 
             if keyword.id0 == :kDO then
-d :kDO => [cond.is_in_state, cmdarg.is_in_state, state]
+# d :kDO => [cond.is_in_state, cmdarg.is_in_state, state]
               self.command_start = true
-              return Tokens.kDO_COND  if cond.is_in_state
-              return Tokens.kDO_BLOCK if cmdarg.is_in_state && state != LexState::EXPR_CMDARG
-              return Tokens.kDO_BLOCK if state == LexState::EXPR_ENDARG
-              return Tokens.kDO
+              return :kDO_COND  if cond.is_in_state
+              return :kDO_BLOCK if cmdarg.is_in_state && state != :expr_cmdarg
+              return :kDO_BLOCK if state == :expr_endarg
+              return :kDO
             end
             
-            return keyword.id0 if state == LexState::EXPR_BEG
+            return keyword.id0 if state == :expr_beg
 
-            self.lex_state = LexState::EXPR_BEG unless keyword.id0 == keyword.id1
+            self.lex_state = :expr_beg unless keyword.id0 == keyword.id1
 
             return keyword.id1;
           end
         end
 
-        if (lex_state == LexState::EXPR_BEG ||
-            lex_state == LexState::EXPR_MID ||
-            lex_state == LexState::EXPR_DOT ||
-            lex_state == LexState::EXPR_ARG ||
-            lex_state == LexState::EXPR_CMDARG) then
+        if (lex_state == :expr_beg ||
+            lex_state == :expr_mid ||
+            lex_state == :expr_dot ||
+            lex_state == :expr_arg ||
+            lex_state == :expr_cmdarg) then
           if command_state then
-            self.lex_state = LexState::EXPR_CMDARG;
+            self.lex_state = :expr_cmdarg;
           else
-            self.lex_state = LexState::EXPR_ARG;
+            self.lex_state = :expr_arg;
           end
         else
-          self.lex_state = LexState::EXPR_END;
+          self.lex_state = :expr_end;
         end
       end
 
@@ -2265,10 +1791,10 @@ d :kDO => [cond.is_in_state, cmdarg.is_in_state, state]
 # HACK
 #      scope = parser_support.current_scope
 #       if (IdUtil.var_type(temp_val) == IdUtil.LOCAL_VAR &&
-#           last_state != LexState::EXPR_DOT &&
+#           last_state != :expr_dot &&
 #           (BlockStaticScope === scope && (scope.is_defined(temp_val) >= 0)) ||
 #           (scope.local_scope.is_defined(temp_val) >= 0)) then
-#         self.lex_state = LexState::EXPR_END
+#         self.lex_state = :expr_end
 #       end
 
       self.yacc_value = Token.new(temp_val);
@@ -2284,7 +1810,7 @@ d :kDO => [cond.is_in_state, cmdarg.is_in_state, state]
   # @return A int constant wich represents a token.
 
   def parse_number c
-    self.lex_state = LexState::EXPR_END
+    self.lex_state = :expr_end
 
     token_buffer.clear
 
@@ -2329,7 +1855,7 @@ d :kDO => [cond.is_in_state, cmdarg.is_in_state, state]
           raise SyntaxException("Trailing '_' in number.")
         end
         self.yacc_value = token_buffer.to_s.to_i(16)
-        return Tokens.tINTEGER
+        return :tINTEGER
       when /b/i # binary
         c = src.read
         if c == '0' or c == '1' then
@@ -2355,7 +1881,7 @@ d :kDO => [cond.is_in_state, cmdarg.is_in_state, state]
           raise SyntaxException("Trailing '_' in number.")
         end
         self.yacc_value = token_buffer.to_s.to_i(2)
-        return Tokens.tINTEGER
+        return :tINTEGER
       when /d/i then # decimal
         c = src.read
         if c =~ /\d/ then
@@ -2382,7 +1908,7 @@ d :kDO => [cond.is_in_state, cmdarg.is_in_state, state]
         end
 
         self.yacc_value = token_buffer.to_s.to_i(10)
-        return Tokens.tINTEGER
+        return :tINTEGER
       when /[0-7_]/ then # octal
         loop do
           if (c == '_') then
@@ -2404,7 +1930,7 @@ d :kDO => [cond.is_in_state, cmdarg.is_in_state, state]
           end
 
           self.yacc_value = token_buffer.to_s.to_i(8)
-          return Tokens.tINTEGER
+          return :tINTEGER
         end
       when /[89]/ then
           raise SyntaxException("Illegal octal digit.")
@@ -2413,7 +1939,7 @@ d :kDO => [cond.is_in_state, cmdarg.is_in_state, state]
       else
         src.unread c
         self.yacc_value = 0
-        return Tokens.tINTEGER
+        return :tINTEGER
       end
     end
 
@@ -2442,7 +1968,7 @@ d :kDO => [cond.is_in_state, cmdarg.is_in_state, state]
               # Why did I put this here?
             else
               self.yacc_value = token_buffer.to_s.to_i(10)
-              return Tokens.tINTEGER
+              return :tINTEGER
             end
           else
             token_buffer.append '.'
@@ -2492,10 +2018,363 @@ d :kDO => [cond.is_in_state, cmdarg.is_in_state, state]
     if (is_float) then
       d = number.to_f
       self.yacc_value = d
-      return Tokens.tFLOAT
+      return :tFLOAT
     end
 
     self.yacc_value = number.to_i
-    return Tokens.tINTEGER
+    return :tINTEGER
   end
 end
+
+class Keyword
+  class KWtable
+    attr_accessor :name, :id, :state
+    def initialize(name, id=[], state=nil)
+      @name = name
+      @id = id
+      @state = state
+    end
+
+    def id0
+      self.id.first
+    end
+
+    def id1
+      self.id.last
+    end
+  end
+
+  TOTAL_KEYWORDS  = 40
+  MIN_WORD_LENGTH =  2
+  MAX_WORD_LENGTH =  8
+  MIN_HASH_VALUE  =  6
+  MAX_HASH_VALUE  = 55
+  # maximum key range = 50, duplicates = 0
+
+  def self.hash(str, len)
+    asso_values = [
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 11, 56, 56, 36, 56,  1, 37,
+                   31,  1, 56, 56, 56, 56, 29, 56,  1, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56,  1, 56, 32,  1,  2,
+                   1,   1,  4, 23, 56, 17, 56, 20,  9,  2,
+                   9,  26, 14, 56,  5,  1,  1, 16, 56, 21,
+                   20,  9, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                   56, 56, 56, 56, 56, 56
+                  ]
+    hval = len;
+
+    case hval
+    when 2,1 then
+      hval += asso_values[str[0]];
+    else
+      hval += asso_values[str[2]];
+      hval += asso_values[str[0]];
+    end
+
+    hval += asso_values[str[len - 1]];
+    return hval
+  end
+
+  ##
+  # :expr_beg    = ignore newline, +/- is a sign.
+  # :expr_end    = newline significant, +/- is a operator.
+  # :expr_arg    = newline significant, +/- is a operator.
+  # :expr_cmdarg = newline significant, +/- is a operator.
+  # :expr_endarg = newline significant, +/- is a operator.
+  # :expr_mid    = newline significant, +/- is a operator.
+  # :expr_fname  = ignore newline, no reserved words.
+  # :expr_dot    = right after . or ::, no reserved words.
+  # :expr_class  = immediate after class, no here document.
+
+  def self.keyword(str, len = str.size)
+    wordlist = [
+                [""], [""], [""], [""], [""], [""],
+                ["end",      [:kEND,      :kEND        ], :expr_end   ],
+                ["else",     [:kELSE,     :kELSE       ], :expr_beg   ],
+                ["case",     [:kCASE,     :kCASE       ], :expr_beg   ],
+                ["ensure",   [:kENSURE,   :kENSURE     ], :expr_beg   ],
+                ["module",   [:kMODULE,   :kMODULE     ], :expr_beg   ],
+                ["elsif",    [:kELSIF,    :kELSIF      ], :expr_beg   ],
+                ["def",      [:kDEF,      :kDEF        ], :expr_fname ],
+                ["rescue",   [:kRESCUE,   :kRESCUE_MOD ], :expr_mid   ],
+                ["not",      [:kNOT,      :kNOT        ], :expr_beg   ],
+                ["then",     [:kTHEN,     :kTHEN       ], :expr_beg   ],
+                ["yield",    [:kYIELD,    :kYIELD      ], :expr_arg   ],
+                ["for",      [:kFOR,      :kFOR        ], :expr_beg   ],
+                ["self",     [:kSELF,     :kSELF       ], :expr_end   ],
+                ["false",    [:kFALSE,    :kFALSE      ], :expr_end   ],
+                ["retry",    [:kRETRY,    :kRETRY      ], :expr_end   ],
+                ["return",   [:kRETURN,   :kRETURN     ], :expr_mid   ],
+                ["true",     [:kTRUE,     :kTRUE       ], :expr_end   ],
+                ["if",       [:kIF,       :kIF_MOD     ], :expr_beg   ],
+                ["defined?", [:kDEFINED,  :kDEFINED    ], :expr_arg   ],
+                ["super",    [:kSUPER,    :kSUPER      ], :expr_arg   ],
+                ["undef",    [:kUNDEF,    :kUNDEF      ], :expr_fname ],
+                ["break",    [:kBREAK,    :kBREAK      ], :expr_mid   ],
+                ["in",       [:kIN,       :kIN         ], :expr_beg   ],
+                ["do",       [:kDO,       :kDO         ], :expr_beg   ],
+                ["nil",      [:kNIL,      :kNIL        ], :expr_end   ],
+                ["until",    [:kUNTIL,    :kUNTIL_MOD  ], :expr_beg   ],
+                ["unless",   [:kUNLESS,   :kUNLESS_MOD ], :expr_beg   ],
+                ["or",       [:kOR,       :kOR         ], :expr_beg   ],
+                ["next",     [:kNEXT,     :kNEXT       ], :expr_mid   ],
+                ["when",     [:kWHEN,     :kWHEN       ], :expr_beg   ],
+                ["redo",     [:kREDO,     :kREDO       ], :expr_end   ],
+                ["and",      [:kAND,      :kAND        ], :expr_beg   ],
+                ["begin",    [:kBEGIN,    :kBEGIN      ], :expr_beg   ],
+                ["__LINE__", [:k__LINE__, :k__LINE__   ], :expr_end   ],
+                ["class",    [:kCLASS,    :kCLASS      ], :expr_class ],
+                ["__FILE__", [:k__FILE__, :k__FILE__   ], :expr_end   ],
+                ["END",      [:klEND,     :klEND       ], :expr_end   ],
+                ["BEGIN",    [:klBEGIN,   :klBEGIN     ], :expr_end   ],
+                ["while",    [:kWHILE,    :kWHILE_MOD  ], :expr_beg   ],
+                [""], [""], [""], [""], [""], [""], [""], [""], [""],
+                [""],
+                ["alias",    [:kALIAS,    :kALIAS      ], :expr_fname ],
+               ].map { |args| KWtable.new(*args) }
+
+    if (len <= MAX_WORD_LENGTH && len >= MIN_WORD_LENGTH) then
+      key = hash(str, len)
+      if (key <= MAX_HASH_VALUE && key >= 0) then
+        s = wordlist[key].name;
+        return wordlist[key] if str == s
+      end
+    end
+
+    return nil
+  end
+end
+
+class Environment
+
+  attr_reader :env
+
+  def initialize dyn = false
+    @dyn = []
+    @env = []
+    self.extend
+  end
+
+  def [] k
+    self.all[k]
+  end
+
+  def []= k, v
+    raise "no" if v == true
+    self.current[k] = v
+  end
+
+  def has_key? k
+    self.all.has_key? k
+  end
+
+  def all
+    @env.reverse.inject { |env, scope| env.merge scope }
+  end
+
+  def current
+    @env.first
+  end
+
+  def dynamic?
+    @dyn.any?
+  end
+
+  def dasgn_curr? name
+    (! has_key?(name) && @dyn.first) || current.has_key?(name)
+  end
+
+  def extend dyn = false
+    @dyn.unshift dyn
+    @env.unshift({})
+  end
+
+  def unextend
+    @dyn.shift
+    @env.shift
+    raise "You went too far unextending env" if @env.empty?
+  end
+
+  def scope
+    self.extend
+    begin
+      yield
+    ensure
+      self.unextend
+    end
+  end
+end
+
+class StackState
+  attr_reader :stack
+
+  def inspect
+    "StackState(#{@name}, #{@stack.inspect})"
+  end
+
+  def initialize(name)
+    @name = name
+    @stack = [false]
+  end
+
+  def pop
+    raise if @stack.size == 0
+    self.stack.pop
+  end
+
+  def lexpop
+    raise if @stack.size == 0
+    a = self.stack.pop
+    b = self.stack.pop
+    self.stack.push(a || b)
+  end
+
+  def push val
+    raise if val != true and val != false
+    self.stack.push val
+  end
+
+  def is_in_state
+    self.stack.last
+  end
+end
+
+class Token
+  attr_accessor :args
+  def initialize(token)
+    @args = Array(token)
+  end
+
+  def value # TODO: eventually phase this out (or make it official)
+    self.args.first
+  end
+
+  def first # HACK
+    self.args.first
+  end
+
+  def inspect
+    "t(#{args.join.inspect})"
+  end
+
+  def to_sym
+    self.value.to_sym
+  end
+end
+
+############################################################
+# From here down is stuff I'm going to phase out
+# Not to say that I won't phase out as much as possible above
+
+class StringBuffer # TODO: remove
+  def initialize(n = nil)
+    @s = []
+  end
+
+  def << s
+    @s << s
+  end
+  alias :append :<<
+
+  def to_s
+    @s.join
+  end
+
+  def [](i)
+    self.to_s[i].chr
+  end
+  alias :char_at :[]
+
+  def size
+    @s.size
+  end
+  alias :length :size
+
+  def clear
+    @s.clear
+  end
+end
+
+############################################################
+# HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+
+class Symbol
+  def is_argument # TODO: phase this out
+    return self == :expr_arg || self == :expr_cmdarg
+  end
+end
+
+class SyntaxException < SyntaxError # TODO remove
+  def initialize(msg)
+    super(msg)
+  end
+end
+
+class StringIO # HACK: everything in here is a hack
+  alias :old_read :read
+  def read
+    c = self.getc
+    if c and c != 0 then
+      c.chr
+    else
+      ::RubyLexer::EOF
+    end
+  end
+
+  def peek expected
+    c = self.read
+    self.unread c
+    c == expected
+  end
+
+  def unread(c)
+    self.ungetc c[0] if c
+  end
+end
+
+class Sexp
+  def value
+    raise "multi item sexp" if size > 2
+    last
+  end
+
+  def node_type
+    first
+  end
+end
+
+def bitch
+  c = caller
+  m = c[0].split.last
+  warn "bitch: you shouldn't be doing #{m}: from #{c[1]}"
+end
+
+class NilClass
+  def method_missing msg, *args # HACK
+    c = caller
+    warn "called #{msg} on nil: from #{c[0]}"
+    nil
+  end
+end
+
+# END HACK
+############################################################

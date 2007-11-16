@@ -46,7 +46,7 @@ prechigh
 rule
 
 program       : {
-                  self.lexer.state = LexState::EXPR_BEG
+                  self.lexer.state = :expr_beg
                   # HACK support.init_top_local_variables
                 } compstmt {
 # HACK
@@ -99,7 +99,7 @@ stmts        : none { result = s(:block) }
                  }
 
 stmt          : kALIAS fitem {
-                 lexer.state = LexState::EXPR_FNAME
+                 lexer.state = :expr_fname
                 } fitem {
                   result = s(:alias, val[1], val[3])
                  }
@@ -427,12 +427,12 @@ cpath         : tCOLON3 cname {
 #  Token:fname - A function name [!nil]
 fname         : tIDENTIFIER | tCONSTANT | tFID
               | op {
-                  lexer.state = LexState::EXPR_END
+                  lexer.state = :expr_end
                   result = val[0];
                 }
 
               | reswords {
-                  lexer.state = LexState::EXPR_END
+                  lexer.state = :expr_end
                   result = $<>1;
                 }
 
@@ -443,7 +443,7 @@ undef_list    : fitem {
                   result = s(:undef, val[0])
                  }
               | undef_list ',' {
-                  lexer.state = LexState::EXPR_FNAME
+                  lexer.state = :expr_fname
                 } fitem {
                   item = s(:undef, val[3])
                   if val[0][0] == :block then
@@ -753,13 +753,13 @@ command_args  : {
 
 open_args    : call_args
              | tLPAREN_ARG  {
-                 lexer.state = LexState::EXPR_ENDARG
+                 lexer.state = :expr_endarg
                } tRPAREN {
                   warnings.warn("don't put space before argument parentheses");
                   result = nil;
                  }
              | tLPAREN_ARG call_args2 {
-                 lexer.state = LexState::EXPR_ENDARG
+                 lexer.state = :expr_endarg
                } tRPAREN {
                   warnings.warn("don't put space before argument parentheses");
                   result = val[1];
@@ -809,7 +809,7 @@ primary      : literal
                  # result = result.last if result.size == 2
                }
              | tLPAREN_ARG expr {
-                  lexer.state = LexState::EXPR_ENDARG
+                  lexer.state = :expr_endarg
                } opt_nl tRPAREN {
                   warnings.warning("(...) interpreted as grouped expression");
                   result = val[1];
@@ -1004,11 +1004,11 @@ primary      : literal
                   self.in_def = false
                  }
              | kDEF singleton dot_or_colon { # 0-2, 3
-                 lexer.state = LexState::EXPR_FNAME
+                 lexer.state = :expr_fname
                } fname {                     # 4, 5
                  support.in_single += 1
                  support.push_local_scope;
-                 lexer.state = LexState::EXPR_END # force for args
+                 lexer.state = :expr_end # force for args
                } f_arglist bodystmt kEND {   # 6-8
                  recv, name, args, body = val[1], val[4], val[6], val[7]
                  name = name.value.to_sym
@@ -1304,7 +1304,7 @@ string_content : tSTRING_CONTENT {
                | tSTRING_DVAR {
                    result = lexer.str_term;
                    lexer.str_term = nil
-                   lexer.state = LexState::EXPR_BEG
+                   lexer.state = :expr_beg
                  } string_dvar {
                    lexer.str_term = val[1]
                    result = s(:evstr, val[2]);
@@ -1312,7 +1312,7 @@ string_content : tSTRING_CONTENT {
                | tSTRING_DBEG {
                    result = lexer.str_term;
                    lexer.str_term = nil
-                   lexer.state = LexState::EXPR_BEG
+                   lexer.state = :expr_beg
                    lexer.cond.push false
                    lexer.cmdarg.push false
                  } compstmt tRCURLY {
@@ -1335,14 +1335,14 @@ string_dvar    : tGVAR {
 
 
 symbol         : tSYMBEG sym {
-                   lexer.state = LexState::EXPR_END
+                   lexer.state = :expr_end
                    result = val[1].value.to_sym
                  }
 
 sym            : fname | tIVAR | tGVAR | tCVAR
 
 dsym           : tSYMBEG xstring_contents tSTRING_END {
-                   lexer.state = LexState::EXPR_END
+                   lexer.state = :expr_end
 
                    #  DStrNode: :"some text #{some expression}"
                    #  StrNode: :"some text"
@@ -1404,7 +1404,7 @@ superclass   : term {
                  result = nil;
                }
              | tLT {
-                 lexer.state = LexState::EXPR_BEG
+                 lexer.state = :expr_beg
                } expr_value term {
                  result = val[2];
                }
@@ -1416,7 +1416,7 @@ superclass   : term {
 #  f_arglist: Function Argument list for definitions
 f_arglist      : tLPAREN2 f_args opt_nl tRPAREN {
                    result = val[1];
-                   lexer.state = LexState::EXPR_BEG
+                   lexer.state = :expr_beg
                  }
                | f_args term {
                    result = val[0];
@@ -1560,7 +1560,7 @@ singleton     : var_ref {
                   result = val[0];
                  }
              | tLPAREN2 {
-                 lexer.state = LexState::EXPR_BEG
+                 lexer.state = :expr_beg
                } expr opt_nl tRPAREN {
                  if (val[2].instanceof ILiteralNode) then
                     yyerror("Can't define single method for literals.");

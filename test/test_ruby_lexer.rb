@@ -55,7 +55,7 @@ class TestRubyLexer < Test::Unit::TestCase
   def test_parse_quote
     @lex.src = StringIO.new 'blah)'
     node = @lex.parse_quote('(')
-    assert_equal Tokens.tSTRING_BEG, node
+    assert_equal :tSTRING_BEG, node
     assert_equal s(:strterm, RubyLexer::STR_DQUOTE, ")", "("), @lex.lex_strterm
     assert_equal ["%)"], @lex.yacc_value.args # FIX double check this
   end
@@ -71,7 +71,7 @@ class TestRubyLexer < Test::Unit::TestCase
 
   def test_number_token
     node = @lex.number_token("42", false, "\0")
-    assert_equal Tokens.tINTEGER, node
+    assert_equal :tINTEGER, node
     assert_equal 42, @lex.yacc_value
   end
 
@@ -93,7 +93,7 @@ class TestRubyLexer < Test::Unit::TestCase
   def test_parse_number
     @lex.src = StringIO.new '42'
     node = @lex.parse_number('1')
-    assert_equal Tokens.tINTEGER, node
+    assert_equal :tINTEGER, node
     assert_equal 142, @lex.yacc_value
   end
 end
