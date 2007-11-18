@@ -60,7 +60,7 @@ bodystmt      : compstmt opt_rescue opt_else opt_ensure {
                     result << val[2] if val[2]
                     result.delete_at 1 if result[1].nil?
                   elsif not val[2].nil? then
-                    warnings.warn("else without rescue is useless")
+                    warning("else without rescue is useless")
                     result = block_append(result, val[2])
                   end
 
@@ -623,7 +623,7 @@ arg_value     : arg
 
 aref_args     : none
              | command opt_nl {
-                 warnings.warn("parenthesize argument(s) for future version");
+                 warning("parenthesize argument(s) for future version");
                  result = s(:array, val[0]);
                }
              | args trailer {
@@ -646,18 +646,18 @@ paren_args    : tLPAREN2 none tRPAREN {
                   result = val[1];
                  }
              | tLPAREN2 block_call opt_nl tRPAREN {
-                  warnings.warn("parenthesize argument(s) for future version");
+                  warning("parenthesize argument(s) for future version");
                   result = s(:array, val[1]);
                  }
              | tLPAREN2 args ',' block_call opt_nl tRPAREN {
-                  warnings.warn("parenthesize argument(s) for future version");
+                  warning("parenthesize argument(s) for future version");
                   result = val[1].add(val[3]);
                  }
 
 opt_paren_args: none | paren_args
 
 call_args    : command {
-                  warnings.warn("parenthesize argument(s) for future version");
+                  warning("parenthesize argument(s) for future version");
                   result = s(:array, val[0])
                  }
              | args opt_block_arg {
@@ -743,13 +743,13 @@ open_args    : call_args
              | tLPAREN_ARG  {
                  lexer.state = :expr_endarg
                } tRPAREN {
-                  warnings.warn("don't put space before argument parentheses");
+                  warning("don't put space before argument parentheses");
                   result = nil;
                  }
              | tLPAREN_ARG call_args2 {
                  lexer.state = :expr_endarg
                } tRPAREN {
-                  warnings.warn("don't put space before argument parentheses");
+                  warning("don't put space before argument parentheses");
                   result = val[1];
                  }
 
@@ -799,7 +799,7 @@ primary      : literal
              | tLPAREN_ARG expr {
                   lexer.state = :expr_endarg
                } opt_nl tRPAREN {
-                  warnings.warning("(...) interpreted as grouped expression");
+                  warning("(...) interpreted as grouped expression");
                   result = val[1];
                  }
              | tLPAREN compstmt tRPAREN {
@@ -1134,6 +1134,7 @@ when_args     : args
 cases         : opt_else | case_body
 
 opt_rescue    : kRESCUE exc_list exc_var then compstmt opt_rescue {
+                  # TODO: clean with cruby's version
                   body = val[4]
                   body = nil if body == s(:block)
                   if val[2] then
@@ -1586,12 +1587,10 @@ assocs        : assoc
                   more = val[2][1..-1]
                   list.push(*more) unless more.empty?
                   result = list
-#                  result = list_concat(val[0], val[2])
                 }
 
 assoc         : arg_value tASSOC arg_value {
                   result = s(:array, val[0], val[2])
-#                  result = list_append(s(:array, val[0]), val[2])
                 }
 
 operation     : tIDENTIFIER | tCONSTANT | tFID
@@ -1599,26 +1598,18 @@ operation2    : tIDENTIFIER | tCONSTANT | tFID | op
 operation3    : tIDENTIFIER | tFID | op
 dot_or_colon  : tDOT | tCOLON2
 opt_terms     :  | terms
-opt_nl        :  | '\n'
-trailer       :  | '\n' | ','
+opt_nl        :  | "\n"
+trailer       :  | "\n" | ','
 
-term          : ';' {
-                  yyerrok;
-                }
-             | '\n'
+term         : ';' { yyerrok }
+             | "\n"
 
-terms         : term
-              | terms ';' {
-                 yyerrok;
-               }
+terms        : term
+             | terms ';' { yyerrok }
 
-none          : {
-                  result = nil;
-                }
+none         : { result = nil }
 
-none_block_pass:  {
-                  result = nil;
-                 }
+none_block_pass:  { result = nil }
 
 end
 

@@ -113,6 +113,17 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token "1.0", :tFLOAT, 1.0
   end
 
+  def test_yylex_constant
+    util_lex_token("ArgumentError",
+                   :tCONSTANT, t("ArgumentError"))
+  end
+
+  def test_yylex_constant_semi
+    util_lex_token("ArgumentError;",
+                   :tCONSTANT, t("ArgumentError"),
+                   ";", t(";"))
+  end
+
   def test_yylex_identifier
     util_lex_token("identifier",
                    :tIDENTIFIER, t("identifier"))
@@ -162,7 +173,7 @@ class TestRubyLexer < Test::Unit::TestCase
       assert_equal [token, value], [@lex.token, @lex.yacc_value]
     end
 
-    deny @lex.advance, "must be empty, but had #{@lex.token.inspect}"
+    deny @lex.advance, "must be empty, but had #{[@lex.token, @lex.yacc_value].inspect}"
   end
 end
 

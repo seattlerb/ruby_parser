@@ -365,6 +365,10 @@ class RubyParser < Racc::Parser
   ############################################################
   # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 
+  def warning s
+    # do nothing for now
+  end
+
   kill :is_in_def, :is_in_single, :push_local_scope, :pop_local_scope, :support
 
   # END HACK
@@ -500,7 +504,7 @@ class RubyLexer
       return ' '
     end
 
-    token_buffer = []
+    self.token_buffer = []
 
     if (func & STR_FUNC_EXPAND) != 0 && c == '#' then
       case c = src.read
@@ -526,7 +530,6 @@ class RubyLexer
   end
 
   def regx_options
-    kcode = 0;
     options = []
     bad = []
 
@@ -575,7 +578,7 @@ class RubyLexer
         end
         src.unread(c2)
       elsif (c == "\\") then
-        c = src.read();
+        c = src.read
         case c
         when "\n" then
           break if ((func & RubyLexer::STR_FUNC_QWORDS) != 0) # TODO: check break
@@ -586,11 +589,11 @@ class RubyLexer
           buffer << c if ((func & RubyLexer::STR_FUNC_ESCAPE) != 0)
         else
           if ((func & RubyLexer::STR_FUNC_REGEXP) != 0) then
-            src.unread(c);
+            src.unread c
             tokadd_escape term
             next
           elsif ((func & RubyLexer::STR_FUNC_EXPAND) != 0) then
-            src.unread(c);
+            src.unread c
             if ((func & RubyLexer::STR_FUNC_ESCAPE) != 0) then
               buffer << "\\"
             end
@@ -602,14 +605,14 @@ class RubyLexer
           end
         end
       elsif (func & RubyLexer::STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
-        src.unread(c);
+        src.unread c
       end
       if (c == "\0" && (func & RubyLexer::STR_FUNC_SYMBOL) != 0) then
         raise SyntaxError, "symbol cannot contain '\\0'"
       end
       buffer << c
     end # while
-    return c;
+    return c
   end
 
   def here_document here
@@ -789,7 +792,7 @@ class RubyLexer
         raise SyntaxError, "unterminated here document identifier"
       end
     else
-      unless is_identifier_char c then
+      unless c =~ /\w/ then
         src.unread c
         src.unread '-' if (func & STR_FUNC_INDENT) != 0
         return 0 # TODO: RubyLexer::EOF?
@@ -799,12 +802,12 @@ class RubyLexer
       func |= STR_DQUOTE
       begin
         token_buffer << c
-      end while (c = src.read) != RubyLexer::EOF && is_identifier_char(c)
+      end while (c = src.read) != RubyLexer::EOF && c =~ /\w/
       src.unread c
     end
 
     line = src.read_line + "\n"
-    tok = token_buffer.to_s
+    tok = token_buffer.join
     self.lex_strterm = s(:heredoc, tok, func, line)
 
     if term == '`' then
@@ -817,7 +820,7 @@ class RubyLexer
   end
 
   def arg_ambiguous
-    self.warnings.warning("Ambiguous first argument. make sure.")
+    self.warning("Ambiguous first argument. make sure.")
   end
 
   ##
@@ -842,7 +845,7 @@ class RubyLexer
 
     # Store away each comment to parser result so IDEs can do whatever
     # they want with them.
-    # HACK parser_support.result.add_comment(Node.comment(token_buffer.to_s))
+    # HACK parser_support.result.add_comment(Node.comment(token_buffer.join))
 
     return c
   end
@@ -930,7 +933,7 @@ class RubyLexer
           end
           src.unread c
           if lex_state.is_argument && space_seen && c !~ /\s/ then
-            warnings.warning("`*' interpreted as argument prefix")
+            warning("`*' interpreted as argument prefix")
             c = :tSTAR
           elsif (lex_state == :expr_beg || lex_state == :expr_mid) then
             c = :tSTAR
@@ -1019,7 +1022,7 @@ class RubyLexer
 #                 end
 #               end
 
-#               parser_support.result.add_comment(Node.comment(token_buffer.to_s))
+#               parser_support.result.add_comment(Node.comment(token_buffer.join))
 #               next
 #             end
 #             src.unread(c)
@@ -1171,7 +1174,7 @@ class RubyLexer
                  end
 
             if (c2 != 0) then
-              warnings.warn("invalid character syntax; use ?\\" + c2)
+              warning("invalid character syntax; use ?\\" + c2)
             end
           end
           src.unread c
@@ -1215,7 +1218,7 @@ class RubyLexer
         src.unread c
 
         if lex_state.is_argument && space_seen && c !~ /\s/ then
-          warnings.warning("`&' interpreted as argument prefix")
+          warning("`&' interpreted as argument prefix")
           c = :tAMPER
         elsif (lex_state == :expr_beg || lex_state == :expr_mid) then
           c = :tAMPER
@@ -1436,6 +1439,9 @@ class RubyLexer
         return :tCARET
       when ';' then
         self.command_start = true
+        self.lex_state = :expr_beg
+        self.yacc_value = t(";")
+        return c
       when ',' then
         self.lex_state = :expr_beg
         self.yacc_value = t(",")
@@ -1462,7 +1468,7 @@ class RubyLexer
           if lex_state == :expr_cmdarg then
             c = :tLPAREN_ARG
           elsif lex_state == :expr_arg then
-            warnings.warn("don't put space before argument parentheses")
+            warning("don't put space before argument parentheses")
             c = :tLPAREN2
           end
         end
@@ -1553,7 +1559,7 @@ class RubyLexer
         case c
         when '_' then #  $_: last read line string
             c = src.read
-          if (is_identifier_char(c)) then
+          if c =~ /\w/ then
             token_buffer <<('$')
             token_buffer <<('_')
             break
@@ -1563,18 +1569,18 @@ class RubyLexer
         when /[~*$?!@\/\\;,.=:<>\"]/ then
           token_buffer <<('$')
           token_buffer <<(c)
-          self.yacc_value = t(token_buffer.to_s)
+          self.yacc_value = t(token_buffer.join)
           return :tGVAR
         when '-' then
             token_buffer << '$'
           token_buffer << c
           c = src.read
-          if (is_identifier_char(c)) then
+          if c =~ /\w/ then
             token_buffer << c
           else
             src.unread c
           end
-          self.yacc_value = t(token_buffer.to_s)
+          self.yacc_value = t(token_buffer.join)
           #  xxx shouldn't check if valid option variable
           return :tGVAR
         when /[\&\`\'\+]/ then
@@ -1582,24 +1588,24 @@ class RubyLexer
           if (last_state == :expr_fname) then
             token_buffer << '$'
             token_buffer << c
-            self.yacc_value = t(token_buffer.to_s)
+            self.yacc_value = t(token_buffer.join)
             return :tGVAR
           end
 
           self.yacc_value = s(:back_ref, c.to_sym)
           return :tBACK_REF
         when /[1-9]/ then
-          token_buffer <<('$');
+          token_buffer << '$'
           begin
-            token_buffer <<(c);
-            c = src.read;
+            token_buffer << c
+            c = src.read
           end while c =~ /\d/
           src.unread c
           if (last_state == :expr_fname) then
-            self.yacc_value = t(token_buffer.to_s);
+            self.yacc_value = t(token_buffer.join)
             return :tGVAR;
           else
-            self.yacc_value = s(:nth_ref, token_buffer.to_s[1..-1].to_i)
+            self.yacc_value = s(:nth_ref, token_buffer.join[1..-1].to_i)
             return :tNTH_REF;
           end
         when '0' then
@@ -1647,26 +1653,23 @@ class RubyLexer
 
       begin
         token_buffer << c
-#         if (ismbchar(c)) then
-#           len = mbclen(c) - 1
-#           (0..len).each do
-#             c = src.read;
-#             token_buffer <<(c);
-#           end
-#         end
+        # if (ismbchar(c)) then
+        #   len = mbclen(c) - 1
+        #   (0..len).each do
+        #     c = src.read;
+        #     token_buffer <<(c);
+        #   end
+        # end
         c = src.read
       end while c =~ /\w/
 
-      peek = src.read;
-      if c =~ /\!|\?/ && token_buffer[0] =~ /\w/ && peek != '=' then
-        src.unread(peek);
-        token_buffer <<(c);
+      if c =~ /\!|\?/ && token_buffer[0] =~ /\w/ && src.peek != '=' then
+        token_buffer << c
       else
-        src.unread(peek) unless peek.nil?
         src.unread c
       end
 
-      result = 0
+      result = nil
       last_state = lex_state
 
       case token_buffer[0]
@@ -1681,36 +1684,35 @@ class RubyLexer
           result = :tIVAR
         end
       else
-        last = token_buffer[-1]
-        if (last == '!' || last == '?') then
-          result = :tFID;
+        if token_buffer[-1] =~ /[!?]/ then
+          result = :tFID
         else
           if (lex_state == :expr_fname) then
             if (c = src.read) == '=' then
-              c2 = src.read;
+              c2 = src.read
 
               if c2 != '~' && c2 != '>' && (c2 != '=' || (c2 == "\n" && src.peek('>'))) then
                 result = :tIDENTIFIER;
-                token_buffer <<(c);
-                src.unread(c2);
+                token_buffer << c
+                src.unread c2
               else
-                src.unread(c2);
+                src.unread c2
                 src.unread c
               end
             else
               src.unread c
             end
           end
-          if result == 0 && token_buffer[0] =~ /[A-Z]/ then
-            result = :tCONSTANT;
+          if result.nil? && token_buffer[0] =~ /[A-Z]/ then
+            result = :tCONSTANT
           else
-            result = :tIDENTIFIER;
+            result = :tIDENTIFIER
           end
         end
 
         unless lex_state == :expr_dot then
           # See if it is a reserved word.
-          keyword = Keyword.keyword(token_buffer.to_s, token_buffer.length);
+          keyword = Keyword.keyword(token_buffer.join, token_buffer.length);
 
           unless keyword.nil? then
             state = lex_state
@@ -1719,7 +1721,7 @@ class RubyLexer
             if state == :expr_fname then
               self.yacc_value = t(keyword.name);
             else
-              self.yacc_value = t(token_buffer.to_s);
+              self.yacc_value = t(token_buffer.join);
             end
 
             if keyword.id0 == :kDO then
@@ -1753,7 +1755,8 @@ class RubyLexer
         end
       end
 
-      temp_val = token_buffer.to_s
+
+      temp_val = token_buffer.join
 
       # Lame: parsing logic made it into lexer in ruby...So we
       # are emulating
@@ -1802,12 +1805,12 @@ class RubyLexer
       when /x/i then # hexadecimal
         c = src.read
 
-        if is_hex_char c then
+        if c =~ /[a-f0-9]/i then
           loop do
             if c == '_' then
               break unless nondigit == "\0"
               nondigit = c
-            elsif is_hex_char c then
+            elsif c =~ /[a-f0-9]/i then
               nondigit = "\0"
               token_buffer << c
             else
@@ -1824,7 +1827,7 @@ class RubyLexer
         elsif nondigit != "\0" then
           raise SyntaxError, "Trailing '_' in number."
         end
-        self.yacc_value = token_buffer.to_s.to_i(16)
+        self.yacc_value = token_buffer.join.to_i(16)
         return :tINTEGER
       when /b/i # binary
         c = src.read
@@ -1850,7 +1853,7 @@ class RubyLexer
         elsif nondigit != "\0" then
           raise SyntaxError, "Trailing '_' in number."
         end
-        self.yacc_value = token_buffer.to_s.to_i(2)
+        self.yacc_value = token_buffer.join.to_i(2)
         return :tINTEGER
       when /d/i then # decimal
         c = src.read
@@ -1877,7 +1880,7 @@ class RubyLexer
           raise SyntaxError, "Trailing '_' in number."
         end
 
-        self.yacc_value = token_buffer.to_s.to_i(10)
+        self.yacc_value = token_buffer.join.to_i(10)
         return :tINTEGER
       when /[0-7_]/ then # octal
         loop do
@@ -1899,7 +1902,7 @@ class RubyLexer
             raise SyntaxError, "Trailing '_' in number."
           end
 
-          self.yacc_value = token_buffer.to_s.to_i(8)
+          self.yacc_value = token_buffer.join.to_i(8)
           return :tINTEGER
         end
       when /[89]/ then
@@ -1927,7 +1930,7 @@ class RubyLexer
           raise SyntaxError, "Trailing '_' in number."
         elsif seen_point or seen_e then
           src.unread c
-          return number_token(token_buffer.to_s, true, nondigit)
+          return number_token(token_buffer.join, true, nondigit)
         else
           c2 = src.read
           unless c2 =~ /\d/ then
@@ -1937,7 +1940,7 @@ class RubyLexer
               # Enebo:  c can never be antrhign but '.'
               # Why did I put this here?
             else
-              self.yacc_value = token_buffer.to_s.to_i(10)
+              self.yacc_value = token_buffer.join.to_i(10)
               return :tINTEGER
             end
           else
@@ -1952,7 +1955,7 @@ class RubyLexer
           raise SyntaxError, "Trailing '_' in number."
         elsif (seen_e) then
           src.unread c
-          return number_token(token_buffer.to_s, true, nondigit)
+          return number_token(token_buffer.join, true, nondigit)
         else
           token_buffer << c
           seen_e = true
@@ -1972,7 +1975,7 @@ class RubyLexer
         nondigit = c
       else
         src.unread c
-        r = number_token(token_buffer.to_s, seen_e || seen_point, nondigit)
+        r = number_token(token_buffer.join, seen_e || seen_point, nondigit)
         return r
       end
       c = src.read
@@ -1997,6 +2000,10 @@ class RubyLexer
 
   ############################################################
   # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+
+  def warning s
+    # do nothing for now
+  end
 
   def rb_compile_error msg
     raise msg
@@ -2321,10 +2328,15 @@ class StringIO # HACK: everything in here is a hack
     gets
   end
 
-  def peek expected # FIX: barf
-    c = self.read
-    self.unread c
-    c == expected
+  def peek expected = nil # FIX: barf
+    c = self.getc
+    self.ungetc c if c
+    c = c.chr if c
+    if expected then
+      c == expected
+    else
+      c
+    end
   end
 
   def unread(c)

@@ -1,7 +1,6 @@
 # -*- ruby -*-
 
 require 'rubygems'
-require 'rake/testtask'
 require 'hoe'
 require './lib/ruby_lexer.rb'
 
@@ -15,15 +14,19 @@ Hoe.new('RubyParser', RubyParser::VERSION) do |p|
   p.changes = p.paragraphs_of('History.txt', 0..1).join("\n\n")
 end
 
+module Rake::TaskManager
+  def all_tasks
+    @tasks
+  end
+end
+
+Rake.application.all_tasks["default"].prerequisites.clear
+
+task :default => :parser
+
 task :test => :parser
 
 task :parser => ["lib/ruby_parser.rb"]
-
-Rake::TestTask.new do |t|
-  t.libs << "test"
-  t.test_files = FileList['test/test*.rb']
-  t.verbose = true
-end
 
 rule '.rb' => '.y' do |t|
   sh "racc -c -v -g --no-extentions -o #{t.name} #{t.source}"
