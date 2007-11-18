@@ -77,7 +77,7 @@ stmts        : none { result = s(:block) }
                  # result = s(:newline, result);
                }
              | stmts terms stmt {
-                 # result = support.append_to_block(val[0], support.newline_node(val[2]));
+                 # result = self.append_to_block(val[0], self.newline_node(val[2]));
                  # HACK result = val[0].Node.args << line(val[2])
                  if val[0] then
                    val[0] = s(:block, val[0]) unless val[0].node_type == :block
@@ -131,22 +131,22 @@ stmt          : kALIAS fitem {
                   result = s(:rescue, val[0], s(:resbody, nil, val[2]))
                  }
              | klBEGIN {
-                 if (support.is_in_def || support.is_in_single > 0) then
+                 if (self.in_def || self.in_single > 0) then
                    yyerror("BEGIN in method");
                  end
-                 support.push_local_scope;
+                 self.env.extend;
                } tLCURLY compstmt tRCURLY {
                  raise "HACK - not supported yet"
                  result = nil
                }
              | klEND tLCURLY compstmt tRCURLY {
-                 if (support.is_in_def || support.is_in_single > 0) then
+                 if (self.in_def || self.in_single > 0) then
                    yyerror("END in method; use at_exit");
                  end
                  result = s(:iter, s(:postexe), nil, val[2])
                  }
              | lhs '=' command_call {
-                  result = support.node_assign(val[0], val[2])
+                  result = self.node_assign(val[0], val[2])
                  }
              | mlhs '=' command_call {
                   val[0][2] = if val[0][1] then
@@ -162,12 +162,12 @@ stmt          : kALIAS fitem {
 
                   if asgn_op == "||" then
                     val[0][2] = (val[2]);
-                    result = s(:op_asgn, support.gettable(name), :"||", val[0])
+                    result = s(:op_asgn, self.gettable(name), :"||", val[0])
                   elsif asgn_op == "&&" then
-                    result = s(:op_asgn, support.gettable(name), :"&&", val[0])
+                    result = s(:op_asgn, self.gettable(name), :"&&", val[0])
                   else
                     result = s(:lasgn,
-                               support.gettable(name),
+                               self.gettable(name),
                                s(:call, val[0], asgn_op, val[1]))
                 end
                  }
@@ -184,10 +184,10 @@ stmt          : kALIAS fitem {
                   result = s(:op_asgn, val[0], val[4], val[2].value, val[3].value);
                  }
              | backref tOP_ASGN command_call {
-                  support.backref_assign_error(val[0]);
+                  self.backref_assign_error(val[0]);
                  }
              | lhs '=' mrhs {
-                  result = support.node_assign(val[0], s(:svalue, val[2]))
+                  result = self.node_assign(val[0], s(:svalue, val[2]))
                  }
              | mlhs '=' arg_value {
                  val[0][2] = if val[0][1] then
@@ -255,10 +255,10 @@ block_command : block_call
                 }
 
 cmd_brace_block : tLBRACE_ARG {
-                    support.push_local_scope :d;
+                    self.env.extend :dynamic
                   } opt_block_var compstmt tRCURLY {
                     result = s(:iter, val[2], val[3])
-                    support.pop_local_scope;
+                    self.env.unextend;
                   }
 
 command      : operation command_args = tLOWEST {
@@ -287,10 +287,10 @@ command      : operation command_args = tLOWEST {
                  result = s(:call, val[0], val[2], val[3], val[4]);
                }
              | kSUPER command_args {
-                 result = support.new_super(val[1], val[0]);
+                 result = self.new_super(val[1], val[0]);
                }
              | kYIELD command_args {
-                 result = support.new_yield(val[1]);
+                 result = self.new_yield(val[1]);
                }
 
 mlhs          : mlhs_basic
@@ -335,10 +335,10 @@ mlhs_head     : mlhs_item ',' {
                 }
 
 mlhs_node    : variable {
-                 result = support.assignable(val[0], nil)
+                 result = self.assignable(val[0], nil)
                }
              | primary_value '[' aref_args tRBRACK {
-                 result = support.aryset(val[0], val[2]);
+                 result = self.aryset(val[0], val[2]);
                }
              | primary_value tDOT tIDENTIFIER {
                  result = s(:attrasgn, val[0], :"#{val[2].value}=");
@@ -350,7 +350,7 @@ mlhs_node    : variable {
                  result = s(:attrasgn, val[0], :"#{val[2].value}=");
                }
              | primary_value tCOLON2 tCONSTANT {
-                 if (support.is_in_def || support.is_in_single > 0) then
+                 if (self.in_def || self.in_single > 0) then
                    yyerror("dynamic constant assignment");
                  end
 
@@ -358,21 +358,21 @@ mlhs_node    : variable {
                             s(:colon2, val[0], val[2].value), nil)
                }
              | tCOLON3 tCONSTANT {
-                 if (support.is_in_def || support.is_in_single > 0) then
+                 if (self.in_def || self.in_single > 0) then
                    yyerror("dynamic constant assignment");
                  end
 
                  result = s(:const, nil, s(:colon3, val[1].value.to_sym))
                }
              | backref {
-                  support.backref_assign_error(val[0]);
+                  self.backref_assign_error(val[0]);
                  }
 
 lhs          : variable {
-                 result = support.assignable(val[0])
+                 result = self.assignable(val[0])
                }
              | primary_value '[' aref_args tRBRACK {
-                 result = support.aryset(val[0], val[2]);
+                 result = self.aryset(val[0], val[2]);
                }
              | primary_value tDOT tIDENTIFIER {
                  result = s(:attrasgn, val[0], :"#{val[2].value}=");
@@ -384,21 +384,21 @@ lhs          : variable {
                  result = s(:attrasgn, val[0], :"#{val[2].value}=");
                }
              | primary_value tCOLON2 tCONSTANT {
-                 if (support.is_in_def || support.is_in_single > 0) then
+                 if (self.in_def || self.in_single > 0) then
                    yyerror("dynamic constant assignment");
                  end
 
                  result = s(:constdecl, nil, s(:colon2, val[0], val[2].value), nil);
                  }
              | tCOLON3 tCONSTANT {
-                  if (support.is_in_def || support.is_in_single > 0) then
+                  if (self.in_def || self.in_single > 0) then
                     yyerror("dynamic constant assignment");
                   end
 
                   result = s(:const, nil, s(:colon3, val[1].value.to_sym))
                   }
              | backref {
-                   support.backref_assign_error(val[0]);
+                   self.backref_assign_error(val[0]);
                  }
 
 cname         : tIDENTIFIER {
@@ -458,10 +458,10 @@ reswords     : k__LINE__ | k__FILE__  | klBEGIN | klEND  | kALIAS  | kAND
              | kIF_MOD   | kUNLESS_MOD | kWHILE_MOD | kUNTIL_MOD | kRESCUE_MOD
 
 arg          : lhs '=' arg {
-                 result = support.node_assign(val[0], val[2])
+                 result = self.node_assign(val[0], val[2])
                }
              | lhs '=' arg kRESCUE_MOD arg {
-                 result = support.node_assign(val[0],
+                 result = self.node_assign(val[0],
                             s(:rescue, val[2],
                               s(:resbody, nil, val[4], nil), nil))
                  }
@@ -470,13 +470,13 @@ arg          : lhs '=' arg {
                  asgn_op = val[1].value;
 
                  if asgn_op == "||" then
-                   val[0] = s(:lasgn, name, val[2])
-                   result = s(:op_asgn_or, support.gettable(name), val[0]);
+                   val[0] << val[2]
+                   result = s(:op_asgn_or, self.gettable(name), val[0]);
                  elsif asgn_op == "&&" then
-                   val[0] = s(:lasgn, name, val[2])
-                   result = s(:op_asgn_and, support.gettable(name), val[0]);
+                   val[0] << val[2]
+                   result = s(:op_asgn_and, self.gettable(name), val[0]);
                  else
-                   val[0][2] = s(:call, support.gettable(name), asgn_op, val[2])
+                   val[0][2] = s(:call, self.gettable(name), asgn_op, val[2])
                    result = val[0];
                  end
                  }
@@ -499,7 +499,7 @@ arg          : lhs '=' arg {
                  yyerror("constant re-assignment");
                  }
              | backref tOP_ASGN arg {
-                  support.backref_assign_error(val[0]);
+                  self.backref_assign_error(val[0]);
                  }
              | arg tDOT2 arg {
                  v1, v2 = val[0], val[2]
@@ -542,7 +542,7 @@ arg          : lhs '=' arg {
                   result = s(:call, s(:call, s(:lit, -val[1]), :"**", s(:array, val[3])), :"-@");
                  }
              | tUPLUS arg {
-                  if (support.is_literal(val[1])) then
+                  if (self.is_literal(val[1])) then
                     result = val[1];
                   else
                     result = s(:call, val[1], :"+@");
@@ -585,10 +585,10 @@ arg          : lhs '=' arg {
                   result = s(:not, s(:call, val[0], :"==", s(:array, val[2])));
                  }
              | arg tMATCH arg {
-                  result = support.get_match_node(val[0], val[2])
+                  result = self.get_match_node(val[0], val[2])
                  }
              | arg tNMATCH arg {
-                  result = s(:not, support.get_match_node(val[0], val[2]))
+                  result = s(:not, self.get_match_node(val[0], val[2]))
                  }
              | tBANG arg {
                   result = s(:not, val[1])
@@ -661,73 +661,73 @@ call_args    : command {
                   result = s(:array, val[0])
                  }
              | args opt_block_arg {
-                 result = support.arg_blk_pass(val[0], val[1]);
+                 result = self.arg_blk_pass(val[0], val[1]);
                }
              | args ',' tSTAR arg_value opt_block_arg {
-                 result = support.arg_concat(val[0], val[3]);
-                 result = support.arg_blk_pass(result, val[4]);
+                 result = self.arg_concat(val[0], val[3]);
+                 result = self.arg_blk_pass(result, val[4]);
                }
              | assocs opt_block_arg {
                  result = s(:array, s(:hash, val[0]))
-                 result = support.arg_blk_pass(result, val[1]);
+                 result = self.arg_blk_pass(result, val[1]);
                }
              | assocs ',' tSTAR arg_value opt_block_arg {
-                 result = support.arg_concat(s(:array, s(:hash, val[0])), val[3])
-                 result = support.arg_blk_pass(result, val[4]);
+                 result = self.arg_concat(s(:array, s(:hash, val[0])), val[3])
+                 result = self.arg_blk_pass(result, val[4]);
                }
              | args ',' assocs opt_block_arg {
                  result = val[0].add(s(:hash, val[2]));
-                 result = support.arg_blk_pass(result, val[3]);
+                 result = self.arg_blk_pass(result, val[3]);
                }
              | args ',' assocs ',' tSTAR arg opt_block_arg {
-                 result = support.arg_concat(val[0].add(s(:hash, val[2])), val[5])
-                 result = support.arg_blk_pass(result, val[6]);
+                 result = self.arg_concat(val[0].add(s(:hash, val[2])), val[5])
+                 result = self.arg_blk_pass(result, val[6]);
                }
              | tSTAR arg_value opt_block_arg {
-                  result = support.arg_blk_pass(s(:splat, val[1]), val[2])
+                  result = self.arg_blk_pass(s(:splat, val[1]), val[2])
                  }
              | block_arg
 
 call_args2    : arg_value ',' args opt_block_arg {
-                  result = support.arg_blk_pass(s(:array, val[0], val[2]), val[3])
+                  result = self.arg_blk_pass(s(:array, val[0], val[2]), val[3])
                  }
              | arg_value ',' block_arg {
-                  result = support.arg_blk_pass(val[0], val[2]);
+                  result = self.arg_blk_pass(val[0], val[2]);
                  }
              | arg_value ',' tSTAR arg_value opt_block_arg {
-                  result = support.arg_concat(s(:array, val[0]), val[3]);
-                  result = support.arg_blk_pass(result, val[4]);
+                  result = self.arg_concat(s(:array, val[0]), val[3]);
+                  result = self.arg_blk_pass(result, val[4]);
                  }
              | arg_value ',' args ',' tSTAR arg_value opt_block_arg {
-                  result = support.arg_concat(s(:array, val[0], s(:hash, val[2])), val[5])
-                  result = support.arg_blk_pass(result, val[6]);
+                  result = self.arg_concat(s(:array, val[0], s(:hash, val[2])), val[5])
+                  result = self.arg_blk_pass(result, val[6]);
                  }
              | assocs opt_block_arg {
                   result = s(:array, s(:hash, val[0]));
-                  result = support.arg_blk_pass(result, val[1]);
+                  result = self.arg_blk_pass(result, val[1]);
                  }
              | assocs ',' tSTAR arg_value opt_block_arg {
                   result = s(:array, s(:hash, val[0]), val[3])
-                  result = support.arg_blk_pass(result, val[4])
+                  result = self.arg_blk_pass(result, val[4])
                  }
              | arg_value ',' assocs opt_block_arg {
                   result = s(:array, val[0], s(:hash, val[2]))
-                  result = support.arg_blk_pass(result, val[3])
+                  result = self.arg_blk_pass(result, val[3])
                  }
              | arg_value ',' args ',' assocs opt_block_arg {
                   result = s(:array, val[0]).add_all(val[2]).add(s(:hash, val[4]));
-                  result = support.arg_blk_pass(result, val[5]);
+                  result = self.arg_blk_pass(result, val[5]);
                  }
              | arg_value ',' assocs ',' tSTAR arg_value opt_block_arg {
-                  result = support.arg_concat(s(:array, val[0]).add(s(:hash, val[2])), val[5]);
-                  result = support.arg_blk_pass(result, val[6]);
+                  result = self.arg_concat(s(:array, val[0]).add(s(:hash, val[2])), val[5]);
+                  result = self.arg_blk_pass(result, val[6]);
                  }
              | arg_value ',' args ',' assocs ',' tSTAR arg_value opt_block_arg {
-                  result = support.arg_concat(s(:array, val[0]).add_all(val[2]).add(s(:hash, val[4])), val[7]);
-                  result = support.arg_blk_pass(result, val[8]);
+                  result = self.arg_concat(s(:array, val[0]).add_all(val[2]).add(s(:hash, val[4])), val[7]);
+                  result = self.arg_blk_pass(result, val[8]);
                  }
              | tSTAR arg_value opt_block_arg {
-                  result = support.arg_blk_pass(s(:splat, val[1]), val[2]);
+                  result = self.arg_blk_pass(s(:splat, val[1]), val[2]);
                  }
              | block_arg {}
 
@@ -789,7 +789,7 @@ primary      : literal
              | var_ref
              | backref
              | tFID {
-                 result = s(:fcall, val[0].value.to_sym, nil)
+                 result = s(:fcall, val[0].value.to_sym)
                }
              | kBEGIN bodystmt kEND {
                  val[1] = s(:nil) unless val[1]
@@ -832,7 +832,7 @@ primary      : literal
                  result = s(:return)
                }
              | kYIELD tLPAREN2 call_args tRPAREN {
-                 result = support.new_yield(val[2]);
+                 result = self.new_yield(val[2]);
                }
              | kYIELD tLPAREN2 tRPAREN {
                  result = s(:yield)
@@ -936,41 +936,41 @@ primary      : literal
                  result = s(:for, val[4], s(:lasgn, val[1].value), val[7])
                }
              | kCLASS cpath superclass {
-                  if (support.is_in_def || support.is_in_single > 0) then
+                  if (self.in_def || self.in_single > 0) then
                     yyerror("class definition in method body");
                   end
-                  support.push_local_scope;
+                  self.env.extend;
                 } bodystmt kEND {
                   scope = s(:scope, val[4]).compact
                   result = s(:class, val[1].last.to_sym, val[2], scope)
-                  support.pop_local_scope;
+                  self.env.unextend;
                  }
              | kCLASS tLSHFT expr {
-                  result = support.is_in_def
-                  support.in_def = false
+                  result = self.in_def
+                  self.in_def = false
                 } term {
-                  result = support.in_single
-                  support.in_single = 0
-                  support.push_local_scope;
+                  result = self.in_single
+                  self.in_single = 0
+                  self.env.extend;
                 } bodystmt kEND {
                   scope = s(:scope, val[6]).compact
                   result = s(:sclass, val[2], scope)
-                  support.pop_local_scope;
-                  support.in_def = val[3]
-                  support.in_single = val[5] ? 1 : 0 # HACK
+                  self.env.unextend;
+                  self.in_def = val[3]
+                  self.in_single = val[5] ? 1 : 0 # HACK
                  }
              | kMODULE cpath {
                  yyerror("module definition in method body") if
-                   support.is_in_def or support.is_in_single > 0
+                   self.in_def or self.in_single > 0
 
-                 support.push_local_scope;
+                 self.env.extend;
                } bodystmt kEND {
                  result = s(:module, val[1].last.to_sym, s(:scope, val[3]))
-                 support.pop_local_scope;
+                 self.env.unextend;
                }
              | kDEF fname {
                   self.in_def = true
-                  support.push_local_scope
+                  self.env.extend
                 } f_arglist bodystmt kEND {
                     body = val[4] || s(:nil)
                     body = s(:block, s(:nil)) if body == s(:block) # FIX - so tired
@@ -979,14 +979,14 @@ primary      : literal
                     body.insert 1, val[3]
                     body.insert 2, block_arg if block_arg
                     result = s(:defn, val[1].value.to_sym, s(:scope, body))
-                  support.pop_local_scope
+                  self.env.unextend
                   self.in_def = false
                  }
              | kDEF singleton dot_or_colon { # 0-2, 3
                  lexer.state = :expr_fname
                } fname {                     # 4, 5
-                 support.in_single += 1
-                 support.push_local_scope;
+                 self.in_single += 1
+                 self.env.extend;
                  lexer.state = :expr_end # force for args
                } f_arglist bodystmt kEND {   # 6-8
                  recv, name, args, body = val[1], val[4], val[6], val[7]
@@ -995,8 +995,8 @@ primary      : literal
                  body = s(:block, body) unless body[0] == :block
                  body.insert 1, args
                  result = s(:defs, recv, name, s(:scope, body))
-                 support.pop_local_scope;
-                 support.in_single -= 1
+                 self.env.unextend;
+                 self.in_single -= 1
                }
              | kBREAK {
                   result = s(:break)
@@ -1049,13 +1049,13 @@ opt_block_var : none
               }
 
 do_block      : kDO_BLOCK {
-                  support.push_local_scope :d;
+                  self.env.extend :dynamic
                 } opt_block_var compstmt kEND {
                   result = s(:iter)
                   result << val[2] if val[2]
                   result << val[1] if val[1]
                   result << val[3] if val[3]
-                  support.pop_local_scope;
+                  self.env.unextend;
                 }
 
 block_call    : command do_block {
@@ -1088,14 +1088,14 @@ method_call   : operation paren_args {
                   result = s(:call, val[0], val[2]);
                 }
               | kSUPER paren_args {
-                  result = support.new_super(val[1], val[0]);
+                  result = self.new_super(val[1], val[0]);
                 }
               | kSUPER {
                   result = s(:zsuper)
                 }
 
 brace_block   : tLCURLY {
-                  support.push_local_scope(:d);
+                  self.env.extend :dynamic
                 } opt_block_var compstmt tRCURLY {
                   args = val[2]
                   body = val[3] == s(:block) ? nil : val[3]
@@ -1103,18 +1103,18 @@ brace_block   : tLCURLY {
                   result = s(:iter)
                   result << args
                   result << body if body
-                  support.pop_local_scope;
+                  self.env.unextend;
                 }
               | kDO {
-                  support.push_local_scope(:d);
+                  self.env.extend :dynamic
                 } opt_block_var compstmt kEND {
                   args = val[2]
                   body = val[3] == s(:block) ? nil : val[3]
-                  args[0] = :dasgn_curr if args[0] == :dasgn
+                  args[0] = :dasgn_curr if args and args[0] == :dasgn
                   result = s(:iter)
                   result << args
                   result << body if body
-                  support.pop_local_scope;
+                  self.env.unextend;
                 }
 
 case_body     : kWHEN when_args then compstmt cases {
@@ -1185,7 +1185,7 @@ strings       : string {
 
 string        : string1
               | string string1 {
-                  result = support.literal_concat(val[0], val[1]);
+                  result = self.literal_concat(val[0], val[1]);
                 }
 
 string1       : tSTRING_BEG string_contents tSTRING_END {
@@ -1279,7 +1279,7 @@ word_list      :  {
 
 word           : string_content
                | word string_content {
-                 result = support.literal_concat(val[0], val[1]);
+                 result = self.literal_concat(val[0], val[1]);
                  }
 
 qwords         : tQWORDS_BEG ' ' tSTRING_END {
@@ -1384,20 +1384,18 @@ variable     : tIDENTIFIER
                  result = s(:false)
                }
              | k__FILE__ {
-                 result = :"__FILE__" # TODO
-                 result = Token.new("__FILE__")
+                 result = :"__FILE__"
                }
              | k__LINE__ {
-                 result = :"__LINE__" # TODO
-                 result = Token.new("__LINE__")
+                 result = :"__LINE__"
                }
 
 var_ref        : variable {
-                   result = support.gettable(val[0])
+                   result = self.gettable(val[0])
                  }
 
 var_lhs        : variable {
-                   result = support.assignable(val[0]);
+                   result = self.assignable(val[0]);
                  }
 
 backref        : tNTH_REF | tBACK_REF
@@ -1453,7 +1451,7 @@ f_args       : f_arg ',' f_optarg ',' f_rest_arg opt_f_block_arg {
                    result = s(:args, val[0], val[2], val[3]).compact
                  }
              | f_optarg opt_f_block_arg {
-                   result = s(:args, val[0], -1, nil, val[1]).compact
+                   result = s(:args, val[0], val[1]).compact
                  }
              | f_rest_arg opt_f_block_arg {
                    result = s(:args, val[0], val[1]).compact
@@ -1479,7 +1477,7 @@ f_norm_arg   : tCONSTANT {
 # TODO
 #                    if (IdUtil.var_type(identifier) != IdUtil.LOCAL_VAR) then
 #                      yyerror("formal argument must be local variable");
-#                    elsif (support.current_scope.local_scope.is_defined(identifier) >= 0) then
+#                    elsif (self.current_scope.local_scope.is_defined(identifier) >= 0) then
 #                      yyerror("duplicate argument name");
 #                    end
 
@@ -1498,11 +1496,11 @@ f_arg          : f_norm_arg {
                  }
 
 f_opt          : tIDENTIFIER '=' arg_value {
-                   result = support.assignable(val[0], val[2]);
+                   result = self.assignable(val[0], val[2]);
 # TODO
 #                    if (IdUtil.var_type(identifier) != IdUtil.LOCAL_VAR) then
 #                      yyerror("formal argument must be local variable");
-#                    elsif (support.current_scope.local_scope.is_defined(identifier) >= 0) then
+#                    elsif (self.current_scope.local_scope.is_defined(identifier) >= 0) then
 #                      yyerror("duplicate optional argument name");
 #                    end
                  }
@@ -1511,7 +1509,7 @@ f_optarg     : f_opt {
                  result = s(:block, val[0])
                }
              | f_optarg ',' f_opt {
-                 result = support.append_to_block(val[0], val[2]);
+                 result = self.append_to_block(val[0], val[2]);
                }
 
 restarg_mark  : tSTAR2 | tSTAR
@@ -1522,7 +1520,7 @@ f_rest_arg    : restarg_mark tIDENTIFIER {
 # HACK
 #                   if (IdUtil.var_type(identifier) != IdUtil.LOCAL_VAR) then
 #                     yyerror("rest argument must be local variable");
-#                   elsif (support.current_scope.local_scope.is_defined(identifier) >= 0) then
+#                   elsif (self.current_scope.local_scope.is_defined(identifier) >= 0) then
 #                     yyerror("duplicate rest argument name");
 #                   end
                  self.env[name] = self.env.dynamic? ? :dvar : :lvar
@@ -1543,7 +1541,7 @@ f_block_arg   : blkarg_mark tIDENTIFIER {
 # HACK
 #                   if (IdUtil.var_type(identifier) != IdUtil.LOCAL_VAR) then
 #                     yyerror("block argument must be local variable");
-#                   elsif (support.current_scope.local_scope.is_defined(identifier) >= 0) then
+#                   elsif (self.current_scope.local_scope.is_defined(identifier) >= 0) then
 #                     yyerror("duplicate block argument name");
 #                   end
                   self.env[identifier] = self.env.dynamic? ? :dvar : :lvar
