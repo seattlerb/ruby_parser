@@ -109,11 +109,21 @@ stmt          : kALIAS fitem {
                   result = val[1];
                  }
              | stmt kIF_MOD expr_value {
-                  result = s(:if, cond(val[2]), val[0], nil)
-                 }
+                 val[2] = cond val[2]
+                 if val[2][0] == :not then
+                   result = s(:if, val[2].last, nil, val[0])
+                 else
+                   result = s(:if, val[2], val[0], nil)
+                 end
+               }
              | stmt kUNLESS_MOD expr_value {
-                  result = s(:if, cond(val[2]), nil, val[0]);
-                 }
+                 val[2] = cond val[2]
+                 if val[2][0] == :not then
+                   result = s(:if, val[2].last, val[0], nil)
+                 else
+                   result = s(:if, val[2], nil, val[0])
+                 end
+               }
              | stmt kWHILE_MOD expr_value {
                  block = val[0]
                  block = block.last if block.size == 2
@@ -275,16 +285,16 @@ command      : operation command_args = tLOWEST {
                  end
                }
              | primary_value tDOT operation2 command_args = tLOWEST {
-                 result = s(:call, val[0], val[2], val[3]);
+                 result = s(:call, val[0], val[2].to_sym, val[3]);
                }
              | primary_value tDOT operation2 command_args cmd_brace_block {
-                 result = s(:call, val[0], val[2], val[3], val[4]);
+                 result = s(:call, val[0], val[2].to_sym, val[3], val[4]);
                }
              | primary_value tCOLON2 operation2 command_args = tLOWEST {
-                 result = s(:call, val[0], val[2], val[3]);
+                 result = s(:call, val[0], val[2].to_sym, val[3]);
                }
              | primary_value tCOLON2 operation2 command_args cmd_brace_block {
-                 result = s(:call, val[0], val[2], val[3], val[4]);
+                 result = s(:call, val[0], val[2].to_sym, val[3], val[4]);
                }
              | kSUPER command_args {
                  result = self.new_super(val[1], val[0]);
@@ -466,17 +476,18 @@ arg          : lhs '=' arg {
                               s(:resbody, nil, val[4], nil), nil))
                  }
              | var_lhs tOP_ASGN arg {
-                 name = val[0].value;
-                 asgn_op = val[1].value;
+                 name = val[0].value
+                 asgn_op = val[1].value.to_sym
 
-                 if asgn_op == "||" then
+                 case asgn_op
+                 when :"||" then
                    val[0] << val[2]
                    result = s(:op_asgn_or, self.gettable(name), val[0]);
-                 elsif asgn_op == "&&" then
+                 when :"&&" then
                    val[0] << val[2]
                    result = s(:op_asgn_and, self.gettable(name), val[0]);
                  else
-                   val[0][2] = s(:call, self.gettable(name), asgn_op, val[2])
+                   val[0][2] = s(:call, self.gettable(name), asgn_op, s(:array, val[2]))
                    result = val[0];
                  end
                  }
@@ -668,19 +679,20 @@ call_args    : command {
                  result = self.arg_blk_pass(result, val[4]);
                }
              | assocs opt_block_arg {
-                 result = s(:array, s(:hash, val[0]))
+                 result = s(:array, s(:hash, *val[0].values))
                  result = self.arg_blk_pass(result, val[1]);
                }
              | assocs ',' tSTAR arg_value opt_block_arg {
-                 result = self.arg_concat(s(:array, s(:hash, val[0])), val[3])
+                 result = self.arg_concat(s(:array, s(:hash, *val[0].values)), val[3])
                  result = self.arg_blk_pass(result, val[4]);
                }
              | args ',' assocs opt_block_arg {
-                 result = val[0].add(s(:hash, val[2]));
+                 result = val[0] << s(:hash, *val[2].values)
                  result = self.arg_blk_pass(result, val[3]);
                }
              | args ',' assocs ',' tSTAR arg opt_block_arg {
-                 result = self.arg_concat(val[0].add(s(:hash, val[2])), val[5])
+                 val[0] << s(:hash, *val[2].values)
+                 result = self.arg_concat(val[0], val[5])
                  result = self.arg_blk_pass(result, val[6]);
                }
              | tSTAR arg_value opt_block_arg {
@@ -699,37 +711,37 @@ call_args2    : arg_value ',' args opt_block_arg {
                   result = self.arg_blk_pass(result, val[4]);
                  }
              | arg_value ',' args ',' tSTAR arg_value opt_block_arg {
-                  result = self.arg_concat(s(:array, val[0], s(:hash, val[2])), val[5])
+                  result = self.arg_concat(s(:array, val[0], s(:hash, *val[2].values)), val[5])
                   result = self.arg_blk_pass(result, val[6]);
                  }
              | assocs opt_block_arg {
-                  result = s(:array, s(:hash, val[0]));
+                  result = s(:array, s(:hash, *val[0].values));
                   result = self.arg_blk_pass(result, val[1]);
                  }
              | assocs ',' tSTAR arg_value opt_block_arg {
-                  result = s(:array, s(:hash, val[0]), val[3])
+                  result = s(:array, s(:hash, *val[0].values), val[3])
                   result = self.arg_blk_pass(result, val[4])
                  }
              | arg_value ',' assocs opt_block_arg {
-                  result = s(:array, val[0], s(:hash, val[2]))
+                  result = s(:array, val[0], s(:hash, *val[2].values))
                   result = self.arg_blk_pass(result, val[3])
                  }
              | arg_value ',' args ',' assocs opt_block_arg {
-                  result = s(:array, val[0]).add_all(val[2]).add(s(:hash, val[4]));
+                  result = s(:array, val[0]).add_all(val[2]).add(s(:hash, *val[4].values));
                   result = self.arg_blk_pass(result, val[5]);
                  }
              | arg_value ',' assocs ',' tSTAR arg_value opt_block_arg {
-                  result = self.arg_concat(s(:array, val[0]).add(s(:hash, val[2])), val[5]);
+                  result = self.arg_concat(s(:array, val[0]).add(s(:hash, *val[2].values)), val[5]);
                   result = self.arg_blk_pass(result, val[6]);
                  }
              | arg_value ',' args ',' assocs ',' tSTAR arg_value opt_block_arg {
-                  result = self.arg_concat(s(:array, val[0]).add_all(val[2]).add(s(:hash, val[4])), val[7]);
+                  result = self.arg_concat(s(:array, val[0]).add_all(val[2]).add(s(:hash, *val[4].values)), val[7]);
                   result = self.arg_blk_pass(result, val[8]);
                  }
              | tSTAR arg_value opt_block_arg {
                   result = self.arg_blk_pass(s(:splat, val[1]), val[2]);
                  }
-             | block_arg {}
+             | block_arg
 
 command_args  : {
                   result = lexer.cmdarg.stack.dup
@@ -826,7 +838,7 @@ primary      : literal
                   end
                  }
              | tLBRACE assoc_list tRCURLY {
-                 result = s(:hash, *val[1][1..-1])
+                 result = s(:hash, *val[1].values)
                }
              | kRETURN {
                  result = s(:return)
@@ -860,16 +872,20 @@ primary      : literal
                  result = iter
                }
              | kIF expr_value then compstmt if_tail kEND {
-                  # HACK: val[1] needs to call value_expr(node)
-                  result = s(:if, cond(val[1]), val[3], val[4]);
-# 			if (cond_negative(&$$->nd_cond)) {
-# 		            NODE *tmp = $$->nd_body;
-# 		            $$->nd_body = $$->nd_else;
-# 		            $$->nd_else = tmp;
-# 			}
-                 }
+                 val[1] = cond val[1]
+                 if val[1][0] == :not then
+                   result = s(:if, val[1].last, val[4], val[3])
+                 else
+                   result = s(:if, val[1], val[3], val[4])
+                 end
+               }
              | kUNLESS expr_value then compstmt opt_else kEND {
-                  result = s(:if, val[1], val[4], val[3]);
+                 val[1] = cond val[1]
+                 if val[1][0] == :not then
+                   result = s(:if, val[1].last, val[3], val[4])
+                 else
+                   result = s(:if, val[1], val[4], val[3])
+                 end
                  }
              | kWHILE {
                  lexer.cond.push true
@@ -1077,15 +1093,13 @@ method_call   : operation paren_args {
                   result = new_fcall(val[0].value.to_sym, val[1])
                 }
               | primary_value tDOT operation2 opt_paren_args {
-                  result = s(:call, val[0], val[2].value.to_sym)
-                  result << val[3] if val[3]
+                  result = new_call(val[0], val[2].value.to_sym, val[3])
                 }
               | primary_value tCOLON2 operation2 paren_args {
-                  result = s(:call, val[0], val[2]);
-                  result << val[3] if val[3]
+                  result = new_call(val[0], val[2].value.to_sym, val[3])
                 }
               | primary_value tCOLON2 operation3 {
-                  result = s(:call, val[0], val[2]);
+                  result = new_call(val[0], val[2].value.to_sym)
                 }
               | kSUPER paren_args {
                   result = self.new_super(val[1], val[0]);
@@ -1436,6 +1450,12 @@ f_args       : f_arg ',' f_optarg ',' f_rest_arg opt_f_block_arg {
                }
              | f_arg ',' f_optarg opt_f_block_arg {
                  result = val[0]
+                 if val[2] then
+                   val[2][1..-1].each do |lasgn| # FIX clean sexp iter
+                     raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
+                     result << lasgn[1]
+                   end
+                 end
                  result << val[2] if val[2]
                  result << val[3] if val[3]
                  }
@@ -1449,11 +1469,30 @@ f_args       : f_arg ',' f_optarg ',' f_rest_arg opt_f_block_arg {
                  result << val[1] if val[1]
                  }
              | f_optarg ',' f_rest_arg opt_f_block_arg {
-                   result = s(:args, val[0], val[2], val[3]).compact
-                 }
+                 result = s(:args)
+                 if val[0] then
+                   val[0][1..-1].each do |lasgn| # FIX clean sexp iter
+                     raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
+                     result << lasgn[1]
+                   end
+                 end
+
+                 result << val[0] if val[0]
+                 result << val[2] if val[2]
+                 result << val[3] if val[3]
+               }
              | f_optarg opt_f_block_arg {
-                   result = s(:args, val[0], val[1]).compact
-                 }
+                 result = s(:args)
+                 if val[0] then
+                   val[0][1..-1].each do |lasgn| # FIX clean sexp iter
+                     raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
+                     result << lasgn[1]
+                   end
+                 end
+
+                 result << val[0] if val[0]
+                 result << val[1] if val[1]
+               }
              | f_rest_arg opt_f_block_arg {
                    result = s(:args, val[0], val[1]).compact
                  }

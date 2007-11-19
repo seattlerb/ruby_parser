@@ -23,9 +23,8 @@ end
 class RubyParser < Racc::Parser
   VERSION = '1.0.0'
 
-  attr_reader :warnings
-  attr_accessor :lexer, :in_def, :in_single
-  attr_reader :env
+  attr_accessor :lexer, :in_def, :in_single, :file
+  attr_reader :env, :warnings
 
   def initialize
     super
@@ -41,9 +40,10 @@ class RubyParser < Racc::Parser
     old_yyerror
   end
 
-  def parse(str)
+  def parse(str, file = "(string)")
     raise "bad val: #{str.inspect}" unless String === str
 
+    self.file = file
     self.lexer.src = StringIO.new(str)
 
     @yydebug = ENV.has_key? 'DEBUG'
@@ -84,24 +84,40 @@ class RubyParser < Racc::Parser
                asgn = in_def or in_single > 0
                s((asgn ? :cvasgn : :cvdecl), id)
              when /^@/ then
-               s(:iasgn, id.to_sym)
+               s(:iasgn, id)
              when /^\$/ then
-               s(:gasgn, id.to_sym)
+               s(:gasgn, id)
              when /^[A-Z]/ then
-               s(:cdecl, id.to_sym)
+               s(:cdecl, id)
              else
-               if env.dynamic? then
-                 if env.dasgn_curr? id then
-                   s(:dasgn_curr, id)
+               type = env[id]
+               if type then # TODO: simplify this a lot
+                 case type
+                 when :lvar then
+                   s(:lasgn, id)
+                 when :dvar then
+                   if env.dasgn_curr? id then
+                     s(:dasgn_curr, id)
+                   else
+                     s(:dasgn, id)
+                   end
                  else
-                   s(:dasgn, id)
+                   raise "unknown type #{type} for id #{id}"
                  end
                else
-                 s(:lasgn, id)
+                 if env.dynamic? then
+                   if env.dasgn_curr? id then
+                     s(:dasgn_curr, id)
+                   else
+                     s(:dasgn, id)
+                   end
+                 else
+                   s(:lasgn, id)
+                 end
                end
              end
 
-    self.env[id.to_sym] = self.env.dynamic? ? :dvar : :lvar
+    self.env[id] = (self.env.dynamic? ? :dvar : :lvar) unless self.env[id]
 
     result << value if value
 
@@ -138,16 +154,16 @@ class RubyParser < Racc::Parser
   end
 
   def gettable(id)
-    id = id.value.to_sym if Token === id  # HACK
-    id = id.last.to_sym  if Sexp === id   # HACK
+    id = id.value.to_sym if Token  === id # HACK
+    id = id.last.to_sym  if Sexp   === id # HACK
     id = id.to_sym       if String === id # HACK
 
-    return s(:self)            if id == :self
-    return s(:nil)             if id == :nil
-    return s(:true)            if id == :true
-    return s(:false)           if id == :false
-    return s(:str, "afile.rb") if id == :"__FILE__" # FIX
-    return s(:lit, -42)        if id == :"__LINE__" # FIX
+    return s(:self)           if id == :self
+    return s(:nil)            if id == :nil
+    return s(:true)           if id == :true
+    return s(:false)          if id == :false
+    return s(:str, self.file) if id == :"__FILE__" # FIX
+    return s(:lit, -42)       if id == :"__LINE__" # FIX
 
     result = case id.to_s
              when /^@@/ then
@@ -159,10 +175,11 @@ class RubyParser < Racc::Parser
              when /^[A-Z]/ then
                s(:const, id)
              else
-               if env.dynamic? and :dvar == env[id] then
+               type = env[id]
+               if type then
+                 s(type, id)
+               elsif env.dynamic? and :dvar == env[id] then
                  s(:dvar, id)
-               elsif env[id] then
-                 s(:lvar, id)
                else
                  s(:vcall, id)
                end
@@ -215,17 +232,31 @@ class RubyParser < Racc::Parser
     return s(:yield, node)
   end
 
-  def new_fcall m, a
-    if a and a[0] == :block_pass then
-      args = a.array(true) || a.argscat(true) || a.splat(true)
-      call = s(:fcall, m)
-      call << args if args
-      a << call
-      return a
+  def new_call recv, meth, args # REFACTOR - merge with fcall
+    if args && args[0] == :block_pass then
+      new_args = args.array(true) || args.argscat(true) || args.splat(true)
+      call = s(:call, recv, meth)
+      call << new_args if new_args
+      args << call
+
+      return args
+    end
+    result = s(:call, recv, meth)
+    result << args if args
+    result
+  end
+
+  def new_fcall meth, args
+    if args and args[0] == :block_pass then
+      new_args = args.array(true) || args.argscat(true) || args.splat(true)
+      call = s(:fcall, meth)
+      call << new_args if new_args
+      args << call
+      return args
     end
 
-    r = s(:fcall, m)
-    r << a if a
+    r = s(:fcall, meth)
+    r << args if args and args != s(:array)
     r
   end
 
@@ -302,10 +333,12 @@ class RubyParser < Racc::Parser
   end
 
   def new_super args, operation
-    # HACK ((BlockPassNode) args).getArgsNode
-    return s(:super, args) if args && args.first == :block_pass
+    # return s(:super, args)
+    raise "not yet" if args && args.first == :block_pass
 
-    return s(:super, args)
+    result = s(:super)
+    result << args if args and args != s(:array)
+    result
   end
 
   def aryset receiver, index
@@ -2362,9 +2395,15 @@ class Sexp
     last
   end
 
+  def values
+    self[1..-1]
+  end
+
   def node_type
     first
   end
+
+  kill :add, :add_all
 end
 
 def bitch
