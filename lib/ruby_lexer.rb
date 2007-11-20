@@ -332,8 +332,7 @@ class RubyParser < Racc::Parser
     head << tail
   end
 
-  def new_super args, operation
-    # return s(:super, args)
+  def new_super args
     raise "not yet" if args && args.first == :block_pass
 
     result = s(:super)
@@ -510,6 +509,7 @@ class RubyLexer
     func = string_type
     paren = open
 
+    raise "wtf?" unless func
     return :tSTRING_END unless func
 
     c = src.read
@@ -524,10 +524,14 @@ class RubyLexer
 
     if c == term && ! nest then
       if func & STR_FUNC_QWORDS != 0 then
+        raise "wtf?"
         quote[1] = nil
         return ' '
       end
-      return :tSTRING_END unless func & STR_FUNC_REGEXP != 0
+      unless func & STR_FUNC_REGEXP != 0 then
+        self.yacc_value = t(term)
+        return :tSTRING_END
+      end
       self.yacc_value = self.regx_options
       return :tREGEXP_END
     end
@@ -584,11 +588,155 @@ class RubyLexer
   end
 
   def tokadd_escape term
-    false # HACK whatever
+    case c = src.read
+    when "\n" then
+      return false    # just ignore
+    when /0-7/ then   # octal constant
+      tokadd("\\");
+      tokadd(c);
+      2.times do |i|
+        c = src.read();
+        # HACK goto eof if (c == -1) 
+        if (c < "0" || "7" < c) then
+          pushback(c);
+          break;
+        end
+        tokadd(c);
+      end
+      return false;
+    when "x" then # hex constant
+      raise "not yet"
+      #       tokadd("\\");
+      #       tokadd(c);
+      #       scan_hex(lex_p, 2, &numlen);
+      #       if (numlen == 0) then
+      #         yyerror("Invalid escape character syntax");
+      #         return true;
+      #       end
+      #             while (numlen--)
+      #                 tokadd(src.read());
+      #         return false;
+    when "M" then
+      if ((c = src.read()) != "-") then
+        yyerror("Invalid escape character syntax");
+        pushback(c);
+        return false;
+      end
+      tokadd("\\"); tokadd("M"); tokadd("-");
+      raise "not yet"
+      # goto escaped;
+    when "C" then
+      if ((c = src.read()) != "-") then
+        yyerror("Invalid escape character syntax");
+        pushback(c);
+        return false;
+      end
+      tokadd("\\"); tokadd("C"); tokadd("-");
+      raise "not yet"
+      # HACK goto escaped;
+    when "c" then
+      tokadd("\\"); tokadd("c");
+      # HACK escaped:
+      if ((c = src.read()) == "\\") then
+        return tokadd_escape(term);
+      elsif (c == -1) then
+        goto eof;
+      end
+      tokadd(c);
+      return false;
+      # HACK eof:
+    when RubyLexer::EOF then
+      yyerror("Invalid escape character syntax");
+      return true;
+    else
+      if (c != "\\" || c != term)
+        tokadd("\\");
+      end
+      tokadd(c);
+    end
+    return false;
   end
 
   def read_escape
-    "\n" # HACK whatever
+    case c = src.read
+    when "\\" then # Backslash
+      return c
+    when "n" then # newline
+      return "\n"
+    when "t" then # horizontal tab
+      return "\t"
+    when "r" then # carriage-return
+      return "\r"
+    when "f" then # form-feed
+      return "\f"
+    when "v" then # vertical tab
+      return "\13"
+    when "a" then # alarm(bell)
+      return "\007"
+    when 'e' then # escape
+      return "\033"
+    when /[0-7]/ then # octal constant
+      raise "not yet"
+      # pushback(c)
+      # c = scan_oct(lex_p, 3, &numlen)
+      # lex_p += numlen
+
+      return c
+    when "x" then # hex constant
+      raise "not yet"
+      # c = scan_hex(lex_p, 2, &numlen)
+      # if (numlen == 0) then
+      # yyerror("Invalid escape character syntax")
+      # return 0
+      # end
+      # lex_p += numlen
+      return c
+
+    when "b" then # backspace
+      return "\010"
+    when "s" then # space
+      return " "
+    when "M" then
+      raise "not yet"
+      #         if ((c = src.read()) != "-") then
+      #             yyerror("Invalid escape character syntax")
+      #             pushback(c)
+      #             return "\0"
+      #         end
+      #         if ((c = src.read()) == "\\") then
+      #             return read_escape() | 0x80
+      #         end
+      #         elsif (c == -1) goto eof
+      #         else then
+      #             return ((c & 0xff) | 0x80)
+      #         end
+
+    when "C" then
+      raise "not yet"
+      if ((c = src.read()) != "-") then
+        yyerror("Invalid escape character syntax")
+        pushback(c)
+        return "\0"
+      end
+    when "c" then
+      raise "not yet"
+#       if ((c = src.read())== "\\") then
+#         c = read_escape()
+#       elsif (c == "?")
+#         return 0177
+#       elsif (c == -1)
+#         goto eof
+#       end
+
+      return c & 0x9f
+
+      # HACK eof:
+    when RubyLexer::EOF then
+      yyerror("Invalid escape character syntax")
+      return "\0"
+    else
+      return c
+    end
   end
 
   def tokadd_string(func, term, paren, buffer)
@@ -601,12 +749,12 @@ class RubyLexer
           break
         end
         self.nest -= 1
-      elsif ((func & RubyLexer::STR_FUNC_EXPAND) != 0 && c == '#' && !src.peek("\n")) then
+      elsif (func & RubyLexer::STR_FUNC_EXPAND) != 0 && c == '#' && !src.peek("\n") then
         c2 = src.read
 
-        if (c2 == '$' || c2 == '@' || c2 == '{') then
-          src.unread(c2)
-          src.unread(c)
+        if c2 == '$' || c2 == '@' || c2 == '{' then
+          src.unread c2
+          src.unread c
           break
         end
         src.unread(c2)
@@ -619,7 +767,7 @@ class RubyLexer
 
           buffer << "\\"
         when "\\" then
-          buffer << c if ((func & RubyLexer::STR_FUNC_ESCAPE) != 0)
+          buffer << c if (func & RubyLexer::STR_FUNC_ESCAPE) != 0
         else
           if ((func & RubyLexer::STR_FUNC_REGEXP) != 0) then
             src.unread c
@@ -2033,6 +2181,10 @@ class RubyLexer
 
   ############################################################
   # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+
+  def tokadd s # HACK
+    self.token_buffer << s
+  end
 
   def warning s
     # do nothing for now

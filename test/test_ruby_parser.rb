@@ -29,7 +29,9 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
   if ENV['ZOMGPONIES'] or File.exist? 'zomgponies' then
     require 'parse_tree'
 
-    files = Dir["/usr/lib/ruby/1.8/test/**/*.rb"] # TODO: drop 1.8 so I get gems
+   files = Dir["/usr/lib/ruby/**/*.rb"] 
+   files = Dir["/usr/lib/ruby/1.8/**/*.rb"]      # TODO: drop 1.8 so I get gems
+   files = Dir["/usr/lib/ruby/1.8/test/**/*.rb"] # TODO: drop test so I get 1.8
 
     eval files.map { |file|
       name = file.split(/\//)[4..-1].join('_').gsub(/\W+/, '_')

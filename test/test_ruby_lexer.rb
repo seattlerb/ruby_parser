@@ -143,18 +143,39 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tREGEXP_END,     "i")
   end
 
+  def test_yylex_regexp_escapes
+    util_lex_token('/re\tge\nxp/',
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "re\\tge\\nxp"),
+                   :tREGEXP_END,     "")
+  end
+
   def test_yylex_string_double
     util_lex_token('"string"',
                    :tSTRING_BEG,     t('"'),
                    :tSTRING_CONTENT, s(:str, "string"),
-                   :tSTRING_END,     s(:str, "string"))
+                   :tSTRING_END,     t('"'))
+  end
+
+  def test_yylex_string_double_escapes
+    util_lex_token('"s\tri\ng"',
+                   :tSTRING_BEG,     t('"'),
+                   :tSTRING_CONTENT, s(:str, "s\tri\ng"),
+                   :tSTRING_END,     t('"'))
   end
 
   def test_yylex_string_single
     util_lex_token("'string'",
                    :tSTRING_BEG,     t("'"),
                    :tSTRING_CONTENT, s(:str, "string"),
-                   :tSTRING_END,     s(:str, "string"))
+                   :tSTRING_END,     t("'"))
+  end
+
+  def test_yylex_string_single_escapes
+    util_lex_token("'s\\tri\\ng'",
+                   :tSTRING_BEG,     t("'"),
+                   :tSTRING_CONTENT, s(:str, "s\\tri\\ng"),
+                   :tSTRING_END,     t("'"))
   end
 
   def test_yylex_symbol

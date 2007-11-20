@@ -253,7 +253,9 @@ command_call : command
                  result = s(:break, args)
                }
              | kNEXT call_args {
-                 result = s(:next, val[1])
+                 result = s(:next)
+                 val[1] = val[1].last if val[1].size == 2 # HACK
+                 result << val[1] if val[1]
                }
 
 block_command : block_call
@@ -297,7 +299,7 @@ command      : operation command_args = tLOWEST {
                  result = s(:call, val[0], val[2].to_sym, val[3], val[4]);
                }
              | kSUPER command_args {
-                 result = self.new_super(val[1], val[0]);
+                 result = self.new_super(val[1]);
                }
              | kYIELD command_args {
                  result = self.new_yield(val[1]);
@@ -323,13 +325,13 @@ mlhs_basic    : mlhs_head {
                   result = s(:masgn, val[0], val[2]);
                 }
               | mlhs_head tSTAR {
-                  result = s(:masgn, val[0], s(:star))
+                  result = s(:masgn, val[0], s(:splat))
                 }
               | tSTAR mlhs_node {
                   result = s(:masgn, val[1]);
                 }
               | tSTAR {
-                  result = s(:masgn, s(:star))
+                  result = s(:masgn, s(:splat))
                 }
 
 mlhs_item     : mlhs_node
@@ -1102,7 +1104,7 @@ method_call   : operation paren_args {
                   result = new_call(val[0], val[2].value.to_sym)
                 }
               | kSUPER paren_args {
-                  result = self.new_super(val[1], val[0]);
+                  result = self.new_super(val[1]);
                 }
               | kSUPER {
                   result = s(:zsuper)
@@ -1194,7 +1196,7 @@ literal       : numeric { result = s(:lit, val[0]) }
               | dsym
 
 strings       : string {
-                  result = s(:dstr, val[0].value) if val[0][0] == :evstr
+                  val[0] = s(:dstr, val[0].value) if val[0][0] == :evstr
                   result = val[0];
                 }
 
@@ -1259,8 +1261,21 @@ regexp        : tREGEXP_BEG xstring_contents tREGEXP_END {
                   else
                     case node[0]
                     when :str then
+                      o = 0
+                      options.split(//).each do |c| # FIX: this has a better home
+                        case c
+                        when 'x' then
+                          o += Regexp::EXTENDED
+                        when 'i' then
+                          o += Regexp::IGNORECASE
+                        when 'm' then
+                          o += Regexp::MULTILINE
+                        else
+                          warn "unknown regexp option: #{c}" # HACK
+                        end
+                      end
                       node[0] = :lit
-                      node[1] = /#{node[1]}/
+                      node[1] = Regexp.new(node[1], o)
                     when :dstr then
                       if options =~ /o/ then
                         node[0] = :dregx_once
@@ -1346,13 +1361,13 @@ string_content : tSTRING_CONTENT {
                  }
 
 string_dvar    : tGVAR {
-                   result = s(:global_var, val[0].value);
+                   result = s(:gvar, val[0].value.to_sym);
                  }
                | tIVAR {
-                   result = s(:inst_var, val[0].value);
+                   result = s(:ivar, val[0].value.to_sym);
                  }
                | tCVAR {
-                   result = s(:class_var, val[0].value);
+                   result = s(:cvar, val[0].value.to_sym);
                  }
                | backref
 
