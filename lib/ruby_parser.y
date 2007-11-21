@@ -52,7 +52,6 @@ program       : {
                 }
 
 bodystmt      : compstmt opt_rescue opt_else opt_ensure {
-                  val[0] = nil if val[0] == s(:block) # HACK
                   result = val[0]
 
                   if val[1] then
@@ -72,22 +71,14 @@ compstmt     : stmts opt_terms {
                  result = val[0]
                }
 
-stmts        : none { result = s(:block) }
+stmts        : none
              | stmt # TODO: wrap in newline node
              | stmts terms stmt {
-                 # result = self.append_to_block(val[0], self.newline_node(val[2]));
-                 # HACK result = val[0].Node.args << line(val[2])
-                 if val[0] then
-                   val[0] = s(:block, val[0]) unless val[0].node_type == :block
-                   val[0] << val[2]
-                   result = val[0]
-                 else
-                   result = val[2]
-                 end
-                 }
+                 result = block_append(val[0], val[2])
+               }
              | error stmt {
                  result = val[1];
-                 }
+               }
 
 stmt          : kALIAS fitem {
                  lexer.state = :expr_fname
@@ -124,16 +115,20 @@ stmt          : kALIAS fitem {
                }
              | stmt kWHILE_MOD expr_value {
                  block = val[0]
-                 block = block.last if block.size == 2
-                 block = nil if block == s(:block) # HACK
-      
-                 result = s(:while, val[2], block, false);
+                 if block[0] == :begin then
+                   result = s(:while, cond(val[2]), block.last, false);
+                 else
+                   result = s(:while, cond(val[2]), block, true);
+                 end
                }
              | stmt kUNTIL_MOD expr_value {
                  block = val[0] # REFACTOR
-                 block = block.last if block.size == 2
-                 block = nil if block == s(:block) # HACK
-                 result = s(:until, val[2], block, false);
+                 if block[0] == :begin then
+                   result = s(:until, cond(val[2]), block.last, false);
+                 else
+                   result = s(:until, cond(val[2]), block, true);
+                 end
+                 # TODO: add tests for until not / while not
                }
              | stmt kRESCUE_MOD stmt {
                   result = s(:rescue, val[0], s(:resbody, nil, val[2]))
@@ -235,19 +230,13 @@ expr_value    : expr {
 command_call : command
              | block_command
              | kRETURN call_args {
-                 retval = val[1]
-                 retval = retval.last if retval.size == 2
-                 result = s(:return, retval)
+                 result = s(:return, ret_args(val[1]))
                }
              | kBREAK call_args {
-                 args = val[1]
-                 args = args.last if args.size == 2
-                 result = s(:break, args)
+                 result = s(:break, ret_args(val[1]))
                }
              | kNEXT call_args {
-                 result = s(:next)
-                 val[1] = val[1].last if val[1].size == 2 # HACK
-                 result << val[1] if val[1]
+                 result = s(:next, ret_args(val[1]))
                }
 
 block_command : block_call
@@ -432,7 +421,7 @@ fname         : tIDENTIFIER | tCONSTANT | tFID
                 }
 
 fitem         : fname
-              | symbol { result = s(:lit, val[0]) } # HACK
+              | symbol { result = s(:lit, val[0]) }
 
 undef_list    : fitem {
                   result = s(:undef, val[0])
@@ -621,7 +610,9 @@ arg          : lhs '=' arg {
                }
              | primary
 
-arg_value     : arg
+arg_value     : arg {
+                  result = value_expr(val[0])
+                 }
 
 aref_args     : none
              | command opt_nl {
@@ -638,7 +629,7 @@ aref_args     : none
                  result = s(:array, s(:hash, *val[0].values))
                }
              | tSTAR arg opt_nl {
-                 result = s(:splat, val[1]) # HACK s(:newline, 
+                 result = s(:splat, val[1])
                }
 
 paren_args    : tLPAREN2 none tRPAREN {
@@ -795,9 +786,11 @@ primary      : literal
                  result = s(:fcall, val[0].value.to_sym)
                }
              | kBEGIN bodystmt kEND {
-                 val[1] = s(:nil) unless val[1]
-                 result = s(:begin, val[1])
-                 # result = result.last if result.size == 2 # HACK
+                 unless val[1] then
+                   result = s(:nil)
+                 else
+                   result = s(:begin, val[1])
+                 end
                }
              | tLPAREN_ARG expr {
                   lexer.state = :expr_endarg
@@ -883,20 +876,14 @@ primary      : literal
                } expr_value do {
                  lexer.cond.pop
                } compstmt kEND {
-                  block = val[5]
-                  block = nil if block == s(:block) # HACK
-                  result = s(:while, val[2], block, true);
+                  result = s(:while, cond(val[2]), val[5], true)
                  }
              | kUNTIL {
                  lexer.cond.push true;
                } expr_value do {
                  lexer.cond.pop;
                } compstmt kEND {
-                 block = val[5] # REFACTOR
-                 block = block.last if block.size == 2
-                 block = nil if block == s(:block) # HACK
-
-                 result = s(:until, val[2], block, true)
+                 result = s(:until, cond(val[2]), val[5], true)
                }
              | kCASE expr_value opt_terms case_body kEND {
                   result = s(:case, val[1]);
@@ -1162,7 +1149,7 @@ opt_rescue    : kRESCUE exc_list exc_var then compstmt opt_rescue {
                   result = s(:resbody)
                   result << val[1] # if val[1]
                   if body then
-                    body = body.last if body.size == 2 and body[0] == :block
+                    # body = body.last if body.size == 2 and body[0] == :block
                     result << body
                   end
                   result << val[5] if val[5]
@@ -1251,7 +1238,7 @@ regexp        : tREGEXP_BEG xstring_contents tREGEXP_END {
                       when 'm' then
                         o += Regexp::MULTILINE
                       else
-                        warn "unknown regexp option: #{c}" # HACK
+                        warn "unknown regexp option: #{c}"
                       end
                     end
 
@@ -1269,7 +1256,7 @@ regexp        : tREGEXP_BEG xstring_contents tREGEXP_END {
                         when 'm' then
                           o += Regexp::MULTILINE
                         else
-                          warn "unknown regexp option: #{c}" # HACK
+                          warn "unknown regexp option: #{c}"
                         end
                       end
                       node[0] = :lit
@@ -1284,8 +1271,6 @@ regexp        : tREGEXP_BEG xstring_contents tREGEXP_END {
                       node = s(:dregx, '', *node[1..-1]);
                       node[0] = :dregx_once if options =~ /o/
                     end
-                    
-                    # HACK node << options if options
                   end
 
                   result = node
@@ -1548,12 +1533,7 @@ f_arg          : f_norm_arg {
 
 f_opt          : tIDENTIFIER '=' arg_value {
                    result = self.assignable(val[0], val[2]);
-# TODO
-#                    if (IdUtil.var_type(identifier) != IdUtil.LOCAL_VAR) then
-#                      yyerror("formal argument must be local variable");
-#                    elsif (self.current_scope.local_scope.is_defined(identifier) >= 0) then
-#                      yyerror("duplicate optional argument name");
-#                    end
+                   # TODO: detect duplicate names
                  }
 
 f_optarg     : f_opt {
@@ -1567,13 +1547,6 @@ restarg_mark  : tSTAR2 | tSTAR
 
 f_rest_arg    : restarg_mark tIDENTIFIER {
                   name = val[1].value.to_sym
-
-# HACK
-#                   if (IdUtil.var_type(identifier) != IdUtil.LOCAL_VAR) then
-#                     yyerror("rest argument must be local variable");
-#                   elsif (self.current_scope.local_scope.is_defined(identifier) >= 0) then
-#                     yyerror("duplicate rest argument name");
-#                   end
                  self.env[name] = self.env.dynamic? ? :dvar : :lvar
 
                  result = :"*#{name}"
@@ -1589,12 +1562,6 @@ blkarg_mark   : tAMPER2 | tAMPER
 f_block_arg   : blkarg_mark tIDENTIFIER {
                   identifier = val[1].value.to_sym
 
-# HACK
-#                   if (IdUtil.var_type(identifier) != IdUtil.LOCAL_VAR) then
-#                     yyerror("block argument must be local variable");
-#                   elsif (self.current_scope.local_scope.is_defined(identifier) >= 0) then
-#                     yyerror("duplicate block argument name");
-#                   end
                   self.env[identifier] = self.env.dynamic? ? :dvar : :lvar
                   result = s(:block_arg, identifier.to_sym)
                  }

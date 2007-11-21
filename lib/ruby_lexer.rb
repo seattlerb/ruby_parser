@@ -191,26 +191,12 @@ class RubyParser < Racc::Parser
   end
 
   def block_append(head, tail)
-#     return head unless tail
-#     return tail unless head
-
-#     case h[0]
-#     when :newline then
-#       h = h.last
-#       # goto again # HACK
-#     when :lit, :str then
-#       parser_warning(h, "unused literal ignored")
-#       return tail
-#     when :block then
-#       nnd = h.last
-#     else
-#       h = nnd = s(:block, head)
-#       head = nnd
-#     end
+    return head unless tail
+    return tail unless head
 
     head = s(:block, head) unless head[0] == :block
 
-    if tail[0] == :block then
+    if Sexp === tail and tail[0] == :block then
       head.push(*tail.values)
     else
       head << tail
@@ -389,12 +375,21 @@ class RubyParser < Racc::Parser
     node
   end
 
-  def value_expr node # HACK
-    if node.size == 2 and node[0] == :begin then
-      node.last
-    else
-      node
+  def ret_args node
+    if node then
+      if node[0] == :block_pass then
+        raise SyntaxError, "block argument should not be given"
+      end
+
+      node = node.last if node[0] == :array && node.size == 2
+      node = s(:svalue, node) if node[0] == :splat
     end
+
+    node
+  end
+
+  def value_expr node # HACK
+    remove_begin node
   end
 
   def void_stmts node # TODO: remove entirely... fuck it
@@ -1929,7 +1924,7 @@ class RubyLexer
               return :kDO_BLOCK if state == :expr_endarg
               return :kDO
             end
-            
+
             return keyword.id0 if state == :expr_beg
 
             self.lex_state = :expr_beg unless keyword.id0 == keyword.id1
@@ -2187,8 +2182,7 @@ class RubyLexer
     end
 
     if (is_float) then
-      d = number.to_f
-      self.yacc_value = d
+      self.yacc_value = number.to_f
       return :tFLOAT
     end
 

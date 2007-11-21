@@ -89,6 +89,20 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     assert_equal expected, @processor.block_append(head, tail)
   end
 
+  def test_block_append_nil_head
+    head = nil
+    tail = s(:zsuper)
+    expected = s(:zsuper)
+    assert_equal expected, @processor.block_append(head, tail)
+  end
+
+  def test_block_append_nil_tail
+    head = s(:args)
+    tail = nil
+    expected = s(:args)
+    assert_equal expected, @processor.block_append(head, tail)
+  end
+
   def test_call_env
     @processor.env[:a] = :lvar
     expected = s(:call, s(:lvar, :a), :happy)
