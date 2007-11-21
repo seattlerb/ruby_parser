@@ -2376,7 +2376,6 @@ class Keyword
 end
 
 class Environment
-
   attr_reader :env
 
   def initialize dyn = false

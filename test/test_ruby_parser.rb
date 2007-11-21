@@ -32,11 +32,13 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     files = Dir["/usr/lib/ruby/**/*.rb"] 
     files = Dir["/usr/lib/ruby/1.8/**/*.rb"]      # TODO: drop 1.8 so I get gems
     files = Dir["/usr/lib/ruby/1.8/test/**/*.rb"] # TODO: drop test so I get 1.8
+    files = Dir["unit/*.rb"]
 
     files.reject! { |f| f =~ /tk|tcl/ } # causes a bus error ?!?
 
     eval files.map { |file|
-      name = file.split(/\//)[4..-1].join('_').gsub(/\W+/, '_')
+      name = File.basename(file).gsub(/\W+/, '_')
+      # name = file.split(/\//)[4..-1].join('_').gsub(/\W+/, '_')
       eval "def test_#{name}
        file = #{file.inspect}
        rb = File.read(file)
@@ -147,6 +149,64 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     assert_equal pt, @processor.parse(rb)
     assert_equal expected_env, @processor.env.all
   end
+
+  def test_dasgn_icky1
+    rb = '
+a do
+  v = nil                       # dasgn_curr
+  assert_block(full_message) do
+    begin
+      yield
+    rescue Exception => v       # dasgn
+      break
+    end
+  end
+end
+'
+    pt = s(:iter,
+           s(:fcall, :a),
+           nil,
+           s(:block,
+             s(:dasgn_curr, :v, s(:nil)),
+             s(:iter,
+               s(:fcall, :assert_block, s(:array, s(:vcall, :full_message))),
+               nil,
+               s(:begin,
+                 s(:rescue,
+                   s(:yield),
+                   s(:resbody,
+                     s(:array, s(:const, :Exception)),
+                     s(:block, s(:dasgn, :v, s(:gvar, :$!)), s(:break))))))))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_dasgn_icky2
+    rb = '
+a do
+  v = nil                       # dasgn_curr
+  begin
+    yield
+  rescue Exception => v         # dasgn_curr
+    break
+  end
+end
+'
+    pt = s(:iter,
+           s(:fcall, :a),
+           nil,
+           s(:block,
+             s(:dasgn_curr, :v, s(:nil)),
+             s(:begin,
+               s(:rescue,
+                 s(:yield),
+                 s(:resbody,
+                   s(:array, s(:const, :Exception)),
+                   s(:block, s(:dasgn_curr, :v, s(:gvar, :$!)), s(:break)))))))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
 
 #   def test_list_append
 #     raise NotImplementedError, 'Need to write test_list_append'

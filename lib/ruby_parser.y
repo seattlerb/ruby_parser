@@ -1129,29 +1129,13 @@ when_args     : args
 cases         : opt_else | case_body
 
 opt_rescue    : kRESCUE exc_list exc_var then compstmt opt_rescue {
-                  # TODO: clean with cruby's version
-                  body = val[4]
-                  body = nil if body == s(:block)
                   if val[2] then
-                    if body then
-                      block = s(:block, s(:lasgn, val[2].last.to_sym, s(:gvar, :"$!")))
-                      if body[0] == :block then
-                        block.push(*body.values)
-                      else
-                        block << body
-                      end
-                      body = block
-                    else # REFACTOR into remove_begin
-                      body = s(:lasgn, val[2].last.to_sym, s(:gvar, :"$!"))
-                    end
+                    val[2] = node_assign(val[2], s(:gvar, :"$!"))
+                    val[4] = block_append(val[2], val[4])
                   end
+                  result = s(:resbody, val[1])
 
-                  result = s(:resbody)
-                  result << val[1] # if val[1]
-                  if body then
-                    # body = body.last if body.size == 2 and body[0] == :block
-                    result << body
-                  end
+                  result << val[4] if val[4]
                   result << val[5] if val[5]
                  }
              | {result = nil;}
