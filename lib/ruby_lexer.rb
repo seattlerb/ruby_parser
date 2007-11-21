@@ -191,33 +191,31 @@ class RubyParser < Racc::Parser
   end
 
   def block_append(head, tail)
-    nnd = nil
-    h = head
+#     return head unless tail
+#     return tail unless head
 
-    return head unless tail
+#     case h[0]
+#     when :newline then
+#       h = h.last
+#       # goto again # HACK
+#     when :lit, :str then
+#       parser_warning(h, "unused literal ignored")
+#       return tail
+#     when :block then
+#       nnd = h.last
+#     else
+#       h = nnd = s(:block, head)
+#       head = nnd
+#     end
 
-     # again:
-    return tail unless h
+    head = s(:block, head) unless head[0] == :block
 
-    case h[0]
-    when :newline then
-      h = h.last
-      # goto again # HACK
-    when :lit, :str then
-      parser_warning(h, "unused literal ignored")
-      return tail
-    when :block then
-      nnd = h.last
+    if tail[0] == :block then
+      head.push(*tail.values)
     else
-      h = nnd = s(:block, head)
-      head = nnd
+      head << tail
     end
 
-    tail = s(:block, tail) unless tail[0] == :block
-
-# HACK
-#     nnd->nd_next = tail
-#     h->nd_nnd = tail->nd_nnd
     return head
   end
 
@@ -386,11 +384,28 @@ class RubyParser < Racc::Parser
     return head
   end
 
-  def void_stmts node
+  def remove_begin node
+    node = node[-1] if node[0] == :begin and node.size == 2
+    node
+  end
+
+  def value_expr node # HACK
+    if node.size == 2 and node[0] == :begin then
+      node.last
+    else
+      node
+    end
+  end
+
+  def void_stmts node # TODO: remove entirely... fuck it
     return nil unless node
     return node unless node[0] == :block
 
-    node = node[1] while node[0] == :block and node.size == 2
+    while node and node[0] == :block and node.size == 2 do
+      node = node[1]
+      node = void_stmts(remove_begin(node))
+    end
+
     node
   end
 
@@ -509,7 +524,6 @@ class RubyLexer
     func = string_type
     paren = open
 
-    raise "wtf?" unless func
     return :tSTRING_END unless func
 
     c = src.read
@@ -524,7 +538,6 @@ class RubyLexer
 
     if c == term && ! nest then
       if func & STR_FUNC_QWORDS != 0 then
-        raise "wtf?"
         quote[1] = nil
         return ' '
       end
@@ -556,7 +569,7 @@ class RubyLexer
 
     src.unread c
 
-    if (tokadd_string(func, term, paren, token_buffer) == -1) then
+    if tokadd_string(func, term, paren, token_buffer) == RubyLexer::EOF then
       # HACK ruby_sourceline = nd_line(quote)
       # HACK rb_compile_error("unterminated string meets end of file")
       return :tSTRING_END
@@ -741,7 +754,7 @@ class RubyLexer
 
   def tokadd_string(func, term, paren, buffer)
     while ((c = src.read()) != RubyLexer::EOF)
-      if (paren != "\0" && c == paren) then
+      if c == paren then
         self.nest += 1
       elsif (c == term) then
         if self.nest == 0 then
@@ -781,99 +794,103 @@ class RubyLexer
             c = read_escape
           elsif (func & RubyLexer::STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
             # ignore backslashed spaces in %w
-          elsif (c != term && !(paren != "\0" && c == paren)) then
+          elsif (c != term && !(paren && c == paren)) then
             buffer << "\\"
           end
         end
       elsif (func & RubyLexer::STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
         src.unread c
+        break
       end
       if (c == "\0" && (func & RubyLexer::STR_FUNC_SYMBOL) != 0) then
         raise SyntaxError, "symbol cannot contain '\\0'"
-      end
+       end
       buffer << c
     end # while
     return c
   end
 
   def here_document here
-    #     int c, func, indent = 0;
-    #     char *eos, *p, *pend;
-    #     long len;
-    #     VALUE str = 0;
+    _, eos, func, last_line = here
 
-    #     eos = RSTRING(here->nd_lit)->ptr;
-    #     len = RSTRING(here->nd_lit)->len - 1;
-    #     indent = (func = *eos++) & STR_FUNC_INDENT;
+    eosn = eos + "\n"
+    err_msg = "can't find string #{eos.inspect} anywhere before EOF"
 
-    #     if c = src.read == -1 then
-    #       error:
-    #         rb_compile_error("can't find string \"%s\" anywhere before EOF", eos);
-    #         heredoc_restore(lex_strterm);
-    #         lex_strterm = nil
-    #         return 0;
-    #     end
-    #     if (was_bol() && whole_match_p(eos, len, indent)) then
-    #         heredoc_restore(lex_strterm);
-    #         return tSTRING_END;
-    #     end
+    indent = (func & RubyLexer::STR_FUNC_INDENT) != 0
+    str = []
 
-    #     if (!(func & STR_FUNC_EXPAND)) then
-    #         begin
-    #             p = RSTRING(lex_lastline)->ptr;
-    #             pend = lex_pend;
-    #             if (pend > p) then
-    #                 switch (pend[-1]) then
-    #                   case "\n":
-    #                     if (--pend == p || pend[-1] != "\r") then
-    #                         pend++;
-    #                         break;
-    #                     end
-    #                   case "\r":
-    #                     --pend;
-    #                 end
-    #             end
-    #             if (str)
-    #                 rb_str_cat(str, p, pend - p);
-    #             else
-    #                 str = rb_str_new(p, pend - p);
-    # end
-    #             if (pend < lex_pend) rb_str_cat(str, "\n", 1);
-    #             lex_p = lex_pend;
-    #             if (nextc() == -1) then
-    #                 if (str) dispose_string(str);
-    #                 goto error;
-    #             end
-    #         end while (!whole_match_p(eos, len, indent));
-    #     else
-    #         newtok();
-    #         if (c == '#') then
-    #             switch (c = nextc()) then
-    #               case '$':
-    #               case '@':
-    #                 pushback(c);
-    #                 return tSTRING_DVAR;
-    #               case '{':
-    #                 return tSTRING_DBEG;
-    #             end
-    #             tokadd('#');
-    #         end
-    #         begin
-    #             pushback(c);
-    #             if ((c = tokadd_string(func, "\n", 0, NULL)) == -1) goto error;
-    #             if (c != "\n") then
-    #                 yylval.node = NEW_STR(rb_str_new(tok(), toklen()));
-    #                 return tSTRING_CONTENT;
-    #             end
-    #             tokadd(nextc());
-    #             if ((c = nextc()) == -1) goto error;
-    #         end while (!whole_match_p(eos, len, indent));
-    #         str = rb_str_new(tok(), toklen());
-    #     end
-    #     heredoc_restore(lex_strterm);
-    #     lex_strterm = NEW_STRTERM(nil, 0, 0);
-    #     yylval.node = NEW_STR(str);
-    #     return tSTRING_CONTENT;
+    raise SyntaxError, err_msg if src.peek == RubyLexer::EOF
+
+    if (src.begin_of_line? && src.match_string(eosn, indent)) then
+      src.unread_many last_line
+      self.yacc_value = t(eos)
+      return :tSTRING_END
+    end
+
+    if (func & RubyLexer::STR_FUNC_EXPAND) == 0 then
+      # /*
+      # * if (c == "\n") then support.unread(c) end
+      # */
+
+      # Something missing here...
+      # /*
+      # * int lastLineLength = here.getLastLineLength
+      # * 
+      # * if (lastLineLength > 0) then # It looks like I needed to append
+      # * last line as well...
+      # * support.unreadMany here.getLastLineLength
+      # * str.append(support.readLine()); str.append("\n"); end
+      # */
+
+      begin
+        str << src.gets
+
+        raise SyntaxError, err_msg if src.peek == RubyLexer::EOF
+      end until src.match_string(eosn, indent)
+    else
+      c = src.read
+      buffer = []
+
+      if c == "#" then
+        case c = src.read
+        when "$", "@" then
+          src.unread c
+          self.yacc_value = t("#" + c)
+          return :tSTRING_DVAR
+        when "{" then
+          self.yacc_value = t("#" + c)
+          return :tSTRING_DBEG
+        end
+        buffer << "#"
+      end
+
+      src.unread c
+      
+      begin
+        c = tokadd_string func, "\n", nil, buffer
+        raise SyntaxError, err_msg if c == RubyLexer::EOF
+
+        if c != "\n" then
+          self.yacc_value = s(:str, buffer.join)
+          return :tSTRING_CONTENT
+        end
+
+        buffer << src.read
+
+        raise SyntaxError, err_msg if (c = src.read) == RubyLexer::EOF
+
+        src.unread c
+      end until src.match_string(eosn, indent)
+
+      str = buffer
+    end
+
+    src.unread_many eosn
+    # HACK src.unread_many last_line
+
+    self.lex_strterm = s(:heredoc, eos, func, last_line)
+    self.yacc_value = s(:str, str.join)
+    return :tSTRING_CONTENT;
   end
 
   def parse_quote(c)
@@ -2499,14 +2516,43 @@ class Symbol
 end
 
 class StringIO # HACK: everything in here is a hack
-  alias :old_read :read
+  attr_accessor :begin_of_line
+  alias :begin_of_line? :begin_of_line
+  alias :read_all :read
+
   def read
     c = self.getc
+    self.begin_of_line = c == ?\n
     if c and c != 0 then
       c.chr
     else
       ::RubyLexer::EOF
     end
+  end
+
+  def match_string term, indent
+    buffer = []
+
+    if indent
+      while c = src.read do
+        unless c =~ /\s/ then
+          src.unread c
+          break
+        end
+        buffer << c
+      end
+    end
+
+    term.each_byte do |c2|
+      c = self.read
+      buffer << c
+      if c2 != c[0] then
+        self.unread_many buffer.join # HACK omg
+        return false
+      end
+    end
+
+    return true
   end
 
   def read_line
@@ -2531,7 +2577,7 @@ class StringIO # HACK: everything in here is a hack
   end
 
   def unread_many str
-    str.split(//).each do |c|
+    str.split(//).reverse.each do |c|
       unread c
     end
   end

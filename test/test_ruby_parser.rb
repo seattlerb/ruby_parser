@@ -29,9 +29,11 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
   if ENV['ZOMGPONIES'] or File.exist? 'zomgponies' then
     require 'parse_tree'
 
-   files = Dir["/usr/lib/ruby/**/*.rb"] 
-   files = Dir["/usr/lib/ruby/1.8/**/*.rb"]      # TODO: drop 1.8 so I get gems
-   files = Dir["/usr/lib/ruby/1.8/test/**/*.rb"] # TODO: drop test so I get 1.8
+    files = Dir["/usr/lib/ruby/**/*.rb"] 
+    files = Dir["/usr/lib/ruby/1.8/**/*.rb"]      # TODO: drop 1.8 so I get gems
+    files = Dir["/usr/lib/ruby/1.8/test/**/*.rb"] # TODO: drop test so I get 1.8
+
+    files.reject! { |f| f =~ /tk|tcl/ } # causes a bus error ?!?
 
     eval files.map { |file|
       name = file.split(/\//)[4..-1].join('_').gsub(/\W+/, '_')
@@ -80,9 +82,12 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
 #     raise NotImplementedError, 'Need to write test_assignable'
 #   end
 
-#   def test_block_append
-#     raise NotImplementedError, 'Need to write test_block_append'
-#   end
+  def test_block_append
+    head = s(:args)
+    tail = s(:zsuper)
+    expected = s(:block, s(:args), s(:zsuper))
+    assert_equal expected, @processor.block_append(head, tail)
+  end
 
   def test_call_env
     @processor.env[:a] = :lvar

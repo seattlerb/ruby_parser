@@ -48,17 +48,18 @@ rule
 program       : {
                   self.lexer.state = :expr_beg
                 } compstmt {
-                   result = val[1]
-                 }
+                  result = val[1]
+                }
 
 bodystmt      : compstmt opt_rescue opt_else opt_ensure {
+                  val[0] = nil if val[0] == s(:block) # HACK
                   result = val[0]
-                  result = nil if result == s(:block)
 
                   if val[1] then
-                    result = s(:rescue, result, val[1])
+                    result = s(:rescue)
+                    result << val[0] if val[0]
+                    result << val[1] if val[1]
                     result << val[2] if val[2]
-                    result.delete_at 1 if result[1].nil?
                   elsif not val[2].nil? then
                     warning("else without rescue is useless")
                     result = block_append(result, val[2])
@@ -68,14 +69,11 @@ bodystmt      : compstmt opt_rescue opt_else opt_ensure {
                 }
 
 compstmt     : stmts opt_terms {
-                 result = void_stmts(val[0])
+                 result = val[0]
                }
 
 stmts        : none { result = s(:block) }
-             | stmt {
-                 result = val[0] # TODO: wrap in newline node
-                 # result = s(:newline, result);
-               }
+             | stmt # TODO: wrap in newline node
              | stmts terms stmt {
                  # result = self.append_to_block(val[0], self.newline_node(val[2]));
                  # HACK result = val[0].Node.args << line(val[2])
@@ -159,6 +157,7 @@ stmt          : kALIAS fitem {
                   result = self.node_assign(val[0], val[2])
                  }
              | mlhs '=' command_call {
+                  val[2] = value_expr(val[2])
                   val[0][2] = if val[0][1] then
                                 s(:toary, val[2])
                               else
@@ -169,6 +168,7 @@ stmt          : kALIAS fitem {
              | var_lhs tOP_ASGN command_call {
                   name = val[0].get_name;
                   asgn_op = val[1].value;
+                  val[2] = value_expr(val[2])
 
                   if asgn_op == "||" then
                     val[0][2] = (val[2]);
@@ -210,9 +210,7 @@ stmt          : kALIAS fitem {
              | mlhs '=' mrhs {
                   result = val[0] << val[2]
                  }
-             | expr {
-                 result = val[0]
-                 }
+             | expr
 
 
 expr          : command_call
@@ -228,16 +226,10 @@ expr          : command_call
              | tBANG command_call {
                   result = s(:not, val[1])
                  }
-             | arg {
-                 result = val[0]
-                 }
+             | arg
 
 expr_value    : expr {
-                  result = if val[0].size == 2 and val[0][0] == :begin then
-                             val[0].last
-                           else
-                             val[0]
-                           end
+                  result = value_expr(val[0])
                 }
 
 command_call : command
@@ -625,12 +617,9 @@ arg          : lhs '=' arg {
                   result = s(:defined, val[2]);
                  }
              | arg '?' arg ':' arg {
-                  result = s(:if, val[0], val[2], val[4]);
-                 }
-             | primary {
-                  result = val[0]
-# TODO ?          result = result[1] if result[0] == :begin
-                 }
+                 result = s(:if, val[0], val[2], val[4]);
+               }
+             | primary
 
 arg_value     : arg
 
@@ -808,7 +797,7 @@ primary      : literal
              | kBEGIN bodystmt kEND {
                  val[1] = s(:nil) unless val[1]
                  result = s(:begin, val[1])
-                 # result = result.last if result.size == 2
+                 # result = result.last if result.size == 2 # HACK
                }
              | tLPAREN_ARG expr {
                   lexer.state = :expr_endarg
@@ -975,7 +964,7 @@ primary      : literal
                   result = s(:sclass, val[2], scope)
                   self.env.unextend;
                   self.in_def = val[3]
-                  self.in_single = val[5] ? 1 : 0 # HACK
+                  self.in_single = val[5]
                  }
              | kMODULE cpath {
                  yyerror("module definition in method body") if
@@ -987,19 +976,21 @@ primary      : literal
                  self.env.unextend;
                }
              | kDEF fname {
-                  self.in_def = true
-                  self.env.extend
-                } f_arglist bodystmt kEND {
-                    body = val[4] || s(:nil)
-                    body = s(:block, s(:nil)) if body == s(:block) # FIX - so tired
-                    body = s(:block, body) unless body[0] == :block
-                    block_arg = val[3].block_arg(:remove)
-                    body.insert 1, val[3]
-                    body.insert 2, block_arg if block_arg
-                    result = s(:defn, val[1].value.to_sym, s(:scope, body))
-                  self.env.unextend
-                  self.in_def = false
-                 }
+                 self.in_def = true
+                 self.env.extend
+               } f_arglist bodystmt kEND {
+                 name, args, body = val[1], val[3], val[4] # TODO: refactor
+                 name = name.value.to_sym
+                 body ||= s(:nil)
+
+                 block_arg = args.block_arg(:remove)
+                 body = block_append(args, body)
+                 body.insert 2, block_arg if block_arg
+                 result = s(:defn, name, s(:scope, body))
+
+                 self.env.unextend
+                 self.in_def = false
+               }
              | kDEF singleton dot_or_colon { # 0-2, 3
                  lexer.state = :expr_fname
                } fname {                     # 4, 5
@@ -1009,9 +1000,12 @@ primary      : literal
                } f_arglist bodystmt kEND {   # 6-8
                  recv, name, args, body = val[1], val[4], val[6], val[7]
                  name = name.value.to_sym
-                 body = s(:nil) unless body  # REFACTOR
+                 body ||= s(:nil)
+                 body = s(:block, s(:nil)) if body == s(:block) # FIX - so tired
                  body = s(:block, body) unless body[0] == :block
+                 block_arg = args.block_arg(:remove)
                  body.insert 1, args
+                 body.insert 2, block_arg if block_arg
                  result = s(:defs, recv, name, s(:scope, body))
                  self.env.unextend;
                  self.in_single -= 1
@@ -1029,9 +1023,7 @@ primary      : literal
                   result = s(:retry)
                  }
 
-primary_value : primary {
-                  result = val[0];
-                }
+primary_value : primary
 
 then          : term
               | ":"
@@ -1155,7 +1147,13 @@ opt_rescue    : kRESCUE exc_list exc_var then compstmt opt_rescue {
                   body = nil if body == s(:block)
                   if val[2] then
                     if body then
-                      body = s(:block, s(:lasgn, val[2].last.to_sym, s(:gvar, :"$!")), body)
+                      block = s(:block, s(:lasgn, val[2].last.to_sym, s(:gvar, :"$!")))
+                      if body[0] == :block then
+                        block.push(*body.values)
+                      else
+                        block << body
+                      end
+                      body = block
                     else # REFACTOR into remove_begin
                       body = s(:lasgn, val[2].last.to_sym, s(:gvar, :"$!"))
                     end
@@ -1323,7 +1321,7 @@ qword_list     : {
                    result = s(:array)
                  }
                | qword_list tSTRING_CONTENT ' ' {
-                   result = val[0].add(val[1]);
+                   result = val[0] << val[1]
                  }
 
 string_contents: { result = s(:str, "") }
@@ -1336,9 +1334,7 @@ xstring_contents: { result = nil }
                     result = literal_concat(val[0], val[1])
                   }
 
-string_content : tSTRING_CONTENT {
-                   result = val[0];
-                 }
+string_content : tSTRING_CONTENT
                | tSTRING_DVAR {
                    result = lexer.str_term;
                    lexer.str_term = nil
@@ -1610,9 +1606,7 @@ opt_f_block_arg: ',' f_block_arg {
                  result = nil;
                  }
 
-singleton     : var_ref {
-                  result = val[0];
-                 }
+singleton    : var_ref
              | tLPAREN2 {
                  lexer.state = :expr_beg
                } expr opt_nl tRPAREN {

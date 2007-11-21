@@ -45,7 +45,7 @@ class TestRubyLexer < Test::Unit::TestCase
     assert @lex.is_next_no_case("123")
     pos = @lex.src.pos
     deny @lex.is_next_no_case("begin")
-    assert_equal " 456", @lex.src.old_read, "must put back contents"
+    assert_equal " 456", @lex.src.read_all, "must put back contents"
   end
 
 #   def test_nextc
