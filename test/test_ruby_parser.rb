@@ -150,6 +150,52 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     assert_equal expected_env, @processor.env.all
   end
 
+  def test_logop_12
+    lhs = s(:lit, 1)
+    rhs = s(:lit, 2)
+    exp = s(:and, s(:lit, 1), s(:lit, 2))
+
+    assert_equal exp, @processor.logop(:and, lhs, rhs)
+  end
+
+  def test_logop_12_3
+    lhs = s(:and, s(:lit, 1), s(:lit, 2))
+    rhs = s(:lit, 3)
+    exp = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:lit, 3)))
+
+    assert_equal exp, @processor.logop(:and, lhs, rhs)
+  end
+
+  def test_logop_123_4
+    lhs = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:lit, 3)))
+    rhs = s(:lit, 4)
+    exp = s(:and,
+            s(:lit, 1),
+            s(:and,
+              s(:lit, 2),
+              s(:and,
+                s(:lit, 3),
+                s(:lit, 4))))
+
+    assert_equal exp, @processor.logop(:and, lhs, rhs)
+  end
+
+  def test_logop_1234_5
+    lhs = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:and, s(:lit, 3), s(:lit, 4))))
+    rhs = s(:lit, 5)
+    exp = s(:and,
+            s(:lit, 1),
+            s(:and,
+              s(:lit, 2),
+              s(:and,
+                s(:lit, 3),
+                s(:and,
+                  s(:lit, 4),
+                  s(:lit, 5)))))
+
+    assert_equal exp, @processor.logop(:and, lhs, rhs)
+  end
+
   def test_dasgn_icky1
     rb = '
 a do

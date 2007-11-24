@@ -80,11 +80,9 @@ stmts        : none
                  result = val[1];
                }
 
-stmt          : kALIAS fitem {
-                 lexer.state = :expr_fname
-                } fitem {
+stmt          : kALIAS fitem { lexer.state = :expr_fname } fitem {
                   result = s(:alias, val[1], val[3])
-                 }
+                }
              | kALIAS tGVAR tGVAR {
                   result = s(:valias, val[1].value.to_sym, val[2].value.to_sym)
                  }
@@ -210,10 +208,10 @@ stmt          : kALIAS fitem {
 
 expr          : command_call
              | expr kAND expr {
-                  result = s(:and, val[0], val[2])
+                  result = logop(:and, val[0], val[2])
                  }
              | expr kOR expr {
-                  result = s(:or, val[0], val[2])
+                  result = logop(:or, val[0], val[2])
                  }
              | kNOT expr {
                   result = s(:not, val[1])
@@ -417,10 +415,10 @@ fname         : tIDENTIFIER | tCONSTANT | tFID
 
               | reswords {
                   lexer.state = :expr_end
-                  result = $<>1;
+                  result = val[0];
                 }
 
-fitem         : fname
+fitem         : fname  { result = s(:lit, val[0].value.to_sym) } # TODO: cruby has fsym and dsym
               | symbol { result = s(:lit, val[0]) }
 
 undef_list    : fitem {
@@ -455,8 +453,7 @@ arg          : lhs '=' arg {
                }
              | lhs '=' arg kRESCUE_MOD arg {
                  result = self.node_assign(val[0],
-                            s(:rescue, val[2],
-                              s(:resbody, nil, val[4], nil), nil))
+                            s(:rescue, val[2], s(:resbody, nil, val[4])))
                  }
              | var_lhs tOP_ASGN arg {
                  name = val[0].value
@@ -597,10 +594,10 @@ arg          : lhs '=' arg {
                   result = s(:call, val[0], :">>", s(:array, val[2]))
                  }
              | arg tANDOP arg {
-                  result = s(:and, val[0], val[2])
+                  result = logop(:and, val[0], val[2])
                  }
              | arg tOROP arg {
-                  result = s(:or, val[0], val[2])
+                  result = logop(:or, val[0], val[2])
                  }
              | kDEFINED opt_nl arg {
                   result = s(:defined, val[2]);
@@ -633,7 +630,7 @@ aref_args     : none
                }
 
 paren_args    : tLPAREN2 none tRPAREN {
-                  result = s(:array)
+                  result = val[1]
                  }
              | tLPAREN2 call_args opt_nl tRPAREN {
                   result = val[1];
@@ -927,7 +924,7 @@ primary      : literal
                } expr_value do {
                  lexer.cond.pop;
                } compstmt kEND {
-                 result = s(:for, val[4], s(:lasgn, val[1].value), val[7])
+                 result = s(:for, val[4], val[1], val[7])
                }
              | kCLASS cpath superclass {
                   if (self.in_def || self.in_single > 0) then
@@ -1470,8 +1467,8 @@ f_args       : f_arg ',' f_optarg ',' f_rest_arg opt_f_block_arg {
                    end
                  end
 
-                 result << val[0] if val[0]
                  result << val[1] if val[1]
+                 result << val[0] if val[0]
                }
              | f_rest_arg opt_f_block_arg {
                    result = s(:args, val[0], val[1]).compact
@@ -1494,17 +1491,10 @@ f_norm_arg   : tCONSTANT {
                }
              | tIDENTIFIER {
                  identifier = val[0].value.to_sym
-# TODO
-#                    if (IdUtil.var_type(identifier) != IdUtil.LOCAL_VAR) then
-#                      yyerror("formal argument must be local variable");
-#                    elsif (self.current_scope.local_scope.is_defined(identifier) >= 0) then
-#                      yyerror("duplicate argument name");
-#                    end
+                 self.env[identifier] = :lvar
 
-                   self.env[identifier] = self.env.dynamic? ? :dvar : :lvar
-
-                   result = val[0];
-                 }
+                 result = val[0];
+               }
 
 f_arg          : f_norm_arg {
                    result = s(:args)
