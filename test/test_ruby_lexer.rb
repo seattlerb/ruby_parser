@@ -136,17 +136,31 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tREGEXP_END,     "")
   end
 
-  def test_yylex_regexp_i
-    util_lex_token("/regexp/i",
+  def test_yylex_regexp_nm
+    util_lex_token("/.*/nm",
                    :tREGEXP_BEG,     t("/"),
-                   :tSTRING_CONTENT, s(:str, "regexp"),
-                   :tREGEXP_END,     "i")
+                   :tSTRING_CONTENT, s(:str, ".*"),
+                   :tREGEXP_END,     "nm")
   end
 
   def test_yylex_regexp_escapes
     util_lex_token('/re\tge\nxp/',
                    :tREGEXP_BEG,     t("/"),
                    :tSTRING_CONTENT, s(:str, "re\\tge\\nxp"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_oct
+    util_lex_token('/re\tge\101xp/',
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "re\\tge\\101xp"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_hex
+    util_lex_token('/re\tge\x61xp/',
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "re\\tge\\x61xp"),
                    :tREGEXP_END,     "")
   end
 
@@ -161,6 +175,20 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token('"s\tri\ng"',
                    :tSTRING_BEG,     t('"'),
                    :tSTRING_CONTENT, s(:str, "s\tri\ng"),
+                   :tSTRING_END,     t('"'))
+  end
+
+  def test_yylex_string_double_escape_octal
+    util_lex_token('"n = \101\102\103"',
+                   :tSTRING_BEG,     t('"'),
+                   :tSTRING_CONTENT, s(:str, "n = ABC"),
+                   :tSTRING_END,     t('"'))
+  end
+
+  def test_yylex_string_double_escape_hex
+    util_lex_token('"n = \x61\x62\x63"',
+                   :tSTRING_BEG,     t('"'),
+                   :tSTRING_CONTENT, s(:str, "n = abc"),
                    :tSTRING_END,     t('"'))
   end
 
@@ -182,6 +210,11 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token(":symbol",
                    :tSYMBEG, t(":"),
                    :tIDENTIFIER, t("symbol"))
+  end
+
+  def test_yylex_comment_begin
+    util_lex_token("=begin\nblah\nblah\n=end\n42",
+                   :tINTEGER, 42)
   end
 
   def util_lex_token input, *args

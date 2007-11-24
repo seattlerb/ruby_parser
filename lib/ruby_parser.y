@@ -533,10 +533,10 @@ arg          : lhs '=' arg {
                   result = s(:call, s(:call, s(:lit, -val[1]), :"**", s(:array, val[3])), :"-@");
                  }
              | tUPLUS arg {
-                  if (self.is_literal(val[1])) then
-                    result = val[1];
+                  if val[1][0] == :lit then
+                    result = val[1]
                   else
-                    result = s(:call, val[1], :"+@");
+                    result = s(:call, val[1], :"+@")
                   end
                  }
              | tUMINUS arg {
@@ -876,9 +876,9 @@ primary      : literal
                   result = s(:while, cond(val[2]), val[5], true)
                  }
              | kUNTIL {
-                 lexer.cond.push true;
+                 lexer.cond.push true
                } expr_value do {
-                 lexer.cond.pop;
+                 lexer.cond.pop
                } compstmt kEND {
                  result = s(:until, cond(val[2]), val[5], true)
                }
@@ -1111,7 +1111,7 @@ brace_block   : tLCURLY {
 
 case_body     : kWHEN when_args then compstmt cases {
                   body = val[3]
-                  body = nil if body == s(:block) # REFACTOR
+#                 body = nil if body == s(:block) # REFACTOR
                   result = s(:when, val[1], body, val[4])
                 }
 
@@ -1209,7 +1209,7 @@ regexp        : tREGEXP_BEG xstring_contents tREGEXP_END {
                   options = val[2]
 
                   unless node then
-                    o = 0
+                    o, k = 0, nil
                     options.split(//).each do |c| # FIX: this has a better home
                       case c
                       when 'x' then
@@ -1218,16 +1218,24 @@ regexp        : tREGEXP_BEG xstring_contents tREGEXP_END {
                         o += Regexp::IGNORECASE
                       when 'm' then
                         o += Regexp::MULTILINE
+                      when /[nesu]/ then
+                        k = c
+                      when 'o' then
+                        # ignoring for now - TODO
                       else
-                        warn "unknown regexp option: #{c}"
+                        warn "unknown regexp option: #{c.inspect}"
                       end
                     end
 
-                    node = s(:lit, Regexp.new(//, o))
+                    node = if k then
+                             s(:lit, Regexp.new(//, o, k))
+                           else
+                             s(:lit, Regexp.new(//, o))
+                           end
                   else
                     case node[0]
                     when :str then
-                      o = 0
+                      o, k = 0, nil
                       options.split(//).each do |c| # FIX: this has a better home
                         case c
                         when 'x' then
@@ -1236,12 +1244,20 @@ regexp        : tREGEXP_BEG xstring_contents tREGEXP_END {
                           o += Regexp::IGNORECASE
                         when 'm' then
                           o += Regexp::MULTILINE
+                        when /[nesu]/ then
+                          k = c
+                        when 'o' then
+                          # ignoring for now - TODO
                         else
-                          warn "unknown regexp option: #{c}"
+                          warn "unknown regexp option: #{c.inspect}"
                         end
                       end
                       node[0] = :lit
-                      node[1] = Regexp.new(node[1], o)
+                      node[1] = if k then
+                                  Regexp.new(node[1], o, k)
+                                else
+                                  Regexp.new(node[1], o)
+                                end
                     when :dstr then
                       if options =~ /o/ then
                         node[0] = :dregx_once

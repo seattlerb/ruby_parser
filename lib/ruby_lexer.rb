@@ -608,7 +608,7 @@ class RubyLexer
     src.unread c
     
     rb_compile_error("unknown regexp option%s - %s" %
-                     [bad.size > 1 ? "s" : "", bad.join.inspect]) unless bad.empty?
+                     [(bad.size > 1 ? "s" : ""), bad.join.inspect]) unless bad.empty?
 
     return options.join
   end
@@ -620,6 +620,7 @@ class RubyLexer
     when /0-7/ then   # octal constant
       tokadd "\\"
       tokadd c
+
       2.times do |i|
         c = src.read
         # HACK goto eof if (c == -1) 
@@ -629,19 +630,22 @@ class RubyLexer
         end
         tokadd c
       end
+
       return false
     when "x" then # hex constant
-      raise "not yet"
-      #       tokadd "\\"
-      #       tokadd c
-      #       scan_hex(lex_p, 2, &numlen);
-      #       if numlen == 0 then
-      #         yyerror("Invalid escape character syntax");
-      #         return true;
-      #       end
-      #             while (numlen--)
-      #                 tokadd(src.read());
-      #         return false;
+      tokadd "\\"
+      tokadd c
+
+      2.times do
+        c = src.read
+        unless c =~ /[0-9a-f]/i then # TODO error case? empty?
+          src.unread c
+          break
+        end
+        tokadd c
+      end
+
+      return false
     when "M" then
       if (c = src.read()) != "-" then
         yyerror "Invalid escape character syntax"
@@ -708,22 +712,44 @@ class RubyLexer
     when 'e' then # escape
       return "\033"
     when /[0-7]/ then # octal constant
-      raise "not yet"
-      # pushback(c)
-      # c = scan_oct(lex_p, 3, &numlen)
-      # lex_p += numlen
+      src.unread c # TODO this seems dumb
 
-      return c
+      n = 0
+
+      3.times do
+        c = src.read
+        unless c =~ /[0-7]/ then
+          src.unread c
+          break
+        end
+        n <<= 3
+        n |= c[0] - ?0
+      end
+
+      return n.chr
     when "x" then # hex constant
-      raise "not yet"
-      # c = scan_hex(lex_p, 2, &numlen)
-      # if numlen == 0 then
-      # yyerror("Invalid escape character syntax")
-      # return 0
-      # end
-      # lex_p += numlen
-      return c
+      n = 0
 
+      2.times do
+        c = src.read.downcase
+        unless c =~ /[0-9a-f]/i then
+          src.unread c
+          break
+        end
+        n <<= 4
+        n |= case c[0] # TODO: I'm sure there is a better way... but I'm tired
+             when ?a..?f then
+               c[0] - ?a + 10
+             when ?A..?F then
+               c[0] - ?A + 10
+             when ?0..?9 then
+               c[0] - ?0
+             else
+               raise "wtf?: #{c.inspect}"
+             end
+      end
+
+      return n.chr
     when "b" then # backspace
       return "\010"
     when "s" then # space
@@ -745,7 +771,7 @@ class RubyLexer
 
     when "C" then
       raise "not yet"
-      if (c = src.read()) != "-" then
+      if (c = src.read) != "-" then
         yyerror("Invalid escape character syntax")
         pushback(c)
         return "\0"
@@ -1167,70 +1193,46 @@ class RubyLexer
         self.yacc_value = t("!")
         return :tBANG
       when '=' then
-        # documentation nodes
-# from C
-#         if (was_bol()) {
-#             /* skip embedded rd document */
-#             if (strncmp(lex_p, "begin", 5) == 0 && ISSPACE(lex_p[5])) {
-#                 for (;;) {
-#                     lex_p = lex_pend;
-#                     c = nextc();
-#                     if (c == -1) {
-#                         rb_compile_error("embedded document meets end of file");
-#                         return 0;
-#                     }
-#                     if (c != '=') continue;
-#                     if (strncmp(lex_p, "end", 3) == 0 &&
-#                         (lex_p + 3 == lex_pend || ISSPACE(lex_p[3]))) {
-#                         break;
-#                     }
-#                 }
-#                 lex_p = lex_pend;
-#                 goto retry;
-#             }
-#         }
+        # documentation nodes - FIX: cruby much cleaner w/ lookahead
+        if src.was_begin_of_line and src.match_string "begin" then
+          self.token_buffer.clear
+          self.token_buffer << "begin"
+          c = src.read
 
-# from jruby
-#         if src.was_begin_of_line then
-#           equal_label = is_next_no_case("begin")
-#           unless equal_label.nil? then
-#             token_buffer.clear
-#             token_buffer << equal_label
-#             c = src.read
+          if c =~ /\s/ then
+            # In case last next was the newline.
+            src.unread(c)
 
-#             if c =~ /\s/ then
-#               # In case last next was the newline.
-#               src.unread(c)
-#               loop do
-#                 c = src.read
-#                 token_buffer << c
+            loop do
+              c = src.read
+              token_buffer << c
 
-#                 # If a line is followed by a blank line put it back.
-#                 while c == "\n"
-#                   c = src.read
-#                   token_buffer << c
-#                 end
+              # If a line is followed by a blank line put it back.
+              while c == "\n"
+                c = src.read
+                token_buffer << c
+              end
 
-#                 if c == RubyLexer::EOF then
-#                   raise SyntaxError, "embedded document meets end of file"
-#                 end
+              if c == RubyLexer::EOF then
+                raise SyntaxError, "embedded document meets end of file"
+              end
 
-#                 next unless c == '='
+              next unless c == '='
 
-#                 if src.was_begin_of_line && (equal_label = is_next_no_case("end")) != null then
-#                   token_buffer << equal_label
-#                   token_buffer << src.read_line
-#                   src.unread("\n")
-#                   break
-#                 end
-#               end
+              if src.was_begin_of_line && src.match_string("end") then
+                token_buffer << "end"
+                token_buffer << src.read_line
+                src.unread("\n")
+                break
+              end
+            end
 
-#               parser_support.result.add_comment(Node.comment(token_buffer.join))
-#               next
-#             end
-#             src.unread(c)
-#           end
-#         end
+            # parser_support.result.add_comment(Node.comment(token_buffer.join))
+            next
+          end
+          src.unread(c)
+        end
+
 
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
@@ -2533,6 +2535,14 @@ class StringIO # HACK: everything in here is a hack
   alias :begin_of_line? :begin_of_line
   alias :read_all :read
 
+  alias :old_initialize :initialize
+  
+  def initialize(*args)
+    self.begin_of_line = true
+    self.was_begin_of_line = false
+    old_initialize(*args)
+  end
+
   def rest
     self.string[self.pos..-1]
   end
@@ -2549,7 +2559,7 @@ class StringIO # HACK: everything in here is a hack
     end
   end
 
-  def match_string term, indent
+  def match_string term, indent=false # TODO: add case insensitivity, or just remove
     buffer = []
 
     if indent
