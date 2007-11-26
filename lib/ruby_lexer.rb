@@ -139,7 +139,7 @@ class RubyParser < Racc::Parser
   def node_assign(lhs, rhs)
     return nil unless lhs
 
-    # value_expr(rhs)
+    rhs = value_expr rhs
 
     case lhs[0]
     when :gasgn, :iasgn, :lasgn, :dasgn, :dasgn_curr,

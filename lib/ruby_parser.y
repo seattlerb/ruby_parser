@@ -113,20 +113,25 @@ stmt          : kALIAS fitem { lexer.state = :expr_fname } fitem {
                }
              | stmt kWHILE_MOD expr_value {
                  block = val[0]
-                 if block[0] == :begin then
-                   result = s(:while, cond(val[2]), block.last, false);
+                 block = block.last if block[0] == :begin
+
+                 val[2] = cond val[2]
+                 if val[2][0] == :not then
+                   result = s(:until, val[2].last, block, false);
                  else
-                   result = s(:while, cond(val[2]), block, true);
+                   result = s(:while, val[2], block, false);
                  end
                }
              | stmt kUNTIL_MOD expr_value {
                  block = val[0] # REFACTOR
-                 if block[0] == :begin then
-                   result = s(:until, cond(val[2]), block.last, false);
+                 block = block.last if block[0] == :begin # HACK (?)
+
+                 val[2] = cond val[2]
+                 if val[2][0] == :not then
+                   result = s(:while, val[2].last, block, false);
                  else
-                   result = s(:until, cond(val[2]), block, true);
+                   result = s(:until, val[2], block, false);
                  end
-                 # TODO: add tests for until not / while not
                }
              | stmt kRESCUE_MOD stmt {
                   result = s(:rescue, val[0], s(:resbody, nil, val[2]))
@@ -193,7 +198,7 @@ stmt          : kALIAS fitem { lexer.state = :expr_fname } fitem {
                   result = self.node_assign(val[0], s(:svalue, val[2]))
                  }
              | mlhs '=' arg_value {
-                 val[0][2] = if val[0][1] then
+                 val[0] << if val[0][1] then
                                s(:to_ary, val[2])
                              else
                                s(:array, val[2])
@@ -873,14 +878,26 @@ primary      : literal
                } expr_value do {
                  lexer.cond.pop
                } compstmt kEND {
-                  result = s(:while, cond(val[2]), val[5], true)
-                 }
+                 block = val[5]
+                 val[2] = cond val[2]
+                 if val[2][0] == :not then
+                   result = s(:until, val[2].last, block, true);
+                 else
+                   result = s(:while, val[2], block, true);
+                 end
+               }
              | kUNTIL {
                  lexer.cond.push true
                } expr_value do {
                  lexer.cond.pop
                } compstmt kEND {
-                 result = s(:until, cond(val[2]), val[5], true)
+                 block = val[5]
+                 val[2] = cond val[2]
+                 if val[2][0] == :not then
+                   result = s(:while, val[2].last, block, true);
+                 else
+                   result = s(:until, val[2], block, true);
+                 end
                }
              | kCASE expr_value opt_terms case_body kEND {
                   result = s(:case, val[1]);
@@ -930,11 +947,11 @@ primary      : literal
                   if (self.in_def || self.in_single > 0) then
                     yyerror("class definition in method body");
                   end
-                  self.env.extend;
+                  self.env.extend
                 } bodystmt kEND {
                   scope = s(:scope, val[4]).compact
                   result = s(:class, val[1].last.to_sym, val[2], scope)
-                  self.env.unextend;
+                  self.env.unextend
                  }
              | kCLASS tLSHFT expr {
                   result = self.in_def
@@ -1110,17 +1127,16 @@ brace_block   : tLCURLY {
                 }
 
 case_body     : kWHEN when_args then compstmt cases {
-                  body = val[3]
-#                 body = nil if body == s(:block) # REFACTOR
-                  result = s(:when, val[1], body, val[4])
+                  result = s(:when, val[1], val[3])
+                  result << val[4] if val[4]
                 }
 
 when_args     : args
               | args ',' tSTAR arg_value {
-                  result = val[0].add(s(:when, val[3], nil, nil));
+                  result = self.list_append(val[0], s(:when, val[3], nil))
               }
               | tSTAR arg_value {
-                  result = s(:array, s(:when, val[1], nil, nil));
+                  result = s(:array, s(:when, val[1], nil));
               }
 
 cases         : opt_else | case_body
@@ -1470,8 +1486,8 @@ f_args       : f_arg ',' f_optarg ',' f_rest_arg opt_f_block_arg {
                    end
                  end
 
-                 result << val[0] if val[0]
                  result << val[2] if val[2]
+                 result << val[0] if val[0]
                  result << val[3] if val[3]
                }
              | f_optarg opt_f_block_arg {
@@ -1483,8 +1499,8 @@ f_args       : f_arg ',' f_optarg ',' f_rest_arg opt_f_block_arg {
                    end
                  end
 
-                 result << val[1] if val[1]
                  result << val[0] if val[0]
+                 result << val[1] if val[1]
                }
              | f_rest_arg opt_f_block_arg {
                    result = s(:args, val[0], val[1]).compact
@@ -1537,13 +1553,13 @@ restarg_mark  : tSTAR2 | tSTAR
 
 f_rest_arg    : restarg_mark tIDENTIFIER {
                   name = val[1].value.to_sym
-                 self.env[name] = self.env.dynamic? ? :dvar : :lvar
+                 self.env[name] = self.env.dynamic? ? :dvar : :lvar # FIX
 
                  result = :"*#{name}"
                }
              | restarg_mark {
                  name = :"*"
-                 self.env[name] = self.env.dynamic? ? :dvar : :lvar
+                 self.env[name] = self.env.dynamic? ? :dvar : :lvar # FIX
                  result = name
                }
 

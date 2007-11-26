@@ -39,4 +39,10 @@ task :clean do
        Dir["lib/*.output"])
 end
 
+# require 'rcov/rcovtask'
+# Rcov::RcovTask.new do |t|
+#   t.test_files = FileList['test/test_ruby_lexer.rb']
+# end
+
+
 # vim: syntax=Ruby
