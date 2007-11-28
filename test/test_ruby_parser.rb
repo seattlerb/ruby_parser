@@ -91,6 +91,24 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     assert_equal expected, @processor.block_append(head, tail)
   end
 
+  def test_block_append_block
+    head = s(:block, s(:args))
+    tail = s(:zsuper)
+    expected = s(:block, s(:args), s(:zsuper))
+    assert_equal expected, @processor.block_append(head, tail)
+  end
+
+  def test_block_append_begin_begin
+    head = s(:begin, s(:args))
+    tail = s(:begin, s(:args))
+    expected = if $VERBOSE then # HACK - "bug" in ruby is forcing this
+                 s(:block, s(:args), s(:begin, s(:args)))
+               else
+                 s(:block, s(:begin, s(:args)), s(:begin, s(:args)))
+               end
+    assert_equal expected, @processor.block_append(head, tail)
+  end
+
   def test_block_append_nil_head
     head = nil
     tail = s(:zsuper)

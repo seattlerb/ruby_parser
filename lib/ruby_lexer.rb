@@ -194,6 +194,7 @@ class RubyParser < Racc::Parser
     return head unless tail
     return tail unless head
 
+    head = head[1] if head[0] == :begin and head.size == 2 and tail[0] == :begin and $VERBOSE # HACK ugh... block_append two begins should be no/yes
     head = s(:block, head) unless head[0] == :block
 
     if Sexp === tail and tail[0] == :block then

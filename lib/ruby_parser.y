@@ -74,7 +74,7 @@ compstmt     : stmts opt_terms {
 stmts        : none
              | stmt # TODO: wrap in newline node
              | stmts terms stmt {
-                 result = block_append(val[0], val[2])
+                 result = self.block_append(val[0], val[2])
                }
              | error stmt {
                  result = val[1];
