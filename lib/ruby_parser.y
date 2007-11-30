@@ -87,8 +87,8 @@ stmt          : kALIAS fitem { lexer.state = :expr_fname } fitem {
                   result = s(:valias, val[1].value.to_sym, val[2].value.to_sym)
                  }
              | kALIAS tGVAR tBACK_REF {
-                  result = s(:valias, val[1].value, "$" + val[2].getType); #  XXX
-                 }
+                 result = s(:valias, val[1].value.to_sym, :"$#{val[2].last}")
+               }
              | kALIAS tGVAR tNTH_REF {
                   yyerror("can't make alias for the number variables");
                  }
@@ -112,25 +112,25 @@ stmt          : kALIAS fitem { lexer.state = :expr_fname } fitem {
                  end
                }
              | stmt kWHILE_MOD expr_value {
-                 block = val[0]
-                 block = block.last if block[0] == :begin
+                 block, pre = val[0], true
+                 block, pre = block.last, false if block[0] == :begin
 
                  val[2] = cond val[2]
                  if val[2][0] == :not then
-                   result = s(:until, val[2].last, block, false);
+                   result = s(:until, val[2].last, block, pre)
                  else
-                   result = s(:while, val[2], block, false);
+                   result = s(:while, val[2], block, pre)
                  end
                }
-             | stmt kUNTIL_MOD expr_value {
-                 block = val[0] # REFACTOR
-                 block = block.last if block[0] == :begin # HACK (?)
+             | stmt kUNTIL_MOD expr_value { # REFACTOR
+                 block, pre = val[0], true 
+                 block, pre = block.last, false if block[0] == :begin
 
                  val[2] = cond val[2]
                  if val[2][0] == :not then
-                   result = s(:while, val[2].last, block, false);
+                   result = s(:while, val[2].last, block, pre)
                  else
-                   result = s(:until, val[2], block, false);
+                   result = s(:until, val[2], block, pre)
                  end
                }
              | stmt kRESCUE_MOD stmt {
@@ -625,7 +625,7 @@ aref_args     : none
                  result = val[0];
                }
              | args ',' tSTAR arg opt_nl {
-                 result = val[0] << val[3]
+                 result = self.arg_concat(val[0], val[3])
                }
              | assocs trailer {
                  result = s(:array, s(:hash, *val[0].values))
@@ -763,14 +763,15 @@ args         : arg_value {
                }
              | args ',' arg_value {
                  result = val[0] << val[2]
+                 # result = self.list_append(val[0], val[2]) # TODO? breaks stuff
                }
 
 mrhs         : args ',' arg_value {
-                 result = val[0]
-                 result << val[2]
+                 result = val[0] << val[2]
+                 # result = self.list_append(val[0], val[2]) # TODO? breaks stuff
                }
              | args ',' tSTAR arg_value {
-                 result = arg_concat(val[0], val[3])
+                 result = self.arg_concat(val[0], val[3])
                }
              | tSTAR arg_value {
                  result = s(:splat, val[1])
@@ -1000,14 +1001,13 @@ primary      : literal
                  lexer.state = :expr_end # force for args
                } f_arglist bodystmt kEND {   # 6-8
                  recv, name, args, body = val[1], val[4], val[6], val[7]
-                 name = name.value.to_sym
-                 body ||= s(:nil)
-                 body = s(:block, s(:nil)) if body == s(:block) # FIX - so tired
-                 body = s(:block, body) unless body[0] == :block
+
                  block_arg = args.block_arg(:remove)
-                 body.insert 1, args
+                 body = self.block_append(args, body)
                  body.insert 2, block_arg if block_arg
-                 result = s(:defs, recv, name, s(:scope, body))
+
+                 result = s(:defs, recv, name.value.to_sym, s(:scope, body))
+
                  self.env.unextend;
                  self.in_single -= 1
                }
@@ -1063,17 +1063,18 @@ do_block      : kDO_BLOCK {
                   self.env.extend :dynamic
                 } opt_block_var compstmt kEND {
                   result = s(:iter)
-                  result << val[2] if val[2]
+                  result << val[2]
                   result << val[1] if val[1]
                   result << val[3] if val[3]
                   self.env.unextend;
                 }
 
 block_call    : command do_block {
-              if val[0] && val[0].get_iter_node[0] == :blockpass then
-                throw SyntaxException.new("Both block arg and actual block given.");
-              end
-              val[0].set_iter_node(val[1]);
+                raise SyntaxError, "Both block arg and actual block given." if
+                  val[0] && val[0][0] == :blockpass
+
+                result = val[1]
+                result.insert 1, val[0]
               }
               | block_call tDOT operation2 opt_paren_args {
                   result = s(:call, val[0], val[2]);
@@ -1108,7 +1109,6 @@ brace_block   : tLCURLY {
                 } opt_block_var compstmt tRCURLY {
                   args = val[2]
                   body = val[3] == s(:block) ? nil : val[3]
-                  args[0] = :dasgn_curr if args and args[0] == :dasgn
                   result = s(:iter)
                   result << args
                   result << body if body
@@ -1119,7 +1119,6 @@ brace_block   : tLCURLY {
                 } opt_block_var compstmt kEND {
                   args = val[2]
                   body = val[3] == s(:block) ? nil : val[3]
-                  args[0] = :dasgn_curr if args and args[0] == :dasgn
                   result = s(:iter)
                   result << args
                   result << body if body

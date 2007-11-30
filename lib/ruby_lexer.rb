@@ -5,9 +5,8 @@ require 'racc/parser'
 $: << File.expand_path("~/Work/p4/zss/src/ParseTree/dev/lib")
 require 'sexp'
 
-def d s # HACK
-  warn s.inspect
-end
+############################################################
+# HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 
 class Module
   def kill *methods
@@ -19,6 +18,9 @@ class Module
     end
   end
 end
+
+# END HACK
+############################################################
 
 class RubyParser < Racc::Parser
   VERSION = '1.0.0'
@@ -158,12 +160,12 @@ class RubyParser < Racc::Parser
     id = id.last.to_sym if Sexp   === id # HACK
     id = id.to_sym      if String === id # HACK
 
-    return s(:self)           if id == :self
-    return s(:nil)            if id == :nil
-    return s(:true)           if id == :true
-    return s(:false)          if id == :false
-    return s(:str, self.file) if id == :"__FILE__" # FIX
-    return s(:lit, -42)       if id == :"__LINE__" # FIX
+    return s(:self)                  if id == :self
+    return s(:nil)                   if id == :nil
+    return s(:true)                  if id == :true
+    return s(:false)                 if id == :false
+    return s(:str, self.file)        if id == :"__FILE__"
+    return s(:lit, lexer.src.current_line) if id == :"__LINE__"
 
     result = case id.to_s
              when /^@@/ then
@@ -1773,14 +1775,15 @@ class RubyLexer
         c = src.read
         case c
         when '_' then #  $_: last read line string
-            c = src.read
-          if c =~ /\w/ then
-            token_buffer << '$'
-            token_buffer << '_'
-            break
-          end
-          src.unread c
-          c = '_'
+          c = src.read
+
+          token_buffer << '$'
+          token_buffer << '_'
+
+          break if c =~ /\w/
+
+          self.yacc_value = t(token_buffer.join)
+          return :tGVAR
         when /[~*$?!@\/\\;,.=:<>\"]/ then
           token_buffer << '$'
           token_buffer << c
@@ -2542,10 +2545,15 @@ class StringIO # HACK: everything in here is a hack
     self.begin_of_line = true
     self.was_begin_of_line = false
     old_initialize(*args)
+    @original_string = self.string.dup
   end
 
   def rest
     self.string[self.pos..-1]
+  end
+
+  def current_line # HAHA fuck you
+    @original_string[0..self.pos][/\A.*__LINE__/m].split(/\n/).size
   end
 
   def read
@@ -2649,6 +2657,10 @@ class NilClass
     warn "called #{msg} on nil (args = #{args.inspect}): from #{c[0]}"
     nil
   end
+end
+
+def d s # HACK
+  warn s.inspect
 end
 
 # END HACK
