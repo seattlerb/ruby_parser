@@ -6,6 +6,32 @@ require 'ruby_parser'
 $: << File.expand_path('~/Work/p4/zss/src/ParseTree/dev/lib')
 $: << File.expand_path('~/Work/p4/zss/src/ParseTree/dev/test')
 
+if ENV['PROFILE_INDEX'] then
+  require 'rubygems'
+  require 'spy_on'
+  Array.spy_on :[]
+end
+
+if ENV['PROFILE_EACH'] then
+  $each = []
+
+  class Array
+    alias :safe_each :each
+    def each(&b)
+      $each << caller[0..2]
+      safe_each(&b)
+    end
+  end
+
+  at_exit {
+    at_exit {
+      $each.safe_each do |pair|
+        p pair
+      end
+    }
+  }
+end
+
 require 'pt_testcase'
 
 class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
@@ -38,8 +64,9 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
 
     eval files.map { |file|
       name = File.basename(file).gsub(/\W+/, '_')
+      loc = `wc -l #{file}`.strip.to_i
       # name = file.split(/\//)[4..-1].join('_').gsub(/\W+/, '_')
-      eval "def test_#{name}
+      eval "def test_#{name}_#{loc}
        file = #{file.inspect}
        rb = File.read(file)
 
@@ -53,6 +80,10 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
   end
 
   def setup
+    unless defined? @@suck_it then
+      @@suck_it = true
+    end
+
     super
 
     # puts self.name

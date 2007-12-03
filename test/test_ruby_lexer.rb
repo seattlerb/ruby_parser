@@ -270,12 +270,12 @@ class TestStackState < Test::Unit::TestCase
     assert_equal [false], s.stack
   end
 
-  def test_pop_top
-    s = StackState.new :test
-    assert_raise RuntimeError do
-      s.pop
-    end
-  end
+#   def test_pop_top
+#     s = StackState.new :test
+#     assert_raise RuntimeError do
+#       s.pop
+#     end
+#   end
 
   def test_push
     s = StackState.new :test
@@ -283,5 +283,74 @@ class TestStackState < Test::Unit::TestCase
     s.push true
     s.push false
     assert_equal [false, true, false], s.stack
+  end
+end
+
+class TestEnvironment < Test::Unit::TestCase
+  def setup
+    @env = Environment.new
+    @env[:blah] = 42
+    assert_equal 42, @env[:blah]
+  end
+
+  def test_var_scope_dynamic
+    @env.extend :dynamic
+    assert_equal 42, @env[:blah]
+    @env.unextend
+    assert_equal 42, @env[:blah]
+  end
+
+  def test_var_scope_static
+    @env.extend
+    assert_equal nil, @env[:blah]
+    @env.unextend
+    assert_equal 42, @env[:blah]
+  end
+
+  def test_all_dynamic
+    expected = { :blah => 42 }
+
+    @env.extend :dynamic
+    assert_equal expected, @env.all
+    @env.unextend
+    assert_equal expected, @env.all
+  end
+
+  def test_all_static
+    @env.extend
+    expected = { }
+    assert_equal expected, @env.all
+
+    @env.unextend
+    expected = { :blah => 42 }
+    assert_equal expected, @env.all
+  end
+
+  def test_dynamic_eh
+    assert_equal false, @env.dynamic?
+    @env.extend :dynamic
+    assert_equal true, @env.dynamic?
+    @env.extend
+    assert_equal false, @env.dynamic?
+  end
+
+  def test_all_static_deeper
+    expected0 = { :blah => 42 }
+    expected1 = { :blah => 42, :blah2 => 24 }
+    expected2 = { :blah => 27 }
+
+    @env.extend :dynamic
+    @env[:blah2] = 24
+    assert_equal expected1, @env.all
+
+    @env.extend 
+    @env[:blah] = 27
+    assert_equal expected2, @env.all
+
+    @env.unextend
+    assert_equal expected1, @env.all
+
+    @env.unextend
+    assert_equal expected0, @env.all
   end
 end

@@ -101,6 +101,7 @@ class RubyParser < Racc::Parser
                    if env.dasgn_curr? id then
                      s(:dasgn_curr, id)
                    else
+                     self.env.use[id] = true
                      s(:dasgn, id)
                    end
                  else
@@ -111,6 +112,7 @@ class RubyParser < Racc::Parser
                    if env.dasgn_curr? id then
                      s(:dasgn_curr, id)
                    else
+                     self.env.use[id] = true
                      s(:dasgn, id)
                    end
                  else
@@ -424,6 +426,23 @@ class RubyParser < Racc::Parser
 
   ############################################################
   # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+
+  def dyna_init body, vars              # TODO: remove vars?
+    dynamic_vars = self.env.all.reject { |k, v| v != :dvar }
+    used = dynamic_vars.keys & self.env.use.keys
+
+    if body and                         # TODO: run this by someone for review
+        not vars and
+        body[0] != :block and
+        not self.env["init"] and
+        not self.env.dyn[1] and
+        not used.empty? then
+      body = s(:block, body)
+      self.env["init"] = :true
+    end
+    body
+  end
+
 
   def warning s
     # do nothing for now
@@ -901,6 +920,7 @@ class RubyLexer
       
       begin
         c = tokadd_string func, "\n", nil, buffer
+
         raise SyntaxError, err_msg if c == RubyLexer::EOF
 
         if c != "\n" then
@@ -910,9 +930,7 @@ class RubyLexer
 
         buffer << src.read
 
-        raise SyntaxError, err_msg if (c = src.read) == RubyLexer::EOF
-
-        src.unread c
+        raise SyntaxError, err_msg if src.peek == RubyLexer::EOF
       end until src.match_string(eosn, indent)
 
       str = buffer
@@ -1037,7 +1055,7 @@ class RubyLexer
       src.unread c
     end
 
-    line = src.read_line + "\n"
+    line = src.read_line
     tok = token_buffer.join
     self.lex_strterm = s(:heredoc, tok, func, line)
 
@@ -1129,7 +1147,7 @@ class RubyLexer
       when /#|\n/ then
         return 0 if c == '#' and read_comment(c) == 0 # FIX 0?
         # Replace a string of newlines with a single one
-        while ((c = src.read) == "\n")
+        while (c = src.read) == "\n"
           # do nothing
         end
 
@@ -1225,7 +1243,7 @@ class RubyLexer
               if src.was_begin_of_line && src.match_string("end") then
                 token_buffer << "end"
                 token_buffer << src.read_line
-                src.unread("\n")
+                src.unread "\n"
                 break
               end
             end
@@ -2402,11 +2420,12 @@ class Keyword
 end
 
 class Environment
-  attr_reader :env
+  attr_reader :env, :dyn, :use
 
   def initialize dyn = false
     @dyn = []
     @env = []
+    @use = {}
     self.extend
   end
 
@@ -2424,7 +2443,8 @@ class Environment
   end
 
   def all
-    @env.reverse.inject { |env, scope| env.merge scope }
+    idx = @dyn.index false
+    @env[0..idx].reverse.inject { |env, scope| env.merge scope }.reject { |k,v| k == "init" }
   end
 
   def current
@@ -2432,7 +2452,7 @@ class Environment
   end
 
   def dynamic?
-    @dyn.any?
+    @dyn[0] != false
   end
 
   def dasgn_curr? name
@@ -2442,6 +2462,8 @@ class Environment
   def extend dyn = false
     @dyn.unshift dyn
     @env.unshift({})
+    @use.clear unless dyn
+    self["init"] = false unless self.has_key? "init"
   end
 
   def unextend
@@ -2473,24 +2495,26 @@ class StackState
   end
 
   def pop
-    raise if @stack.size <= 1
-    self.stack.pop
+    # raise "#{@name} empty" if @stack.size <= 1
+    r = @stack.pop
+    @stack.push false if @stack.size == 0
+    r
   end
 
   def lexpop
     raise if @stack.size == 0
-    a = self.stack.pop
-    b = self.stack.pop
-    self.stack.push(a || b)
+    a = @stack.pop
+    b = @stack.pop
+    @stack.push(a || b)
   end
 
   def push val
     raise if val != true and val != false
-    self.stack.push val
+    @stack.push val
   end
 
   def is_in_state
-    self.stack.last
+    @stack.last
   end
 end
 
@@ -2573,7 +2597,7 @@ class StringIO # HACK: everything in here is a hack
 
     if indent
       while c = self.read do
-        unless c =~ /\s/ then
+        if c !~ /\s/ or c == "\n" then
           self.unread c
           break
         end
@@ -2601,6 +2625,7 @@ class StringIO # HACK: everything in here is a hack
 
   def peek expected = nil # FIX: barf
     c = self.getc
+    return RubyLexer::EOF if c.nil?
     self.ungetc c if c
     c = c.chr if c
     if expected then

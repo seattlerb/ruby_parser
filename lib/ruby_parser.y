@@ -812,10 +812,11 @@ primary      : literal
                }
              | primary_value '[' aref_args tRBRACK {
                  if val[0].first == :self then
-                   result = s(:fcall, :"[]", val[2])
+                   result = s(:fcall, :"[]")
                  else
-                   result = s(:call, val[0], :"[]", val[2])
+                   result = s(:call, val[0], :"[]")
                  end
+                 result << val[2] if val[2]
                }
              | tLBRACK aref_args tRBRACK {
                   if (val[1] == nil) then
@@ -850,6 +851,7 @@ primary      : literal
                }
              | method_call
              | method_call brace_block {
+# TODO ?
 #                if val[0] && val[0].get_iter_node.instanceof(BlockPassNode) then
 #                  raise SyntaxException "Both block arg and actual block given."
 #                end
@@ -1062,10 +1064,15 @@ opt_block_var : none
 do_block      : kDO_BLOCK {
                   self.env.extend :dynamic
                 } opt_block_var compstmt kEND {
+
+                  vars = val[2]
+                  body = self.dyna_init(val[3], vars)
+
                   result = s(:iter)
-                  result << val[2]
+                  result << vars
                   result << val[1] if val[1]
-                  result << val[3] if val[3]
+                  result << body if body
+
                   self.env.unextend;
                 }
 
@@ -1106,23 +1113,24 @@ method_call   : operation paren_args {
 
 brace_block   : tLCURLY {
                   self.env.extend :dynamic
-                } opt_block_var compstmt tRCURLY {
+                } opt_block_var compstmt tRCURLY { # REFACTOR
                   args = val[2]
-                  body = val[3] == s(:block) ? nil : val[3]
+                  body = self.dyna_init(val[3], args)
                   result = s(:iter)
                   result << args
                   result << body if body
-                  self.env.unextend;
+                  self.env.unextend
                 }
               | kDO {
                   self.env.extend :dynamic
                 } opt_block_var compstmt kEND {
                   args = val[2]
-                  body = val[3] == s(:block) ? nil : val[3]
+                  body = val[3]
+                  body = self.dyna_init(val[3], args)
                   result = s(:iter)
                   result << args
                   result << body if body
-                  self.env.unextend;
+                  self.env.unextend
                 }
 
 case_body     : kWHEN when_args then compstmt cases {
