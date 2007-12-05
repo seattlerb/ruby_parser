@@ -199,6 +199,13 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_END,     t("'"))
   end
 
+  def test_yylex_string_pct_Q
+    util_lex_token("%Q[string]",
+                   :tSTRING_BEG,     t("%Q["),
+                   :tSTRING_CONTENT, s(:str, "string"),
+                   :tSTRING_END,     t("]"))
+  end
+
   def test_yylex_string_single_escapes
     util_lex_token("'s\\tri\\ng'",
                    :tSTRING_BEG,     t("'"),

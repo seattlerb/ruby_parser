@@ -271,16 +271,23 @@ command      : operation command_args = tLOWEST {
                  end
                }
              | primary_value tDOT operation2 command_args = tLOWEST {
-                 result = s(:call, val[0], val[2].to_sym, val[3]);
+                 result = new_call(val[0], val[2].to_sym, val[3])
                }
              | primary_value tDOT operation2 command_args cmd_brace_block {
-                 result = s(:call, val[0], val[2].to_sym, val[3], val[4]);
+                 result = new_call(val[0], val[2].to_sym, val[3])
                }
              | primary_value tCOLON2 operation2 command_args = tLOWEST {
-                 result = s(:call, val[0], val[2].to_sym, val[3]);
+                 result = new_call(val[0], val[2].to_sym, val[3])
                }
              | primary_value tCOLON2 operation2 command_args cmd_brace_block {
-                 result = s(:call, val[0], val[2].to_sym, val[3], val[4]);
+                 result = new_call(val[0], val[2].to_sym, val[3])
+                 if val[4] then
+                   if result[0] == :block_pass then # REFACTOR
+                     raise "both block arg and actual block given"
+                   end
+                   val[2] << result
+                   result = val[2]
+                 end
                }
              | kSUPER command_args {
                  result = self.new_super(val[1]);
@@ -480,10 +487,10 @@ arg          : lhs '=' arg {
                   result = s(:op_asgn1, val[0], val[2], val[4].value.to_sym, val[5]);
                  }
              | primary_value tDOT tIDENTIFIER tOP_ASGN arg {
-                             result = s(:op_asgn2, val[0], :"#{val[2].value}=", val[3].value.to_sym, val[4]);
+                  result = s(:op_asgn2, val[0], :"#{val[2].value}=", val[3].value.to_sym, val[4]);
                  }
              | primary_value tDOT tCONSTANT tOP_ASGN arg {
-                  result = s(:op_asgn, val[0], val[4], val[2].value, val[3].value);
+                  result = s(:op_asgn2, val[0], :"#{val[2].value}=", val[3].value.to_sym, val[4])
                  }
              | primary_value tCOLON2 tIDENTIFIER tOP_ASGN arg {
                   result = s(:op_asgn, val[0], val[4], val[2].value, val[3].value);
@@ -976,7 +983,8 @@ primary      : literal
 
                  self.env.extend;
                } bodystmt kEND {
-                 result = s(:module, val[1].last.to_sym, s(:scope, val[3]))
+                 body = val[3] ? s(:scope, val[3]) : s(:scope)
+                 result = s(:module, val[1].last.to_sym, body)
                  self.env.unextend;
                }
              | kDEF fname {
@@ -1307,19 +1315,19 @@ word_list      :  {
                    result = s(:array)
                  }
                | word_list word ' ' {
-                 result = val[0].add(val[1][0] == :evstr ? s(:dstr, val[1]) : val[1])
+                   result = val[0].add(val[1][0] == :evstr ? s(:dstr, val[1]) : val[1])
                  }
 
 word           : string_content
                | word string_content {
-                 result = self.literal_concat(val[0], val[1]);
+                   result = self.literal_concat(val[0], val[1]);
                  }
 
 qwords         : tQWORDS_BEG ' ' tSTRING_END {
-                   result = s(:zarray);
+                   result = s(:zarray)
                  }
                | tQWORDS_BEG qword_list tSTRING_END {
-                   result = val[1];
+                   result = val[1]
                  }
 
 qword_list     : {
@@ -1330,9 +1338,9 @@ qword_list     : {
                  }
 
 string_contents: { result = s(:str, "") }
-               | string_contents string_content {
-                   result = literal_concat(val[0], val[1])
-                 }
+                 | string_contents string_content {
+                     result = literal_concat(val[0], val[1])
+                   }
 
 xstring_contents: { result = nil }
                 | xstring_contents string_content {
@@ -1603,8 +1611,9 @@ assoc_list    : none { #  [!nil]
                   result = val[0];
                  }
              | args trailer {
-                  if (val[0].size % 2 != 0) then
-                    yyerror("Odd number list for Hash.");
+                  size = val[0].size
+                  if (size % 2 != 1) then # != 1 because of leading :array
+                    yyerror("Odd number (#{size}) list for Hash. #{val[0].inspect}");
                   end
                   result = val[0];
                  }

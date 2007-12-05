@@ -83,7 +83,7 @@ class RubyParser < Racc::Parser
 
     result = case id.to_s
              when /^@@/ then
-               asgn = in_def or in_single > 0
+               asgn = in_def || in_single > 0
                s((asgn ? :cvasgn : :cvdecl), id)
              when /^@/ then
                s(:iasgn, id)
@@ -337,10 +337,13 @@ class RubyParser < Racc::Parser
   end
 
   def new_super args
-    raise "not yet" if args && args.first == :block_pass
-
-    result = s(:super)
-    result << args if args and args != s(:array)
+    if args && args.first == :block_pass then
+      t, body, bp = args
+      result = s(t, bp, s(:super, body))
+    else
+      result = s(:super)
+      result << args if args and args != s(:array)
+    end
     result
   end
 
@@ -362,29 +365,35 @@ class RubyParser < Racc::Parser
     return tail unless head
     return head unless tail
 
-    htype = head[0]
+    htype, ttype = head[0], tail[0]
 
     if htype == :evstr then
       node = s(:dstr, '')
       head = list_append(node, head)
     end
 
-    case tail[0]
+    case ttype
     when :str then
       if htype == :str
-        head[-1] += tail[-1]
+        head[-1] << tail[-1]
+      elsif htype == :dstr and head.size == 2 then
+        head[-1] << tail[-1]
       else
         head << tail
       end
     when :dstr then
       if htype == :str then
-        head[-1] += tail[-1]
+        head[-1] << tail[-1]
       else
-        head << s(:str, tail[-1])
+        head << s(:str, tail[-1]) # return ((ListNode) head).addAll(tail);
       end
     when :evstr then
       head[0] = :dstr if htype == :str
-      head = list_append(head, tail)
+      if tail[-1][0] == :str then # HACK FUCK YOU
+        head[-1] << tail[-1][-1]
+      else
+        head = list_append(head, tail)
+      end
     end
 
     return head
@@ -553,9 +562,9 @@ class RubyLexer
   end
 
   def parse_string(quote)
-    _, string_type, term, open, nest = quote
+    _, string_type, term, open = quote
 
-    space = false
+    space = false # FIX: remove these
     func = string_type
     paren = open
 
@@ -571,7 +580,7 @@ class RubyLexer
       space = true
     end
 
-    if c == term && ! nest then
+    if c == term && self.nest == 0 then
       if func & STR_FUNC_QWORDS != 0 then
         quote[1] = nil
         return ' '
@@ -606,7 +615,7 @@ class RubyLexer
 
     if tokadd_string(func, term, paren, token_buffer) == RubyLexer::EOF then
       # HACK ruby_sourceline = nd_line(quote)
-      # HACK rb_compile_error("unterminated string meets end of file")
+      raise "unterminated string meets end of file"
       return :tSTRING_END
     end
     
@@ -791,26 +800,24 @@ class RubyLexer
       #             return ((c & 0xff) | 0x80)
       #         end
 
-    when "C" then
-      raise "not yet"
+    when "C", "c" then
       if (c = src.read) != "-" then
         yyerror("Invalid escape character syntax")
         pushback(c)
         return "\0"
+      end if c == "C"
+
+      case c = src.read
+      when "\\" then
+        c = read_escape
+      when "?" then
+        return 0177
+      when RubyLexer::EOF then
+        yyerror("Invalid escape character syntax");
+        return "\0";
       end
-    when "c" then
-      raise "not yet"
-#       if (c = src.read())== "\\" then
-#         c = read_escape()
-#       elsif (c == "?")
-#         return 0177
-#       elsif (c == -1)
-#         goto eof
-#       end
 
-      return c & 0x9f
-
-      # HACK eof:
+      return (c[0] & 0x9f).chr
     when RubyLexer::EOF then
       yyerror("Invalid escape character syntax")
       return "\0"
@@ -820,12 +827,12 @@ class RubyLexer
   end
 
   def tokadd_string(func, term, paren, buffer)
-    while ((c = src.read()) != RubyLexer::EOF)
+    until (c = src.read) == RubyLexer::EOF do
       if c == paren then
         self.nest += 1
       elsif c == term then
         if self.nest == 0 then
-          src.unread(c)
+          src.unread c
           break
         end
         self.nest -= 1
@@ -865,15 +872,25 @@ class RubyLexer
             buffer << "\\"
           end
         end
+        #         else if (ismbchar(c)) {
+        #             int i, len = mbclen(c)-1;
+        #             for (i = 0; i < len; i++) {
+        #                 tokadd(c);
+        #                 c = nextc();
+        #             }
+        #         }
       elsif (func & RubyLexer::STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
         src.unread c
         break
       end
+
       if c == "\0" && (func & RubyLexer::STR_FUNC_SYMBOL) != 0 then
         raise SyntaxError, "symbol cannot contain '\\0'"
-       end
+      end
+
       buffer << c
     end # while
+
     return c
   end
 
@@ -1122,6 +1139,7 @@ class RubyLexer
         end
       else
         token = self.parse_string(lex_strterm)
+
         if token == :tSTRING_END || token == :tREGEXP_END then
           self.lex_strterm = nil
           self.lex_state = :expr_end

@@ -55,18 +55,19 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
   if ENV['ZOMGPONIES'] or File.exist? 'zomgponies' then
     require 'parse_tree'
 
-    files = Dir["/usr/lib/ruby/**/*.rb"] 
-    files = Dir["/usr/lib/ruby/1.8/**/*.rb"]      # TODO: drop 1.8 so I get gems
-    files = Dir["/usr/lib/ruby/1.8/test/**/*.rb"] # TODO: drop test so I get 1.8
-    files = Dir["unit/*.rb"]
+    base = "/usr/lib/ruby"
+    base = "/usr/lib/ruby/1.8"      # TODO: drop 1.8 so I get gems
 
+    files = Dir[File.join(base, "**/*.rb")]
     files.reject! { |f| f =~ /tk|tcl/ } # causes a bus error ?!?
 
+    warn "Generating #{files.size} tests from #{base}"
+
     eval files.map { |file|
-      name = File.basename(file).gsub(/\W+/, '_')
+      name = file[base.size..-1].gsub(/\W+/, '_')
       loc = `wc -l #{file}`.strip.to_i
-      # name = file.split(/\//)[4..-1].join('_').gsub(/\W+/, '_')
-      eval "def test_#{name}_#{loc}
+
+      eval "def test#{name}_#{loc}
        file = #{file.inspect}
        rb = File.read(file)
 
@@ -80,10 +81,6 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
   end
 
   def setup
-    unless defined? @@suck_it then
-      @@suck_it = true
-    end
-
     super
 
     # puts self.name
@@ -275,6 +272,76 @@ end
 
     assert_equal pt, @processor.parse(rb)
   end
+
+  def test_literal_concat_str_evstr
+    lhs, rhs = s(:str, ""), s(:evstr, s(:str, "blah"))
+
+    assert_equal s(:dstr, "blah"), @processor.literal_concat(lhs, rhs)
+  end
+
+  def test_str_pct_Q_nested
+    rb = "%Q[before [#\{nest}] after]"
+    pt = s(:dstr, "before [", s(:vcall, :nest), s(:str, "] after"))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+# 13924: {:combo=>[:str, :str]}
+#  2342: {:combo=>[:dstr, :str]}
+#  2031: {:combo=>[:str, :evstr]}
+#  1226: {:combo=>[:dstr, :evstr]}
+#    20: {:combo=>[:evstr, :str]}
+#     8: {:combo=>[:evstr, :evstr]}
+
+  def test_str_str
+    rb = "\"a #\{'b'}\""
+    pt = s(:dstr, "a b")
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_str_str_str
+    rb = "\"a #\{'b'} c\""
+    pt = s(:dstr, "a b c")
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_dstr_str
+    rb = "\"#\{'a'} b\""
+    pt = s(:dstr, "a b")
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_str_evstr
+    rb = "\"a #\{b}\""
+    pt = s(:dstr, "a ", s(:vcall, :b))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_dstr_evstr
+    rb = "\"#\{'a'}#\{b}\""
+    pt = s(:dstr, "a", s(:vcall, :b))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_evstr_str
+    rb = "\"#\{a} b\""
+    pt = s(:dstr, "", s(:vcall, :a), s(:str, " b"))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_evstr_evstr
+    rb = "\"#\{a}#\{b}\""
+    pt = s(:dstr, "", s(:vcall, :a), s(:vcall, :b))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
 
   def test_dasgn_icky2
     rb = '
