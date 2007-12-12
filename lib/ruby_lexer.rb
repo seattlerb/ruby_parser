@@ -893,7 +893,7 @@ class RubyLexer
         raise SyntaxError, "symbol cannot contain '\\0'"
       end
 
-      buffer << c
+      buffer << c # unless c == "\r"
     end # while
 
     return c
@@ -918,7 +918,7 @@ class RubyLexer
 
     if (func & RubyLexer::STR_FUNC_EXPAND) == 0 then
       begin
-        str << src.read_line.sub(/\r\n?|\n?\r/, "\n") # HACK
+        str << src.read_line
         raise SyntaxError, err_msg if src.peek == RubyLexer::EOF
       end until src.match_string(eosn, indent)
     else
@@ -2605,6 +2605,12 @@ class StringIO # HACK: everything in here is a hack
 
   def read
     c = self.getc
+
+    if c == ?\r then
+      d = self.getc
+      self.ungetc d if d != ?\n
+      c = ?\n
+    end
     
     self.was_begin_of_line = self.begin_of_line
     self.begin_of_line = c == ?\n
@@ -2644,7 +2650,7 @@ class StringIO # HACK: everything in here is a hack
   def read_line
     self.begin_of_line = true
     self.was_begin_of_line = false
-    gets
+    gets.sub(/\r\n?$/, "\n") # HACK
   end
 
   def peek expected = nil # FIX: barf
