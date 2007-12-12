@@ -56,15 +56,18 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     require 'parse_tree'
 
     base = "/usr/lib/ruby"
-    base = "/usr/lib/ruby/1.8"      # TODO: drop 1.8 so I get gems
+    base = "unit"
 
     files = Dir[File.join(base, "**/*.rb")]
-    files.reject! { |f| f =~ /tk|tcl/ } # causes a bus error ?!?
+    files.reject! { |f| f =~ /tk|tcl|environments.environment|rss.maker.base/ } # causes a bus error ?!?
 
     warn "Generating #{files.size} tests from #{base}"
 
     eval files.map { |file|
       name = file[base.size..-1].gsub(/\W+/, '_')
+
+      next if name =~ /ferret_browser_rb/
+
       loc = `wc -l #{file}`.strip.to_i
 
       eval "def test#{name}_#{loc}
@@ -129,11 +132,7 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
   def test_block_append_begin_begin
     head = s(:begin, s(:args))
     tail = s(:begin, s(:args))
-    expected = if $VERBOSE then # HACK - "bug" in ruby is forcing this
-                 s(:block, s(:args), s(:begin, s(:args)))
-               else
-                 s(:block, s(:begin, s(:args)), s(:begin, s(:args)))
-               end
+    expected = s(:block, s(:args), s(:begin, s(:args)))
     assert_equal expected, @processor.block_append(head, tail)
   end
 
@@ -242,6 +241,19 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     assert_equal exp, @processor.logop(:and, lhs, rhs)
   end
 
+  def test_logop_nested_mix
+    lhs = s(:or, s(:vcall, :a), s(:vcall, :b))
+    rhs = s(:and, s(:vcall, :c), s(:vcall, :d))
+    exp = s(:or,
+            s(:or, s(:vcall, :a), s(:vcall, :b)),
+            s(:and, s(:vcall, :c), s(:vcall, :d)))
+
+    lhs.paren = true
+    rhs.paren = true
+
+    assert_equal exp, @processor.logop(:or, lhs, rhs)
+  end
+
   def test_dasgn_icky1
     rb = '
 a do
@@ -276,12 +288,45 @@ end
   def test_literal_concat_str_evstr
     lhs, rhs = s(:str, ""), s(:evstr, s(:str, "blah"))
 
-    assert_equal s(:dstr, "blah"), @processor.literal_concat(lhs, rhs)
+    assert_equal s(:str, "blah"), @processor.literal_concat(lhs, rhs)
+  end
+
+  def test_literal_concat_evstr_evstr
+    lhs, rhs = s(:evstr, s(:lit, 1)), s(:evstr, s(:lit, 2))
+    expected = s(:dstr, "", s(:evstr, s(:lit, 1)), s(:evstr, s(:lit, 2)))
+
+    assert_equal expected, @processor.literal_concat(lhs, rhs)
+  end
+
+  def test_literal_concat_dstr_evstr
+    lhs, rhs = s(:dstr, "a"), s(:evstr, s(:vcall, :b))
+    expected = s(:dstr, "a", s(:evstr, s(:vcall, :b)))
+
+    assert_equal expected, @processor.literal_concat(lhs, rhs)
+  end
+
+  def test_literal_concat_dstr_dstr
+    lhs      = s(:dstr, "Failed to download spec ",
+                 s(:evstr, s(:vcall, :spec_name)),
+                 s(:str, " from "),
+                 s(:evstr, s(:vcall, :source_uri)),
+                 s(:str, ":\n"))
+    rhs      = s(:dstr, "\t",
+                 s(:evstr, s(:call, s(:ivar, :@fetch_error), :message)))
+    expected = s(:dstr, "Failed to download spec ",
+                 s(:evstr, s(:vcall, :spec_name)),
+                 s(:str, " from "),
+                 s(:evstr, s(:vcall, :source_uri)),
+                 s(:str, ":\n"),
+                 s(:str, "\t"),
+                 s(:evstr, s(:call, s(:ivar, :@fetch_error), :message)))
+
+    assert_equal expected, @processor.literal_concat(lhs, rhs)
   end
 
   def test_str_pct_Q_nested
     rb = "%Q[before [#\{nest}] after]"
-    pt = s(:dstr, "before [", s(:vcall, :nest), s(:str, "] after"))
+    pt = s(:dstr, "before [", s(:evstr, s(:vcall, :nest)), s(:str, "] after"))
 
     assert_equal pt, @processor.parse(rb)
   end
@@ -295,49 +340,49 @@ end
 
   def test_str_str
     rb = "\"a #\{'b'}\""
-    pt = s(:dstr, "a b")
+    pt = s(:str, "a b")
 
     assert_equal pt, @processor.parse(rb)
   end
 
   def test_str_str_str
     rb = "\"a #\{'b'} c\""
-    pt = s(:dstr, "a b c")
+    pt = s(:str, "a b c")
 
     assert_equal pt, @processor.parse(rb)
   end
 
   def test_dstr_str
     rb = "\"#\{'a'} b\""
-    pt = s(:dstr, "a b")
+    pt = s(:str, "a b")
 
     assert_equal pt, @processor.parse(rb)
   end
 
   def test_str_evstr
     rb = "\"a #\{b}\""
-    pt = s(:dstr, "a ", s(:vcall, :b))
+    pt = s(:dstr, "a ", s(:evstr, s(:vcall, :b)))
 
     assert_equal pt, @processor.parse(rb)
   end
 
   def test_dstr_evstr
     rb = "\"#\{'a'}#\{b}\""
-    pt = s(:dstr, "a", s(:vcall, :b))
+    pt = s(:dstr, "a", s(:evstr, s(:vcall, :b)))
 
     assert_equal pt, @processor.parse(rb)
   end
 
   def test_evstr_str
     rb = "\"#\{a} b\""
-    pt = s(:dstr, "", s(:vcall, :a), s(:str, " b"))
+    pt = s(:dstr, "", s(:evstr, s(:vcall, :a)), s(:str, " b"))
 
     assert_equal pt, @processor.parse(rb)
   end
 
   def test_evstr_evstr
     rb = "\"#\{a}#\{b}\""
-    pt = s(:dstr, "", s(:vcall, :a), s(:vcall, :b))
+    pt = s(:dstr, "", s(:evstr, s(:vcall, :a)), s(:evstr, s(:vcall, :b)))
 
     assert_equal pt, @processor.parse(rb)
   end
@@ -370,9 +415,12 @@ end
   end
 
 
-#   def test_list_append
-#     raise NotImplementedError, 'Need to write test_list_append'
-#   end
+  def test_list_append
+    lhs, rhs = s(:array, s(:lit, :iter)), s(:when, s(:const, :BRANCHING), nil)
+    expected = s(:array, s(:lit, :iter), s(:when, s(:const, :BRANCHING), nil))
+
+    assert_equal expected, @processor.list_append(lhs, rhs)
+  end
 
 #   def test_literal_concat
 #     raise NotImplementedError, 'Need to write test_literal_concat'

@@ -68,7 +68,7 @@ bodystmt      : compstmt opt_rescue opt_else opt_ensure {
                 }
 
 compstmt     : stmts opt_terms {
-                 result = val[0]
+                 result = void_stmts(val[0])
                }
 
 stmts        : none
@@ -157,22 +157,23 @@ stmt          : kALIAS fitem { lexer.state = :expr_fname } fitem {
              | mlhs '=' command_call {
                   val[2] = value_expr(val[2])
                   val[0][2] = if val[0][1] then
-                                s(:toary, val[2])
+                                s(:to_ary, val[2])
                               else
                                 s(:array, val[2])
                               end
                   result = val[0];
                  }
              | var_lhs tOP_ASGN command_call {
-                  name = val[0].get_name;
-                  asgn_op = val[1].value;
+                  name = val[0].last
+                  asgn_op = val[1].value
                   val[2] = value_expr(val[2])
 
                   if asgn_op == "||" then
                     val[0][2] = (val[2]);
-                    result = s(:op_asgn, self.gettable(name), :"||", val[0])
+                    result = s(:op_asgn_or,  self.gettable(name), val[0])
                   elsif asgn_op == "&&" then
-                    result = s(:op_asgn, self.gettable(name), :"&&", val[0])
+                    val[0][2] = (val[2]);
+                    result = s(:op_asgn_and, self.gettable(name), val[0])
                   else
                     result = s(:lasgn,
                                self.gettable(name),
@@ -471,6 +472,8 @@ arg          : lhs '=' arg {
                  name = val[0].value
                  asgn_op = val[1].value.to_sym
 
+                 val[2] = remove_begin(val[2])
+
                  case asgn_op
                  when :"||" then
                    val[0] << val[2]
@@ -539,10 +542,10 @@ arg          : lhs '=' arg {
                  result = s(:call, val[0], :**, s(:array, val[2]))
                  }
              | tUMINUS_NUM tINTEGER tPOW arg {
-                  result = s(:call, s(:call, s(:lit, -val[1]), :"**", s(:array, val[3])), :"-@");
+                  result = s(:call, s(:call, s(:lit, val[1]), :"**", s(:array, val[3])), :"-@");
                  }
              | tUMINUS_NUM tFLOAT tPOW arg {
-                  result = s(:call, s(:call, s(:lit, -val[1]), :"**", s(:array, val[3])), :"-@");
+                  result = s(:call, s(:call, s(:lit, val[1]), :"**", s(:array, val[3])), :"-@");
                  }
              | tUPLUS arg {
                   if val[1][0] == :lit then
@@ -810,6 +813,7 @@ primary      : literal
                  }
              | tLPAREN compstmt tRPAREN {
                  result = val[1];
+                 result.paren = true
                  }
              | primary_value tCOLON2 tCONSTANT {
                  result = s(:colon2, val[0], val[2].value.to_sym)
@@ -951,7 +955,8 @@ primary      : literal
                } expr_value do {
                  lexer.cond.pop;
                } compstmt kEND {
-                 result = s(:for, val[4], val[1], val[7])
+                 result = s(:for, val[4], val[1])
+                 result << val[7] if val[7]
                }
              | kCLASS cpath superclass {
                   if (self.in_def || self.in_single > 0) then
@@ -1149,10 +1154,10 @@ case_body     : kWHEN when_args then compstmt cases {
 when_args     : args
               | args ',' tSTAR arg_value {
                   result = self.list_append(val[0], s(:when, val[3], nil))
-              }
+                }
               | tSTAR arg_value {
                   result = s(:array, s(:when, val[1], nil));
-              }
+                }
 
 cases         : opt_else | case_body
 
@@ -1204,7 +1209,7 @@ string        : string1
 
 string1       : tSTRING_BEG string_contents tSTRING_END {
                   result = val[1];
-                  extra_length = (val[0].value).length - 1;
+#                   extra_length = (val[0].value).length - 1;
 
                   #  We may need to subtract addition offset off of first
                   #  string fragment (we optimistically take one off in
@@ -1228,7 +1233,7 @@ xstring       : tXSTRING_BEG xstring_contents tSTRING_END {
                     when :dstr
                       node[0] = :dxstr
                     else
-                      node = s(:dxstr, '', *node[1..-1])
+                      node = s(:dxstr, '', node)
                     end
                   end
 
@@ -1296,7 +1301,7 @@ regexp        : tREGEXP_BEG xstring_contents tREGEXP_END {
                         node[0] = :dregx
                       end
                     else
-                      node = s(:dregx, '', *node[1..-1]);
+                      node = s(:dregx, '', node);
                       node[0] = :dregx_once if options =~ /o/
                     end
                   end
@@ -1315,7 +1320,8 @@ word_list      :  {
                    result = s(:array)
                  }
                | word_list word ' ' {
-                   result = val[0].add(val[1][0] == :evstr ? s(:dstr, val[1]) : val[1])
+                   word = val[1][0] == :evstr ? s(:dstr, '', val[1]) : val[1]
+                   result = val[0] << word
                  }
 
 word           : string_content
@@ -1390,10 +1396,19 @@ sym            : fname | tIVAR | tGVAR | tCVAR
 
 dsym           : tSYMBEG xstring_contents tSTRING_END {
                    lexer.state = :expr_end
-                   yyerror("empty symbol literal") if val[1].nil?
-
                    result = val[1]
-                   result[0] = :dsym if result[0] == :dstr
+
+                   yyerror("empty symbol literal") if result.nil? or result.empty?
+
+                   case result[0]
+                   when :dstr then
+                     result[0] = :dsym
+                   when :str then
+                     result = s(:lit, result.last.intern)
+                   else
+                     result = s(:dsym, '', result)
+                   end
+
                  }
 
 numeric      : tINTEGER

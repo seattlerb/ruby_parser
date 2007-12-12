@@ -1,11 +1,18 @@
 # -*- ruby -*-
 
 Autotest.add_hook :initialize do |at|
+  at.extra_files << "../../ParseTree/dev/test/pt_testcase.rb"
+  at.libs << ":../../ParseTree/dev/lib:../../ParseTree/dev/test"
+
   at.unit_diff = "unit_diff -u -b"
 
-  at.test_mappings[/^lib\/.*\.y$/] = proc { |filename, _|
-    at.files_matching %r%^test/.*#{File.basename(filename, '.y').gsub '_', '_?'}.rb$%
-  }
+  at.add_mapping(/^lib\/.*\.y$/) do |f, _|
+    at.files_matching %r%^test/.*#{File.basename(f, '.y').gsub '_', '_?'}.rb$%
+  end
+
+  at.add_mapping(/pt_testcase.rb/) do |f, _|
+    at.files_matching(/^test.*rb$/)
+  end
 end
 
 Autotest.add_hook :run_command do |at|

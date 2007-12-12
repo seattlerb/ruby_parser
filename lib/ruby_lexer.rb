@@ -198,7 +198,14 @@ class RubyParser < Racc::Parser
     return head unless tail
     return tail unless head
 
-    head = head[1] if head[0] == :begin and head.size == 2 and tail[0] == :begin and $VERBOSE # HACK ugh... block_append two begins should be no/yes
+    case head[0]
+    when :lit, :str then
+      warn "unused literal ignored" # TODO: improve
+      return tail
+    end
+
+    head = head[1] if head[0] == :begin and head.size == 2 # TODO: remove_begin
+    # tail = tail[1] if tail[0] == :begin and tail.size == 2
     head = s(:block, head) unless head[0] == :block
 
     if Sexp === tail and tail[0] == :block then
@@ -222,17 +229,20 @@ class RubyParser < Racc::Parser
   end
 
   def logop(type, left, right)
-    value_expr left
-    if left && left[0] == type then
+    left = value_expr left
+
+    if left and left[0] == type and not left.paren then
       node, second = left, nil
 
-      while (second = node[2]) != 0 && second[0] == type do
+      while (second = node[2]) && second[0] == type and not second.paren do
         node = second
       end
 
       node[2] = s(type, second, right)
+
       return left
     end
+
     return s(type, left, right)
   end
 
@@ -355,10 +365,9 @@ class RubyParser < Racc::Parser
     return node2.nil? ? node1 : s(:argscat, node1, node2)
   end
 
-  def list_append list, item
+  def list_append list, item # TODO: nuke me *sigh*
     return s(:array, item) unless list
-    list.push(*item[1..-1])
-    list
+    list << item
   end
 
   def literal_concat head, tail
@@ -367,10 +376,7 @@ class RubyParser < Racc::Parser
 
     htype, ttype = head[0], tail[0]
 
-    if htype == :evstr then
-      node = s(:dstr, '')
-      head = list_append(node, head)
-    end
+    head = s(:dstr, '', head) if htype == :evstr
 
     case ttype
     when :str then
@@ -385,14 +391,17 @@ class RubyParser < Racc::Parser
       if htype == :str then
         head[-1] << tail[-1]
       else
-        head << s(:str, tail[-1]) # return ((ListNode) head).addAll(tail);
+        tail[0] = :array
+        tail[1] = s(:str, tail[1])
+        head.push(*tail[1..-1])
       end
     when :evstr then
       head[0] = :dstr if htype == :str
       if tail[-1][0] == :str then # HACK FUCK YOU
         head[-1] << tail[-1][-1]
+        head[0] = :str if head.size == 2 # HACK ?
       else
-        head = list_append(head, tail)
+        head.push(tail)
       end
     end
 
@@ -425,11 +434,7 @@ class RubyParser < Racc::Parser
     return nil unless node
     return node unless node[0] == :block
 
-    while node and node[0] == :block and node.size == 2 do
-      node = node[1]
-      node = void_stmts(remove_begin(node))
-    end
-
+    node[1..-2] = node[1..-2].map { |n| remove_begin(n) }
     node
   end
 
@@ -913,7 +918,7 @@ class RubyLexer
 
     if (func & RubyLexer::STR_FUNC_EXPAND) == 0 then
       begin
-        str << src.read_line
+        str << src.read_line.sub(/\r\n?|\n?\r/, "\n") # HACK
         raise SyntaxError, err_msg if src.peek == RubyLexer::EOF
       end until src.match_string(eosn, indent)
     else
@@ -1816,10 +1821,10 @@ class RubyLexer
           token_buffer << '$'
           token_buffer << '_'
 
-          break if c =~ /\w/
-
-          self.yacc_value = t(token_buffer.join)
-          return :tGVAR
+          unless c =~ /\w/ then
+            self.yacc_value = t(token_buffer.join)
+            return :tGVAR
+          end
         when /[~*$?!@\/\\;,.=:<>\"]/ then
           token_buffer << '$'
           token_buffer << c
@@ -2615,7 +2620,7 @@ class StringIO # HACK: everything in here is a hack
 
     if indent
       while c = self.read do
-        if c !~ /\s/ or c == "\n" then
+        if c !~ /\s/ or c == "\n" or c == "\r" then
           self.unread c
           break
         end
@@ -2625,8 +2630,9 @@ class StringIO # HACK: everything in here is a hack
 
     term.each_byte do |c2|
       c = self.read
+      c = self.read if c and c == "\r"
       buffer << c
-      if c2 != c[0] then
+      if c and c2 != c[0] then
         self.unread_many buffer.join # HACK omg
         return false
       end
@@ -2672,6 +2678,12 @@ class StringIO # HACK: everything in here is a hack
 end
 
 class Sexp
+  attr_writer :paren
+
+  def paren
+    @paren ||= false
+  end
+
   def value
     raise "multi item sexp" if size > 2
     last

@@ -213,6 +213,16 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_END,     t("'"))
   end
 
+  def test_yylex_global
+    util_lex_token("$blah",
+                   :tGVAR,     t("$blah"))
+  end
+
+  def test_yylex_global_wierd
+    util_lex_token("$__blah",
+                   :tGVAR,     t("$__blah"))
+  end
+
   def test_yylex_symbol
     util_lex_token(":symbol",
                    :tSYMBEG, t(":"),
@@ -230,7 +240,7 @@ class TestRubyLexer < Test::Unit::TestCase
     until args.empty? do
       token = args.shift
       value = args.shift
-      assert @lex.advance
+      assert @lex.advance, "no more tokens"
       assert_equal [token, value], [@lex.token, @lex.yacc_value]
     end
 
