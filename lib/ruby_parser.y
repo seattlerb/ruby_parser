@@ -156,28 +156,29 @@ stmt          : kALIAS fitem { lexer.state = :expr_fname } fitem {
                  }
              | mlhs '=' command_call {
                   val[2] = value_expr(val[2])
-                  val[0][2] = if val[0][1] then
-                                s(:to_ary, val[2])
-                              else
-                                s(:array, val[2])
-                              end
-                  result = val[0];
+                  val[0] << if val[0][1] then
+                              s(:to_ary, val[2])
+                            else
+                              val[0].delete_at 1 # remove the nil
+                              s(:array, val[2])
+                            end
+                  result = val[0]
                  }
              | var_lhs tOP_ASGN command_call {
                   name = val[0].last
-                  asgn_op = val[1].value
+                  asgn_op = val[1].value.to_sym
                   val[2] = value_expr(val[2])
 
-                  if asgn_op == "||" then
+                  case asgn_op
+                  when :"||" then
                     val[0][2] = (val[2]);
                     result = s(:op_asgn_or,  self.gettable(name), val[0])
-                  elsif asgn_op == "&&" then
+                  when :"&&" then
                     val[0][2] = (val[2]);
                     result = s(:op_asgn_and, self.gettable(name), val[0])
                   else
-                    result = s(:lasgn,
-                               self.gettable(name),
-                               s(:call, val[0], asgn_op, val[1]))
+                    result = val[0]
+                    result << s(:call, self.gettable(name), asgn_op, s(:array, val[2]))
                 end
                  }
              | primary_value '[' aref_args tRBRACK tOP_ASGN command_call {
@@ -200,15 +201,17 @@ stmt          : kALIAS fitem { lexer.state = :expr_fname } fitem {
                  }
              | mlhs '=' arg_value {
                  val[0] << if val[0][1] then
-                               s(:to_ary, val[2])
-                             else
-                               s(:array, val[2])
-                             end
+                             s(:to_ary, val[2])
+                           else
+                             val[0].delete_at 1 # remove the nil
+                             s(:array, val[2])
+                           end
                  result = val[0]
                }
              | mlhs '=' mrhs {
-                  result = val[0] << val[2]
-                 }
+                 val[0].delete_at 1 if val[0][1].nil?
+                 result = val[0] << val[2]
+               }
              | expr
 
 
@@ -320,10 +323,10 @@ mlhs_basic    : mlhs_head {
                   result = s(:masgn, val[0], s(:splat))
                 }
               | tSTAR mlhs_node {
-                  result = s(:masgn, val[1]);
+                  result = s(:masgn, nil, val[1]);
                 }
               | tSTAR {
-                  result = s(:masgn, s(:splat))
+                  result = s(:masgn, nil, s(:splat))
                 }
 
 mlhs_item     : mlhs_node
@@ -588,6 +591,8 @@ arg          : lhs '=' arg {
                   result = s(:call, val[0], :"===", s(:array, val[2]));
                  }
              | arg tNEQ arg {
+                  val[0] = value_expr val[0] # TODO: port call_op and clean these
+                  val[2] = value_expr val[2]
                   result = s(:not, s(:call, val[0], :"==", s(:array, val[2])));
                  }
              | arg tMATCH arg {
@@ -600,12 +605,17 @@ arg          : lhs '=' arg {
                   result = s(:not, val[1])
                  }
              | tTILDE arg {
+                  val[2] = value_expr val[2]
                   result = s(:call, val[1], :"~");
                  }
              | arg tLSHFT arg {
+                  val[0] = value_expr val[0]
+                  val[2] = value_expr val[2]
                   result = s(:call, val[0], :"<<", s(:array, val[2])) # " stupid emacs
                  }
              | arg tRSHFT arg {
+                  val[0] = value_expr val[0]
+                  val[2] = value_expr val[2]
                   result = s(:call, val[0], :">>", s(:array, val[2]))
                  }
              | arg tANDOP arg {
@@ -857,17 +867,15 @@ primary      : literal
              | operation brace_block {
                  name = val[0].value.to_sym
                  iter = val[1]
+#                 iter[2] = iter[2][1] if iter[2][0] == :block and iter[2].size == 2 # HACK
                  iter.insert 1, s(:fcall, name)
                  result = iter
                }
              | method_call
              | method_call brace_block {
-# TODO ?
-#                if val[0] && val[0].get_iter_node.instanceof(BlockPassNode) then
-#                  raise SyntaxException "Both block arg and actual block given."
-#                end
                  call = val[0]
                  iter = val[1]
+#                 iter[2] = iter[2][1] if iter[2][0] == :block and iter[2].size == 2 # HACK
                  iter.insert 1, call
                  result = iter
                }
@@ -946,11 +954,11 @@ primary      : literal
                   else
                     result << nil
                   end
-                 }
-             | kCASE opt_terms kELSE compstmt kEND {
-                 result = val[3];
-                 }
-             | kFOR block_var kIN {
+               }
+             | kCASE opt_terms kELSE compstmt kEND { # TODO: need a test
+                 result = s(:case, nil, val[3])
+               }
+            | kFOR block_var kIN {
                  lexer.cond.push true
                } expr_value do {
                  lexer.cond.pop;
@@ -1061,7 +1069,7 @@ opt_else      : none
               }
 
 block_var     : lhs
-              | mlhs
+              | mlhs { val[0].delete_at 1 if val[0][1].nil? } # HACK
 
 opt_block_var : none
               | tPIPE tPIPE {
@@ -1079,7 +1087,7 @@ do_block      : kDO_BLOCK {
                 } opt_block_var compstmt kEND {
 
                   vars = val[2]
-                  body = self.dyna_init(val[3], vars)
+                  body = self.dyna_init(val[3])
 
                   result = s(:iter)
                   result << vars
@@ -1128,7 +1136,8 @@ brace_block   : tLCURLY {
                   self.env.extend :dynamic
                 } opt_block_var compstmt tRCURLY { # REFACTOR
                   args = val[2]
-                  body = self.dyna_init(val[3], args)
+                  body = self.dyna_init(val[3])
+                  # body = body[1] if body[0] == :block and body.size == 2 # HACK
                   result = s(:iter)
                   result << args
                   result << body if body
@@ -1138,8 +1147,8 @@ brace_block   : tLCURLY {
                   self.env.extend :dynamic
                 } opt_block_var compstmt kEND {
                   args = val[2]
-                  body = val[3]
-                  body = self.dyna_init(val[3], args)
+                  body = self.dyna_init(val[3])
+                  # body = body[1] if body[0] == :block and body.size == 2 # HACK
                   result = s(:iter)
                   result << args
                   result << body if body
@@ -1241,69 +1250,45 @@ xstring       : tXSTRING_BEG xstring_contents tSTRING_END {
                 }
 
 regexp        : tREGEXP_BEG xstring_contents tREGEXP_END {
-                  node = val[1]
+                  node = val[1] || s(:str, '')
                   options = val[2]
 
-                  unless node then
-                    o, k = 0, nil
-                    options.split(//).each do |c| # FIX: this has a better home
-                      case c
-                      when 'x' then
-                        o += Regexp::EXTENDED
-                      when 'i' then
-                        o += Regexp::IGNORECASE
-                      when 'm' then
-                        o += Regexp::MULTILINE
-                      when /[nesu]/ then
-                        k = c
-                      when 'o' then
-                        # ignoring for now - TODO
-                      else
-                        warn "unknown regexp option: #{c.inspect}"
-                      end
-                    end
+                  o, k = 0, nil
+                  options.split(//).each do |c| # FIX: this has a better home
+                    v = {
+                         'x' => Regexp::EXTENDED,
+                         'i' => Regexp::IGNORECASE,
+                         'm' => Regexp::MULTILINE,
+                         'n' => 16,
+                         'e' => 32,
+                         's' => 48, # TODO: really?!?
+                         'u' => 64,
+                         'o' => 0, # ignore for now
+                         }[c]
+                    raise "unknown regexp option: #{c}" unless v
+                    o += v
+                    k = c if c =~ /[nesu]/
+                  end
 
-                    node = if k then
-                             s(:lit, Regexp.new(//, o, k))
-                           else
-                             s(:lit, Regexp.new(//, o))
-                           end
-                  else
-                    case node[0]
-                    when :str then
-                      o, k = 0, nil
-                      options.split(//).each do |c| # FIX: this has a better home
-                        case c
-                        when 'x' then
-                          o += Regexp::EXTENDED
-                        when 'i' then
-                          o += Regexp::IGNORECASE
-                        when 'm' then
-                          o += Regexp::MULTILINE
-                        when /[nesu]/ then
-                          k = c
-                        when 'o' then
-                          # ignoring for now - TODO
-                        else
-                          warn "unknown regexp option: #{c.inspect}"
-                        end
-                      end
-                      node[0] = :lit
-                      node[1] = if k then
-                                  Regexp.new(node[1], o, k)
-                                else
-                                  Regexp.new(node[1], o)
-                                end
-                    when :dstr then
-                      if options =~ /o/ then
-                        node[0] = :dregx_once
-                      else
-                        node[0] = :dregx
-                      end
+                  case node[0]
+                  when :str then
+                    node[0] = :lit
+                    node[1] = if k then
+                                Regexp.new(node[1], o, k)
+                              else
+                                Regexp.new(node[1], o)
+                              end
+                  when :dstr then
+                    if options =~ /o/ then
+                      node[0] = :dregx_once
                     else
-                      node = s(:dregx, '', node);
-                      node[0] = :dregx_once if options =~ /o/
+                      node[0] = :dregx
                     end
+                    node << o if o and o != 0
+                  else
+                    node = s(:dregx, '', node);
+                    node[0] = :dregx_once if options =~ /o/
+                    node << o if o and o != 0
                   end
 
                   result = node
@@ -1372,7 +1357,12 @@ string_content : tSTRING_CONTENT
                    lexer.str_term = val[1]
                    lexer.cond.lexpop
                    lexer.cmdarg.lexpop
-                   result = s(:evstr, val[2])
+                   case val[2][0]
+                   when :str, :dstr, :evstr then
+                     result = val[2]
+                   else
+                     result = s(:evstr, val[2])
+                   end
                  }
 
 string_dvar    : tGVAR {

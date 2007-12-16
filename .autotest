@@ -3,6 +3,7 @@
 Autotest.add_hook :initialize do |at|
   at.extra_files << "../../ParseTree/dev/test/pt_testcase.rb"
   at.libs << ":../../ParseTree/dev/lib:../../ParseTree/dev/test"
+  at.exceptions << 'unit'
 
   at.unit_diff = "unit_diff -u -b"
 

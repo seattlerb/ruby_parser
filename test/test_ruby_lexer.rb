@@ -109,6 +109,16 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token "42", :tINTEGER, 42
   end
 
+  def test_yylex_integer_eh_a
+    util_lex_token('?a',
+                   :tINTEGER,     97)
+  end
+
+  def test_yylex_integer_eh_escape_M_escape_C
+    util_lex_token('?\M-\C-a',
+                   :tINTEGER,     129)
+  end
+
   def test_yylex_float
     util_lex_token "1.0", :tFLOAT, 1.0
   end
@@ -178,6 +188,13 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_END,     t('"'))
   end
 
+  def test_yylex_string_double_escape_M
+    util_lex_token('"\M-g"',
+                   :tSTRING_BEG,     t('"'),
+                   :tSTRING_CONTENT, s(:str, "\347"),
+                   :tSTRING_END,     t('"'))
+  end
+
   def test_yylex_string_double_escape_octal
     util_lex_token('"n = \101\102\103"',
                    :tSTRING_BEG,     t('"'),
@@ -221,6 +238,11 @@ class TestRubyLexer < Test::Unit::TestCase
   def test_yylex_global_wierd
     util_lex_token("$__blah",
                    :tGVAR,     t("$__blah"))
+  end
+
+  def test_yylex_global_dollar_underscore
+    util_lex_token("$_",
+                   :tGVAR,     t("$_"))
   end
 
   def test_yylex_symbol

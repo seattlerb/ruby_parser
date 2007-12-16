@@ -195,6 +195,8 @@ class RubyParser < Racc::Parser
   end
 
   def block_append(head, tail)
+# d :block_append => [head, tail]
+
     return head unless tail
     return tail unless head
 
@@ -204,15 +206,21 @@ class RubyParser < Racc::Parser
       return tail
     end
 
+    # HACK? where the fuck is this happening?
     head = head[1] if head[0] == :begin and head.size == 2 # TODO: remove_begin
     # tail = tail[1] if tail[0] == :begin and tail.size == 2
     head = s(:block, head) unless head[0] == :block
 
+# d :block_append => [head, tail]
+
+# NO    tail = s(:block, tail) unless tail[0] == :block
     if Sexp === tail and tail[0] == :block then
       head.push(*tail.values)
     else
       head << tail
     end
+
+# d :block_append => [head, tail]
 
     return head
   end
@@ -324,12 +332,10 @@ class RubyParser < Racc::Parser
     when :or then
       return s(:or,  cond(node[1]), cond(node[2]))
     when :dot2 then
-      return node if node[1][0] == :lit
       label = "flip#{node.hash}"
       env[label] = self.env.dynamic? ? :dvar : :lvar
       return s(:flip2, node[1], node[2])
     when :dot3 then
-      return node if node[1][0] == :lit
       label = "flip#{node.hash}"
       env[label] = self.env.dynamic? ? :dvar : :lvar
       return s(:flip3, node[1], node[2])
@@ -389,16 +395,19 @@ class RubyParser < Racc::Parser
       end
     when :dstr then
       if htype == :str then
-        head[-1] << tail[-1]
+        tail[1] = head[-1] + tail[1]
+        head = tail
       else
         tail[0] = :array
         tail[1] = s(:str, tail[1])
+        tail.delete_at 1 if tail[1] == s(:str, '')
+
         head.push(*tail[1..-1])
       end
     when :evstr then
       head[0] = :dstr if htype == :str
-      if tail[-1][0] == :str then # HACK FUCK YOU
-        head[-1] << tail[-1][-1]
+      if head.size == 2 and tail[1][0] == :str then
+        head[-1] << tail[1][-1]
         head[0] = :str if head.size == 2 # HACK ?
       else
         head.push(tail)
@@ -409,7 +418,7 @@ class RubyParser < Racc::Parser
   end
 
   def remove_begin node
-    node = node[-1] if node[0] == :begin and node.size == 2
+    node = node[-1] if node and node[0] == :begin and node.size == 2
     node
   end
 
@@ -427,10 +436,12 @@ class RubyParser < Racc::Parser
   end
 
   def value_expr node # HACK
-    remove_begin node
+    node = remove_begin node
+    node[2] = value_expr(node[2]) if node[0] == :if
+    node
   end
 
-  def void_stmts node # TODO: remove entirely... fuck it
+  def void_stmts node
     return nil unless node
     return node unless node[0] == :block
 
@@ -441,19 +452,29 @@ class RubyParser < Racc::Parser
   ############################################################
   # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 
-  def dyna_init body, vars              # TODO: remove vars?
-    dynamic_vars = self.env.all.reject { |k, v| v != :dvar }
-    used = dynamic_vars.keys & self.env.use.keys
+  def dyna_init body
+    dynamic_vars  = self.env.all.reject { |k, v| v != :dvar }
+    used          = dynamic_vars.keys & self.env.use.keys
+    non_block     = body[0] != :block
+    uninitialized = ! self.env.init
+    static_parent = ! self.env.dyn[1]
+    uses_dvars    = ! used.empty?
 
-    if body and                         # TODO: run this by someone for review
-        not vars and
-        body[0] != :block and
-        not self.env["init"] and
-        not self.env.dyn[1] and
-        not used.empty? then
-      body = s(:block, body)
-      self.env["init"] = :true
+d :woot
+d :dyn => self.env
+d :dyna_init => [non_block, uninitialized, static_parent, uses_dvars]
+
+    # TODO: run this by someone for review
+    if body and
+        non_block and
+        uninitialized and
+#        static_parent and
+        uses_dvars then
+#      body = s(:block, body)
+      self.env.init = true
+d :dyn_init => self.env
     end
+
     body
   end
 
@@ -791,20 +812,26 @@ class RubyLexer
     when "s" then # space
       return " "
     when "M" then
-      raise "not yet"
-      #         if (c = src.read()) != "-" then
-      #             yyerror("Invalid escape character syntax")
-      #             pushback(c)
-      #             return "\0"
-      #         end
-      #         if (c = src.read()) == "\\" then
-      #             return read_escape() | 0x80
-      #         end
-      #         elsif (c == -1) goto eof
-      #         else then
-      #             return ((c & 0xff) | 0x80)
-      #         end
+      c = src.read
+      if c  != "-" then
+        yyerror("Invalid escape character syntax")
+        src.unread c
+        return "\0"
+      end
 
+      c = src.read
+      case c
+      when "\\" then
+        c = self.read_escape
+        c[0] |= 0x80
+        return c
+      when RubyLexer::EOF then
+        yyerror("Invalid escape character syntax");
+        return '\0';
+      else
+        c[0] |= 0x80
+        return c
+      end
     when "C", "c" then
       if (c = src.read) != "-" then
         yyerror("Invalid escape character syntax")
@@ -821,8 +848,8 @@ class RubyLexer
         yyerror("Invalid escape character syntax");
         return "\0";
       end
-
-      return (c[0] & 0x9f).chr
+      c[0] &= 0x9f
+      return c
     when RubyLexer::EOF then
       yyerror("Invalid escape character syntax")
       return "\0"
@@ -1400,9 +1427,7 @@ class RubyLexer
 
         c = src.read
 
-        if c == RubyLexer::EOF then
-          raise SyntaxError, "incomplete character syntax"
-        end
+        raise SyntaxError, "incomplete character syntax" if c == RubyLexer::EOF
 
         if c =~ /\s/ then
           if !lex_state.is_argument then
@@ -1426,16 +1451,19 @@ class RubyLexer
               warning("invalid character syntax; use ?\\" + c2)
             end
           end
+
+          # ternary
           src.unread c
           self.lex_state = :expr_beg
           self.yacc_value = t("?")
           return '?'
-#         elsif ismbchar(c) then
+#         elsif ismbchar(c) then # ternary, also
 #           rb_warn("multibyte character literal not supported yet; use ?\\" + c)
 #           support.unread c
 #           self.lex_state = :expr_beg
 #           return '?'
         elsif c =~ /\w/ && ! src.peek("\n") && self.is_next_identchar then
+          # ternary, also
           src.unread c
           self.lex_state = :expr_beg
           self.yacc_value = t("?")
@@ -1443,9 +1471,9 @@ class RubyLexer
         elsif c == "\\" then
           c = self.read_escape
         end
-        # HACK c &= 0xff
+        c[0] &= 0xff
         self.lex_state = :expr_end
-        self.yacc_value = c[0] # TODO: check
+        self.yacc_value = c[0]
         return :tINTEGER
       when '&' then
         if (c = src.read) == '&' then
@@ -1822,6 +1850,7 @@ class RubyLexer
           token_buffer << '_'
 
           unless c =~ /\w/ then
+            src.unread c
             self.yacc_value = t(token_buffer.join)
             return :tGVAR
           end
@@ -2444,11 +2473,13 @@ end
 
 class Environment
   attr_reader :env, :dyn, :use
+  attr_accessor :init
 
   def initialize dyn = false
     @dyn = []
     @env = []
     @use = {}
+    @init = false
     self.extend
   end
 
@@ -2467,7 +2498,7 @@ class Environment
 
   def all
     idx = @dyn.index false
-    @env[0..idx].reverse.inject { |env, scope| env.merge scope }.reject { |k,v| k == "init" }
+    @env[0..idx].reverse.inject { |env, scope| env.merge scope }
   end
 
   def current
@@ -2486,7 +2517,6 @@ class Environment
     @dyn.unshift dyn
     @env.unshift({})
     @use.clear unless dyn
-    self["init"] = false unless self.has_key? "init"
   end
 
   def unextend
@@ -2608,7 +2638,7 @@ class StringIO # HACK: everything in here is a hack
 
     if c == ?\r then
       d = self.getc
-      self.ungetc d if d != ?\n
+      self.ungetc d if d and d != ?\n
       c = ?\n
     end
     
