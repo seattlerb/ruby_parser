@@ -326,10 +326,53 @@ class TestStackState < Test::Unit::TestCase
 end
 
 class TestEnvironment < Test::Unit::TestCase
+  def deny t
+    assert ! t
+  end
+
   def setup
     @env = Environment.new
     @env[:blah] = 42
     assert_equal 42, @env[:blah]
+  end
+
+  def test_use
+    @env.use :blah
+    expected = [{ :blah => true }]
+    assert_equal expected, @env.instance_variable_get(:"@use")
+  end
+
+  def test_use_scoped
+    @env.use :blah
+    @env.extend
+    expected = [{}, { :blah => true }]
+    assert_equal expected, @env.instance_variable_get(:"@use")
+  end
+
+  def test_unuse
+    expected = [{}]
+    assert_equal expected, @env.instance_variable_get(:"@use")
+    test_use
+    @env.unuse :blah
+    assert_equal expected, @env.instance_variable_get(:"@use")
+  end
+
+  def test_used
+    @env.use :blah
+    expected = [:blah]
+    assert_equal expected, @env.used
+  end
+
+  def test_used_none
+    expected = []
+    assert_equal expected, @env.used
+  end
+
+  def test_used_scoped
+    @env.use :blah
+    @env.extend
+    expected = [:blah]
+    assert_equal expected, @env.used
   end
 
   def test_var_scope_dynamic

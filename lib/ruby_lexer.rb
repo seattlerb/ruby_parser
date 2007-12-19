@@ -78,6 +78,8 @@ class RubyParser < Racc::Parser
     id = lhs.to_sym
     id = id.to_sym if Token === id
 
+#     d :assignable => [lhs, value]
+
     raise SyntaxError, "Can't change the value of #{id}" if
       id.to_s =~ /^(?:self|nil|true|false|__LINE__|__FILE__)$/
 
@@ -93,15 +95,17 @@ class RubyParser < Racc::Parser
                s(:cdecl, id)
              else
                type = env[id]
+# d :type => type
                if type then # TODO: simplify this a lot
                  case type
                  when :lvar then
                    s(:lasgn, id)
                  when :dvar then
                    if env.dasgn_curr? id then
+# d :use1 => [id, value]
+                     self.env.use(id)
                      s(:dasgn_curr, id)
                    else
-                     self.env.use[id] = true
                      s(:dasgn, id)
                    end
                  else
@@ -110,9 +114,12 @@ class RubyParser < Racc::Parser
                else
                  if env.dynamic? then
                    if env.dasgn_curr? id then
+# d :use2 => [id, value, self.env]
+                     self.env.use(id)
                      s(:dasgn_curr, id)
                    else
-                     self.env.use[id] = true
+# d :use3 => [id, value]
+                     self.env.use(id)
                      s(:dasgn, id)
                    end
                  else
@@ -195,14 +202,12 @@ class RubyParser < Racc::Parser
   end
 
   def block_append(head, tail)
-# d :block_append => [head, tail]
-
     return head unless tail
     return tail unless head
 
     case head[0]
     when :lit, :str then
-      warn "unused literal ignored" # TODO: improve
+      # HACK warn "unused literal ignored" # TODO: improve
       return tail
     end
 
@@ -211,16 +216,11 @@ class RubyParser < Racc::Parser
     # tail = tail[1] if tail[0] == :begin and tail.size == 2
     head = s(:block, head) unless head[0] == :block
 
-# d :block_append => [head, tail]
-
-# NO    tail = s(:block, tail) unless tail[0] == :block
-    if Sexp === tail and tail[0] == :block then
-      head.push(*tail.values)
-    else
+#     if Sexp === tail and tail[0] == :block then
+#       head.push(*tail.values)
+#     else
       head << tail
-    end
-
-# d :block_append => [head, tail]
+#     end
 
     return head
   end
@@ -453,26 +453,35 @@ class RubyParser < Racc::Parser
   # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 
   def dyna_init body
+    return nil unless body
     dynamic_vars  = self.env.all.reject { |k, v| v != :dvar }
-    used          = dynamic_vars.keys & self.env.use.keys
+    used          = dynamic_vars.keys & self.env.used
     non_block     = body[0] != :block
     uninitialized = ! self.env.init
     static_parent = ! self.env.dyn[1]
     uses_dvars    = ! used.empty?
 
-d :woot
-d :dyn => self.env
-d :dyna_init => [non_block, uninitialized, static_parent, uses_dvars]
+# d :not_a_woot
+# d :dyn_env => self.env
+# d :dyna_init => [non_block, uninitialized, static_parent, uses_dvars]
+# d :used => used
+# d :body => body
 
     # TODO: run this by someone for review
     if body and
         non_block and
         uninitialized and
-#        static_parent and
+        static_parent and
         uses_dvars then
-#      body = s(:block, body)
+# d :woot => body
+      new_body = s(:block)
+      used.each do |v| # this is wrong... it should be inject
+        new_body << s(:dasgn_curr, v)
+      end
+      new_body << body
+      body = new_body
       self.env.init = true
-d :dyn_init => self.env
+# d :dyn_init => self.env
     end
 
     body
@@ -2472,15 +2481,27 @@ class Keyword
 end
 
 class Environment
-  attr_reader :env, :dyn, :use
+  attr_reader :env, :dyn
   attr_accessor :init
 
   def initialize dyn = false
     @dyn = []
     @env = []
-    @use = {}
+    @use = []
     @init = false
     self.extend
+  end
+
+  def use id
+    @use.first[id] = true
+  end
+
+  def used
+    @use.reverse.inject { |env, scope| env.merge scope }.keys
+  end
+
+  def unuse id
+    @use.first.delete id
   end
 
   def [] k
@@ -2515,23 +2536,15 @@ class Environment
 
   def extend dyn = false
     @dyn.unshift dyn
+    @use.unshift({})
     @env.unshift({})
-    @use.clear unless dyn
   end
 
   def unextend
     @dyn.shift
+    @use.shift
     @env.shift
     raise "You went too far unextending env" if @env.empty?
-  end
-
-  def scope
-    self.extend
-    begin
-      yield
-    ensure
-      self.unextend
-    end
   end
 end
 

@@ -38,7 +38,7 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
 
   # Regular ParseTreeTestCase tests
   eval ParseTreeTestCase.testcases.map { |node, data|
-    next if node.to_s =~ /bmethod|dmethod|undef/ # HACK - remove undef
+    next if node.to_s =~ /bmethod|dmethod/
     next if Array === data['Ruby'] # runtime only crap
     "def test_#{node}
        rb = #{data['Ruby'].inspect}
@@ -126,6 +126,15 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     head = s(:block, s(:args))
     tail = s(:zsuper)
     expected = s(:block, s(:args), s(:zsuper))
+    assert_equal expected, @processor.block_append(head, tail)
+  end
+
+  def test_block_append_tail_block
+    head = s(:vcall, :f1)
+    tail = s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y)))
+    expected = s(:block,
+                 s(:vcall, :f1),
+                 s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y))))
     assert_equal expected, @processor.block_append(head, tail)
   end
 

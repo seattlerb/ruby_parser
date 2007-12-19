@@ -342,7 +342,7 @@ mlhs_head     : mlhs_item ',' {
                 }
 
 mlhs_node    : variable {
-                 result = self.assignable(val[0], nil)
+                 result = self.assignable(val[0])
                }
              | primary_value '[' aref_args tRBRACK {
                  result = self.aryset(val[0], val[2]);
@@ -443,12 +443,7 @@ undef_list    : fitem {
               | undef_list ',' {
                   lexer.state = :expr_fname
                 } fitem {
-                  item = s(:undef, val[3])
-                  if val[0][0] == :block then
-                    result << item
-                  else
-                    result = s(:block, val[0], item)
-                  end
+                  result = self.block_append(val[0], s(:undef, val[3]))
                 }
 
 op           : tPIPE  | tCARET  | tAMPER2 | tCMP    | tEQ      | tEQQ   | tMATCH
@@ -1009,7 +1004,9 @@ primary      : literal
                  body ||= s(:nil)
 
                  block_arg = args.block_arg(:remove)
-                 body = block_append(args, body)
+                 # body = block_append(args, body)
+                 body = s(:block, body) unless body[0] == :block
+                 body.insert 1, args if args # HACK was block_append
                  body.insert 2, block_arg if block_arg
                  result = s(:defn, name, s(:scope, body))
 
@@ -1080,6 +1077,7 @@ opt_block_var : none
                 }
               | tPIPE block_var tPIPE {
                   result = val[1];
+                  self.env.unuse(result.last) # HACK
               }
 
 do_block      : kDO_BLOCK {
@@ -1171,11 +1169,14 @@ when_args     : args
 cases         : opt_else | case_body
 
 opt_rescue    : kRESCUE exc_list exc_var then compstmt opt_rescue {
+                  result = s(:resbody, val[1])
                   if val[2] then
                     val[2] = node_assign(val[2], s(:gvar, :"$!"))
+
+                    strip = val[4] && val[4][0] == :block
                     val[4] = block_append(val[2], val[4])
+                    val[4].push(*val[4].pop[1..-1]) if strip # HACK removes nested block from block_append
                   end
-                  result = s(:resbody, val[1])
 
                   result << val[4] if val[4]
                   result << val[5] if val[5]
