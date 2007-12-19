@@ -194,7 +194,7 @@ class RubyParser < Racc::Parser
     raise "identifier #{id.inspect} is not valid"
   end
 
-  def block_append(head, tail)
+  def block_append(head, tail, strip_tail_block=false)
     return head unless tail
     return tail unless head
 
@@ -206,10 +206,11 @@ class RubyParser < Racc::Parser
     head = remove_begin(head)
     head = s(:block, head) unless head[0] == :block
 
-    # if Sexp === tail and tail[0] == :block then
-    #   head.push(*tail.values)
-
-    head << tail
+    if strip_tail_block and Sexp === tail and tail[0] == :block then
+      head.push(*tail.values)
+    else
+      head << tail
+    end
   end
 
   def new_yield(node)
@@ -449,7 +450,7 @@ class RubyParser < Racc::Parser
       end
     end
 
-    return self.block_append(var, body)
+    self.block_append(var, body, body && body[0] == :block)
   end
 
   def warning s
