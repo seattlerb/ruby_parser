@@ -93,7 +93,7 @@ stmt          : kALIAS fitem { lexer.state = :expr_fname } fitem {
                   yyerror("can't make alias for the number variables");
                  }
              | kUNDEF undef_list {
-                  result = val[1];
+                  result = val[1]
                  }
              | stmt kIF_MOD expr_value {
                  val[2] = cond val[2]
@@ -256,8 +256,9 @@ block_command : block_call
 
 cmd_brace_block : tLBRACE_ARG {
                     self.env.extend :dynamic
-                  } opt_block_var compstmt tRCURLY {
-                    result = s(:iter, val[2], val[3])
+                  } opt_block_var  { result = self.env.dynamic.keys }
+                  compstmt tRCURLY {
+                    result = s(:iter, val[2], dyna_init(val[4], val[3]))
                     self.env.unextend;
                   }
 
@@ -1077,15 +1078,15 @@ opt_block_var : none
                 }
               | tPIPE block_var tPIPE {
                   result = val[1];
-                  self.env.unuse(result.last) # HACK
               }
 
 do_block      : kDO_BLOCK {
                   self.env.extend :dynamic
-                } opt_block_var compstmt kEND {
+                } opt_block_var { result = self.env.dynamic.keys }
+                compstmt kEND {
 
                   vars = val[2]
-                  body = self.dyna_init(val[3])
+                  body = self.dyna_init(val[4], val[3])
 
                   result = s(:iter)
                   result << vars
@@ -1132,10 +1133,10 @@ method_call   : operation paren_args {
 
 brace_block   : tLCURLY {
                   self.env.extend :dynamic
-                } opt_block_var compstmt tRCURLY { # REFACTOR
+                } opt_block_var { result = self.env.dynamic.keys }
+                compstmt tRCURLY { # REFACTOR
                   args = val[2]
-                  body = self.dyna_init(val[3])
-                  # body = body[1] if body[0] == :block and body.size == 2 # HACK
+                  body = self.dyna_init(val[4], val[3])
                   result = s(:iter)
                   result << args
                   result << body if body
@@ -1143,10 +1144,10 @@ brace_block   : tLCURLY {
                 }
               | kDO {
                   self.env.extend :dynamic
-                } opt_block_var compstmt kEND {
+                } opt_block_var { result = self.env.dynamic.keys }
+                compstmt kEND {
                   args = val[2]
-                  body = self.dyna_init(val[3])
-                  # body = body[1] if body[0] == :block and body.size == 2 # HACK
+                  body = self.dyna_init(val[4], val[3])
                   result = s(:iter)
                   result << args
                   result << body if body
@@ -1572,12 +1573,11 @@ f_optarg     : f_opt {
 
 restarg_mark  : tSTAR2 | tSTAR
 
-f_rest_arg    : restarg_mark tIDENTIFIER {
+f_rest_arg    : restarg_mark tIDENTIFIER { # TODO: differs from parse.y - needs tests
                   name = val[1].value.to_sym
-                 self.env[name] = self.env.dynamic? ? :dvar : :lvar # FIX
-
-                 result = :"*#{name}"
-               }
+                  self.assignable(name)
+                  result = :"*#{name}"
+                }
              | restarg_mark {
                  name = :"*"
                  self.env[name] = self.env.dynamic? ? :dvar : :lvar # FIX

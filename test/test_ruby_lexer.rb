@@ -349,30 +349,21 @@ class TestEnvironment < Test::Unit::TestCase
     assert_equal expected, @env.instance_variable_get(:"@use")
   end
 
-  def test_unuse
-    expected = [{}]
-    assert_equal expected, @env.instance_variable_get(:"@use")
-    test_use
-    @env.unuse :blah
-    assert_equal expected, @env.instance_variable_get(:"@use")
+  def test_used_eh
+    @env.extend :dynamic
+    @env[:x] = :dvar
+    @env.use :x
+    assert_equal true, @env.used?(:x)
   end
 
-  def test_used
-    @env.use :blah
-    expected = [:blah]
-    assert_equal expected, @env.used
+  def test_used_eh_none
+    assert_equal nil, @env.used?(:x)
   end
 
-  def test_used_none
-    expected = []
-    assert_equal expected, @env.used
-  end
-
-  def test_used_scoped
-    @env.use :blah
-    @env.extend
-    expected = [:blah]
-    assert_equal expected, @env.used
+  def test_used_eh_scoped
+    self.test_used_eh
+    @env.extend :dynamic
+    assert_equal true, @env.used?(:x)
   end
 
   def test_var_scope_dynamic
@@ -387,6 +378,30 @@ class TestEnvironment < Test::Unit::TestCase
     assert_equal nil, @env[:blah]
     @env.unextend
     assert_equal 42, @env[:blah]
+  end
+
+  def test_dynamic
+    expected1 = {}
+    expected2 = { :x => 42 }
+
+    assert_equal expected1, @env.dynamic
+    begin
+      @env.extend :dynamic
+      assert_equal expected1, @env.dynamic
+
+      @env[:x] = 42
+      assert_equal expected2, @env.dynamic
+
+      begin
+        @env.extend :dynamic
+        assert_equal expected2, @env.dynamic
+        @env.unextend
+      end
+
+      assert_equal expected2, @env.dynamic
+      @env.unextend
+    end
+    assert_equal expected1, @env.dynamic
   end
 
   def test_all_dynamic

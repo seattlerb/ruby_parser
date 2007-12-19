@@ -78,8 +78,6 @@ class RubyParser < Racc::Parser
     id = lhs.to_sym
     id = id.to_sym if Token === id
 
-#     d :assignable => [lhs, value]
-
     raise SyntaxError, "Can't change the value of #{id}" if
       id.to_s =~ /^(?:self|nil|true|false|__LINE__|__FILE__)$/
 
@@ -94,37 +92,32 @@ class RubyParser < Racc::Parser
              when /^[A-Z]/ then
                s(:cdecl, id)
              else
-               type = env[id]
-# d :type => type
-               if type then # TODO: simplify this a lot
-                 case type
-                 when :lvar then
+
+               case self.env[id]
+               when :lvar then
+                 s(:lasgn, id)
+               when :dvar, nil then
+                 if self.env.current[id] == :dvar then
+                   s(:dasgn_curr, id)
+                 elsif self.env[id] == :dvar then
+                   self.env.use(id)
+                   s(:dasgn, id)
+                 elsif ! self.env.dynamic? then
                    s(:lasgn, id)
-                 when :dvar then
-                   if env.dasgn_curr? id then
-# d :use1 => [id, value]
-                     self.env.use(id)
-                     s(:dasgn_curr, id)
-                   else
-                     s(:dasgn, id)
-                   end
                  else
-                   raise "unknown type #{type} for id #{id}"
+                   s(:dasgn_curr, id)
                  end
+#                  if env.dynamic? then
+#                    if env.dasgn_curr? id then
+#                      s(:dasgn_curr, id)
+#                    else
+#                      s(:dasgn, id)
+#                    end
+#                  else
+#                    s(:lasgn, id)
+#                  end                   
                else
-                 if env.dynamic? then
-                   if env.dasgn_curr? id then
-# d :use2 => [id, value, self.env]
-                     self.env.use(id)
-                     s(:dasgn_curr, id)
-                   else
-# d :use3 => [id, value]
-                     self.env.use(id)
-                     s(:dasgn, id)
-                   end
-                 else
-                   s(:lasgn, id)
-                 end
+                 raise "wtf?"
                end
              end
 
@@ -207,22 +200,16 @@ class RubyParser < Racc::Parser
 
     case head[0]
     when :lit, :str then
-      # HACK warn "unused literal ignored" # TODO: improve
       return tail
     end
 
-    # HACK? where the fuck is this happening?
-    head = head[1] if head[0] == :begin and head.size == 2 # TODO: remove_begin
-    # tail = tail[1] if tail[0] == :begin and tail.size == 2
+    head = remove_begin(head)
     head = s(:block, head) unless head[0] == :block
 
-#     if Sexp === tail and tail[0] == :block then
-#       head.push(*tail.values)
-#     else
-      head << tail
-#     end
+    # if Sexp === tail and tail[0] == :block then
+    #   head.push(*tail.values)
 
-    return head
+    head << tail
   end
 
   def new_yield(node)
@@ -344,7 +331,7 @@ class RubyParser < Racc::Parser
     end
   end
 
-  def append_to_block head, tail
+  def append_to_block head, tail # FIX: wtf is this?!? switch to block_append
     return head if tail.nil?
     return tail if head.nil?
 
@@ -452,41 +439,18 @@ class RubyParser < Racc::Parser
   ############################################################
   # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 
-  def dyna_init body
-    return nil unless body
-    dynamic_vars  = self.env.all.reject { |k, v| v != :dvar }
-    used          = dynamic_vars.keys & self.env.used
-    non_block     = body[0] != :block
-    uninitialized = ! self.env.init
-    static_parent = ! self.env.dyn[1]
-    uses_dvars    = ! used.empty?
+  def dyna_init body, known_vars = []
+    var = nil
+    vars = self.env.dynamic.keys - known_vars
 
-# d :not_a_woot
-# d :dyn_env => self.env
-# d :dyna_init => [non_block, uninitialized, static_parent, uses_dvars]
-# d :used => used
-# d :body => body
-
-    # TODO: run this by someone for review
-    if body and
-        non_block and
-        uninitialized and
-        static_parent and
-        uses_dvars then
-# d :woot => body
-      new_body = s(:block)
-      used.each do |v| # this is wrong... it should be inject
-        new_body << s(:dasgn_curr, v)
+    vars.each do |id|
+      if self.env.used? id then
+        var = s(:dasgn_curr, id, var).compact
       end
-      new_body << body
-      body = new_body
-      self.env.init = true
-# d :dyn_init => self.env
     end
 
-    body
+    return self.block_append(var, body)
   end
-
 
   def warning s
     # do nothing for now
@@ -2493,15 +2457,17 @@ class Environment
   end
 
   def use id
-    @use.first[id] = true
+    @env.each_with_index do |env, i|
+      if env[id] then
+        @use[i][id] = true
+      end
+    end
   end
 
-  def used
-    @use.reverse.inject { |env, scope| env.merge scope }.keys
-  end
-
-  def unuse id
-    @use.first.delete id
+  def used? id
+    idx = @dyn.index false # REFACTOR
+    u = @use[0...idx].reverse.inject { |env, scope| env.merge scope } || {}
+    u[id]
   end
 
   def [] k
@@ -2522,6 +2488,11 @@ class Environment
     @env[0..idx].reverse.inject { |env, scope| env.merge scope }
   end
 
+  def dynamic
+    idx = @dyn.index false
+    @env[0...idx].reverse.inject { |env, scope| env.merge scope } || {}
+  end
+
   def current
     @env.first
   end
@@ -2530,20 +2501,20 @@ class Environment
     @dyn[0] != false
   end
 
-  def dasgn_curr? name
-    (! has_key?(name) && @dyn.first) || current.has_key?(name)
+  def dasgn_curr? name # TODO: I think this is wrong - nuke
+    (! has_key?(name) && dynamic?) || current.has_key?(name)
   end
 
   def extend dyn = false
     @dyn.unshift dyn
-    @use.unshift({})
     @env.unshift({})
-  end
+    @use.unshift({})
+   end
 
   def unextend
     @dyn.shift
-    @use.shift
     @env.shift
+    @use.shift
     raise "You went too far unextending env" if @env.empty?
   end
 end

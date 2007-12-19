@@ -129,14 +129,14 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     assert_equal expected, @processor.block_append(head, tail)
   end
 
-  def test_block_append_tail_block
-    head = s(:vcall, :f1)
-    tail = s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y)))
-    expected = s(:block,
-                 s(:vcall, :f1),
-                 s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y))))
-    assert_equal expected, @processor.block_append(head, tail)
-  end
+#   def test_block_append_tail_block
+#     head = s(:vcall, :f1)
+#     tail = s(:block, s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y))))
+#     expected = s(:block,
+#                  s(:vcall, :f1),
+#                  s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y))))
+#     assert_equal expected, @processor.block_append(head, tail)
+#   end
 
   def test_block_append_begin_begin
     head = s(:begin, s(:args))
@@ -261,37 +261,6 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     rhs.paren = true
 
     assert_equal exp, @processor.logop(:or, lhs, rhs)
-  end
-
-  def test_dasgn_icky1
-    rb = '
-a do
-  v = nil                       # dasgn_curr
-  assert_block(full_message) do
-    begin
-      yield
-    rescue Exception => v       # dasgn
-      break
-    end
-  end
-end
-'
-    pt = s(:iter,
-           s(:fcall, :a),
-           nil,
-           s(:block,
-             s(:dasgn_curr, :v, s(:nil)),
-             s(:iter,
-               s(:fcall, :assert_block, s(:array, s(:vcall, :full_message))),
-               nil,
-               s(:begin,
-                 s(:rescue,
-                   s(:yield),
-                   s(:resbody,
-                     s(:array, s(:const, :Exception)),
-                     s(:block, s(:dasgn, :v, s(:gvar, :$!)), s(:break))))))))
-
-    assert_equal pt, @processor.parse(rb)
   end
 
   def test_literal_concat_str_evstr
