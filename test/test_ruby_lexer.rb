@@ -20,18 +20,6 @@ class TestRubyLexer < Test::Unit::TestCase
     deny   @lex.advance # nada
   end
 
-#   def test_arg_ambiguous
-#     raise NotImplementedError, 'Need to write test_arg_ambiguous'
-#   end
-
-#   def test_here_document
-#     raise NotImplementedError, 'Need to write test_here_document'
-#   end
-
-#   def test_here_document_identifier
-#     raise NotImplementedError, 'Need to write test_here_document_identifier'
-#   end
-
   def test_is_next_identchar
     assert @lex.is_next_identchar
     @lex.src = StringIO.new(" ")
@@ -47,10 +35,6 @@ class TestRubyLexer < Test::Unit::TestCase
     deny @lex.is_next_no_case("begin")
     assert_equal " 456", @lex.src.read_all, "must put back contents"
   end
-
-#   def test_nextc
-#     raise NotImplementedError, 'Need to write test_nextc'
-#   end
 
   def test_number_token
     node = @lex.number_token("42", false, "\0")
@@ -72,38 +56,6 @@ class TestRubyLexer < Test::Unit::TestCase
     assert_equal s(:strterm, RubyLexer::STR_DQUOTE, ")", "("), @lex.lex_strterm
     assert_equal ["%)"], @lex.yacc_value.args # FIX double check this
   end
-
-#   def test_parse_string
-#     raise NotImplementedError, 'Need to write test_parse_string'
-#   end
-
-#   def test_pushback
-#     raise NotImplementedError, 'Need to write test_pushback'
-#   end
-
-#   def test_rb_compile_error
-#     raise NotImplementedError, 'Need to write test_rb_compile_error'
-#   end
-
-#   def test_read_comment
-#     raise NotImplementedError, 'Need to write test_read_comment'
-#   end
-
-#   def test_read_escape
-#     raise NotImplementedError, 'Need to write test_read_escape'
-#   end
-
-#   def test_regx_options
-#     raise NotImplementedError, 'Need to write test_regx_options'
-#   end
-
-#   def test_tokadd_escape
-#     raise NotImplementedError, 'Need to write test_tokadd_escape'
-#   end
-
-#   def test_tokadd_string
-#     raise NotImplementedError, 'Need to write test_tokadd_string'
-#   end
 
   def test_yylex_integer
     util_lex_token "42", :tINTEGER, 42
@@ -308,13 +260,6 @@ class TestStackState < Test::Unit::TestCase
     assert_equal true, s.pop
     assert_equal [false], s.stack
   end
-
-#   def test_pop_top
-#     s = StackState.new :test
-#     assert_raise RuntimeError do
-#       s.pop
-#     end
-#   end
 
   def test_push
     s = StackState.new :test

@@ -64,7 +64,7 @@ bodystmt      : compstmt opt_rescue opt_else opt_ensure {
                     result = block_append(result, val[2])
                   end
 
-                  result = s(:ensure, result, val[3]) if val[3]
+                  result = s(:ensure, result, val[3]).compact if val[3]
                 }
 
 compstmt     : stmts opt_terms {
@@ -138,31 +138,32 @@ stmt          : kALIAS fitem { lexer.state = :expr_fname } fitem {
                  }
              | klBEGIN {
                  if (self.in_def || self.in_single > 0) then
-                   yyerror("BEGIN in method");
+                   # yyerror("BEGIN in method"); HACK
                  end
                  self.env.extend;
                } tLCURLY compstmt tRCURLY {
-                 raise "HACK - not supported yet"
-                 result = nil
+                 result = s(:iter, s(:preexe), nil)
+                 result << val[3] if val[3]
+                 result = nil # TODO: since it isn't supposed to go in the AST
                }
              | klEND tLCURLY compstmt tRCURLY {
                  if (self.in_def || self.in_single > 0) then
-                   yyerror("END in method; use at_exit");
+                   # yyerror("END in method; use at_exit"); HACK
                  end
-                 result = s(:iter, s(:postexe), nil, val[2])
+                 result = s(:iter, s(:postexe), nil)
+                 result << val[2] if val[2]
                  }
              | lhs '=' command_call {
                   result = self.node_assign(val[0], val[2])
                  }
              | mlhs '=' command_call {
                   val[2] = value_expr(val[2])
-                  val[0] << if val[0][1] then
-                              s(:to_ary, val[2])
-                            else
-                              val[0].delete_at 1 # remove the nil
-                              s(:array, val[2])
-                            end
-                  result = val[0]
+                  result = val[0] << if val[0][1] then
+                                       s(:to_ary, val[2])
+                                     else
+                                       val[0].delete_at 1 # remove the nil
+                                       s(:array, val[2])
+                                     end
                  }
              | var_lhs tOP_ASGN command_call {
                   name = val[0].last
@@ -200,13 +201,12 @@ stmt          : kALIAS fitem { lexer.state = :expr_fname } fitem {
                   result = self.node_assign(val[0], s(:svalue, val[2]))
                  }
              | mlhs '=' arg_value {
-                 val[0] << if val[0][1] then
-                             s(:to_ary, val[2])
-                           else
-                             val[0].delete_at 1 # remove the nil
-                             s(:array, val[2])
-                           end
-                 result = val[0]
+                 result = val[0] << if val[0][1] then
+                                      s(:to_ary, val[2])
+                                    else
+                                      val[0].delete_at 1 if val[0][1].nil?
+                                      s(:array, val[2])
+                                    end
                }
              | mlhs '=' mrhs {
                  val[0].delete_at 1 if val[0][1].nil?
@@ -315,7 +315,7 @@ mlhs_basic    : mlhs_head {
                   result = s(:masgn, val[0]);
                 }
               | mlhs_head mlhs_item {
-                  result = s(:masgn, val[0] << val[1]);
+                  result = s(:masgn, val[0] << val[1].compact);
                 }
               | mlhs_head tSTAR mlhs_node {
                   result = s(:masgn, val[0], val[2]);
@@ -339,7 +339,7 @@ mlhs_head     : mlhs_item ',' {
                   result = s(:array, val[0])
                 }
               | mlhs_head mlhs_item ',' {
-                  result = val[0] << val[1]
+                  result = val[0] << val[1].compact
                 }
 
 mlhs_node    : variable {
@@ -508,7 +508,7 @@ arg          : lhs '=' arg {
                  }
              | arg tDOT2 arg {
                  v1, v2 = val[0], val[2]
-                 if v1.first == :lit and v2.first == :lit then
+                 if v1.first == :lit and v2.first == :lit and Fixnum === v1.last and Fixnum === v2.last then
                    result = s(:lit, (v1.last)..(v2.last))
                  else
                    result = s(:dot2, v1, v2)
@@ -516,7 +516,7 @@ arg          : lhs '=' arg {
                }
              | arg tDOT3 arg {
                  v1, v2 = val[0], val[2]
-                 if v1.first == :lit and v2.first == :lit then
+                 if v1.first == :lit and v2.first == :lit and Fixnum === v1.last and Fixnum === v2.last then
                    result = s(:lit, (v1.last)...(v2.last))
                  else
                    result = s(:dot3, v1, v2)
@@ -632,7 +632,7 @@ arg_value     : arg {
                   result = value_expr(val[0])
                  }
 
-aref_args     : none
+aref_args    : none
              | command opt_nl {
                  warning("parenthesize argument(s) for future version");
                  result = s(:array, val[0]);
@@ -648,6 +648,7 @@ aref_args     : none
                }
              | tSTAR arg opt_nl {
                  result = s(:splat, val[1])
+                 result.paren = true
                }
 
 paren_args    : tLPAREN2 none tRPAREN {
@@ -836,11 +837,7 @@ primary      : literal
                  result << val[2] if val[2]
                }
              | tLBRACK aref_args tRBRACK {
-                  if (val[1] == nil) then
-                      result = s(:zarray)
-                  else
-                      result = val[1];
-                  end
+                  result = val[1] || s(:zarray)
                  }
              | tLBRACE assoc_list tRCURLY {
                  result = s(:hash, *val[1].values)
@@ -1005,9 +1002,7 @@ primary      : literal
                  body ||= s(:nil)
 
                  block_arg = args.block_arg(:remove)
-                 # body = block_append(args, body)
-                 body = s(:block, body) unless body[0] == :block
-                 body.insert 1, args if args # HACK was block_append
+                 body = self.block_append(args, body, body && body[0] == :block)
                  body.insert 2, block_arg if block_arg
                  result = s(:defn, name, s(:scope, body))
 
@@ -1024,7 +1019,7 @@ primary      : literal
                  recv, name, args, body = val[1], val[4], val[6], val[7]
 
                  block_arg = args.block_arg(:remove)
-                 body = self.block_append(args, body)
+                 body = self.block_append(args, body, body && body[0] == :block)
                  body.insert 2, block_arg if block_arg
 
                  result = s(:defs, recv, name.value.to_sym, s(:scope, body))
@@ -1045,7 +1040,9 @@ primary      : literal
                   result = s(:retry)
                  }
 
-primary_value : primary
+primary_value : primary {
+                  result = value_expr(val[0])
+                }
 
 then          : term
               | ":"
@@ -1220,17 +1217,7 @@ string        : string1
 
 string1       : tSTRING_BEG string_contents tSTRING_END {
                   result = val[1];
-#                   extra_length = (val[0].value).length - 1;
-
-                  #  We may need to subtract addition offset off of first
-                  #  string fragment (we optimistically take one off in
-                  #  ParserSupport.literal_concat).  Check token length
-                  #  and subtract as neeeded.
-#                   if ((val[1].instanceof DStrNode) && extra_length > 0) then
-#                     str_node = (val[1]).get(0);
-#                     assert str_node != nil;
-#                   end
-                 }
+                }
 
 xstring       : tXSTRING_BEG xstring_contents tSTRING_END {
                   node = val[1]

@@ -1,32 +1,48 @@
-RubyParser
-    by FIX (your name)
-    FIX (url)
+ruby_parser
+    by Ryan Davis
+    http://parsetree.rubyforge.org/
 
 == DESCRIPTION:
-  
-FIX (describe your package)
+
+ruby_parser (RP) is a ruby parser written in pure ruby (utilizing
+racc--which does by default use a C extension). RP's output is
+the same as ParseTree's output: s-expressions using ruby's arrays and
+base types.
 
 == FEATURES/PROBLEMS:
-  
-* FIX (list of features or problems)
+
+* Pure ruby, no compiles.
+* Incredibly simple interface.
+* Output is 100% equivalent to ParseTree.
+  * Can utilize PT's SexpProcessor and UnifiedRuby for language processing.
+* Known Issue: Speed sucks currently. 5500 tests currently run in 21 min.
+* Known Issue: Code is waaay ugly. Port of a port. Not my fault. Will fix RSN.
+* Known Issue: I don't currently support newline nodes.
+* Known Issue: Totally awesome.
+* Known Issue: dasgn_curr decls can be out of order from ParseTree's.
+* TODO: Add comment nodes.
 
 == SYNOPSIS:
 
-  FIX (code sample of usage)
+  RubyParser.new.parse "1+1"
+  # => s(:call, s(:lit, 1), :+, s(:array, s(:lit, 1)))
 
 == REQUIREMENTS:
 
-* FIX (list of requirements)
+* ruby. woot.
+* ParseTree is needed for Sexp class... crap. I might break that out.
+* ParseTree for testing.
+* racc full package for parser development.
 
 == INSTALL:
 
-* FIX (sudo gem install, anything else)
+* sudo gem install ruby_parser
 
 == LICENSE:
 
 (The MIT License)
 
-Copyright (c) 2007 FIX
+Copyright (c) 2007 Ryan Davis
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

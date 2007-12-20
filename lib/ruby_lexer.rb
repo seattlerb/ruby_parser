@@ -1,8 +1,7 @@
 require 'pp'
 require 'stringio'
 require 'racc/parser'
-
-$: << File.expand_path("~/Work/p4/zss/src/ParseTree/dev/lib")
+$: << File.expand_path("~/Work/p4/zss/src/ParseTree/dev/lib") # for me, not you.
 require 'sexp'
 
 ############################################################
@@ -151,6 +150,13 @@ class RubyParser < Racc::Parser
       lhs << rhs
     when :attrasgn, :call then
       args = lhs.array(true) || lhs.argscat(true) || lhs.splat(true) # FIX: fragile
+#       args = case lhs[1][1]
+#              when :array, :argscat, :splat then
+#                lhs.delete_at 1
+#              else
+#                nil # TODO: check - no clue what it should be, or even if
+#              end
+
       lhs << arg_add(args, rhs)
     end
 
@@ -303,6 +309,7 @@ class RubyParser < Racc::Parser
 
   def cond node
     return nil if node.nil?
+    node = value_expr node
 
     case node.first
     when :dregex then
@@ -417,7 +424,7 @@ class RubyParser < Racc::Parser
       end
 
       node = node.last if node[0] == :array && node.size == 2
-      node = s(:svalue, node) if node[0] == :splat
+      node = s(:svalue, node) if node[0] == :splat and not node.paren # HACK matz wraps ONE of the FOUR splats in a newline to distinguish. I use paren for now. ugh
     end
 
     node
@@ -425,7 +432,7 @@ class RubyParser < Racc::Parser
 
   def value_expr node # HACK
     node = remove_begin node
-    node[2] = value_expr(node[2]) if node[0] == :if
+    node[2] = value_expr(node[2]) if node and node[0] == :if
     node
   end
 
@@ -2144,7 +2151,8 @@ class RubyLexer
 
         self.yacc_value = token_buffer.join.to_i(10)
         return :tINTEGER
-      when /[0-7_]/ then # octal
+      when /o/i, /[0-7_]/ then # octal
+        c = src.read if c =~ /o/i # prefixed octal - kill me
         loop do
           if c == '_' then
             break if (nondigit != "\0")
@@ -2727,17 +2735,17 @@ def bitch
   warn "bitch: you shouldn't be doing #{m}: from #{c[1]}"
 end
 
-class NilClass
-  def method_missing msg, *args
-    c = caller
-    warn "called #{msg} on nil (args = #{args.inspect}): from #{c[0]}"
-    nil
-  end
-end
+# class NilClass
+#   def method_missing msg, *args
+#     c = caller
+#     warn "called #{msg} on nil (args = #{args.inspect}): from #{c[0]}"
+#     nil
+#   end
+# end
 
-def d s # HACK
-  warn s.inspect
-end
+# def d s
+#   warn s.inspect
+# end
 
 # END HACK
 ############################################################
