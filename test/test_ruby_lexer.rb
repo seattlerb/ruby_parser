@@ -57,22 +57,264 @@ class TestRubyLexer < Test::Unit::TestCase
     assert_equal ["%)"], @lex.yacc_value.args # FIX double check this
   end
 
-  def test_yylex_integer
-    util_lex_token "42", :tINTEGER, 42
+  ############################################################
+
+  def test_yylex_and
+    util_lex_token "&", :tAMPER, t("&")
   end
 
-  def test_yylex_integer_eh_a
-    util_lex_token('?a',
-                   :tINTEGER,     97)
+  def test_yylex_and2
+    util_lex_token "&&", :tANDOP, t("&&")
   end
 
-  def test_yylex_integer_eh_escape_M_escape_C
-    util_lex_token('?\M-\C-a',
-                   :tINTEGER,     129)
+  def test_yylex_and2_equals
+    util_lex_token "&&=", :tOP_ASGN, t("&&")
   end
 
-  def test_yylex_float
-    util_lex_token "1.0", :tFLOAT, 1.0
+  def test_yylex_and_equals
+    util_lex_token "&=", :tOP_ASGN, t("&")
+  end
+
+  def test_yylex_or
+    util_lex_token "|", :tPIPE, t("|")
+  end
+
+  def test_yylex_or_equals
+    util_lex_token "|=", :tOP_ASGN, t("|")
+  end
+
+  def test_yylex_or2
+    util_lex_token "||", :tOROP, t("||")
+  end
+
+  def test_yylex_or2_equals
+    util_lex_token "||=", :tOP_ASGN, t("||")
+  end
+
+  def test_yylex_plus_unary
+    @lex.lex_state = :expr_fname
+    util_lex_token "+@", :tUPLUS, t("+@")
+  end
+
+  def test_yylex_plus
+    util_lex_token("1 + 1", # FIX lex_state?
+                   :tINTEGER, 1,
+                   :tPLUS, t("+"),
+                   :tINTEGER, 1)
+  end
+
+  def test_yylex_plus_equals
+    util_lex_token "+=", :tOP_ASGN, t("+")
+  end
+
+  def test_yylex_minus_unary
+    @lex.lex_state = :expr_fname
+    util_lex_token "-@", :tUMINUS, t("-@")
+  end
+
+  def test_yylex_minus
+    util_lex_token("1 - 2",
+                   :tINTEGER, 1,
+                   :tMINUS, t("-"),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_minus_equals
+    util_lex_token "-=", :tOP_ASGN, t("-")
+  end
+
+  def test_yylex_dot2
+    util_lex_token "..", :tDOT2, t("..")
+  end
+
+  def test_yylex_dot3
+    util_lex_token "...", :tDOT3, t("...")
+  end
+
+  def test_yylex_dot # HINT message sends
+    util_lex_token ".", :tDOT, t(".")
+  end
+
+  def test_yylex_rparen
+    util_lex_token ")", :tRPAREN, t(")")
+  end
+
+  def test_yylex_rbracket
+    util_lex_token "]", :tRBRACK, t("]")
+  end
+
+  def test_yylex_rcurly
+    util_lex_token "}", :tRCURLY, t("end") # FIX?
+  end
+
+  def test_yylex_colon2
+    util_lex_token "::", :tCOLON3, t("::")
+  end
+
+  def test_yylex_div
+    util_lex_token("a / 2",
+                   :tIDENTIFIER, t("a"),
+                   :tDIVIDE, t("/"),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_div_equals
+    util_lex_token("a /= 2",
+                   :tIDENTIFIER, t("a"),
+                   :tOP_ASGN, t("/"),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_regexp
+    util_lex_token "/./", :blah, t("/./")
+  end
+
+  def test_yylex_carat
+    util_lex_token "^", :tCARET, t("^")
+  end
+
+  def test_yylex_carat_equals
+    util_lex_token "^=", :tOP_ASGN, t("^")
+  end
+
+  def test_yylex_comma
+    util_lex_token ",", ",", t(",") # FIX
+  end
+
+  def test_yylex_tilde
+    util_lex_token "~", :tTILDE, t("~")
+  end
+
+  def test_yylex_tilde_unary
+    @lex.lex_state = :expr_fname
+    util_lex_token "~@", :tTILDE, t("~")
+  end
+
+  def test_yylex_percent
+    util_lex_token("a % 2",
+                   :tIDENTIFIER, t("a"),
+                   :tPERCENT, t("%"),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_percent_equals
+    util_lex_token("a %= 2",
+                   :tIDENTIFIER, t("a"),
+                   :tOP_ASGN, t("%"),
+                   :tINTEGER, 2)
+  end
+  def test_yylex_ge
+    util_lex_token("a >= 2",
+                   :tIDENTIFIER, t("a"),
+                   :tGEQ, t(">="),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_rshft
+    util_lex_token("a >> 2",
+                   :tIDENTIFIER, t("a"),
+                   :tRSHFT, t(">>"),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_rshft_equals
+    util_lex_token("a >>= 2",
+                   :tIDENTIFIER, t("a"),
+                   :tOP_ASGN, t(">>"),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_gt
+    util_lex_token("a > 2",
+                   :tIDENTIFIER, t("a"),
+                   :tGT, t(">"),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_colon2
+    util_lex_token("A::B",
+                   :tCONSTANT, t("A"),
+                   :tCOLON2, t(":"), # FIX?
+                   :tCONSTANT, t("B"))
+  end
+
+  def test_yylex_backtick
+    util_lex_token("A::B",
+                   :tCONSTANT, t("A"),
+                   :tCOLON2, t(":"), # FIX?
+                   :tCONSTANT, t("B"))
+  end
+
+  def test_yylex_trinary
+    util_lex_token("a ? b : c",
+                   :tIDENTIFIER, t("a"),
+                   "?", t("?"), # FIX
+                   :tIDENTIFIER, t("b"),
+                   ":", t(":"), # FIX
+                   :tIDENTIFIER, t("c"))
+  end
+
+  def test_yylex_open_bracket
+    util_lex_token("(",
+                   :tLPAREN, t("("))
+  end
+
+  def test_yylex_open_square_bracket
+    util_lex_token("[1, 2, 3]",
+                   :tLBRACK, t("["),
+                   :tINTEGER, 1,
+                   ",", t(","),
+                   :tINTEGER, 2,
+                   ",", t(","),
+                   :tINTEGER, 3,
+                   :tRBRACK, t("]"))
+  end
+
+  def test_yylex_index
+    @lex.lex_state = :expr_fname
+    util_lex_token("def []",
+                   :kDEF, t("def"),
+                   :tAREF, t("[]"))
+  end
+
+  def test_yylex_index_equals
+    @lex.lex_state = :expr_fname
+    util_lex_token("def []=",
+                   :kDEF, t("def"),
+                   :tASET, t("[]="))
+  end
+
+  def test_yylex_open_curly_bracket
+    util_lex_token("{",
+                   :tLBRACE, t("{"))
+  end
+
+  def test_yylex_assoc
+    util_lex_token "=>", :tASSOC, t("=>")
+  end
+
+  def test_yylex_bang
+    util_lex_token "!", :tBANG, t("!")
+  end
+
+  def test_yylex_bang_equals
+    util_lex_token "!=", :tNEQ, t("!=")
+  end
+
+  def test_yylex_bang_tilde
+    util_lex_token "!~", :tNMATCH, t("!~")
+  end
+
+  def test_yylex_comment
+    util_lex_token("1 # one\n2",
+                   :tINTEGER, 1,
+                   "\n", 1,
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_comment_begin
+    util_lex_token("=begin\nblah\nblah\n=end\n42",
+                   :tINTEGER, 42)
   end
 
   def test_yylex_constant
@@ -86,9 +328,100 @@ class TestRubyLexer < Test::Unit::TestCase
                    ";", t(";"))
   end
 
+  def test_yylex_equals
+    util_lex_token "=", '=', t("=") # FIX: this sucks
+  end
+
+  def test_yylex_equals2
+    util_lex_token "==", :tEQ, t("==")
+  end
+
+  def test_yylex_equals3
+    util_lex_token "===", :tEQQ, t("===")
+  end
+
+  def test_yylex_float
+    util_lex_token "1.0", :tFLOAT, 1.0
+  end
+
+  def test_yylex_global
+    util_lex_token("$blah",
+                   :tGVAR,     t("$blah"))
+  end
+
+  def test_yylex_global_dollar_underscore
+    util_lex_token("$_",
+                   :tGVAR,     t("$_"))
+  end
+
+  def test_yylex_global_wierd
+    util_lex_token("$__blah",
+                   :tGVAR,     t("$__blah"))
+  end
+
   def test_yylex_identifier
     util_lex_token("identifier",
                    :tIDENTIFIER, t("identifier"))
+  end
+
+  def test_yylex_integer
+    util_lex_token "42", :tINTEGER, 42
+  end
+
+  def test_yylex_integer_underscore
+    util_lex_token "4_2", :tINTEGER, 42
+  end
+
+  def test_yylex_integer_hex
+    util_lex_token "0x2a", :tINTEGER, 42
+  end
+
+  def test_yylex_integer_dec
+    util_lex_token "0d42", :tINTEGER, 42
+  end
+
+  def test_yylex_integer_oct
+    util_lex_token "052", :tINTEGER, 42
+  end
+
+  def test_yylex_integer_bin
+    util_lex_token "0b101010", :tINTEGER, 42
+  end
+
+  def test_yylex_float
+    util_lex_token "1.0", :tFLOAT, 1.0
+  end
+
+  def test_yylex_float_e
+    util_lex_token "1e10", :tFLOAT, 1e10
+  end
+
+  def test_yylex_integer_eh_a
+    util_lex_token '?a', :tINTEGER, 97
+  end
+
+  def test_yylex_integer_eh_escape_M_escape_C
+    util_lex_token '?\M-\C-a', :tINTEGER, 129
+  end
+
+  def test_yylex_lt
+    util_lex_token "<", :tLT, t("<")
+  end
+
+  def test_yylex_lt2
+    util_lex_token "<\<", :tLSHFT, t("<\<")
+  end
+
+  def test_yylex_lt2_equals
+    util_lex_token "<\<=", :tOP_ASGN, t("<\<")
+  end
+
+  def test_yylex_lt_equals
+    util_lex_token "<=", :tLEQ, t("<=")
+  end
+
+  def test_yylex_equals_tilde
+    util_lex_token "=~", :tMATCH, t("=~")
   end
 
   def test_yylex_regexp
@@ -98,24 +431,10 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tREGEXP_END,     "")
   end
 
-  def test_yylex_regexp_nm
-    util_lex_token("/.*/nm",
-                   :tREGEXP_BEG,     t("/"),
-                   :tSTRING_CONTENT, s(:str, ".*"),
-                   :tREGEXP_END,     "nm")
-  end
-
-  def test_yylex_regexp_escapes
+  def test_yylex_regexp_escape_chars
     util_lex_token('/re\tge\nxp/',
                    :tREGEXP_BEG,     t("/"),
                    :tSTRING_CONTENT, s(:str, "re\\tge\\nxp"),
-                   :tREGEXP_END,     "")
-  end
-
-  def test_yylex_regexp_escape_oct
-    util_lex_token('/re\tge\101xp/',
-                   :tREGEXP_BEG,     t("/"),
-                   :tSTRING_CONTENT, s(:str, "re\\tge\\101xp"),
                    :tREGEXP_END,     "")
   end
 
@@ -126,17 +445,56 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tREGEXP_END,     "")
   end
 
+  def test_yylex_regexp_escape_oct
+    util_lex_token('/re\tge\101xp/',
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "re\\tge\\101xp"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_nm
+    util_lex_token("/.*/nm",
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, ".*"),
+                   :tREGEXP_END,     "nm")
+  end
+
+  def test_yylex_star
+    util_lex_token("a * ",
+                   :tIDENTIFIER, t("a"),
+                   :tSTAR2, t("*"))
+
+    assert_equal :expr_beg, @lex.lex_state
+  end
+
+  def test_yylex_star2
+    util_lex_token("a ** ",
+                   :tIDENTIFIER, t("a"),
+                   :tPOW, t("**"))
+
+    assert_equal :expr_beg, @lex.lex_state
+  end
+
+  def test_yylex_star2_equals
+    util_lex_token("a **= ",
+                   :tIDENTIFIER, t("a"),
+                   :tOP_ASGN, t("**"))
+
+    assert_equal :expr_beg, @lex.lex_state
+  end
+
+  def test_yylex_star_equals
+    util_lex_token("a *= ",
+                   :tIDENTIFIER, t("a"),
+                   :tOP_ASGN, t("*"))
+
+    assert_equal :expr_beg, @lex.lex_state
+  end
+
   def test_yylex_string_double
     util_lex_token('"string"',
                    :tSTRING_BEG,     t('"'),
                    :tSTRING_CONTENT, s(:str, "string"),
-                   :tSTRING_END,     t('"'))
-  end
-
-  def test_yylex_string_double_escapes
-    util_lex_token('"s\tri\ng"',
-                   :tSTRING_BEG,     t('"'),
-                   :tSTRING_CONTENT, s(:str, "s\tri\ng"),
                    :tSTRING_END,     t('"'))
   end
 
@@ -147,10 +505,10 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_END,     t('"'))
   end
 
-  def test_yylex_string_double_escape_octal
-    util_lex_token('"n = \101\102\103"',
+  def test_yylex_string_double_escape_chars
+    util_lex_token('"s\tri\ng"',
                    :tSTRING_BEG,     t('"'),
-                   :tSTRING_CONTENT, s(:str, "n = ABC"),
+                   :tSTRING_CONTENT, s(:str, "s\tri\ng"),
                    :tSTRING_END,     t('"'))
   end
 
@@ -161,11 +519,11 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_END,     t('"'))
   end
 
-  def test_yylex_string_single
-    util_lex_token("'string'",
-                   :tSTRING_BEG,     t("'"),
-                   :tSTRING_CONTENT, s(:str, "string"),
-                   :tSTRING_END,     t("'"))
+  def test_yylex_string_double_escape_octal
+    util_lex_token('"n = \101\102\103"',
+                   :tSTRING_BEG,     t('"'),
+                   :tSTRING_CONTENT, s(:str, "n = ABC"),
+                   :tSTRING_END,     t('"'))
   end
 
   def test_yylex_string_pct_Q
@@ -175,37 +533,24 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_END,     t("]"))
   end
 
-  def test_yylex_string_single_escapes
+  def test_yylex_string_single
+    util_lex_token("'string'",
+                   :tSTRING_BEG,     t("'"),
+                   :tSTRING_CONTENT, s(:str, "string"),
+                   :tSTRING_END,     t("'"))
+  end
+
+  def test_yylex_string_single_escape_chars
     util_lex_token("'s\\tri\\ng'",
                    :tSTRING_BEG,     t("'"),
                    :tSTRING_CONTENT, s(:str, "s\\tri\\ng"),
                    :tSTRING_END,     t("'"))
   end
 
-  def test_yylex_global
-    util_lex_token("$blah",
-                   :tGVAR,     t("$blah"))
-  end
-
-  def test_yylex_global_wierd
-    util_lex_token("$__blah",
-                   :tGVAR,     t("$__blah"))
-  end
-
-  def test_yylex_global_dollar_underscore
-    util_lex_token("$_",
-                   :tGVAR,     t("$_"))
-  end
-
   def test_yylex_symbol
     util_lex_token(":symbol",
                    :tSYMBEG, t(":"),
                    :tIDENTIFIER, t("symbol"))
-  end
-
-  def test_yylex_comment_begin
-    util_lex_token("=begin\nblah\nblah\n=end\n42",
-                   :tINTEGER, 42)
   end
 
   def util_lex_token input, *args
@@ -222,177 +567,3 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 end
 
-class TestStackState < Test::Unit::TestCase
-  def test_stack_state
-    s = StackState.new :test
-    s.push true
-    s.push false
-    s.lexpop
-    assert_equal [false, true], s.stack
-  end
-
-  def test_is_in_state
-    s = StackState.new :test
-    assert_equal false, s.is_in_state
-    s.push false
-    assert_equal false, s.is_in_state
-    s.push true
-    assert_equal true, s.is_in_state
-    s.push false
-    assert_equal false, s.is_in_state
-  end
-
-  def test_lexpop
-    s = StackState.new :test
-    assert_equal [false], s.stack
-    s.push true
-    s.push false
-    assert_equal [false, true, false], s.stack
-    s.lexpop
-    assert_equal [false, true], s.stack
-  end
-
-  def test_pop
-    s = StackState.new :test
-    assert_equal [false], s.stack
-    s.push true
-    assert_equal [false, true], s.stack
-    assert_equal true, s.pop
-    assert_equal [false], s.stack
-  end
-
-  def test_push
-    s = StackState.new :test
-    assert_equal [false], s.stack
-    s.push true
-    s.push false
-    assert_equal [false, true, false], s.stack
-  end
-end
-
-class TestEnvironment < Test::Unit::TestCase
-  def deny t
-    assert ! t
-  end
-
-  def setup
-    @env = Environment.new
-    @env[:blah] = 42
-    assert_equal 42, @env[:blah]
-  end
-
-  def test_use
-    @env.use :blah
-    expected = [{ :blah => true }]
-    assert_equal expected, @env.instance_variable_get(:"@use")
-  end
-
-  def test_use_scoped
-    @env.use :blah
-    @env.extend
-    expected = [{}, { :blah => true }]
-    assert_equal expected, @env.instance_variable_get(:"@use")
-  end
-
-  def test_used_eh
-    @env.extend :dynamic
-    @env[:x] = :dvar
-    @env.use :x
-    assert_equal true, @env.used?(:x)
-  end
-
-  def test_used_eh_none
-    assert_equal nil, @env.used?(:x)
-  end
-
-  def test_used_eh_scoped
-    self.test_used_eh
-    @env.extend :dynamic
-    assert_equal true, @env.used?(:x)
-  end
-
-  def test_var_scope_dynamic
-    @env.extend :dynamic
-    assert_equal 42, @env[:blah]
-    @env.unextend
-    assert_equal 42, @env[:blah]
-  end
-
-  def test_var_scope_static
-    @env.extend
-    assert_equal nil, @env[:blah]
-    @env.unextend
-    assert_equal 42, @env[:blah]
-  end
-
-  def test_dynamic
-    expected1 = {}
-    expected2 = { :x => 42 }
-
-    assert_equal expected1, @env.dynamic
-    begin
-      @env.extend :dynamic
-      assert_equal expected1, @env.dynamic
-
-      @env[:x] = 42
-      assert_equal expected2, @env.dynamic
-
-      begin
-        @env.extend :dynamic
-        assert_equal expected2, @env.dynamic
-        @env.unextend
-      end
-
-      assert_equal expected2, @env.dynamic
-      @env.unextend
-    end
-    assert_equal expected1, @env.dynamic
-  end
-
-  def test_all_dynamic
-    expected = { :blah => 42 }
-
-    @env.extend :dynamic
-    assert_equal expected, @env.all
-    @env.unextend
-    assert_equal expected, @env.all
-  end
-
-  def test_all_static
-    @env.extend
-    expected = { }
-    assert_equal expected, @env.all
-
-    @env.unextend
-    expected = { :blah => 42 }
-    assert_equal expected, @env.all
-  end
-
-  def test_dynamic_eh
-    assert_equal false, @env.dynamic?
-    @env.extend :dynamic
-    assert_equal true, @env.dynamic?
-    @env.extend
-    assert_equal false, @env.dynamic?
-  end
-
-  def test_all_static_deeper
-    expected0 = { :blah => 42 }
-    expected1 = { :blah => 42, :blah2 => 24 }
-    expected2 = { :blah => 27 }
-
-    @env.extend :dynamic
-    @env[:blah2] = 24
-    assert_equal expected1, @env.all
-
-    @env.extend 
-    @env[:blah] = 27
-    assert_equal expected2, @env.all
-
-    @env.unextend
-    assert_equal expected1, @env.all
-
-    @env.unextend
-    assert_equal expected0, @env.all
-  end
-end

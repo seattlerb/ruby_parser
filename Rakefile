@@ -2,7 +2,7 @@
 
 require 'rubygems'
 require 'hoe'
-require './lib/ruby_lexer.rb'
+require './lib/ruby_parser_extras.rb'
 
 hoe = Hoe.new('ruby_parser', RubyParser::VERSION) do |p|
   p.rubyforge_name = 'parsetree'
@@ -48,9 +48,31 @@ task :clean do
        Dir["lib/*.output"])
 end
 
-# require 'rcov/rcovtask'
-# Rcov::RcovTask.new do |t|
-#   t.test_files = FileList['test/test_ruby_lexer.rb']
-# end
+begin
+  require 'rcov/rcovtask'
+  Rcov::RcovTask.new do |t|
+    pattern = ENV['PATTERN'] || 'test/test_ruby_*.rb'
+
+    t.test_files = FileList[pattern]
+    t.verbose = true
+    t.rcov_opts << "--threshold 80"
+    t.rcov_opts << "--no-color"
+  end
+rescue LoadError
+  # skip
+end
+
+task :rcov_info => :parser do
+  pattern = ENV['PATTERN'] || "test/test_*.rb"
+  ruby "-Ilib -S rcov --text-report --save coverage.info #{pattern}"
+end
+
+task :rcov_overlay do
+  rcov, eol = Marshal.load(File.read("coverage.info")).last[ENV["FILE"]], 1
+  puts rcov[:lines].zip(rcov[:coverage]).map { |line, coverage|
+    bol, eol = eol, eol + line.length
+    [bol, eol, "#ffcccc"] unless coverage
+  }.compact.inspect
+end
 
 # vim: syntax=Ruby

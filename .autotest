@@ -3,7 +3,9 @@
 Autotest.add_hook :initialize do |at|
   at.extra_files << "../../ParseTree/dev/test/pt_testcase.rb"
   at.libs << ":../../ParseTree/dev/lib:../../ParseTree/dev/test"
-  at.exceptions << 'unit'
+  at.add_exception 'unit'
+  at.add_exception 'coverage'
+  at.add_exception 'coverage.info'
 
   at.unit_diff = "unit_diff -u -b"
 
@@ -14,8 +16,16 @@ Autotest.add_hook :initialize do |at|
   at.add_mapping(/pt_testcase.rb/) do |f, _|
     at.files_matching(/^test.*rb$/)
   end
+
+  %w(TestEnvironment TestStackState).each do |klass|
+    at.extra_class_map[klass] = "test/test_ruby_parser_extras.rb"
+  end
 end
 
 Autotest.add_hook :run_command do |at|
   system "rake parser"
+end
+
+Autotest.add_hook :all_good do |at|
+  system "rake rcov_info PATTERN=test/test_ruby_lexer.rb"
 end
