@@ -75,167 +75,8 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token "&=", :tOP_ASGN, t("&")
   end
 
-  def test_yylex_or
-    util_lex_token "|", :tPIPE, t("|")
-  end
-
-  def test_yylex_or_equals
-    util_lex_token "|=", :tOP_ASGN, t("|")
-  end
-
-  def test_yylex_or2
-    util_lex_token "||", :tOROP, t("||")
-  end
-
-  def test_yylex_or2_equals
-    util_lex_token "||=", :tOP_ASGN, t("||")
-  end
-
-  def test_yylex_plus_unary
-    @lex.lex_state = :expr_fname
-    util_lex_token "+@", :tUPLUS, t("+@")
-  end
-
-  def test_yylex_plus
-    util_lex_token("1 + 1", # FIX lex_state?
-                   :tINTEGER, 1,
-                   :tPLUS, t("+"),
-                   :tINTEGER, 1)
-  end
-
-  def test_yylex_plus_equals
-    util_lex_token "+=", :tOP_ASGN, t("+")
-  end
-
-  def test_yylex_minus_unary
-    @lex.lex_state = :expr_fname
-    util_lex_token "-@", :tUMINUS, t("-@")
-  end
-
-  def test_yylex_minus
-    util_lex_token("1 - 2",
-                   :tINTEGER, 1,
-                   :tMINUS, t("-"),
-                   :tINTEGER, 2)
-  end
-
-  def test_yylex_minus_equals
-    util_lex_token "-=", :tOP_ASGN, t("-")
-  end
-
-  def test_yylex_dot2
-    util_lex_token "..", :tDOT2, t("..")
-  end
-
-  def test_yylex_dot3
-    util_lex_token "...", :tDOT3, t("...")
-  end
-
-  def test_yylex_dot # HINT message sends
-    util_lex_token ".", :tDOT, t(".")
-  end
-
-  def test_yylex_rparen
-    util_lex_token ")", :tRPAREN, t(")")
-  end
-
-  def test_yylex_rbracket
-    util_lex_token "]", :tRBRACK, t("]")
-  end
-
-  def test_yylex_rcurly
-    util_lex_token "}", :tRCURLY, t("end") # FIX?
-  end
-
-  def test_yylex_colon2
-    util_lex_token "::", :tCOLON3, t("::")
-  end
-
-  def test_yylex_div
-    util_lex_token("a / 2",
-                   :tIDENTIFIER, t("a"),
-                   :tDIVIDE, t("/"),
-                   :tINTEGER, 2)
-  end
-
-  def test_yylex_div_equals
-    util_lex_token("a /= 2",
-                   :tIDENTIFIER, t("a"),
-                   :tOP_ASGN, t("/"),
-                   :tINTEGER, 2)
-  end
-
-  def test_yylex_regexp
-    util_lex_token "/./", :blah, t("/./")
-  end
-
-  def test_yylex_carat
-    util_lex_token "^", :tCARET, t("^")
-  end
-
-  def test_yylex_carat_equals
-    util_lex_token "^=", :tOP_ASGN, t("^")
-  end
-
-  def test_yylex_comma
-    util_lex_token ",", ",", t(",") # FIX
-  end
-
-  def test_yylex_tilde
-    util_lex_token "~", :tTILDE, t("~")
-  end
-
-  def test_yylex_tilde_unary
-    @lex.lex_state = :expr_fname
-    util_lex_token "~@", :tTILDE, t("~")
-  end
-
-  def test_yylex_percent
-    util_lex_token("a % 2",
-                   :tIDENTIFIER, t("a"),
-                   :tPERCENT, t("%"),
-                   :tINTEGER, 2)
-  end
-
-  def test_yylex_percent_equals
-    util_lex_token("a %= 2",
-                   :tIDENTIFIER, t("a"),
-                   :tOP_ASGN, t("%"),
-                   :tINTEGER, 2)
-  end
-  def test_yylex_ge
-    util_lex_token("a >= 2",
-                   :tIDENTIFIER, t("a"),
-                   :tGEQ, t(">="),
-                   :tINTEGER, 2)
-  end
-
-  def test_yylex_rshft
-    util_lex_token("a >> 2",
-                   :tIDENTIFIER, t("a"),
-                   :tRSHFT, t(">>"),
-                   :tINTEGER, 2)
-  end
-
-  def test_yylex_rshft_equals
-    util_lex_token("a >>= 2",
-                   :tIDENTIFIER, t("a"),
-                   :tOP_ASGN, t(">>"),
-                   :tINTEGER, 2)
-  end
-
-  def test_yylex_gt
-    util_lex_token("a > 2",
-                   :tIDENTIFIER, t("a"),
-                   :tGT, t(">"),
-                   :tINTEGER, 2)
-  end
-
-  def test_yylex_colon2
-    util_lex_token("A::B",
-                   :tCONSTANT, t("A"),
-                   :tCOLON2, t(":"), # FIX?
-                   :tCONSTANT, t("B"))
+  def test_yylex_assoc
+    util_lex_token "=>", :tASSOC, t("=>")
   end
 
   def test_yylex_backtick
@@ -243,54 +84,6 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tCONSTANT, t("A"),
                    :tCOLON2, t(":"), # FIX?
                    :tCONSTANT, t("B"))
-  end
-
-  def test_yylex_trinary
-    util_lex_token("a ? b : c",
-                   :tIDENTIFIER, t("a"),
-                   "?", t("?"), # FIX
-                   :tIDENTIFIER, t("b"),
-                   ":", t(":"), # FIX
-                   :tIDENTIFIER, t("c"))
-  end
-
-  def test_yylex_open_bracket
-    util_lex_token("(",
-                   :tLPAREN, t("("))
-  end
-
-  def test_yylex_open_square_bracket
-    util_lex_token("[1, 2, 3]",
-                   :tLBRACK, t("["),
-                   :tINTEGER, 1,
-                   ",", t(","),
-                   :tINTEGER, 2,
-                   ",", t(","),
-                   :tINTEGER, 3,
-                   :tRBRACK, t("]"))
-  end
-
-  def test_yylex_index
-    @lex.lex_state = :expr_fname
-    util_lex_token("def []",
-                   :kDEF, t("def"),
-                   :tAREF, t("[]"))
-  end
-
-  def test_yylex_index_equals
-    @lex.lex_state = :expr_fname
-    util_lex_token("def []=",
-                   :kDEF, t("def"),
-                   :tASET, t("[]="))
-  end
-
-  def test_yylex_open_curly_bracket
-    util_lex_token("{",
-                   :tLBRACE, t("{"))
-  end
-
-  def test_yylex_assoc
-    util_lex_token "=>", :tASSOC, t("=>")
   end
 
   def test_yylex_bang
@@ -303,6 +96,29 @@ class TestRubyLexer < Test::Unit::TestCase
 
   def test_yylex_bang_tilde
     util_lex_token "!~", :tNMATCH, t("!~")
+  end
+
+  def test_yylex_carat
+    util_lex_token "^", :tCARET, t("^")
+  end
+
+  def test_yylex_carat_equals
+    util_lex_token "^=", :tOP_ASGN, t("^")
+  end
+
+  def test_yylex_colon2
+    util_lex_token("A::B",
+                   :tCONSTANT, t("A"),
+                   :tCOLON2, t(":"), # FIX?
+                   :tCONSTANT, t("B"))
+  end
+
+  def test_yylex_colon3
+    util_lex_token "::", :tCOLON3, t("::")
+  end
+
+  def test_yylex_comma
+    util_lex_token ",", ",", t(",") # FIX
   end
 
   def test_yylex_comment
@@ -328,6 +144,32 @@ class TestRubyLexer < Test::Unit::TestCase
                    ";", t(";"))
   end
 
+  def test_yylex_div
+    util_lex_token("a / 2",
+                   :tIDENTIFIER, t("a"),
+                   :tDIVIDE, t("/"),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_div_equals
+    util_lex_token("a /= 2",
+                   :tIDENTIFIER, t("a"),
+                   :tOP_ASGN, t("/"),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_dot # HINT message sends
+    util_lex_token ".", :tDOT, t(".")
+  end
+
+  def test_yylex_dot2
+    util_lex_token "..", :tDOT2, t("..")
+  end
+
+  def test_yylex_dot3
+    util_lex_token "...", :tDOT3, t("...")
+  end
+
   def test_yylex_equals
     util_lex_token "=", '=', t("=") # FIX: this sucks
   end
@@ -340,8 +182,23 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token "===", :tEQQ, t("===")
   end
 
+  def test_yylex_equals_tilde
+    util_lex_token "=~", :tMATCH, t("=~")
+  end
+
   def test_yylex_float
     util_lex_token "1.0", :tFLOAT, 1.0
+  end
+
+  def test_yylex_float_e
+    util_lex_token "1e10", :tFLOAT, 1e10
+  end
+
+  def test_yylex_ge
+    util_lex_token("a >= 2",
+                   :tIDENTIFIER, t("a"),
+                   :tGEQ, t(">="),
+                   :tINTEGER, 2)
   end
 
   def test_yylex_global
@@ -359,41 +216,42 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tGVAR,     t("$__blah"))
   end
 
+  def test_yylex_gt
+    util_lex_token("a > 2",
+                   :tIDENTIFIER, t("a"),
+                   :tGT, t(">"),
+                   :tINTEGER, 2)
+  end
+
   def test_yylex_identifier
     util_lex_token("identifier",
                    :tIDENTIFIER, t("identifier"))
+  end
+
+  def test_yylex_index
+    @lex.lex_state = :expr_fname
+    util_lex_token("def []",
+                   :kDEF, t("def"),
+                   :tAREF, t("[]"))
+  end
+
+  def test_yylex_index_equals
+    @lex.lex_state = :expr_fname
+    util_lex_token("def []=",
+                   :kDEF, t("def"),
+                   :tASET, t("[]="))
   end
 
   def test_yylex_integer
     util_lex_token "42", :tINTEGER, 42
   end
 
-  def test_yylex_integer_underscore
-    util_lex_token "4_2", :tINTEGER, 42
-  end
-
-  def test_yylex_integer_hex
-    util_lex_token "0x2a", :tINTEGER, 42
-  end
-
-  def test_yylex_integer_dec
-    util_lex_token "0d42", :tINTEGER, 42
-  end
-
-  def test_yylex_integer_oct
-    util_lex_token "052", :tINTEGER, 42
-  end
-
   def test_yylex_integer_bin
     util_lex_token "0b101010", :tINTEGER, 42
   end
 
-  def test_yylex_float
-    util_lex_token "1.0", :tFLOAT, 1.0
-  end
-
-  def test_yylex_float_e
-    util_lex_token "1e10", :tFLOAT, 1e10
+  def test_yylex_integer_dec
+    util_lex_token "0d42", :tINTEGER, 42
   end
 
   def test_yylex_integer_eh_a
@@ -402,6 +260,18 @@ class TestRubyLexer < Test::Unit::TestCase
 
   def test_yylex_integer_eh_escape_M_escape_C
     util_lex_token '?\M-\C-a', :tINTEGER, 129
+  end
+
+  def test_yylex_integer_hex
+    util_lex_token "0x2a", :tINTEGER, 42
+  end
+
+  def test_yylex_integer_oct
+    util_lex_token "052", :tINTEGER, 42
+  end
+
+  def test_yylex_integer_underscore
+    util_lex_token "4_2", :tINTEGER, 42
   end
 
   def test_yylex_lt
@@ -420,8 +290,95 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token "<=", :tLEQ, t("<=")
   end
 
-  def test_yylex_equals_tilde
-    util_lex_token "=~", :tMATCH, t("=~")
+  def test_yylex_minus
+    util_lex_token("1 - 2",
+                   :tINTEGER, 1,
+                   :tMINUS, t("-"),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_minus_equals
+    util_lex_token "-=", :tOP_ASGN, t("-")
+  end
+
+  def test_yylex_minus_unary
+    @lex.lex_state = :expr_fname
+    util_lex_token "-@", :tUMINUS, t("-@")
+  end
+
+  def test_yylex_open_bracket
+    util_lex_token("(",
+                   :tLPAREN, t("("))
+  end
+
+  def test_yylex_open_curly_bracket
+    util_lex_token("{",
+                   :tLBRACE, t("{"))
+  end
+
+  def test_yylex_open_square_bracket
+    util_lex_token("[1, 2, 3]",
+                   :tLBRACK, t("["),
+                   :tINTEGER, 1,
+                   ",", t(","),
+                   :tINTEGER, 2,
+                   ",", t(","),
+                   :tINTEGER, 3,
+                   :tRBRACK, t("]"))
+  end
+
+  def test_yylex_or
+    util_lex_token "|", :tPIPE, t("|")
+  end
+
+  def test_yylex_or2
+    util_lex_token "||", :tOROP, t("||")
+  end
+
+  def test_yylex_or2_equals
+    util_lex_token "||=", :tOP_ASGN, t("||")
+  end
+
+  def test_yylex_or_equals
+    util_lex_token "|=", :tOP_ASGN, t("|")
+  end
+
+  def test_yylex_percent
+    util_lex_token("a % 2",
+                   :tIDENTIFIER, t("a"),
+                   :tPERCENT, t("%"),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_percent_equals
+    util_lex_token("a %= 2",
+                   :tIDENTIFIER, t("a"),
+                   :tOP_ASGN, t("%"),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_plus
+    util_lex_token("1 + 1", # FIX lex_state?
+                   :tINTEGER, 1,
+                   :tPLUS, t("+"),
+                   :tINTEGER, 1)
+  end
+
+  def test_yylex_plus_equals
+    util_lex_token "+=", :tOP_ASGN, t("+")
+  end
+
+  def test_yylex_plus_unary
+    @lex.lex_state = :expr_fname
+    util_lex_token "+@", :tUPLUS, t("+@")
+  end
+
+  def test_yylex_rbracket
+    util_lex_token "]", :tRBRACK, t("]")
+  end
+
+  def test_yylex_rcurly
+    util_lex_token "}", :tRCURLY, t("end") # FIX?
   end
 
   def test_yylex_regexp
@@ -429,6 +386,10 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tREGEXP_BEG,     t("/"),
                    :tSTRING_CONTENT, s(:str, "regexp"),
                    :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp
+    util_lex_token "/./", :blah, t("/./")
   end
 
   def test_yylex_regexp_escape_chars
@@ -457,6 +418,24 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tREGEXP_BEG,     t("/"),
                    :tSTRING_CONTENT, s(:str, ".*"),
                    :tREGEXP_END,     "nm")
+  end
+
+  def test_yylex_rparen
+    util_lex_token ")", :tRPAREN, t(")")
+  end
+
+  def test_yylex_rshft
+    util_lex_token("a >> 2",
+                   :tIDENTIFIER, t("a"),
+                   :tRSHFT, t(">>"),
+                   :tINTEGER, 2)
+  end
+
+  def test_yylex_rshft_equals
+    util_lex_token("a >>= 2",
+                   :tIDENTIFIER, t("a"),
+                   :tOP_ASGN, t(">>"),
+                   :tINTEGER, 2)
   end
 
   def test_yylex_star
@@ -551,6 +530,24 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token(":symbol",
                    :tSYMBEG, t(":"),
                    :tIDENTIFIER, t("symbol"))
+  end
+
+  def test_yylex_tilde
+    util_lex_token "~", :tTILDE, t("~")
+  end
+
+  def test_yylex_tilde_unary
+    @lex.lex_state = :expr_fname
+    util_lex_token "~@", :tTILDE, t("~")
+  end
+
+  def test_yylex_trinary
+    util_lex_token("a ? b : c",
+                   :tIDENTIFIER, t("a"),
+                   "?", t("?"), # FIX
+                   :tIDENTIFIER, t("b"),
+                   ":", t(":"), # FIX
+                   :tIDENTIFIER, t("c"))
   end
 
   def util_lex_token input, *args

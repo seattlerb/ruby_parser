@@ -25,6 +25,25 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
      end"
   }.compact.join("\n")
 
+if false then
+  require 'parse_tree'
+
+  # Regular ParseTreeTestCase tests
+  eval ParseTreeTestCase.testcases.map { |node, data|
+    next if node.to_s =~ /bmethod|dmethod/
+    next if Array === data['Ruby'] # runtime only crap
+    "def test_nl_#{node}
+       rb = #{data['Ruby'].inspect}
+       pt = ParseTree.new(true).parse_tree_for_string(rb).first
+
+       assert_not_nil rb, \"Ruby for #{node} undefined\"
+       assert_not_nil pt, \"ParseTree for #{node} undefined\"
+
+       assert_equal Sexp.from_array(pt), @processor.parse(rb)
+     end"
+  }.compact.join("\n")
+end
+
   # Scour the world and compare against ParseTree
   if ENV['ZOMGPONIES'] or File.exist? 'zomgponies' then
     require 'parse_tree'
@@ -77,26 +96,17 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     assert_equal expected, @processor.block_append(head, tail)
   end
 
-  def test_block_append_block
-    head = s(:block, s(:args))
-    tail = s(:zsuper)
-    expected = s(:block, s(:args), s(:zsuper))
-    assert_equal expected, @processor.block_append(head, tail)
-  end
-
-  def test_block_append_tail_block
-    head = s(:vcall, :f1)
-    tail = s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y)))
-    expected = s(:block,
-                 s(:vcall, :f1),
-                 s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y))))
-    assert_equal expected, @processor.block_append(head, tail)
-  end
-
   def test_block_append_begin_begin
     head = s(:begin, s(:args))
     tail = s(:begin, s(:args))
     expected = s(:block, s(:args), s(:begin, s(:args)))
+    assert_equal expected, @processor.block_append(head, tail)
+  end
+
+  def test_block_append_block
+    head = s(:block, s(:args))
+    tail = s(:zsuper)
+    expected = s(:block, s(:args), s(:zsuper))
     assert_equal expected, @processor.block_append(head, tail)
   end
 
@@ -114,6 +124,15 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     assert_equal expected, @processor.block_append(head, tail)
   end
 
+  def test_block_append_tail_block
+    head = s(:vcall, :f1)
+    tail = s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y)))
+    expected = s(:block,
+                 s(:vcall, :f1),
+                 s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y))))
+    assert_equal expected, @processor.block_append(head, tail)
+  end
+
   def test_call_env
     @processor.env[:a] = :lvar
     expected = s(:call, s(:lvar, :a), :happy)
@@ -121,11 +140,56 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     assert_equal expected, @processor.parse('a.happy')
   end
 
+  def test_dasgn_icky2
+    rb = "a do\n  v = nil\n  begin\n    yield\n  rescue Exception => v\n    break\n  end\nend"
+    pt = s(:iter,
+           s(:fcall, :a),
+           nil,
+           s(:block,
+             s(:dasgn_curr, :v, s(:nil)),
+             s(:begin,
+               s(:rescue,
+                 s(:yield),
+                 s(:resbody,
+                   s(:array, s(:const, :Exception)),
+                   s(:block, s(:dasgn_curr, :v, s(:gvar, :$!)), s(:break)))))))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
   def test_do_bug # TODO: rename
     rb = "a 1\na.b do |c|\n  # do nothing\nend"
     pt = s(:block,
            s(:fcall, :a, s(:array, s(:lit, 1))),
            s(:iter, s(:call, s(:vcall, :a), :b), s(:dasgn_curr, :c)))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_dstr_evstr
+    rb = "\"#\{'a'}#\{b}\""
+    pt = s(:dstr, "a", s(:evstr, s(:vcall, :b)))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_dstr_str
+    rb = "\"#\{'a'} b\""
+    pt = s(:str, "a b")
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_evstr_evstr
+    rb = "\"#\{a}#\{b}\""
+    pt = s(:dstr, "", s(:evstr, s(:vcall, :a)), s(:evstr, s(:vcall, :b)))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_evstr_str
+    rb = "\"#\{a} b\""
+    pt = s(:dstr, "", s(:evstr, s(:vcall, :a)), s(:str, " b"))
 
     assert_equal pt, @processor.parse(rb)
   end
@@ -139,83 +203,11 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     assert_equal expected_env, @processor.env.all
   end
 
-  def test_logop_12
-    lhs = s(:lit, 1)
-    rhs = s(:lit, 2)
-    exp = s(:and, s(:lit, 1), s(:lit, 2))
+  def test_list_append
+    lhs, rhs = s(:array, s(:lit, :iter)), s(:when, s(:const, :BRANCHING), nil)
+    expected = s(:array, s(:lit, :iter), s(:when, s(:const, :BRANCHING), nil))
 
-    assert_equal exp, @processor.logop(:and, lhs, rhs)
-  end
-
-  def test_logop_12_3
-    lhs = s(:and, s(:lit, 1), s(:lit, 2))
-    rhs = s(:lit, 3)
-    exp = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:lit, 3)))
-
-    assert_equal exp, @processor.logop(:and, lhs, rhs)
-  end
-
-  def test_logop_123_4
-    lhs = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:lit, 3)))
-    rhs = s(:lit, 4)
-    exp = s(:and,
-            s(:lit, 1),
-            s(:and,
-              s(:lit, 2),
-              s(:and,
-                s(:lit, 3),
-                s(:lit, 4))))
-
-    assert_equal exp, @processor.logop(:and, lhs, rhs)
-  end
-
-  def test_logop_1234_5
-    lhs = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:and, s(:lit, 3), s(:lit, 4))))
-    rhs = s(:lit, 5)
-    exp = s(:and,
-            s(:lit, 1),
-            s(:and,
-              s(:lit, 2),
-              s(:and,
-                s(:lit, 3),
-                s(:and,
-                  s(:lit, 4),
-                  s(:lit, 5)))))
-
-    assert_equal exp, @processor.logop(:and, lhs, rhs)
-  end
-
-  def test_logop_nested_mix
-    lhs = s(:or, s(:vcall, :a), s(:vcall, :b))
-    rhs = s(:and, s(:vcall, :c), s(:vcall, :d))
-    exp = s(:or,
-            s(:or, s(:vcall, :a), s(:vcall, :b)),
-            s(:and, s(:vcall, :c), s(:vcall, :d)))
-
-    lhs.paren = true
-    rhs.paren = true
-
-    assert_equal exp, @processor.logop(:or, lhs, rhs)
-  end
-
-  def test_literal_concat_str_evstr
-    lhs, rhs = s(:str, ""), s(:evstr, s(:str, "blah"))
-
-    assert_equal s(:str, "blah"), @processor.literal_concat(lhs, rhs)
-  end
-
-  def test_literal_concat_evstr_evstr
-    lhs, rhs = s(:evstr, s(:lit, 1)), s(:evstr, s(:lit, 2))
-    expected = s(:dstr, "", s(:evstr, s(:lit, 1)), s(:evstr, s(:lit, 2)))
-
-    assert_equal expected, @processor.literal_concat(lhs, rhs)
-  end
-
-  def test_literal_concat_dstr_evstr
-    lhs, rhs = s(:dstr, "a"), s(:evstr, s(:vcall, :b))
-    expected = s(:dstr, "a", s(:evstr, s(:vcall, :b)))
-
-    assert_equal expected, @processor.literal_concat(lhs, rhs)
+    assert_equal expected, @processor.list_append(lhs, rhs)
   end
 
   def test_literal_concat_dstr_dstr
@@ -237,6 +229,92 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     assert_equal expected, @processor.literal_concat(lhs, rhs)
   end
 
+  def test_literal_concat_dstr_evstr
+    lhs, rhs = s(:dstr, "a"), s(:evstr, s(:vcall, :b))
+    expected = s(:dstr, "a", s(:evstr, s(:vcall, :b)))
+
+    assert_equal expected, @processor.literal_concat(lhs, rhs)
+  end
+
+  def test_literal_concat_evstr_evstr
+    lhs, rhs = s(:evstr, s(:lit, 1)), s(:evstr, s(:lit, 2))
+    expected = s(:dstr, "", s(:evstr, s(:lit, 1)), s(:evstr, s(:lit, 2)))
+
+    assert_equal expected, @processor.literal_concat(lhs, rhs)
+  end
+
+  def test_literal_concat_str_evstr
+    lhs, rhs = s(:str, ""), s(:evstr, s(:str, "blah"))
+
+    assert_equal s(:str, "blah"), @processor.literal_concat(lhs, rhs)
+  end
+
+  def test_logop_12
+    lhs = s(:lit, 1)
+    rhs = s(:lit, 2)
+    exp = s(:and, s(:lit, 1), s(:lit, 2))
+
+    assert_equal exp, @processor.logop(:and, lhs, rhs)
+  end
+
+  def test_logop_1234_5
+    lhs = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:and, s(:lit, 3), s(:lit, 4))))
+    rhs = s(:lit, 5)
+    exp = s(:and,
+            s(:lit, 1),
+            s(:and,
+              s(:lit, 2),
+              s(:and,
+                s(:lit, 3),
+                s(:and,
+                  s(:lit, 4),
+                  s(:lit, 5)))))
+
+    assert_equal exp, @processor.logop(:and, lhs, rhs)
+  end
+
+  def test_logop_123_4
+    lhs = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:lit, 3)))
+    rhs = s(:lit, 4)
+    exp = s(:and,
+            s(:lit, 1),
+            s(:and,
+              s(:lit, 2),
+              s(:and,
+                s(:lit, 3),
+                s(:lit, 4))))
+
+    assert_equal exp, @processor.logop(:and, lhs, rhs)
+  end
+
+  def test_logop_12_3
+    lhs = s(:and, s(:lit, 1), s(:lit, 2))
+    rhs = s(:lit, 3)
+    exp = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:lit, 3)))
+
+    assert_equal exp, @processor.logop(:and, lhs, rhs)
+  end
+
+  def test_logop_nested_mix
+    lhs = s(:or, s(:vcall, :a), s(:vcall, :b))
+    rhs = s(:and, s(:vcall, :c), s(:vcall, :d))
+    exp = s(:or,
+            s(:or, s(:vcall, :a), s(:vcall, :b)),
+            s(:and, s(:vcall, :c), s(:vcall, :d)))
+
+    lhs.paren = true
+    rhs.paren = true
+
+    assert_equal exp, @processor.logop(:or, lhs, rhs)
+  end
+
+  def test_str_evstr
+    rb = "\"a #\{b}\""
+    pt = s(:dstr, "a ", s(:evstr, s(:vcall, :b)))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
   def test_str_pct_Q_nested
     rb = "%Q[before [#\{nest}] after]"
     pt = s(:dstr, "before [", s(:evstr, s(:vcall, :nest)), s(:str, "] after"))
@@ -256,66 +334,6 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
     pt = s(:str, "a b c")
 
     assert_equal pt, @processor.parse(rb)
-  end
-
-  def test_dstr_str
-    rb = "\"#\{'a'} b\""
-    pt = s(:str, "a b")
-
-    assert_equal pt, @processor.parse(rb)
-  end
-
-  def test_str_evstr
-    rb = "\"a #\{b}\""
-    pt = s(:dstr, "a ", s(:evstr, s(:vcall, :b)))
-
-    assert_equal pt, @processor.parse(rb)
-  end
-
-  def test_dstr_evstr
-    rb = "\"#\{'a'}#\{b}\""
-    pt = s(:dstr, "a", s(:evstr, s(:vcall, :b)))
-
-    assert_equal pt, @processor.parse(rb)
-  end
-
-  def test_evstr_str
-    rb = "\"#\{a} b\""
-    pt = s(:dstr, "", s(:evstr, s(:vcall, :a)), s(:str, " b"))
-
-    assert_equal pt, @processor.parse(rb)
-  end
-
-  def test_evstr_evstr
-    rb = "\"#\{a}#\{b}\""
-    pt = s(:dstr, "", s(:evstr, s(:vcall, :a)), s(:evstr, s(:vcall, :b)))
-
-    assert_equal pt, @processor.parse(rb)
-  end
-
-
-  def test_dasgn_icky2
-    rb = "a do\n  v = nil\n  begin\n    yield\n  rescue Exception => v\n    break\n  end\nend"
-    pt = s(:iter,
-           s(:fcall, :a),
-           nil,
-           s(:block,
-             s(:dasgn_curr, :v, s(:nil)),
-             s(:begin,
-               s(:rescue,
-                 s(:yield),
-                 s(:resbody,
-                   s(:array, s(:const, :Exception)),
-                   s(:block, s(:dasgn_curr, :v, s(:gvar, :$!)), s(:break)))))))
-
-    assert_equal pt, @processor.parse(rb)
-  end
-
-  def test_list_append
-    lhs, rhs = s(:array, s(:lit, :iter)), s(:when, s(:const, :BRANCHING), nil)
-    expected = s(:array, s(:lit, :iter), s(:when, s(:const, :BRANCHING), nil))
-
-    assert_equal expected, @processor.list_append(lhs, rhs)
   end
 end
 
