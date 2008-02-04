@@ -1,5 +1,6 @@
 require 'stringio'
 require 'racc/parser'
+require 'sexp'
 
 ############################################################
 # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK

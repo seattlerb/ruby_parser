@@ -39,9 +39,9 @@ class RubyLexer
 
   # What handles warnings
   attr_accessor :warnings
-    
+
   # TODO: remove all of these
-  alias :source= :src=  
+  alias :source= :src=
   alias :str_term :lex_strterm
   alias :str_term= :lex_strterm=
   alias :state :lex_state
@@ -49,7 +49,7 @@ class RubyLexer
   alias :value :yacc_value
   alias :value= :yacc_value=
   alias :getCmdArgumentState :cmdarg
-	
+
   # Give a name to a value.  Enebo: This should be used more.
   # HACK OMG HORRIBLE KILL ME NOW. Enebo, no. this shouldn't be used more
   EOF = nil # was 0... ugh
@@ -156,7 +156,7 @@ class RubyLexer
       raise "unterminated string meets end of file"
       return :tSTRING_END
     end
-    
+
     self.yacc_value = s(:str, token_buffer.join)
     return :tSTRING_CONTENT
   end
@@ -173,9 +173,9 @@ class RubyLexer
         bad << c
       end
     end
-    
+
     src.unread c
-    
+
     rb_compile_error("unknown regexp option%s - %s" %
                      [(bad.size > 1 ? "s" : ""), bad.join.inspect]) unless bad.empty?
 
@@ -192,7 +192,7 @@ class RubyLexer
 
       2.times do |i|
         c = src.read
-        # HACK goto eof if (c == -1) 
+        # HACK goto eof if (c == -1)
         if c < "0" || "7" < c then
           pushback c
           break
@@ -478,7 +478,7 @@ class RubyLexer
       end
 
       src.unread c
-      
+
       begin
         c = tokadd_string func, "\n", nil, buffer
 
@@ -582,7 +582,7 @@ class RubyLexer
       func = STR_FUNC_INDENT
     end
 
-    if c == "\'" || c == '"' || c == '`' then
+    if c =~ /^['"`]$/ then
       if c == "\'" then
         func |= STR_SQUOTE
       elsif c == '"'
@@ -942,8 +942,7 @@ class RubyLexer
         raise SyntaxError, "incomplete character syntax" if c == RubyLexer::EOF
 
         if c =~ /\s/ then
-          if !lex_state.is_argument then
-            c2 = 0
+          unless lex_state.is_argument then
             c2 = case c
                  when ' ' then
                    's'
@@ -957,6 +956,8 @@ class RubyLexer
                    'r'
                  when "\f" then
                    'f'
+                 else
+                   0
                  end
 
             if c2 != 0 then
@@ -1806,7 +1807,7 @@ class RubyLexer
   end
 
   def warning s
-    # do nothing for now  
+    # do nothing for now
   end
 
   def rb_compile_error msg
