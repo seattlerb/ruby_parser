@@ -20,31 +20,10 @@ class TestRubyLexer < Test::Unit::TestCase
     deny   @lex.advance # nada
   end
 
-  def test_is_next_identchar
-    assert @lex.is_next_identchar
-    @lex.src = " "
-    deny @lex.is_next_identchar
-    @lex.src = "-"
-    deny @lex.is_next_identchar
-  end
-
-  def test_is_next_no_case # TODO: worst name evah
-    @lex.src = "123 456"
-    assert @lex.is_next_no_case("123")
-    pos = @lex.src.pos
-    deny @lex.is_next_no_case("begin")
-    assert_equal " 456", @lex.src.read_all, "must put back contents"
-  end
-
-  def test_number_token
-    node = @lex.number_token("42", false, "\0")
-    assert_equal :tINTEGER, node
-    assert_equal 42, @lex.yacc_value
-  end
-
   def test_parse_number
-    @lex.src = '42'
-    node = @lex.parse_number('1')
+    @lex.src = '142'
+    c = @lex.src.getch # FIX or remove this test... too prescriptive/brittle
+    node = @lex.parse_number(c)
     assert_equal :tINTEGER, node
     assert_equal 142, @lex.yacc_value
   end
@@ -233,8 +212,59 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token "1.0", :tFLOAT, 1.0
   end
 
+  def test_yylex_float_neg
+    util_lex_token("-1.0",
+                   :tUMINUS_NUM, t("-"),
+                   :tFLOAT, 1.0)
+  end
+
+  def test_yylex_float_bad_trailing_underscore
+    util_bad_number "123_.0"
+  end
+
+  def test_yylex_float_call
+    util_lex_token("1.0.to_s",
+                   :tFLOAT, 1.0,
+                   :tDOT, t('.'),
+                   :tIDENTIFIER, t('to_s'))
+  end
+
   def test_yylex_float_e
     util_lex_token "1e10", :tFLOAT, 1e10
+  end
+
+  def test_yylex_float_e_neg
+    util_lex_token("-1e10",
+                   :tUMINUS_NUM, t("-"),
+                   :tFLOAT, 1e10)
+  end
+
+  def test_yylex_float_e_plus
+    util_lex_token "1e+10", :tFLOAT, 1e10
+  end
+
+  def test_yylex_float_e_neg_plus
+    util_lex_token("-1e+10",
+                   :tUMINUS_NUM, t("-"),
+                   :tFLOAT, 1e10)
+  end
+
+  def test_yylex_float_e_minus
+    util_lex_token "1e-10", :tFLOAT, 1e-10
+  end
+
+  def test_yylex_float_e_neg_minus
+    util_lex_token("-1e-10",
+                   :tUMINUS_NUM, t("-"),
+                   :tFLOAT, 1e-10)
+  end
+
+  def test_yylex_float_e_bad_double_e
+    util_bad_number "1e2e3"
+  end
+
+  def test_yylex_float_e_bad_trailing_underscore
+    util_bad_number "123_e10"
   end
 
   def test_yylex_float_e_zero
@@ -371,8 +401,32 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token "0b101010", :tINTEGER, 42
   end
 
+  def test_yylex_integer_bin_bad_none
+    util_bad_number "0b "
+  end
+
+  def test_yylex_integer_bin_bad_underscores
+    util_bad_number "0b10__01"
+  end
+
   def test_yylex_integer_dec
+    util_lex_token "42", :tINTEGER, 42
+  end
+
+  def test_yylex_integer_dec_bad_underscores
+    util_bad_number "42__24"
+  end
+
+  def test_yylex_integer_dec_d
     util_lex_token "0d42", :tINTEGER, 42
+  end
+
+  def test_yylex_integer_dec_d_bad_none
+    util_bad_number "0d"
+  end
+
+  def test_yylex_integer_dec_d_bad_underscores
+    util_bad_number "0d42__24"
   end
 
   def test_yylex_integer_eh_a
@@ -387,12 +441,55 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token "0x2a", :tINTEGER, 42
   end
 
+  def test_yylex_integer_hex_bad_none
+    util_bad_number "0x "
+  end
+
+  def test_yylex_integer_hex_bad_underscores
+    util_bad_number "0xab__cd"
+  end
+
   def test_yylex_integer_oct
     util_lex_token "052", :tINTEGER, 42
   end
 
+  def test_yylex_integer_oct_bad_range
+    util_bad_number "08"
+  end
+
+  def test_yylex_integer_oct_bad_underscores
+    util_bad_number "01__23"
+  end
+
+  def test_yylex_integer_oct_o
+    util_lex_token "0o52", :tINTEGER, 42
+  end
+
+  def test_yylex_integer_oct_o_bad_range
+    util_bad_number "0o8"
+  end
+
+  def test_yylex_integer_oct_o_bad_underscores
+    util_bad_number "0o1__23"
+  end
+
+  def test_yylex_integer_oct_o_not_bad_none
+    util_lex_token "0o ", :tINTEGER, 0
+  end
+
+  def test_yylex_integer_trailing
+    util_lex_token("1.to_s",
+                   :tINTEGER, 1,
+                   :tDOT, t('.'),
+                   :tIDENTIFIER, t('to_s'))
+  end
+
   def test_yylex_integer_underscore
     util_lex_token "4_2", :tINTEGER, 42
+  end
+
+  def test_yylex_integer_underscore_bad
+    util_bad_number "4__2"
   end
 
   def test_yylex_integer_zero
@@ -734,6 +831,12 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   ############################################################
+
+  def util_bad_number s
+    assert_raises SyntaxError do
+      util_lex_token s
+    end
+  end
 
   def util_lex_token input, *args
     @lex.src = input

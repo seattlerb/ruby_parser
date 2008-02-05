@@ -4,10 +4,6 @@ require 'sexp'
 require 'strscan'
 
 class StringScanner
-  alias :read :getch
-  alias :begin_of_line? :beginning_of_line?
-  alias :read_all :rest
-
   def current_line # HAHA fuck you (HACK)
     string[0..pos][/\A.*__LINE__/m].split(/\n/).size
   end
@@ -18,29 +14,12 @@ class StringScanner
     string[pos, 0] = c
   end
 
-  def was_begin_of_line
-    pos <= 2 or string[pos-2] == ?\n
-  end
-
-  def match_string str, indent = false
-    if indent then
-      !! scan(/[ \t]*#{str}/)
-    else
-      !! scan(/#{str}/)
-    end
-  end
-
-  def read_line
-    scan(/.*\n/) # maybe try scan_until, but it doesn't move on zero length /$/
-  end
-
   def unread_many str
     string[pos, 0] = str
   end
 
-  alias :old_peek :peek
-  def peek regexp_or_string
-    check regexp_or_string
+  def was_begin_of_line
+    pos <= 2 or string[pos-2] == ?\n
   end
 end
 
