@@ -3,26 +3,6 @@ require 'racc/parser'
 require 'sexp'
 require 'strscan'
 
-class StringScanner
-  def current_line # HAHA fuck you (HACK)
-    string[0..pos][/\A.*__LINE__/m].split(/\n/).size
-  end
-
-  def unread c
-    return if c.nil? # UGH
-
-    string[pos, 0] = c
-  end
-
-  def unread_many str
-    string[pos, 0] = str
-  end
-
-  def was_begin_of_line
-    pos <= 2 or string[pos-2] == ?\n
-  end
-end
-
 ############################################################
 # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 

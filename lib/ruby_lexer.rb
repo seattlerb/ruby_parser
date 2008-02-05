@@ -2,6 +2,25 @@ $: << File.expand_path("~/Work/p4/zss/src/ParseTree/dev/lib") # for me, not you.
 require 'sexp'
 require 'ruby_parser_extras'
 
+class StringScanner
+  def current_line # HAHA fuck you (HACK)
+    string[0..pos][/\A.*__LINE__/m].split(/\n/).size
+  end
+
+  def unread c
+    return if c.nil? # UGH
+    string[pos, 0] = c
+  end
+
+  def unread_many str
+    string[pos, 0] = str
+  end
+
+  def was_begin_of_line
+    pos <= 2 or string[pos-2] == ?\n
+  end
+end
+
 class RubyLexer
   attr_accessor :command_start
   attr_accessor :cmdarg
@@ -330,6 +349,7 @@ class RubyLexer
   end
 
   def tokadd_string(func, term, paren, buffer)
+    should_expand = (func & RubyLexer::STR_FUNC_EXPAND) != 0
     until (c = src.getch) == RubyLexer::EOF do
       if c == paren then
         self.nest += 1
@@ -339,7 +359,7 @@ class RubyLexer
           break
         end
         self.nest -= 1
-      elsif (func & RubyLexer::STR_FUNC_EXPAND) != 0 && c == '#' && !src.check(/\n/) then
+      elsif should_expand && c == '#' && !src.check(/\n/) then
         c2 = src.getch
 
         if c2 == '$' || c2 == '@' || c2 == '{' then
@@ -513,12 +533,10 @@ class RubyLexer
       string_type, token_type = STR_SQUOTE, :tSTRING_BEG
     when 'W' then
       string_type, token_type = STR_DQUOTE | STR_FUNC_QWORDS, :tWORDS_BEG
-      begin c = src.getch end while c =~ /\s/
-      src.unread(c)
+      src.scan(/\s*/)
     when 'w' then
       string_type, token_type = STR_SQUOTE | STR_FUNC_QWORDS, :tQWORDS_BEG
-      begin c = src.getch end while c =~ /\s/
-      src.unread(c)
+      src.scan(/\s*/)
     when 'x' then
       string_type, token_type = STR_XQUOTE, :tXSTRING_BEG
     when 'r' then
@@ -610,17 +628,15 @@ class RubyLexer
     token_buffer.clear
     token_buffer << c
 
-    while (c = src.getch) != "\n" do
-      break if c == RubyLexer::EOF
-      token_buffer << c
+    if src.scan(/.*\n/) then
+      token_buffer.push(*src.matched.split(//))
     end
-    src.unread c
 
     # Store away each comment to parser result so IDEs can do whatever
     # they want with them.
     # HACK parser_support.result.add_comment(Node.comment(token_buffer.join))
 
-    return c
+    return ! src.eos?
   end
 
   ##
@@ -670,13 +686,10 @@ class RubyLexer
         space_seen = true
         next
       when /#|\n/ then
-        return 0 if c == '#' and read_comment(c) == 0 # FIX 0?
+        return 0 if c == '#' and ! read_comment(c)
         # Replace a string of newlines with a single one
-        while (c = src.getch) == "\n"
-          # do nothing
-        end
 
-        src.unread c
+        src.scan(/\n+/)
 
         if (lex_state == :expr_beg   ||
             lex_state == :expr_fname ||
@@ -1415,22 +1428,9 @@ class RubyLexer
         token_buffer.clear
       end
 
-      begin
-        token_buffer << c
-        # if ismbchar(c) then
-        #   len = mbclen(c) - 1
-        #   (0..len).each do
-        #     c = src.getch;
-        #     token_buffer << c
-        #   end
-        # end
-        c = src.getch
-      end while c =~ /\w/
-
-      if c =~ /\!|\?/ && token_buffer[0] =~ /\w/ && src.check(/./) != '=' then
-        token_buffer << c
-      else
-        src.unread c
+      src.pos -= 1 # HACK
+      if src.scan(/\w+[!?=]?/) then
+        token_buffer.push(*src.matched.split(//)) # TODO: that split is tarded.
       end
 
       result = nil

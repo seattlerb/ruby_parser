@@ -48,6 +48,20 @@ task :clean do
        Dir["lib/*.output"])
 end
 
+def next_num(glob)
+  num = Dir[glob].max[/\d+/].to_i + 1
+end
+
+def profile(type)
+  num = next_num("profile_#{type}*.txt")
+  sh "zenprofile -w -Ilib:ext:bin:test -rtest/unit test/test_ruby_#{type}.rb &> profile_#{type}_%03d.txt" % num
+end
+
+task :profile do
+  profile 'lexer'
+  profile 'parser'
+end
+
 begin
   require 'rcov/rcovtask'
   Rcov::RcovTask.new do |t|

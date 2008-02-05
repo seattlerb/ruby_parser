@@ -5,6 +5,7 @@ Autotest.add_hook :initialize do |at|
   at.libs << ":../../ParseTree/dev/lib:../../ParseTree/dev/test"
   at.add_exception 'unit'
   at.add_exception 'coverage'
+  at.add_exception '.diff'
   at.add_exception 'coverage.info'
 
   at.unit_diff = "unit_diff -u -b"
