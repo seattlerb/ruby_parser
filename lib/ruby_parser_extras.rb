@@ -1,6 +1,48 @@
 require 'stringio'
 require 'racc/parser'
 require 'sexp'
+require 'strscan'
+
+class StringScanner
+  alias :read :getch
+  alias :begin_of_line? :beginning_of_line?
+  alias :read_all :rest
+
+  def current_line # HAHA fuck you (HACK)
+    string[0..pos][/\A.*__LINE__/m].split(/\n/).size
+  end
+
+  def unread c
+    return if c.nil? # UGH
+
+    string[pos, 0] = c
+  end
+
+  def was_begin_of_line
+    pos <= 2 or string[pos-2] == ?\n
+  end
+
+  def match_string str, indent = false
+    if indent then
+      !! scan(/[ \t]*#{str}/)
+    else
+      !! scan(/#{str}/)
+    end
+  end
+
+  def read_line
+    scan(/.*\n/) # maybe try scan_until, but it doesn't move on zero length /$/
+  end
+
+  def unread_many str
+    string[pos, 0] = str
+  end
+
+  alias :old_peek :peek
+  def peek regexp_or_string
+    check regexp_or_string
+  end
+end
 
 ############################################################
 # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
@@ -43,7 +85,7 @@ class RubyParser < Racc::Parser
     raise "bad val: #{str.inspect}" unless String === str
 
     self.file = file
-    self.lexer.src = StringIO.new(str)
+    self.lexer.src = str
 
     @yydebug = ENV.has_key? 'DEBUG'
 
@@ -754,108 +796,6 @@ end
 class Symbol
   def is_argument # TODO: phase this out
     return self == :expr_arg || self == :expr_cmdarg
-  end
-end
-
-class StringIO # HACK: everything in here is a hack
-  attr_accessor :begin_of_line, :was_begin_of_line
-  alias :begin_of_line? :begin_of_line
-  alias :read_all :read
-
-  alias :old_initialize :initialize
-  
-  def initialize(*args)
-    self.begin_of_line = true
-    self.was_begin_of_line = false
-    old_initialize(*args)
-    @original_string = self.string.dup
-  end
-
-  def rest
-    self.string[self.pos..-1]
-  end
-
-  def current_line # HAHA fuck you (HACK)
-    @original_string[0..self.pos][/\A.*__LINE__/m].split(/\n/).size
-  end
-
-  def read
-    c = self.getc
-
-    if c == ?\r then
-      d = self.getc
-      self.ungetc d if d and d != ?\n
-      c = ?\n
-    end
-    
-    self.was_begin_of_line = self.begin_of_line
-    self.begin_of_line = c == ?\n
-    if c and c != 0 then
-      c.chr
-    else
-      ::RubyLexer::EOF
-    end
-  end
-
-  def match_string term, indent=false # TODO: add case insensitivity, or just remove
-    buffer = []
-
-    if indent
-      while c = self.read do
-        if c !~ /\s/ or c == "\n" or c == "\r" then
-          self.unread c
-          break
-        end
-        buffer << c
-      end
-    end
-
-    term.each_byte do |c2|
-      c = self.read
-      c = self.read if c and c == "\r"
-      buffer << c
-      if c and c2 != c[0] then
-        self.unread_many buffer.join # HACK omg
-        return false
-      end
-    end
-
-    return true
-  end
-
-  def read_line
-    self.begin_of_line = true
-    self.was_begin_of_line = false
-    gets.sub(/\r\n?$/, "\n") # HACK
-  end
-
-  def peek expected = nil # FIX: barf
-    c = self.getc
-    return RubyLexer::EOF if c.nil?
-    self.ungetc c if c
-    c = c.chr if c
-    if expected then
-      c == expected
-    else
-      c
-    end
-  end
-
-  def unread(c)
-    return if c.nil? # UGH
-
-    # HACK: only depth is 2... who cares? really I want to remove all of this
-    self.begin_of_line = self.was_begin_of_line || true
-    self.was_begin_of_line = nil
-
-    c = c[0] if String === c
-    self.ungetc c
-  end
-
-  def unread_many str
-    str.split(//).reverse.each do |c|
-      unread c
-    end
   end
 end
 

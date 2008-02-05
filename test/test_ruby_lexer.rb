@@ -10,7 +10,7 @@ class TestRubyLexer < Test::Unit::TestCase
 
   def setup
     @lex = RubyLexer.new
-    @lex.src = StringIO.new("blah blah")
+    @lex.src = "blah blah"
     @lex.lex_state = :expr_beg # HACK ? I have no idea actually
   end
 
@@ -22,14 +22,14 @@ class TestRubyLexer < Test::Unit::TestCase
 
   def test_is_next_identchar
     assert @lex.is_next_identchar
-    @lex.src = StringIO.new(" ")
+    @lex.src = " "
     deny @lex.is_next_identchar
-    @lex.src = StringIO.new("-")
+    @lex.src = "-"
     deny @lex.is_next_identchar
   end
 
   def test_is_next_no_case # TODO: worst name evah
-    @lex.src = StringIO.new("123 456")
+    @lex.src = "123 456"
     assert @lex.is_next_no_case("123")
     pos = @lex.src.pos
     deny @lex.is_next_no_case("begin")
@@ -43,14 +43,14 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_parse_number
-    @lex.src = StringIO.new '42'
+    @lex.src = '42'
     node = @lex.parse_number('1')
     assert_equal :tINTEGER, node
     assert_equal 142, @lex.yacc_value
   end
 
   def test_parse_quote
-    @lex.src = StringIO.new 'blah)'
+    @lex.src = 'blah)'
     node = @lex.parse_quote('(')
     assert_equal :tSTRING_BEG, node
     assert_equal s(:strterm, RubyLexer::STR_DQUOTE, ")", "("), @lex.lex_strterm
@@ -414,11 +414,18 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_lt2
-    util_lex_token "<\<", :tLSHFT, t("<\<")
+    util_lex_token("a <\< b",
+                   :tIDENTIFIER, t("a"),
+                   :tLSHFT, t("<\<"),
+                   :tIDENTIFIER, t("b"))
+
   end
 
   def test_yylex_lt2_equals
-    util_lex_token "<\<=", :tOP_ASGN, t("<\<")
+    util_lex_token("a <\<= b",
+                   :tIDENTIFIER, t("a"),
+                   :tOP_ASGN, t("<\<"),
+                   :tIDENTIFIER, t("b"))
   end
 
   def test_yylex_lt_equals
@@ -722,15 +729,14 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_underscore_end
-    @lex.src = StringIO.new "__END__"
+    @lex.src = "__END__\n"
     deny @lex.advance
-    assert @lex.end_seen
   end
 
   ############################################################
 
   def util_lex_token input, *args
-    @lex.src = StringIO.new input
+    @lex.src = input
 
     until args.empty? do
       token = args.shift

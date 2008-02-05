@@ -17,15 +17,15 @@ class RubyLexer
     @lex_state = o
   end
 
-  attr_accessor :end_seen # TODO: figure out if I really need this
-
   attr_accessor :lex_strterm
 
-  # Used for tiny smidgen of grammar in lexer
-  attr_accessor :parser_support # TODO: remove
-
   # Stream of data that yylex examines.
-  attr_accessor :src
+  attr_reader :src
+
+  def src= src
+    raise "bad src: #{src.inspect}" unless String === src
+    @src = StringScanner.new src
+  end
 
   # Last token read via yylex.
   attr_accessor :token
@@ -39,16 +39,6 @@ class RubyLexer
 
   # What handles warnings
   attr_accessor :warnings
-
-  # TODO: remove all of these
-  alias :source= :src=
-  alias :str_term :lex_strterm
-  alias :str_term= :lex_strterm=
-  alias :state :lex_state
-  alias :state= :lex_state=
-  alias :value :yacc_value
-  alias :value= :yacc_value=
-  alias :getCmdArgumentState :cmdarg
 
   # Give a name to a value.  Enebo: This should be used more.
   # HACK OMG HORRIBLE KILL ME NOW. Enebo, no. this shouldn't be used more
@@ -70,23 +60,22 @@ class RubyLexer
   STR_DSYM   = STR_FUNC_SYMBOL | STR_FUNC_EXPAND
 
   def initialize
-    self.parser_support = nil
     self.token_buffer = []
     self.cond = StackState.new(:cond)
     self.cmdarg = StackState.new(:cmdarg)
     self.nest = 0
-    self.end_seen = false
 
     reset
   end
 
   def reset
+    self.command_start = true
+    self.lex_strterm = nil
     self.token = nil
     self.yacc_value = nil
-    self.src = nil
+
+    @src = nil
     @lex_state = nil
-    self.lex_strterm = nil
-    self.command_start = true
   end
 
   # How the parser advances to the next token.
@@ -380,7 +369,7 @@ class RubyLexer
           break
         end
         self.nest -= 1
-      elsif (func & RubyLexer::STR_FUNC_EXPAND) != 0 && c == '#' && !src.peek("\n") then
+      elsif (func & RubyLexer::STR_FUNC_EXPAND) != 0 && c == '#' && !src.peek(/\n/) then
         c2 = src.read
 
         if c2 == '$' || c2 == '@' || c2 == '{' then
@@ -441,25 +430,29 @@ class RubyLexer
   def heredoc here
     _, eos, func, last_line = here
 
-    eosn = eos + "\n"
-    err_msg = "can't find string #{eos.inspect} anywhere before EOF"
-
-    indent = (func & RubyLexer::STR_FUNC_INDENT) != 0
     str = []
+    indent = (func & RubyLexer::STR_FUNC_INDENT) != 0
+    re = if indent then
+           /[ \t]*#{eos}(\r?\n|\z)/
+         else
+           /#{eos}(\r?\n|\z)/
+         end
 
-    raise SyntaxError, err_msg if src.peek == RubyLexer::EOF
+    err_msg = "can't match #{re.inspect} anywhere in "
 
-    if src.begin_of_line? && src.match_string(eosn, indent) then
+    raise SyntaxError, err_msg if src.eos?
+
+    if src.begin_of_line? && src.scan(re) then
       src.unread_many last_line
       self.yacc_value = t(eos)
       return :tSTRING_END
     end
 
     if (func & RubyLexer::STR_FUNC_EXPAND) == 0 then
-      begin
+      until src.scan(re) do
         str << src.read_line
-        raise SyntaxError, err_msg if src.peek == RubyLexer::EOF
-      end until src.match_string(eosn, indent)
+        raise SyntaxError, err_msg + src.rest.inspect if src.eos?
+      end
     else
       c = src.read
       buffer = []
@@ -479,28 +472,28 @@ class RubyLexer
 
       src.unread c
 
-      begin
+      until src.scan(re) do
         c = tokadd_string func, "\n", nil, buffer
 
-        raise SyntaxError, err_msg if c == RubyLexer::EOF
+        raise SyntaxError, err_msg + src.rest.inspect if c == RubyLexer::EOF
 
         if c != "\n" then
-          self.yacc_value = s(:str, buffer.join)
+          self.yacc_value = s(:str, buffer.join.delete("\r"))
           return :tSTRING_CONTENT
         end
 
         buffer << src.read
 
-        raise SyntaxError, err_msg if src.peek == RubyLexer::EOF
-      end until src.match_string(eosn, indent)
+        raise SyntaxError, err_msg + src.rest.inspect if src.eos?
+      end
 
       str = buffer
     end
 
-    src.unread_many eosn
+    src.unread_many(eos + "\n")
 
     self.lex_strterm = s(:heredoc, eos, func, last_line)
-    self.yacc_value = s(:str, str.join)
+    self.yacc_value = s(:str, str.join.delete("\r"))
 
     return :tSTRING_CONTENT
   end
@@ -605,7 +598,7 @@ class RubyLexer
       unless c =~ /\w/ then
         src.unread c
         src.unread '-' if (func & STR_FUNC_INDENT) != 0
-        return 0 # TODO: RubyLexer::EOF?
+        return 0 # TODO: false? RubyLexer::EOF?
       end
       token_buffer.clear
       term = '"'
@@ -777,7 +770,7 @@ class RubyLexer
         return :tBANG
       when '=' then
         # documentation nodes - FIX: cruby much cleaner w/ lookahead
-        if src.was_begin_of_line and src.match_string "begin" then
+        if src.was_begin_of_line and src.scan(/begin/) then
           self.token_buffer.clear
           self.token_buffer << "begin"
           c = src.read
@@ -802,7 +795,7 @@ class RubyLexer
 
               next unless c == '='
 
-              if src.was_begin_of_line && src.match_string("end") then
+              if src.was_begin_of_line && src.scan(/end/) then
                 token_buffer << "end"
                 token_buffer << src.read_line
                 src.unread "\n"
@@ -975,7 +968,7 @@ class RubyLexer
 #           support.unread c
 #           self.lex_state = :expr_beg
 #           return '?'
-        elsif c =~ /\w/ && ! src.peek("\n") && self.is_next_identchar then
+        elsif c =~ /\w/ && ! src.peek(/\n/) && self.is_next_identchar then
           # ternary, also
           src.unread c
           self.lex_state = :expr_beg
@@ -1280,7 +1273,7 @@ class RubyLexer
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
           if (c = src.read) == ']' then
-            if src.peek('=') then
+            if src.peek(/=/) then
               c = src.read
               self.yacc_value = t("[]=")
               return :tASET
@@ -1440,8 +1433,7 @@ class RubyLexer
           return '@'
         end
       when '_' then
-        if src.was_begin_of_line && src.match_string("_END__\n", false) then
-          self.end_seen = true
+        if src.was_begin_of_line && src.scan(/_END__(\n|\Z)/) then
           return RubyLexer::EOF
         end
         token_buffer.clear
@@ -1464,7 +1456,7 @@ class RubyLexer
         c = src.read
       end while c =~ /\w/
 
-      if c =~ /\!|\?/ && token_buffer[0] =~ /\w/ && src.peek != '=' then
+      if c =~ /\!|\?/ && token_buffer[0] =~ /\w/ && src.peek(/./) != '=' then
         token_buffer << c
       else
         src.unread c
@@ -1563,7 +1555,6 @@ class RubyLexer
       # are emulating
       # FIXME:  I believe this is much simpler now...
 # HACK
-#      scope = parser_support.current_scope
 #       if (IdUtil.var_type(temp_val) == IdUtil.LOCAL_VAR &&
 #           last_state != :expr_dot &&
 #           (BlockStaticScope === scope && (scope.is_defined(temp_val) >= 0)) ||
