@@ -36,6 +36,57 @@ class TestRubyLexer < Test::Unit::TestCase
     assert_equal ["%)"], @lex.yacc_value.args # FIX double check this
   end
 
+  def util_escape expected, input
+    @lex.src = input
+    assert_equal expected, @lex.read_escape
+  end
+
+  def test_read_escape
+    util_escape "\\",   '\\'
+    util_escape "\n",   'n'
+    util_escape "\t",   't'
+    util_escape "\r",   'r'
+    util_escape "\f",   'f'
+    util_escape "\13",  'v'
+    util_escape "\007", 'a'
+    util_escape "\033", 'e'
+    util_escape "\377", '377'
+    util_escape "\377", 'xff'
+    util_escape "\010", 'b'
+    util_escape " ",    's'
+    util_escape "q",    'q' # plain vanilla escape
+  end
+
+  def test_read_escape_m
+    util_escape "\370", "M-x"
+    util_escape "\230", 'M-\C-x'
+    util_escape "\230", 'M-\cx'
+  end
+
+  def test_read_escape_c
+    util_escape "\030", "C-x"
+    util_escape "\030", "cx"
+    util_escape "\230", 'C-\M-x'
+    util_escape "\230", 'c\M-x'
+
+    util_escape "\177", "C-?"
+    util_escape "\177", "c?"
+  end
+
+  def test_read_escape_errors
+    util_escape "\0", ""
+
+    util_escape "\0", "M"
+    util_escape "\0", "M-"
+    util_escape "\0", "Mx"
+
+    util_escape "\0", "Cx"
+    util_escape "\0", "C"
+    util_escape "\0", "C-"
+
+    util_escape "\0", "c"
+  end
+
   ############################################################
 
   def test_yylex_and

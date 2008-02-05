@@ -184,8 +184,10 @@ class RubyLexer
 
     src.unread c
 
-    rb_compile_error("unknown regexp option%s - %s" %
-                     [(bad.size > 1 ? "s" : ""), bad.join.inspect]) unless bad.empty?
+    unless bad.empty? then
+      rb_compile_error("unknown regexp option%s - %s" %
+                       [(bad.size > 1 ? "s" : ""), bad.join.inspect])
+    end
 
     return options.join
   end
@@ -202,7 +204,7 @@ class RubyLexer
         c = src.getch
         # HACK goto eof if (c == -1)
         if c < "0" || "7" < c then
-          pushback c
+          src.unread c
           break
         end
         self.token_buffer << c
@@ -226,7 +228,7 @@ class RubyLexer
     when "M" then
       if (c = src.getch()) != "-" then
         yyerror "Invalid escape character syntax"
-        pushback c
+        src.unread c
         return false
       end
       self.token_buffer << "\\"
@@ -237,7 +239,7 @@ class RubyLexer
     when "C" then
       if (c = src.getch) != "-" then
         yyerror "Invalid escape character syntax"
-        pushback c
+        src.unread c
         return false
       end
       self.token_buffer << "\\"
@@ -271,80 +273,54 @@ class RubyLexer
   end
 
   def read_escape
-    case c = src.getch
-    when "\\" then # Backslash
-      return c
-    when "n" then # newline
+    case
+    when src.scan(/\\/) then                   # Backslash
+      return '\\'
+    when src.scan(/n/) then                    # newline
       return "\n"
-    when "t" then # horizontal tab
+    when src.scan(/t/) then                    # horizontal tab
       return "\t"
-    when "r" then # carriage-return
+    when src.scan(/r/) then                    # carriage-return
       return "\r"
-    when "f" then # form-feed
+    when src.scan(/f/) then                    # form-feed
       return "\f"
-    when "v" then # vertical tab
+    when src.scan(/v/) then                    # vertical tab
       return "\13"
-    when "a" then # alarm(bell)
+    when src.scan(/a/) then                    # alarm(bell)
       return "\007"
-    when 'e' then # escape
+    when src.scan(/e/) then                    # escape
       return "\033"
-    when /[0-7]/ then # octal constant
-      src.unscan # TODO this seems dumb
-      n = src.scan(/[0-7]{3}/)
-      # TODO: error handling
-      return n.to_i(8).chr
-    when "x" then # hex constant
-      n = src.scan(/[0-9a-fA-F]{2}/)
-      # TODO: error handling
-      return n.to_i(16).chr
-    when "b" then # backspace
+    when src.scan(/b/) then                    # backspace
       return "\010"
-    when "s" then # space
+    when src.scan(/s/) then                    # space
       return " "
-    when "M" then
-      c = src.getch
-      if c  != "-" then
-        yyerror("Invalid escape character syntax")
-        src.unread c
-        return "\0"
-      end
-
-      c = src.getch
-      case c
-      when "\\" then
-        c = self.read_escape
-        c[0] |= 0x80
-        return c
-      when RubyLexer::EOF then
-        yyerror("Invalid escape character syntax");
-        return '\0';
-      else
-        c[0] |= 0x80
-        return c
-      end
-    when "C", "c" then
-      if (c = src.getch) != "-" then
-        yyerror("Invalid escape character syntax")
-        pushback(c)
-        return "\0"
-      end if c == "C"
-
-      case c = src.getch
-      when "\\" then
-        c = read_escape
-      when "?" then
-        return 0177
-      when RubyLexer::EOF then
-        yyerror("Invalid escape character syntax");
-        return "\0";
-      end
+    when src.scan(/[0-7]{3}/) then             # octal constant
+      return src.matched.to_i(8).chr
+    when src.scan(/x([0-9a-fA-Fa-f]{2})/) then # hex constant
+      return src[1].to_i(16).chr
+    when src.scan(/M-\\/) then
+      c = self.read_escape
+      c[0] |= 0x80
+      return c
+    when src.scan(/M-(.)/) then
+      c = src[1]
+      c[0] |= 0x80
+      return c
+    when src.scan(/C-\\|c\\/) then
+      c = self.read_escape
       c[0] &= 0x9f
       return c
-    when RubyLexer::EOF then
+    when src.scan(/C-\?|c\?/) then
+      return 0177.chr
+    when src.scan(/(C-|c)(.)/) then
+      c = src[2]
+      c[0] &= 0x9f
+      return c
+    when src.scan(/[McCx0-9]/) || src.eos? then
       yyerror("Invalid escape character syntax")
       return "\0"
     else
-      return c
+      return src.getch
     end
   end
 
@@ -395,13 +371,13 @@ class RubyLexer
             buffer << "\\"
           end
         end
-        #         else if (ismbchar(c)) {
-        #             int i, len = mbclen(c)-1;
-        #             for (i = 0; i < len; i++) {
-        #                 tokadd(c);
-        #                 c = nextc();
-        #             }
-        #         }
+        # else if (ismbchar(c)) {
+        #   int i, len = mbclen(c)-1;
+        #   for (i = 0; i < len; i++) {
+        #     tokadd(c);
+        #     c = nextc();
+        #   }
+        # }
       elsif (func & RubyLexer::STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
         src.unread c
         break
@@ -575,9 +551,11 @@ class RubyLexer
       token_buffer.clear
       term = c
 
-      while (c = src.getch) != RubyLexer::EOF && c != term
-        token_buffer << c
+      if src.scan(/[^#{Regexp.escape term}]+/) then
+        token_buffer.push(*src.matched.split(//))
       end
+
+      c = src.getch
 
       if c == RubyLexer::EOF then
         raise SyntaxError, "unterminated here document identifier"
@@ -588,13 +566,15 @@ class RubyLexer
         src.unread '-' if (func & STR_FUNC_INDENT) != 0
         return 0 # TODO: false? RubyLexer::EOF?
       end
+
       token_buffer.clear
       term = '"'
       func |= STR_DQUOTE
-      begin
-        token_buffer << c
-      end while (c = src.getch) != RubyLexer::EOF && c =~ /\w/
-      src.unread c
+
+      token_buffer.push c
+      if src.scan(/\w+/) then
+        token_buffer.push(*src.matched.split(//)) # FIX
+      end
     end
 
     line = src.scan(/.*\n/)
@@ -1539,6 +1519,12 @@ class RubyLexer
     end
   end
 
+  def int_with_base base
+    raise SyntaxError, "Invalid numeric format" if src.matched =~ /__/
+    self.yacc_value = src.matched.to_i(base)
+    return :tINTEGER
+  end
+
   ##
   #  Parse a number from the input stream.
   #
@@ -1550,34 +1536,21 @@ class RubyLexer
 
     src.unscan # put number back in - stupid lexer...
 
-    if c == '0' then
-      base = case
-             when src.scan(/[+-]?0[xbd]\b/) then
-               raise SyntaxError, "Invalid numeric format"
-             when src.scan(/[+-]?0x[a-f0-9_]+/i) then
-               16
-             when src.scan(/[+-]?0b[01_]+/) then
-               2
-             when src.scan(/[+-]?0d[0-9_]+/) then
-               10
-             when src.scan(/[+-]?0o?[0-7_]*[89]/) then
-               raise SyntaxError, "Illegal octal digit."
-             when src.scan(/[+-]?0o?[0-7_]+|0o/) then
-               8
-             when src.scan(/[+-]?0\b/) then
-               10
-             else
-               nil # should just be integers/floats at this stage...
-             end
-
-      if base then
-        raise SyntaxError, "Invalid numeric format" if src.matched =~ /__/
-        self.yacc_value = src.matched.to_i(base)
-        return :tINTEGER
-      end
-    end
-
     case
+    when src.scan(/[+-]?0[xbd]\b/) then
+      raise SyntaxError, "Invalid numeric format"
+    when src.scan(/[+-]?0x[a-f0-9_]+/i) then
+      return int_with_base(16)
+    when src.scan(/[+-]?0b[01_]+/) then
+      return int_with_base(2)
+    when src.scan(/[+-]?0d[0-9_]+/) then
+      return int_with_base(10)
+    when src.scan(/[+-]?0o?[0-7_]*[89]/) then
+      raise SyntaxError, "Illegal octal digit."
+    when src.scan(/[+-]?0o?[0-7_]+|0o/) then
+      return int_with_base(8)
+    when src.scan(/[+-]?0\b/) then
+      return int_with_base(10)
     when src.scan(/[+-]?[\d_]+_(e|\.)/) then
       raise SyntaxError, "Trailing '_' in number."
     when src.scan(/[+-]?[\d_]+(e[+-]?|\.)[\d_]+\b/) then
@@ -1586,10 +1559,7 @@ class RubyLexer
       self.yacc_value = number.to_f
       return :tFLOAT
     when src.scan(/[+-]?[\d_]+\b/) then
-      number = src.matched
-      raise SyntaxError, "Invalid numeric format" if number =~ /__/
-      self.yacc_value = number.to_i
-      return :tINTEGER
+      return int_with_base(10)
     else
       raise SyntaxError, "Bad number format: #{src.rest.inspect}"
     end
@@ -1599,6 +1569,10 @@ class RubyLexer
   # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 
   def warning s
+    # do nothing for now
+  end
+
+  def yyerror msg
     # do nothing for now
   end
 
