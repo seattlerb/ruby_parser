@@ -36,9 +36,65 @@ class TestRubyLexer < Test::Unit::TestCase
     assert_equal ["%)"], @lex.yacc_value.args # FIX double check this
   end
 
-  def util_escape expected, input
-    @lex.src = input
-    assert_equal expected, @lex.read_escape
+  def test_parse_string_double
+    @lex.src = 'blah # blah"'
+    lex_term = s(:strterm, RubyLexer::STR_DQUOTE, '"', "\0")
+    @lex.lex_strterm = lex_term
+    node = @lex.parse_string(@lex.lex_strterm)
+    assert_equal :tSTRING_CONTENT, node
+    assert_equal s(:str, "blah # blah"), @lex.yacc_value
+    assert_equal lex_term, @lex.lex_strterm
+  end
+
+  def test_parse_string_double_inter
+    @lex.src = 'a #$a"'
+    lex_term = s(:strterm, RubyLexer::STR_DQUOTE, '"', "\0")
+    @lex.lex_strterm = lex_term
+    node = @lex.parse_string(@lex.lex_strterm)
+    assert_equal :tSTRING_CONTENT, node
+    assert_equal s(:str, "a "), @lex.yacc_value
+    assert_equal lex_term, @lex.lex_strterm
+
+    node = @lex.parse_string(@lex.lex_strterm)
+    assert_equal :tSTRING_DVAR, node
+    # $a
+    assert_equal lex_term, @lex.lex_strterm
+
+    @lex.src = 'b #@b"'
+    lex_term = s(:strterm, RubyLexer::STR_DQUOTE, '"', "\0")
+    @lex.lex_strterm = lex_term
+    node = @lex.parse_string(@lex.lex_strterm)
+    assert_equal :tSTRING_CONTENT, node
+    assert_equal s(:str, "b "), @lex.yacc_value
+    assert_equal lex_term, @lex.lex_strterm
+
+    node = @lex.parse_string(@lex.lex_strterm)
+    assert_equal :tSTRING_DVAR, node
+    # @b
+    assert_equal lex_term, @lex.lex_strterm
+
+    @lex.src = 'c #{c}"'
+    lex_term = s(:strterm, RubyLexer::STR_DQUOTE, '"', "\0")
+    @lex.lex_strterm = lex_term
+    node = @lex.parse_string(@lex.lex_strterm)
+    assert_equal :tSTRING_CONTENT, node
+    assert_equal s(:str, "c "), @lex.yacc_value
+    assert_equal lex_term, @lex.lex_strterm
+
+    node = @lex.parse_string(@lex.lex_strterm)
+    assert_equal :tSTRING_DBEG, node
+    # #{c}
+    assert_equal lex_term, @lex.lex_strterm
+  end
+
+  def test_parse_string_single
+    @lex.src = "blah blah'"
+    lex_term = s(:strterm, RubyLexer::STR_SQUOTE, "'", "\0")
+    @lex.lex_strterm = lex_term
+    node = @lex.parse_string(@lex.lex_strterm)
+    assert_equal :tSTRING_CONTENT, node
+    assert_equal s(:str, "blah blah"), @lex.yacc_value
+    assert_equal lex_term, @lex.lex_strterm
   end
 
   def test_read_escape
@@ -57,12 +113,6 @@ class TestRubyLexer < Test::Unit::TestCase
     util_escape "q",    'q' # plain vanilla escape
   end
 
-  def test_read_escape_m
-    util_escape "\370", "M-x"
-    util_escape "\230", 'M-\C-x'
-    util_escape "\230", 'M-\cx'
-  end
-
   def test_read_escape_c
     util_escape "\030", "C-x"
     util_escape "\030", "cx"
@@ -74,20 +124,24 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_read_escape_errors
-    util_escape "\0", ""
+    util_escape_bad ""
 
-    util_escape "\0", "M"
-    util_escape "\0", "M-"
-    util_escape "\0", "Mx"
+    util_escape_bad "M"
+    util_escape_bad "M-"
+    util_escape_bad "Mx"
 
-    util_escape "\0", "Cx"
-    util_escape "\0", "C"
-    util_escape "\0", "C-"
+    util_escape_bad "Cx"
+    util_escape_bad "C"
+    util_escape_bad "C-"
 
-    util_escape "\0", "c"
+    util_escape_bad "c"
   end
 
-  ############################################################
+  def test_read_escape_m
+    util_escape "\370", "M-x"
+    util_escape "\230", 'M-\C-x'
+    util_escape "\230", 'M-\cx'
+  end
 
   def test_yylex_and
     util_lex_token "&", :tAMPER, t("&")
@@ -263,14 +317,8 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token "1.0", :tFLOAT, 1.0
   end
 
-  def test_yylex_float_neg
-    util_lex_token("-1.0",
-                   :tUMINUS_NUM, t("-"),
-                   :tFLOAT, 1.0)
-  end
-
   def test_yylex_float_bad_trailing_underscore
-    util_bad_number "123_.0"
+    util_bad_token "123_.0"
   end
 
   def test_yylex_float_call
@@ -284,24 +332,22 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token "1e10", :tFLOAT, 1e10
   end
 
-  def test_yylex_float_e_neg
-    util_lex_token("-1e10",
-                   :tUMINUS_NUM, t("-"),
-                   :tFLOAT, 1e10)
+  def test_yylex_float_e_bad_double_e
+    util_bad_token "1e2e3"
   end
 
-  def test_yylex_float_e_plus
-    util_lex_token "1e+10", :tFLOAT, 1e10
-  end
-
-  def test_yylex_float_e_neg_plus
-    util_lex_token("-1e+10",
-                   :tUMINUS_NUM, t("-"),
-                   :tFLOAT, 1e10)
+  def test_yylex_float_e_bad_trailing_underscore
+    util_bad_token "123_e10"
   end
 
   def test_yylex_float_e_minus
     util_lex_token "1e-10", :tFLOAT, 1e-10
+  end
+
+  def test_yylex_float_e_neg
+    util_lex_token("-1e10",
+                   :tUMINUS_NUM, t("-"),
+                   :tFLOAT, 1e10)
   end
 
   def test_yylex_float_e_neg_minus
@@ -310,16 +356,24 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tFLOAT, 1e-10)
   end
 
-  def test_yylex_float_e_bad_double_e
-    util_bad_number "1e2e3"
+  def test_yylex_float_e_neg_plus
+    util_lex_token("-1e+10",
+                   :tUMINUS_NUM, t("-"),
+                   :tFLOAT, 1e10)
   end
 
-  def test_yylex_float_e_bad_trailing_underscore
-    util_bad_number "123_e10"
+  def test_yylex_float_e_plus
+    util_lex_token "1e+10", :tFLOAT, 1e10
   end
 
   def test_yylex_float_e_zero
     util_lex_token "0e0", :tFLOAT, 0e0
+  end
+
+  def test_yylex_float_neg
+    util_lex_token("-1.0",
+                   :tUMINUS_NUM, t("-"),
+                   :tFLOAT, 1.0)
   end
 
   def test_yylex_ge
@@ -453,11 +507,11 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_integer_bin_bad_none
-    util_bad_number "0b "
+    util_bad_token "0b "
   end
 
   def test_yylex_integer_bin_bad_underscores
-    util_bad_number "0b10__01"
+    util_bad_token "0b10__01"
   end
 
   def test_yylex_integer_dec
@@ -465,7 +519,7 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_integer_dec_bad_underscores
-    util_bad_number "42__24"
+    util_bad_token "42__24"
   end
 
   def test_yylex_integer_dec_d
@@ -473,11 +527,11 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_integer_dec_d_bad_none
-    util_bad_number "0d"
+    util_bad_token "0d"
   end
 
   def test_yylex_integer_dec_d_bad_underscores
-    util_bad_number "0d42__24"
+    util_bad_token "0d42__24"
   end
 
   def test_yylex_integer_eh_a
@@ -493,11 +547,11 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_integer_hex_bad_none
-    util_bad_number "0x "
+    util_bad_token "0x "
   end
 
   def test_yylex_integer_hex_bad_underscores
-    util_bad_number "0xab__cd"
+    util_bad_token "0xab__cd"
   end
 
   def test_yylex_integer_oct
@@ -505,11 +559,11 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_integer_oct_bad_range
-    util_bad_number "08"
+    util_bad_token "08"
   end
 
   def test_yylex_integer_oct_bad_underscores
-    util_bad_number "01__23"
+    util_bad_token "01__23"
   end
 
   def test_yylex_integer_oct_o
@@ -517,11 +571,11 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_integer_oct_o_bad_range
-    util_bad_number "0o8"
+    util_bad_token "0o8"
   end
 
   def test_yylex_integer_oct_o_bad_underscores
-    util_bad_number "0o1__23"
+    util_bad_token "0o1__23"
   end
 
   def test_yylex_integer_oct_o_not_bad_none
@@ -540,7 +594,7 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_integer_underscore_bad
-    util_bad_number "4__2"
+    util_bad_token "4__2"
   end
 
   def test_yylex_integer_zero
@@ -699,6 +753,34 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tINTEGER, 42)
   end
 
+  def test_yylex_question
+    util_lex_token "?*", :tINTEGER, 42
+  end
+
+  def test_yylex_question_ws
+    util_lex_token "? ",  "?", t("?")
+    util_lex_token "?\n", "?", t("?")
+    util_lex_token "?\t", "?", t("?")
+    util_lex_token "?\v", "?", t("?")
+    util_lex_token "?\r", "?", t("?")
+    util_lex_token "?\f", "?", t("?")
+  end
+
+  def test_yylex_question_ws_backslashed
+    @lex.lex_state = :expr_beg
+    util_lex_token "?\\ ", :tINTEGER, 32
+    @lex.lex_state = :expr_beg
+    util_lex_token "?\\n", :tINTEGER, 10
+    @lex.lex_state = :expr_beg
+    util_lex_token "?\\t", :tINTEGER, 9
+    @lex.lex_state = :expr_beg
+    util_lex_token "?\\v", :tINTEGER, 11
+    @lex.lex_state = :expr_beg
+    util_lex_token "?\\r", :tINTEGER, 13
+    @lex.lex_state = :expr_beg
+    util_lex_token "?\\f", :tINTEGER, 12
+  end
+
   def test_yylex_rbracket
     util_lex_token "]", :tRBRACK, t("]")
   end
@@ -714,24 +796,134 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tREGEXP_END,     "")
   end
 
+  def test_yylex_regexp_bad
+    util_bad_token("/.*/xyz",
+                   :tREGEXP_BEG, t("/"),
+                   :tSTRING_CONTENT, s(:str, ".*"))
+  end
+
+  def test_yylex_regexp_escape_C
+    util_lex_token('/regex\\C-x/',
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "regex\\C-x"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_C_M
+    util_lex_token('/regex\\C-\\M-x/',
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "regex\\C-\\M-x"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_C_M_craaaazy
+    util_lex_token("/regex\\C-\\\n\\M-x/",
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "regex\\C-\\M-x"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_C_bad_dash
+    util_bad_token '/regex\\Cx/', :tREGEXP_BEG, t("/")
+  end
+
+  def test_yylex_regexp_escape_C_bad_dash_eos
+    util_bad_token '/regex\\C-/', :tREGEXP_BEG, t("/")
+  end
+
+  def test_yylex_regexp_escape_C_bad_dash_eos2
+    util_bad_token '/regex\\C-', :tREGEXP_BEG, t("/")
+  end
+
+  def test_yylex_regexp_escape_C_bad_eos
+    util_bad_token '/regex\\C/', :tREGEXP_BEG, t("/")
+  end
+
+  def test_yylex_regexp_escape_C_bad_eos2
+    util_bad_token '/regex\\c', :tREGEXP_BEG, t("/")
+  end
+
+  def test_yylex_regexp_escape_M
+    util_lex_token('/regex\\M-x/',
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "regex\\M-x"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_M_C
+    util_lex_token('/regex\\M-\\C-x/',
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "regex\\M-\\C-x"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_M_bad_dash
+    util_bad_token '/regex\\Mx/', :tREGEXP_BEG, t("/")
+  end
+
+  def test_yylex_regexp_escape_M_bad_dash_eos
+    util_bad_token '/regex\\M-/', :tREGEXP_BEG, t("/")
+  end
+
+  def test_yylex_regexp_escape_M_bad_dash_eos2
+    util_bad_token '/regex\\M-', :tREGEXP_BEG, t("/")
+  end
+
+  def test_yylex_regexp_escape_M_bad_eos
+    util_bad_token '/regex\\M/', :tREGEXP_BEG, t("/")
+  end
+
+  def test_yylex_regexp_escape_bad_eos
+    util_bad_token '/regex\\', :tREGEXP_BEG, t("/")
+  end
+
+  def test_yylex_regexp_escape_c
+    util_lex_token('/regex\\cx/',
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "regex\\cx"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_c_backslash
+    util_lex_token('/regex\\c\\n/',
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "regex\\c\\n"),
+                   :tREGEXP_END,     "")
+  end
+
   def test_yylex_regexp_escape_chars
-    util_lex_token('/re\tge\nxp/',
+    util_lex_token('/re\\tge\\nxp/',
                    :tREGEXP_BEG,     t("/"),
                    :tSTRING_CONTENT, s(:str, "re\\tge\\nxp"),
                    :tREGEXP_END,     "")
   end
 
   def test_yylex_regexp_escape_hex
-    util_lex_token('/re\tge\x61xp/',
+    util_lex_token('/re\\tge\\x61xp/',
                    :tREGEXP_BEG,     t("/"),
                    :tSTRING_CONTENT, s(:str, "re\\tge\\x61xp"),
                    :tREGEXP_END,     "")
   end
 
+  def test_yylex_regexp_escape_hex_bad
+    util_bad_token '/regex\\x6z/', :tREGEXP_BEG, t("/")
+  end
+
   def test_yylex_regexp_escape_oct
-    util_lex_token('/re\tge\101xp/',
+    util_lex_token('/re\\tge\\101xp/',
                    :tREGEXP_BEG,     t("/"),
                    :tSTRING_CONTENT, s(:str, "re\\tge\\101xp"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_oct_bad
+    util_bad_token '/regex\\199/', :tREGEXP_BEG, t("/")
+  end
+
+  def test_yylex_regexp_escape_return
+    util_lex_token("/regex\\\nregex/",
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "regexregex"),
                    :tREGEXP_END,     "")
   end
 
@@ -800,28 +992,28 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_string_double_escape_M
-    util_lex_token('"\M-g"',
+    util_lex_token('"\\M-g"',
                    :tSTRING_BEG,     t('"'),
                    :tSTRING_CONTENT, s(:str, "\347"),
                    :tSTRING_END,     t('"'))
   end
 
   def test_yylex_string_double_escape_chars
-    util_lex_token('"s\tri\ng"',
+    util_lex_token('"s\\tri\\ng"',
                    :tSTRING_BEG,     t('"'),
                    :tSTRING_CONTENT, s(:str, "s\tri\ng"),
                    :tSTRING_END,     t('"'))
   end
 
   def test_yylex_string_double_escape_hex
-    util_lex_token('"n = \x61\x62\x63"',
+    util_lex_token('"n = \\x61\\x62\\x63"',
                    :tSTRING_BEG,     t('"'),
                    :tSTRING_CONTENT, s(:str, "n = abc"),
                    :tSTRING_END,     t('"'))
   end
 
   def test_yylex_string_double_escape_octal
-    util_lex_token('"n = \101\102\103"',
+    util_lex_token('"n = \\101\\102\\103"',
                    :tSTRING_BEG,     t('"'),
                    :tSTRING_CONTENT, s(:str, "n = ABC"),
                    :tSTRING_END,     t('"'))
@@ -854,6 +1046,26 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tIDENTIFIER, t("symbol"))
   end
 
+  def test_yylex_ternary
+    util_lex_token("a ? b : c",
+                   :tIDENTIFIER, t("a"),
+                   "?", t("?"), # FIX
+                   :tIDENTIFIER, t("b"),
+                   ":", t(":"), # FIX
+                   :tIDENTIFIER, t("c"))
+
+    util_lex_token("a ?bb : c", # GAH! MATZ!!!
+                   :tIDENTIFIER, t("a"),
+                   "?", t("?"), # FIX
+                   :tIDENTIFIER, t("bb"),
+                   ":", t(":"), # FIX
+                   :tIDENTIFIER, t("c"))
+
+    util_lex_token("42 ?", # 42 forces expr_end
+                   :tINTEGER, 42,
+                   "?", t("?"))
+  end
+
   def test_yylex_tilde
     util_lex_token "~", :tTILDE, t("~")
   end
@@ -861,15 +1073,6 @@ class TestRubyLexer < Test::Unit::TestCase
   def test_yylex_tilde_unary
     @lex.lex_state = :expr_fname
     util_lex_token "~@", :tTILDE, t("~")
-  end
-
-  def test_yylex_trinary
-    util_lex_token("a ? b : c",
-                   :tIDENTIFIER, t("a"),
-                   "?", t("?"), # FIX
-                   :tIDENTIFIER, t("b"),
-                   ":", t(":"), # FIX
-                   :tIDENTIFIER, t("c"))
   end
 
   def test_yylex_underscore
@@ -883,9 +1086,21 @@ class TestRubyLexer < Test::Unit::TestCase
 
   ############################################################
 
-  def util_bad_number s
+  def util_bad_token s, *args
     assert_raises SyntaxError do
-      util_lex_token s
+      util_lex_token s, *args
+    end
+  end
+
+  def util_escape expected, input
+    @lex.src = input
+    assert_equal expected, @lex.read_escape
+  end
+
+  def util_escape_bad input
+    @lex.src = input
+    assert_raises SyntaxError do
+      @lex.read_escape
     end
   end
 

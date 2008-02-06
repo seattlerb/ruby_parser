@@ -7,12 +7,22 @@ class StringScanner
     string[0..pos][/\A.*__LINE__/m].split(/\n/).size
   end
 
+  if ENV['TALLY'] then
+    alias :old_getch :getch
+    def getch
+      warn({:getch => caller[0]}.inspect)
+      old_getch
+    end
+  end
+
   def unread c
     return if c.nil? # UGH
+    warn({:unread => caller[0]}.inspect) if ENV['TALLY']
     string[pos, 0] = c
   end
 
   def unread_many str
+    warn({:unread_many => caller[0]}.inspect) if ENV['TALLY']
     string[pos, 0] = str
   end
 
@@ -160,9 +170,7 @@ class RubyLexer
     src.unread c
 
     if tokadd_string(func, term, paren, token_buffer) == RubyLexer::EOF then
-      # HACK ruby_sourceline = nd_line(quote)
-      raise "unterminated string meets end of file"
-      return :tSTRING_END
+      rb_compile_error "unterminated string meets end of file"
     end
 
     self.yacc_value = s(:str, token_buffer.join)
@@ -193,83 +201,25 @@ class RubyLexer
   end
 
   def tokadd_escape term
-    case c = src.getch
-    when "\n" then
-      return false    # just ignore
-    when /0-7/ then   # octal constant
-      self.token_buffer << "\\"
-      self.token_buffer << c
-
-      2.times do |i|
-        c = src.getch
-        # HACK goto eof if (c == -1)
-        if c < "0" || "7" < c then
-          src.unread c
-          break
-        end
-        self.token_buffer << c
-      end
-
-      return false
-    when "x" then # hex constant
-      self.token_buffer << "\\"
-      self.token_buffer << c
-
-      2.times do
-        c = src.getch
-        unless c =~ /[0-9a-f]/i then # TODO error case? empty?
-          src.unread c
-          break
-        end
-        self.token_buffer << c
-      end
-
-      return false
-    when "M" then
-      if (c = src.getch()) != "-" then
-        yyerror "Invalid escape character syntax"
-        src.unread c
-        return false
-      end
-      self.token_buffer << "\\"
-      self.token_buffer << "M"
-      self.token_buffer << "-"
-      raise "not yet"
-      # goto escaped;
-    when "C" then
-      if (c = src.getch) != "-" then
-        yyerror "Invalid escape character syntax"
-        src.unread c
-        return false
-      end
-      self.token_buffer << "\\"
-      self.token_buffer << "C"
-      self.token_buffer << "-"
-      raise "not yet"
-      # HACK goto escaped;
-    when "c" then
-      self.token_buffer << "\\"
-      self.token_buffer << "c"
-      # HACK escaped:
-      if (c = src.getch) == "\\" then
-        return tokadd_escape(term)
-      elsif c == -1 then
-        raise "no"
-        # HACK goto eof
-      end
-      self.token_buffer << c
-      return false
-      # HACK eof
-    when RubyLexer::EOF then
-      yyerror "Invalid escape character syntax"
-      return true
+    case
+    when src.scan(/\n/) then
+      # just ignore
+    when src.scan(/[0-7]{3}|x[0-9a-fA-F]{2}/) then
+      self.token_buffer << "\\" << src.matched
+    when src.scan(/([MC]-|c)\\/) then
+      self.token_buffer << "\\" << src[1]
+      self.tokadd_escape term
+    when src.scan(/([MC]-|c)(.)/) then
+      self.token_buffer << "\\" << src.matched
+    when src.scan(/[McCx0-9]/) || src.eos? then
+      rb_compile_error("Invalid escape character syntax")
     else
+      c = src.getch
       if (c != "\\" || c != term)
         self.token_buffer << "\\"
       end
       self.token_buffer << c
     end
-    return false
   end
 
   def read_escape
@@ -317,8 +267,7 @@ class RubyLexer
       c[0] &= 0x9f
       return c
     when src.scan(/[McCx0-9]/) || src.eos? then
-      yyerror("Invalid escape character syntax")
-      return "\0"
+      rb_compile_error("Invalid escape character syntax")
     else
       return src.getch
     end
@@ -552,7 +501,7 @@ class RubyLexer
       term = c
 
       if src.scan(/[^#{Regexp.escape term}]+/) then
-        token_buffer.push(*src.matched.split(//))
+        token_buffer.push(*src.matched)
       end
 
       c = src.getch
@@ -573,7 +522,7 @@ class RubyLexer
 
       token_buffer.push c
       if src.scan(/\w+/) then
-        token_buffer.push(*src.matched.split(//)) # FIX
+        token_buffer.push(*src.matched) # FIX
       end
     end
 
@@ -609,7 +558,7 @@ class RubyLexer
     token_buffer << c
 
     if src.scan(/.*\n/) then
-      token_buffer.push(*src.matched.split(//))
+      token_buffer.push(*src.matched)
     end
 
     # Store away each comment to parser result so IDEs can do whatever
@@ -897,10 +846,10 @@ class RubyLexer
 
         raise SyntaxError, "incomplete character syntax" if c == RubyLexer::EOF
 
-        if c =~ /\s/ then
+        if c =~ /\s|\v/ then
           unless lex_state.is_argument then
             c2 = case c
-                 when ' ' then
+                 when " " then
                    's'
                  when "\n" then
                    'n'
@@ -912,11 +861,9 @@ class RubyLexer
                    'r'
                  when "\f" then
                    'f'
-                 else
-                   0
                  end
 
-            if c2 != 0 then
+            if c2 then
               warning("invalid character syntax; use ?\\" + c2)
             end
           end
@@ -1565,22 +1512,11 @@ class RubyLexer
     end
   end
 
-  ############################################################
-  # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-
   def warning s
     # do nothing for now
   end
 
-  def yyerror msg
-    # do nothing for now
-  end
-
   def rb_compile_error msg
-    raise msg
+    raise SyntaxError, msg
   end
-
-  # END HACK
-  ############################################################$
-
 end

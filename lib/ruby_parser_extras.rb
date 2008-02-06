@@ -3,23 +3,6 @@ require 'racc/parser'
 require 'sexp'
 require 'strscan'
 
-############################################################
-# HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-
-class Module
-  def kill *methods
-    methods.each do |method|
-      define_method method do |*args|
-        c = caller
-        raise "#{method} is dead - called from #{c[0]}"
-      end
-    end
-  end
-end
-
-# END HACK
-############################################################
-
 class RubyParser < Racc::Parser
   VERSION = '1.0.0'
 
@@ -465,7 +448,6 @@ class RubyParser < Racc::Parser
 
   # END HACK
   ############################################################$
-
 end
 
 class Keyword
