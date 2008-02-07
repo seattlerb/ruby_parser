@@ -7,7 +7,7 @@ class RubyParser < Racc::Parser
   VERSION = '1.0.0'
 
   attr_accessor :lexer, :in_def, :in_single, :file
-  attr_reader :env, :warnings
+  attr_reader :env, :warnings, :comments
 
   def initialize
     super
@@ -15,6 +15,7 @@ class RubyParser < Racc::Parser
     self.in_def = false
     self.in_single = 0
     @env = Environment.new
+    @comments = []
   end
 
   alias :old_yyerror :yyerror
@@ -742,6 +743,7 @@ end
 
 class Sexp
   attr_writer :paren
+  attr_accessor :comments
 
   def paren
     @paren ||= false

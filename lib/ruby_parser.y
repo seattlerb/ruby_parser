@@ -960,6 +960,7 @@ primary      : literal
                  result << val[7] if val[7]
                }
              | kCLASS cpath superclass {
+                  self.comments.push self.lexer.comments
                   if (self.in_def || self.in_single > 0) then
                     yyerror("class definition in method body");
                   end
@@ -967,6 +968,7 @@ primary      : literal
                 } bodystmt kEND {
                   scope = s(:scope, val[4]).compact
                   result = s(:class, val[1].last.to_sym, val[2], scope)
+                  result.comments = self.comments.pop
                   self.env.unextend
                  }
              | kCLASS tLSHFT expr {
@@ -984,6 +986,7 @@ primary      : literal
                   self.in_single = val[5]
                  }
              | kMODULE cpath {
+                 self.comments.push self.lexer.comments
                  yyerror("module definition in method body") if
                    self.in_def or self.in_single > 0
 
@@ -991,9 +994,11 @@ primary      : literal
                } bodystmt kEND {
                  body = val[3] ? s(:scope, val[3]) : s(:scope)
                  result = s(:module, val[1].last.to_sym, body)
+                 result.comments = self.comments.pop
                  self.env.unextend;
                }
              | kDEF fname {
+                 self.comments.push self.lexer.comments
                  self.in_def = true
                  self.env.extend
                } f_arglist bodystmt kEND {
@@ -1005,11 +1010,13 @@ primary      : literal
                  body = self.block_append(args, body, body && body[0] == :block)
                  body.insert 2, block_arg if block_arg
                  result = s(:defn, name, s(:scope, body))
+                 result.comments = self.comments.pop
 
                  self.env.unextend
                  self.in_def = false
                }
              | kDEF singleton dot_or_colon { # 0-2, 3
+                 self.comments.push self.lexer.comments
                  lexer.lex_state = :expr_fname
                } fname {                     # 4, 5
                  self.in_single += 1
@@ -1023,6 +1030,7 @@ primary      : literal
                  body.insert 2, block_arg if block_arg
 
                  result = s(:defs, recv, name.value.to_sym, s(:scope, body))
+                 result.comments = self.comments.pop
 
                  self.env.unextend;
                  self.in_single -= 1

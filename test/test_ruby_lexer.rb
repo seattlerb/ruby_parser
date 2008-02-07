@@ -36,6 +36,30 @@ class TestRubyLexer < Test::Unit::TestCase
     assert_equal ["%)"], @lex.yacc_value.args # FIX double check this
   end
 
+  def test_parse_quote_angle
+    @lex.src = 'blah>'
+    node = @lex.parse_quote('<')
+    assert_equal :tSTRING_BEG, node
+    assert_equal s(:strterm, RubyLexer::STR_DQUOTE, ">", "<"), @lex.lex_strterm
+    assert_equal ["%>"], @lex.yacc_value.args # FIX double check this
+  end
+
+  def test_parse_quote_curly
+    @lex.src = 'blah}'
+    node = @lex.parse_quote('{')
+    assert_equal :tSTRING_BEG, node
+    assert_equal s(:strterm, RubyLexer::STR_DQUOTE, "}", "{"), @lex.lex_strterm
+    assert_equal ["%}"], @lex.yacc_value.args # FIX double check this
+  end
+
+  def test_parse_quote_other
+    @lex.src = 'blah%'
+    node = @lex.parse_quote('%')
+    assert_equal :tSTRING_BEG, node
+    assert_equal s(:strterm, RubyLexer::STR_DQUOTE, "%", "\0"), @lex.lex_strterm
+    assert_equal ["%%"], @lex.yacc_value.args # FIX double check this
+  end
+
   def test_parse_string_double
     @lex.src = 'blah # blah"'
     lex_term = s(:strterm, RubyLexer::STR_DQUOTE, '"', "\0")
@@ -235,15 +259,17 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_comment
-    util_lex_token("1 # one\n2",
+    util_lex_token("1 # one\n# two\n2",
                    :tINTEGER, 1,
                    "\n", 1,
                    :tINTEGER, 2)
+    assert_equal "# one\n# two\n", @lex.comments
   end
 
   def test_yylex_comment_begin
     util_lex_token("=begin\nblah\nblah\n=end\n42",
                    :tINTEGER, 42)
+    assert_equal "=begin\nblah\nblah\n=end\n", @lex.comments
   end
 
   def test_yylex_constant
@@ -439,6 +465,23 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tINTEGER, 2)
   end
 
+  def test_yylex_heredoc_backtick
+    util_lex_token("a = <<`EOF`\n  blah blah\nEOF\n",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tXSTRING_BEG,    t("`"),
+                   :tSTRING_CONTENT, s(:str, "  blah blah\n"),
+                   :tSTRING_END,     t("EOF"),
+                   "\n",             t("EOF"))
+  end
+
+  def test_yylex_heredoc_bad_eos
+    util_bad_token("a = <<EOF",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tSTRING_BEG,     t("\""))
+  end
+
   def test_yylex_heredoc_double
     util_lex_token("a = <<\"EOF\"\n  blah blah\nEOF\n",
                    :tIDENTIFIER,     t("a"),
@@ -455,6 +498,22 @@ class TestRubyLexer < Test::Unit::TestCase
                    "=",              t("="),
                    :tSTRING_BEG,     t("\""),
                    :tSTRING_CONTENT, s(:str, "  blah blah\n"),
+                   :tSTRING_END,     t("EOF"),
+                   "\n",             t("EOF"))
+  end
+
+  def test_yylex_heredoc_double_interp
+    util_lex_token("a = <<\"EOF\"\n#x a \#@a b \#$b c \#{3} \nEOF\n",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tSTRING_BEG,     t("\""),
+                   :tSTRING_CONTENT, s(:str, "#x a "),
+                   :tSTRING_DVAR,    t("\#@"),
+                   :tSTRING_CONTENT, s(:str, "@a b "), # HUH?
+                   :tSTRING_DVAR,    t("\#$"),
+                   :tSTRING_CONTENT, s(:str, "$b c "), # HUH?
+                   :tSTRING_DBEG,    t("\#{"),
+                   :tSTRING_CONTENT, s(:str, "3} \n"), # HUH?
                    :tSTRING_END,     t("EOF"),
                    "\n",             t("EOF"))
   end

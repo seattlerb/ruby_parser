@@ -59,6 +59,8 @@ class RubyLexer
   # Last token read via yylex.
   attr_accessor :token
 
+  attr_reader :comments
+
   # Tempory buffer to build up a potential token.  Consumer takes
   # responsibility to reset this before use.
   attr_accessor :token_buffer
@@ -93,6 +95,7 @@ class RubyLexer
     self.cond = StackState.new(:cond)
     self.cmdarg = StackState.new(:cmdarg)
     self.nest = 0
+    @comments = []
 
     reset
   end
@@ -345,17 +348,12 @@ class RubyLexer
   def heredoc here
     _, eos, func, last_line = here
 
-    str = []
-    indent = (func & RubyLexer::STR_FUNC_INDENT) != 0
-    re = if indent then
-           /[ \t]*#{eos}(\r?\n|\z)/
-         else
-           /#{eos}(\r?\n|\z)/
-         end
-
+    str     = []
+    indent  = (func & RubyLexer::STR_FUNC_INDENT) != 0
+    re      = indent ? /[ \t]*#{eos}(\r?\n|\z)/ : /#{eos}(\r?\n|\z)/
     err_msg = "can't match #{re.inspect} anywhere in "
 
-    raise SyntaxError, err_msg if src.eos?
+    rb_compile_error err_msg + src.rest.inspect if src.eos?
 
     if src.beginning_of_line? && src.scan(re) then
       src.unread_many last_line
@@ -373,7 +371,8 @@ class RubyLexer
       buffer = []
 
       if c == "#" then
-        case c = src.getch
+        c = src.getch
+        case c
         when "$", "@" then
           src.unread c
           self.yacc_value = t("#" + c)
@@ -501,13 +500,13 @@ class RubyLexer
       term = c
 
       if src.scan(/[^#{Regexp.escape term}]+/) then
-        token_buffer.push(*src.matched)
+        token_buffer << src.matched
       end
 
       c = src.getch
 
       if c == RubyLexer::EOF then
-        raise SyntaxError, "unterminated here document identifier"
+        rb_compile_error "unterminated here document identifier"
       end
     else
       unless c =~ /\w/ then
@@ -522,11 +521,18 @@ class RubyLexer
 
       token_buffer.push c
       if src.scan(/\w+/) then
-        token_buffer.push(*src.matched) # FIX
+        token_buffer << src.matched # FIX
       end
     end
 
-    line = src.scan(/.*\n/)
+    if src.check(/.*\n/) then
+      # remove the line segment entirely - ensures total string size
+      # is the same when it is replaced
+      line = src.string[src.pos, src.matched_size]
+      src.string[src.pos, src.matched_size] = ''
+    else
+      line = nil
+    end
     tok = token_buffer.join
     self.lex_strterm = s(:heredoc, tok, func, line)
 
@@ -543,29 +549,15 @@ class RubyLexer
     self.warning("Ambiguous first argument. make sure.")
   end
 
-  ##
-  # Read a comment up to end of line.  When found each comment will
-  # get stored away into the parser result so that any interested
-  # party can use them as they seem fit.  One idea is that IDE authors
-  # can do distance based heuristics to associate these comments to
-  # the AST node they think they belong to.
-  #
-  # @param c last character read from lexer source
-  # @return newline or eof value
+  def store_comment
+    @comments.push(*self.token_buffer)
+    self.token_buffer.clear
+  end
 
-  def read_comment c
-    token_buffer.clear
-    token_buffer << c
-
-    if src.scan(/.*\n/) then
-      token_buffer.push(*src.matched)
-    end
-
-    # Store away each comment to parser result so IDEs can do whatever
-    # they want with them.
-    # HACK parser_support.result.add_comment(Node.comment(token_buffer.join))
-
-    return ! src.eos?
+  def comments
+    c = @comments.join
+    @comments.clear
+    c
   end
 
   ##
@@ -615,7 +607,18 @@ class RubyLexer
         space_seen = true
         next
       when /#|\n/ then
-        return 0 if c == '#' and ! read_comment(c)
+        if c == '#' then
+          src.unread c # god this lexer is lame
+          token_buffer.clear
+
+          while src.scan(/\s*#.*\n+/) do
+            token_buffer << src.matched.gsub(/^ +#/, '#').gsub(/^ +$/, '')
+          end
+
+          self.store_comment
+
+          return RubyLexer::EOF if src.eos?
+        end
         # Replace a string of newlines with a single one
 
         src.scan(/\n+/)
@@ -684,7 +687,7 @@ class RubyLexer
         # documentation nodes - FIX: cruby much cleaner w/ lookahead
         if src.was_begin_of_line and src.scan(/begin/) then
           self.token_buffer.clear
-          self.token_buffer << "begin"
+          self.token_buffer << "=begin"
           c = src.getch
 
           if c =~ /\s/ then
@@ -715,7 +718,8 @@ class RubyLexer
               end
             end
 
-            # parser_support.result.add_comment(Node.comment(token_buffer.join))
+            self.store_comment
+
             next
           end
           src.unread(c)
@@ -972,7 +976,9 @@ class RubyLexer
 
         if (lex_state == :expr_beg || lex_state == :expr_mid ||
             (lex_state.is_argument && space_seen && c !~ /\s/)) then
-          arg_ambiguous if lex_state.is_argument
+          if lex_state.is_argument then
+            arg_ambiguous
+          end
           self.lex_state = :expr_beg
           if c =~ /\d/ then
             src.unscan     # HACK - these 3 lines... this lexer is so lame
@@ -1006,7 +1012,9 @@ class RubyLexer
         end
         if (lex_state == :expr_beg || lex_state == :expr_mid ||
             (lex_state.is_argument && space_seen && c !~ /\s/)) then
-          arg_ambiguous if lex_state.is_argument
+          if lex_state.is_argument then
+            arg_ambiguous
+          end
           self.lex_state = :expr_beg
           src.unread c
           self.yacc_value = t("-")

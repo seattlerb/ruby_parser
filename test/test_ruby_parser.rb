@@ -157,6 +157,49 @@ end
     assert_equal pt, @processor.parse(rb)
   end
 
+  def test_class_comments
+    rb = "# blah 1\n# blah 2\n\nclass X\n  # blah 3\n  def blah\n    # blah 4\n  end\nend"
+    pt = s(:class, :X, nil,
+           s(:scope,
+             s(:defn, :blah, s(:scope, s(:block, s(:args), s(:nil))))))
+
+    actual = @processor.parse(rb)
+    assert_equal pt, actual
+
+    assert_equal "# blah 1\n# blah 2\n\n", actual.comments
+    assert_equal "# blah 3\n", actual.scope.defn.comments
+  end
+
+  def test_module_comments
+    rb = "# blah 1\n  \n  # blah 2\n\nmodule X\n  # blah 3\n  def blah\n    # blah 4\n  end\nend"
+    pt = s(:module, :X,
+           s(:scope,
+             s(:defn, :blah, s(:scope, s(:block, s(:args), s(:nil))))))
+
+    actual = @processor.parse(rb)
+    assert_equal pt, actual
+    assert_equal "# blah 1\n\n# blah 2\n\n", actual.comments
+    assert_equal "# blah 3\n", actual.scope.defn.comments
+  end
+
+  def test_defn_comments
+    rb = "# blah 1\n# blah 2\n\ndef blah\nend"
+    pt = s(:defn, :blah, s(:scope, s(:block, s(:args), s(:nil))))
+
+    actual = @processor.parse(rb)
+    assert_equal pt, actual
+    assert_equal "# blah 1\n# blah 2\n\n", actual.comments
+  end
+
+  def test_defs_comments
+    rb = "# blah 1\n# blah 2\n\ndef self.blah\nend"
+    pt = s(:defs, s(:self), :blah, s(:scope, s(:args)))
+
+    actual = @processor.parse(rb)
+    assert_equal pt, actual
+    assert_equal "# blah 1\n# blah 2\n\n", actual.comments
+  end
+
   def test_do_bug # TODO: rename
     rb = "a 1\na.b do |c|\n  # do nothing\nend"
     pt = s(:block,
