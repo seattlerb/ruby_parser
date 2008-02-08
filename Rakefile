@@ -84,6 +84,16 @@ task :compare do
   system 'find -d unit -type d -empty -exec rmdir {} \;'
 end
 
+desc "Compares PT to RP and stops on first failure"
+task :find_bug do
+  files = Dir["unit/**/*.rb"]
+  puts "Parsing #{files.size} files"
+  files.each do |file|
+    puts file
+    sh "./cmp.rb -q #{file}"
+  end
+end
+
 task :rcov_info => :parser do
   pattern = ENV['PATTERN'] || "test/test_*.rb"
   ruby "-Ilib -S rcov --text-report --save coverage.info #{pattern}"

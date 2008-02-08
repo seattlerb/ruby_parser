@@ -128,6 +128,8 @@ class TestRubyLexer < Test::Unit::TestCase
     util_escape "\r",   'r'
     util_escape "\f",   'f'
     util_escape "\13",  'v'
+    util_escape "\0",   '0'
+    util_escape "\07",  'a'
     util_escape "\007", 'a'
     util_escape "\033", 'e'
     util_escape "\377", '377'
@@ -341,6 +343,10 @@ class TestRubyLexer < Test::Unit::TestCase
 
   def test_yylex_float
     util_lex_token "1.0", :tFLOAT, 1.0
+  end
+
+  def test_yylex_float_dot_e
+    util_lex_token "1.0e10", :tFLOAT, 1.0e10
   end
 
   def test_yylex_float_bad_trailing_underscore
@@ -937,9 +943,9 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_regexp_escape_c
-    util_lex_token('/regex\\cx/',
+    util_lex_token('/regex\\cxxx/',
                    :tREGEXP_BEG,     t("/"),
-                   :tSTRING_CONTENT, s(:str, "regex\\cx"),
+                   :tSTRING_CONTENT, s(:str, "regex\\cxxx"),
                    :tREGEXP_END,     "")
   end
 
@@ -958,25 +964,35 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_regexp_escape_hex
-    util_lex_token('/re\\tge\\x61xp/',
+    util_lex_token('/regex\\x61xp/',
                    :tREGEXP_BEG,     t("/"),
-                   :tSTRING_CONTENT, s(:str, "re\\tge\\x61xp"),
+                   :tSTRING_CONTENT, s(:str, "regex\\x61xp"),
                    :tREGEXP_END,     "")
   end
 
   def test_yylex_regexp_escape_hex_bad
-    util_bad_token '/regex\\x6z/', :tREGEXP_BEG, t("/")
+    util_bad_token '/regex\\x6zxp/', :tREGEXP_BEG, t("/")
   end
 
-  def test_yylex_regexp_escape_oct
-    util_lex_token('/re\\tge\\101xp/',
+  def test_yylex_regexp_escape_oct1
+    util_lex_token('/regex\\0xp/',
                    :tREGEXP_BEG,     t("/"),
-                   :tSTRING_CONTENT, s(:str, "re\\tge\\101xp"),
+                   :tSTRING_CONTENT, s(:str, "regex\\0xp"),
                    :tREGEXP_END,     "")
   end
 
-  def test_yylex_regexp_escape_oct_bad
-    util_bad_token '/regex\\199/', :tREGEXP_BEG, t("/")
+  def test_yylex_regexp_escape_oct2
+    util_lex_token('/regex\\07xp/',
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "regex\\07xp"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_oct3
+    util_lex_token('/regex\\10142/',
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, "regex\\10142"),
+                   :tREGEXP_END,     "")
   end
 
   def test_yylex_regexp_escape_return
@@ -1141,6 +1157,53 @@ class TestRubyLexer < Test::Unit::TestCase
   def test_yylex_underscore_end
     @lex.src = "__END__\n"
     deny @lex.advance
+  end
+
+  def test_zbug_id_equals
+    util_lex_token("a =",
+                   :tIDENTIFIER, t("a"),
+                   '=', t("="))
+
+    assert_equal :expr_beg, @lex.lex_state
+
+    util_lex_token("0.0",
+                   :tFLOAT, 0.0)
+  end
+
+  def test_zbug_no_spaces_in_decl
+    util_lex_token("def initialize(u=",
+                   :kDEF, t("def"),
+                   :tIDENTIFIER, t("initialize"),
+                   :tLPAREN2, t("("),
+                   :tIDENTIFIER, t("u"),
+                   '=', t("="))
+
+    assert_equal :expr_beg, @lex.lex_state
+
+    util_lex_token("0.0,s=0.0",
+                   :tFLOAT, 0.0,
+                   ',', t(','),
+                   :tIDENTIFIER, t("s"),
+                   '=', t("="),
+                   :tFLOAT, 0.0)
+  end
+
+  def test_zbug_float_in_decl
+    util_lex_token("def initialize(u = ",
+                   :kDEF, t("def"),
+                   :tIDENTIFIER, t("initialize"),
+                   :tLPAREN2, t("("),
+                   :tIDENTIFIER, t("u"),
+                   '=', t("="))
+
+    assert_equal :expr_beg, @lex.lex_state
+
+    util_lex_token("0.0, s = 0.0",
+                   :tFLOAT, 0.0,
+                   ',', t(','),
+                   :tIDENTIFIER, t("s"),
+                   '=', t("="),
+                   :tFLOAT, 0.0)
   end
 
   ############################################################

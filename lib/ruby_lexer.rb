@@ -3,6 +3,10 @@ require 'sexp'
 require 'ruby_parser_extras'
 
 class StringScanner
+  def lineno
+    string[0..pos].split(/\n/).size
+  end
+
   def current_line # HAHA fuck you (HACK)
     string[0..pos][/\A.*__LINE__/m].split(/\n/).size
   end
@@ -58,8 +62,6 @@ class RubyLexer
 
   # Last token read via yylex.
   attr_accessor :token
-
-  attr_reader :comments
 
   # Tempory buffer to build up a potential token.  Consumer takes
   # responsibility to reset this before use.
@@ -207,15 +209,15 @@ class RubyLexer
     case
     when src.scan(/\n/) then
       # just ignore
-    when src.scan(/[0-7]{3}|x[0-9a-fA-F]{2}/) then
+    when src.scan(/[0-7]{1,3}|x[0-9a-fA-F]{2}/) then
       self.token_buffer << "\\" << src.matched
     when src.scan(/([MC]-|c)\\/) then
       self.token_buffer << "\\" << src[1]
       self.tokadd_escape term
     when src.scan(/([MC]-|c)(.)/) then
       self.token_buffer << "\\" << src.matched
-    when src.scan(/[McCx0-9]/) || src.eos? then
-      rb_compile_error("Invalid escape character syntax")
+    when src.scan(/[McCx]/) || src.eos? then
+      rb_compile_error "Invalid escape character syntax"
     else
       c = src.getch
       if (c != "\\" || c != term)
@@ -247,7 +249,7 @@ class RubyLexer
       return "\010"
     when src.scan(/s/) then                    # space
       return " "
-    when src.scan(/[0-7]{3}/) then             # octal constant
+    when src.scan(/[0-7]{1,3}/) then             # octal constant
       return src.matched.to_i(8).chr
     when src.scan(/x([0-9a-fA-Fa-f]{2})/) then # hex constant
       return src[1].to_i(16).chr
@@ -336,7 +338,7 @@ class RubyLexer
       end
 
       if c == "\0" && (func & RubyLexer::STR_FUNC_SYMBOL) != 0 then
-        raise SyntaxError, "symbol cannot contain '\\0'"
+        rb_compile_error "symbol cannot contain '\\0'"
       end
 
       buffer << c # unless c == "\r"
@@ -353,7 +355,7 @@ class RubyLexer
     re      = indent ? /[ \t]*#{eos}(\r?\n|\z)/ : /#{eos}(\r?\n|\z)/
     err_msg = "can't match #{re.inspect} anywhere in "
 
-    rb_compile_error err_msg + src.rest.inspect if src.eos?
+    rb_compile_error err_msg if src.eos?
 
     if src.beginning_of_line? && src.scan(re) then
       src.unread_many last_line
@@ -364,7 +366,7 @@ class RubyLexer
     if (func & RubyLexer::STR_FUNC_EXPAND) == 0 then
       until src.scan(re) do
         str << src.scan(/.*\n/)
-        raise SyntaxError, err_msg + src.rest.inspect if src.eos?
+        rb_compile_error err_msg if src.eos?
       end
     else
       c = src.getch
@@ -389,7 +391,7 @@ class RubyLexer
       until src.scan(re) do
         c = tokadd_string func, "\n", nil, buffer
 
-        raise SyntaxError, err_msg + src.rest.inspect if c == RubyLexer::EOF
+        rb_compile_error err_msg if c == RubyLexer::EOF
 
         if c != "\n" then
           self.yacc_value = s(:str, buffer.join.delete("\r"))
@@ -398,7 +400,7 @@ class RubyLexer
 
         buffer << src.getch
 
-        raise SyntaxError, err_msg + src.rest.inspect if src.eos?
+        rb_compile_error err_msg if src.eos?
       end
 
       str = buffer
@@ -424,12 +426,12 @@ class RubyLexer
       short_hand = false
       beg = src.getch
       if beg =~ /[a-z0-9]/i then
-        raise SyntaxError, "unknown type of %string"
+        rb_compile_error "unknown type of %string"
       end
     end
 
     if c == RubyLexer::EOF or beg == RubyLexer::EOF then
-      raise SyntaxError, "unterminated quoted string meets nnd of file"
+      rb_compile_error "unterminated quoted string meets nnd of file"
     end
 
     # Figure nnd-char.  "\0" is special to indicate beg=nnd and that no nesting?
@@ -469,7 +471,7 @@ class RubyLexer
       string_type, token_type = STR_SSYM, :tSYMBEG
       self.lex_state = :expr_fname
     else
-      raise SyntaxError, "Unknown type of %string. Expected 'Q', 'q', 'w', 'x', 'r' or any non letter character, but found '" + c + "'."
+      rb_compile_error "Unknown type of %string. Expected 'Q', 'q', 'w', 'x', 'r' or any non letter character, but found '" + c + "'."
     end
 
     self.lex_strterm = s(:strterm, string_type, nnd, beg)
@@ -705,7 +707,7 @@ class RubyLexer
               end
 
               if c == RubyLexer::EOF then
-                raise SyntaxError, "embedded document meets end of file"
+                rb_compile_error "embedded document meets end of file"
               end
 
               next unless c == '='
@@ -848,7 +850,7 @@ class RubyLexer
 
         c = src.getch
 
-        raise SyntaxError, "incomplete character syntax" if c == RubyLexer::EOF
+        rb_compile_error "incomplete character syntax" if c == RubyLexer::EOF
 
         if c =~ /\s|\v/ then
           unless lex_state.is_argument then
@@ -1040,7 +1042,7 @@ class RubyLexer
         end
         src.unread c
         if c =~ /\d/ then
-          raise SyntaxError, "no .<digit> floating literal anymore put 0 before dot"
+          rb_compile_error "no .<digit> floating literal anymore put 0 before dot"
         end
         self.lex_state = :expr_dot
         self.yacc_value = t(".")
@@ -1125,8 +1127,7 @@ class RubyLexer
           end
         end
 
-        self.lex_state = if (lex_state == :expr_fname ||
-                             lex_state == :expr_dot) then
+        self.lex_state = if lex_state == :expr_fname || lex_state == :expr_dot
                            :expr_arg
                          else
                            :expr_beg
@@ -1140,11 +1141,11 @@ class RubyLexer
           self.yacc_value = t("^")
           return :tOP_ASGN
         end
-        if lex_state == :expr_fname || self.lex_state == :expr_dot then
-          self.lex_state = :expr_arg
-        else
-          self.lex_state = :expr_beg
-        end
+        self.lex_state = if lex_state == :expr_fname || lex_state == :expr_dot
+                           :expr_arg
+                         else
+                           :expr_beg
+                         end
         src.unread c
         self.yacc_value = t("^")
         return :tCARET
@@ -1341,9 +1342,9 @@ class RubyLexer
         end
         if c =~ /\d/ then
           if token_buffer.length == 1 then
-            raise SyntaxError, "`@" + c + "' is not allowed as an instance variable name"
+            rb_compile_error "`@" + c + "' is not allowed as an instance variable name"
           else
-            raise SyntaxError, "`@@" + c + "' is not allowed as a class variable name"
+            rb_compile_error "`@@" + c + "' is not allowed as a class variable name"
           end
         end
         unless c =~ /\w/ then
@@ -1358,14 +1359,21 @@ class RubyLexer
         token_buffer.clear
       else
         unless c =~ /\w/ then
-          raise SyntaxError, "Invalid char '#{c.inspect}' in expression"
+          rb_compile_error "Invalid char '#{c.inspect}' in expression"
         end
         token_buffer.clear
       end
 
       src.pos -= 1 # HACK
-      if src.scan(/\w+[!?=]?/) then
+      if src.scan(/\w+/) then
         token_buffer.push(*src.matched.split(//)) # TODO: that split is tarded.
+      end
+
+      c = src.getch # HACK
+      if c =~ /\!|\?/ && token_buffer[0] =~ /\w/ && ! src.check(/=/) then
+        token_buffer << c
+      else
+        src.unread c
       end
 
       result = nil
@@ -1387,10 +1395,11 @@ class RubyLexer
           result = :tFID
         else
           if lex_state == :expr_fname then
-            if (c = src.getch) == '=' then
+            c = src.getch
+            if c == '=' then
               c2 = src.getch
 
-              if c2 != '~' && c2 != '>' && (c2 != '=' || (c2 == "\n" && src.check('>'))) then
+              if c2 != '~' && c2 != '>' && (c2 != '=' || (c2 == "\n" && src.check(/>/))) then
                 result = :tIDENTIFIER
                 token_buffer << c
                 src.unread c2
@@ -1402,6 +1411,7 @@ class RubyLexer
               src.unread c
             end
           end
+
           if result.nil? && token_buffer[0] =~ /[A-Z]/ then
             result = :tCONSTANT
           else
@@ -1475,7 +1485,7 @@ class RubyLexer
   end
 
   def int_with_base base
-    raise SyntaxError, "Invalid numeric format" if src.matched =~ /__/
+    rb_compile_error "Invalid numeric format" if src.matched =~ /__/
     self.yacc_value = src.matched.to_i(base)
     return :tINTEGER
   end
@@ -1493,7 +1503,7 @@ class RubyLexer
 
     case
     when src.scan(/[+-]?0[xbd]\b/) then
-      raise SyntaxError, "Invalid numeric format"
+      rb_compile_error "Invalid numeric format"
     when src.scan(/[+-]?0x[a-f0-9_]+/i) then
       return int_with_base(16)
     when src.scan(/[+-]?0b[01_]+/) then
@@ -1501,22 +1511,23 @@ class RubyLexer
     when src.scan(/[+-]?0d[0-9_]+/) then
       return int_with_base(10)
     when src.scan(/[+-]?0o?[0-7_]*[89]/) then
-      raise SyntaxError, "Illegal octal digit."
+      rb_compile_error "Illegal octal digit."
     when src.scan(/[+-]?0o?[0-7_]+|0o/) then
       return int_with_base(8)
-    when src.scan(/[+-]?0\b/) then
-      return int_with_base(10)
     when src.scan(/[+-]?[\d_]+_(e|\.)/) then
-      raise SyntaxError, "Trailing '_' in number."
-    when src.scan(/[+-]?[\d_]+(e[+-]?|\.)[\d_]+\b/) then
+      rb_compile_error "Trailing '_' in number."
+
+    when src.scan(/[+-]?[\d_]+\.[\d_]+(e[+-]?[\d_]+)?\b|[+-]?[\d_]+e[+-]?[\d_]+\b/) then
       number = src.matched
-      raise SyntaxError, "Invalid numeric format" if number =~ /__/
+      rb_compile_error "Invalid numeric format" if number =~ /__/
       self.yacc_value = number.to_f
       return :tFLOAT
+    when src.scan(/[+-]?0\b/) then
+      return int_with_base(10)
     when src.scan(/[+-]?[\d_]+\b/) then
       return int_with_base(10)
     else
-      raise SyntaxError, "Bad number format: #{src.rest.inspect}"
+      rb_compile_error "Bad number format"
     end
   end
 
@@ -1525,6 +1536,7 @@ class RubyLexer
   end
 
   def rb_compile_error msg
+    msg += ". near line #{src.lineno}: #{src.rest[/^.*/].inspect}"
     raise SyntaxError, msg
   end
 end
