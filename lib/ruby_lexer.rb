@@ -480,61 +480,45 @@ class RubyLexer
   end
 
   def heredoc_identifier
-    c = src.getch
-    term = 42 # HACK
-    func = 0
+    term, func = nil, 0
+    func = STR_FUNC_INDENT if src.scan(/-/)
+    token_buffer.clear
 
-    if c == '-' then
-      c = src.getch
-      func = STR_FUNC_INDENT
-    end
-
-    if c =~ /^['"`]$/ then
-      if c == "\'" then
-        func |= STR_SQUOTE
-      elsif c == '"'
-        func |= STR_DQUOTE
-      else
-        func |= STR_XQUOTE
-      end
-
-      token_buffer.clear
-      term = c
-
-      if src.scan(/[^#{Regexp.escape term}]+/) then
-        token_buffer << src.matched
-      end
-
-      c = src.getch
-
-      if c == RubyLexer::EOF then
-        rb_compile_error "unterminated here document identifier"
-      end
+    if src.scan(/(['"`])(.*?)\1/) then
+      term = src[1]
+      token_buffer << src[2]
+      func |= case term
+              when "\'" then
+                STR_SQUOTE
+              when '"' then
+                STR_DQUOTE
+              else
+                STR_XQUOTE
+              end
+    elsif src.scan(/(['"`])(?!\1*\Z)/) then
+      rb_compile_error "unterminated here document identifier"
     else
-      unless c =~ /\w/ then
-        src.unread c
-        src.unread '-' if (func & STR_FUNC_INDENT) != 0
-        return 0 # TODO: false? RubyLexer::EOF?
-      end
-
-      token_buffer.clear
       term = '"'
       func |= STR_DQUOTE
 
-      token_buffer.push c
       if src.scan(/\w+/) then
         token_buffer << src.matched # FIX
+      else
+        src.unread '-' if (func & STR_FUNC_INDENT) != 0
+        return 0 # TODO: false? RubyLexer::EOF?
       end
     end
 
     if src.check(/.*\n/) then
       # remove the line segment entirely - ensures total string size
       # is the same when it is replaced
+      # TODO: think about storing off the char range instead
       line = src.string[src.pos, src.matched_size]
       src.string[src.pos, src.matched_size] = ''
     else
       line = nil
     end
+
     tok = token_buffer.join
     self.lex_strterm = s(:heredoc, tok, func, line)
 

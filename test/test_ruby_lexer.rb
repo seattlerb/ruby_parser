@@ -488,6 +488,20 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_BEG,     t("\""))
   end
 
+  def test_yylex_heredoc_bad_eos_term
+    util_bad_token("a = <<'EOF",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tSTRING_BEG,     t("\""))
+  end
+
+  def test_yylex_heredoc_bad_eos_term_nl
+    util_bad_token("a = <<'EOF\ns = 'blah blah'",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tSTRING_BEG,     t("\""))
+  end
+
   def test_yylex_heredoc_double
     util_lex_token("a = <<\"EOF\"\n  blah blah\nEOF\n",
                    :tIDENTIFIER,     t("a"),
