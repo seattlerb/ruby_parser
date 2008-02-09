@@ -350,6 +350,8 @@ class RubyLexer
   def heredoc here
     _, eos, func, last_line = here
 
+    raise "empty heredoc token" if eos.empty?
+
     str     = []
     indent  = (func & RubyLexer::STR_FUNC_INDENT) != 0
     re      = indent ? /[ \t]*#{eos}(\r?\n|\z)/ : /#{eos}(\r?\n|\z)/
@@ -481,12 +483,12 @@ class RubyLexer
 
   def heredoc_identifier
     term, func = nil, 0
-    func = STR_FUNC_INDENT if src.scan(/-/)
     token_buffer.clear
 
-    if src.scan(/(['"`])(.*?)\1/) then
-      term = src[1]
-      token_buffer << src[2]
+    case
+    when src.scan(/(-?)(['"`])(.*?)\2/) then
+      term = src[2]
+      func |= STR_FUNC_INDENT unless src[1].empty?
       func |= case term
               when "\'" then
                 STR_SQUOTE
@@ -495,23 +497,19 @@ class RubyLexer
               else
                 STR_XQUOTE
               end
-    elsif src.scan(/(['"`])(?!\1*\Z)/) then
+      token_buffer << src[3]
+    when src.scan(/-?(['"`])(?!\1*\Z)/) then
       rb_compile_error "unterminated here document identifier"
-    else
+    when src.scan(/(-?)(\w+)/) then
       term = '"'
       func |= STR_DQUOTE
-
-      if src.scan(/\w+/) then
-        token_buffer << src.matched # FIX
-      else
-        src.unread '-' if (func & STR_FUNC_INDENT) != 0
-        return 0 # TODO: false? RubyLexer::EOF?
-      end
+      func |= STR_FUNC_INDENT unless src[1].empty?
+      token_buffer << src[2]
+    else
+      return nil
     end
 
     if src.check(/.*\n/) then
-      # remove the line segment entirely - ensures total string size
-      # is the same when it is replaced
       # TODO: think about storing off the char range instead
       line = src.string[src.pos, src.matched_size]
       src.string[src.pos, src.matched_size] = ''
@@ -519,16 +517,15 @@ class RubyLexer
       line = nil
     end
 
-    tok = token_buffer.join
-    self.lex_strterm = s(:heredoc, tok, func, line)
+    self.lex_strterm = s(:heredoc, token_buffer.join, func, line)
 
     if term == '`' then
       self.yacc_value = t("`")
       return :tXSTRING_BEG
+    else
+      self.yacc_value = t("\"")
+      return :tSTRING_BEG
     end
-
-    self.yacc_value = t("\"")
-    return :tSTRING_BEG
   end
 
   def arg_ambiguous
@@ -748,7 +745,7 @@ class RubyLexer
             lex_state != :expr_class &&
             (!lex_state.is_argument || space_seen)) then
           tok = self.heredoc_identifier
-          return tok unless tok == 0
+          return tok if tok
         end
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
