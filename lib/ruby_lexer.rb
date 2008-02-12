@@ -1,6 +1,7 @@
 $: << File.expand_path("~/Work/p4/zss/src/ParseTree/dev/lib") # for me, not you.
 require 'sexp'
 require 'ruby_parser_extras'
+require 'strscan'
 
 class StringScanner
   def lineno
@@ -34,7 +35,6 @@ class StringScanner
     pos <= 2 or string[pos-2] == ?\n
   end
 end
-
 class RubyLexer
   attr_accessor :command_start
   attr_accessor :cmdarg
@@ -45,20 +45,10 @@ class RubyLexer
   # grammar use.
   attr_reader :lex_state
 
-  def lex_state= o
-    raise "wtf?" unless Symbol === o
-    @lex_state = o
-  end
-
   attr_accessor :lex_strterm
 
   # Stream of data that yylex examines.
   attr_reader :src
-
-  def src= src
-    raise "bad src: #{src.inspect}" unless String === src
-    @src = StringScanner.new src
-  end
 
   # Last token read via yylex.
   attr_accessor :token
@@ -92,6 +82,142 @@ class RubyLexer
   STR_SSYM   = STR_FUNC_SYMBOL
   STR_DSYM   = STR_FUNC_SYMBOL | STR_FUNC_EXPAND
 
+  # How the parser advances to the next token.
+  #
+  # @return true if not at end of file (EOF).
+
+  def advance
+    r = yylex
+    self.token = r
+    return r != RubyLexer::EOF
+  end
+
+  def arg_ambiguous
+    self.warning("Ambiguous first argument. make sure.")
+  end
+
+  def comments
+    c = @comments.join
+    @comments.clear
+    c
+  end
+
+  def heredoc here
+    _, eos, func, last_line = here
+
+    raise "empty heredoc token" if eos.empty?
+
+    str     = []
+    indent  = (func & RubyLexer::STR_FUNC_INDENT) != 0
+    re      = indent ? /[ \t]*#{eos}(\r?\n|\z)/ : /#{eos}(\r?\n|\z)/
+    err_msg = "can't match #{re.inspect} anywhere in "
+
+    rb_compile_error err_msg if src.eos?
+
+    if src.beginning_of_line? && src.scan(re) then
+      src.unread_many last_line
+      self.yacc_value = t(eos)
+      return :tSTRING_END
+    end
+
+    if (func & RubyLexer::STR_FUNC_EXPAND) == 0 then
+      until src.scan(re) do
+        str << src.scan(/.*\n/)
+        rb_compile_error err_msg if src.eos?
+      end
+    else
+      c = src.getch
+      buffer = []
+
+      if c == "#" then
+        c = src.getch
+        case c
+        when "$", "@" then
+          src.unread c
+          self.yacc_value = t("#" + c)
+          return :tSTRING_DVAR
+        when "{" then
+          self.yacc_value = t("#" + c)
+          return :tSTRING_DBEG
+        end
+        buffer << "#"
+      end
+
+      src.unread c
+
+      until src.scan(re) do
+        c = tokadd_string func, "\n", nil, buffer
+
+        rb_compile_error err_msg if c == RubyLexer::EOF
+
+        if c != "\n" then
+          self.yacc_value = s(:str, buffer.join.delete("\r"))
+          return :tSTRING_CONTENT
+        end
+
+        buffer << src.getch
+
+        rb_compile_error err_msg if src.eos?
+      end
+
+      str = buffer
+    end
+
+    src.unread_many(eos + "\n")
+
+    self.lex_strterm = s(:heredoc, eos, func, last_line)
+    self.yacc_value = s(:str, str.join.delete("\r"))
+
+    return :tSTRING_CONTENT
+  end
+
+  def heredoc_identifier
+    term, func = nil, 0
+    token_buffer.clear
+
+    case
+    when src.scan(/(-?)(['"`])(.*?)\2/) then
+      term = src[2]
+      func |= STR_FUNC_INDENT unless src[1].empty?
+      func |= case term
+              when "\'" then
+                STR_SQUOTE
+              when '"' then
+                STR_DQUOTE
+              else
+                STR_XQUOTE
+              end
+      token_buffer << src[3]
+    when src.scan(/-?(['"`])(?!\1*\Z)/) then
+      rb_compile_error "unterminated here document identifier"
+    when src.scan(/(-?)(\w+)/) then
+      term = '"'
+      func |= STR_DQUOTE
+      func |= STR_FUNC_INDENT unless src[1].empty?
+      token_buffer << src[2]
+    else
+      return nil
+    end
+
+    if src.check(/.*\n/) then
+      # TODO: think about storing off the char range instead
+      line = src.string[src.pos, src.matched_size]
+      src.string[src.pos, src.matched_size] = ''
+    else
+      line = nil
+    end
+
+    self.lex_strterm = s(:heredoc, token_buffer.join, func, line)
+
+    if term == '`' then
+      self.yacc_value = t("`")
+      return :tXSTRING_BEG
+    else
+      self.yacc_value = t("\"")
+      return :tSTRING_BEG
+    end
+  end
+
   def initialize
     self.token_buffer = []
     self.cond = StackState.new(:cond)
@@ -102,24 +228,121 @@ class RubyLexer
     reset
   end
 
-  def reset
-    self.command_start = true
-    self.lex_strterm = nil
-    self.token = nil
-    self.yacc_value = nil
-
-    @src = nil
-    @lex_state = nil
+  def int_with_base base
+    rb_compile_error "Invalid numeric format" if src.matched =~ /__/
+    self.yacc_value = src.matched.to_i(base)
+    return :tINTEGER
   end
 
-  # How the parser advances to the next token.
-  #
-  # @return true if not at end of file (EOF).
+  def lex_state= o
+    raise "wtf?" unless Symbol === o
+    @lex_state = o
+  end
 
-  def advance
-    r = yylex
-    self.token = r
-    return r != RubyLexer::EOF
+  ##
+  #  Parse a number from the input stream.
+  #
+  # @param c The first character of the number.
+  # @return A int constant wich represents a token.
+
+  def parse_number c
+    self.lex_state = :expr_end
+
+    src.unscan # put number back in - stupid lexer...
+
+    case
+    when src.scan(/[+-]?0[xbd]\b/) then
+      rb_compile_error "Invalid numeric format"
+    when src.scan(/[+-]?0x[a-f0-9_]+/i) then
+      return int_with_base(16)
+    when src.scan(/[+-]?0b[01_]+/) then
+      return int_with_base(2)
+    when src.scan(/[+-]?0d[0-9_]+/) then
+      return int_with_base(10)
+    when src.scan(/[+-]?0o?[0-7_]*[89]/) then
+      rb_compile_error "Illegal octal digit."
+    when src.scan(/[+-]?0o?[0-7_]+|0o/) then
+      return int_with_base(8)
+    when src.scan(/[+-]?[\d_]+_(e|\.)/) then
+      rb_compile_error "Trailing '_' in number."
+
+    when src.scan(/[+-]?[\d_]+\.[\d_]+(e[+-]?[\d_]+)?\b|[+-]?[\d_]+e[+-]?[\d_]+\b/) then
+      number = src.matched
+      rb_compile_error "Invalid numeric format" if number =~ /__/
+      self.yacc_value = number.to_f
+      return :tFLOAT
+    when src.scan(/[+-]?0\b/) then
+      return int_with_base(10)
+    when src.scan(/[+-]?[\d_]+\b/) then
+      return int_with_base(10)
+    else
+      rb_compile_error "Bad number format"
+    end
+  end
+
+  def parse_quote(c)
+    beg, nnd = nil, nil
+    short_hand = false
+
+    # Short-hand (e.g. %{,%.,%!,... versus %Q{).
+    unless c =~ /[a-z0-9]/i then
+      beg, c = c, 'Q'
+      short_hand = true
+    else # Long-hand (e.g. %Q{}).
+      short_hand = false
+      beg = src.getch
+      if beg =~ /[a-z0-9]/i then
+        rb_compile_error "unknown type of %string"
+      end
+    end
+
+    if c == RubyLexer::EOF or beg == RubyLexer::EOF then
+      rb_compile_error "unterminated quoted string meets nnd of file"
+    end
+
+    # Figure nnd-char.  "\0" is special to indicate beg=nnd and that no nesting?
+    nnd = case beg
+          when '(' then
+            ')'
+          when '[' then
+            ']'
+          when '{' then
+            '}'
+          when '<' then
+            '>'
+          else
+            nnd, beg = beg, "\0"
+            nnd
+          end
+
+    string_type, token_type = STR_DQUOTE, :tSTRING_BEG
+    self.yacc_value = t("%#{c}#{beg}")
+
+    case (c)
+    when 'Q' then
+      self.yacc_value = t("%#{short_hand ? nnd : c + beg}")
+    when 'q' then
+      string_type, token_type = STR_SQUOTE, :tSTRING_BEG
+    when 'W' then
+      string_type, token_type = STR_DQUOTE | STR_FUNC_QWORDS, :tWORDS_BEG
+      src.scan(/\s*/)
+    when 'w' then
+      string_type, token_type = STR_SQUOTE | STR_FUNC_QWORDS, :tQWORDS_BEG
+      src.scan(/\s*/)
+    when 'x' then
+      string_type, token_type = STR_XQUOTE, :tXSTRING_BEG
+    when 'r' then
+      string_type, token_type = STR_REGEXP, :tREGEXP_BEG
+    when 's' then
+      string_type, token_type = STR_SSYM, :tSYMBEG
+      self.lex_state = :expr_fname
+    else
+      rb_compile_error "Unknown type of %string. Expected 'Q', 'q', 'w', 'x', 'r' or any non letter character, but found '" + c + "'."
+    end
+
+    self.lex_strterm = s(:strterm, string_type, nnd, beg)
+
+    return token_type
   end
 
   def parse_string(quote)
@@ -168,8 +391,9 @@ class RubyLexer
         return :tSTRING_DVAR
       when '{' then
         return :tSTRING_DBEG
+      else
+        token_buffer << '#'
       end
-      token_buffer << '#'
     end
 
     src.unread c
@@ -182,49 +406,9 @@ class RubyLexer
     return :tSTRING_CONTENT
   end
 
-  def regx_options
-    options = []
-    bad = []
-
-    while c = src.getch and c =~ /[a-z]/ do
-      case c
-      when /^[ixmonesu]$/ then
-        options << c
-      else
-        bad << c
-      end
-    end
-
-    src.unread c
-
-    unless bad.empty? then
-      rb_compile_error("unknown regexp option%s - %s" %
-                       [(bad.size > 1 ? "s" : ""), bad.join.inspect])
-    end
-
-    return options.join
-  end
-
-  def tokadd_escape term
-    case
-    when src.scan(/\n/) then
-      # just ignore
-    when src.scan(/[0-7]{1,3}|x[0-9a-fA-F]{2}/) then
-      self.token_buffer << "\\" << src.matched
-    when src.scan(/([MC]-|c)\\/) then
-      self.token_buffer << "\\" << src[1]
-      self.tokadd_escape term
-    when src.scan(/([MC]-|c)(.)/) then
-      self.token_buffer << "\\" << src.matched
-    when src.scan(/[McCx]/) || src.eos? then
-      rb_compile_error "Invalid escape character syntax"
-    else
-      c = src.getch
-      if (c != "\\" || c != term)
-        self.token_buffer << "\\"
-      end
-      self.token_buffer << c
-    end
+  def rb_compile_error msg
+    msg += ". near line #{src.lineno}: #{src.rest[/^.*/].inspect}"
+    raise SyntaxError, msg
   end
 
   def read_escape
@@ -275,6 +459,71 @@ class RubyLexer
       rb_compile_error("Invalid escape character syntax")
     else
       return src.getch
+    end
+  end
+
+  def regx_options
+    options = []
+    bad = []
+
+    while c = src.getch and c =~ /[a-z]/ do
+      case c
+      when /^[ixmonesu]$/ then
+        options << c
+      else
+        bad << c
+      end
+    end
+
+    src.unread c
+
+    unless bad.empty? then
+      rb_compile_error("unknown regexp option%s - %s" %
+                       [(bad.size > 1 ? "s" : ""), bad.join.inspect])
+    end
+
+    return options.join
+  end
+
+  def reset
+    self.command_start = true
+    self.lex_strterm = nil
+    self.token = nil
+    self.yacc_value = nil
+
+    @src = nil
+    @lex_state = nil
+  end
+
+  def src= src
+    raise "bad src: #{src.inspect}" unless String === src
+    @src = StringScanner.new src
+  end
+
+  def store_comment
+    @comments.push(*self.token_buffer)
+    self.token_buffer.clear
+  end
+
+  def tokadd_escape term
+    case
+    when src.scan(/\n/) then
+      # just ignore
+    when src.scan(/[0-7]{1,3}|x[0-9a-fA-F]{2}/) then
+      self.token_buffer << "\\" << src.matched
+    when src.scan(/([MC]-|c)\\/) then
+      self.token_buffer << "\\" << src[1]
+      self.tokadd_escape term
+    when src.scan(/([MC]-|c)(.)/) then
+      self.token_buffer << "\\" << src.matched
+    when src.scan(/[McCx]/) || src.eos? then
+      rb_compile_error "Invalid escape character syntax"
+    else
+      c = src.getch
+      if (c != "\\" || c != term)
+        self.token_buffer << "\\"
+      end
+      self.token_buffer << c
     end
   end
 
@@ -347,200 +596,8 @@ class RubyLexer
     return c
   end
 
-  def heredoc here
-    _, eos, func, last_line = here
-
-    raise "empty heredoc token" if eos.empty?
-
-    str     = []
-    indent  = (func & RubyLexer::STR_FUNC_INDENT) != 0
-    re      = indent ? /[ \t]*#{eos}(\r?\n|\z)/ : /#{eos}(\r?\n|\z)/
-    err_msg = "can't match #{re.inspect} anywhere in "
-
-    rb_compile_error err_msg if src.eos?
-
-    if src.beginning_of_line? && src.scan(re) then
-      src.unread_many last_line
-      self.yacc_value = t(eos)
-      return :tSTRING_END
-    end
-
-    if (func & RubyLexer::STR_FUNC_EXPAND) == 0 then
-      until src.scan(re) do
-        str << src.scan(/.*\n/)
-        rb_compile_error err_msg if src.eos?
-      end
-    else
-      c = src.getch
-      buffer = []
-
-      if c == "#" then
-        c = src.getch
-        case c
-        when "$", "@" then
-          src.unread c
-          self.yacc_value = t("#" + c)
-          return :tSTRING_DVAR
-        when "{" then
-          self.yacc_value = t("#" + c)
-          return :tSTRING_DBEG
-        end
-        buffer << "#"
-      end
-
-      src.unread c
-
-      until src.scan(re) do
-        c = tokadd_string func, "\n", nil, buffer
-
-        rb_compile_error err_msg if c == RubyLexer::EOF
-
-        if c != "\n" then
-          self.yacc_value = s(:str, buffer.join.delete("\r"))
-          return :tSTRING_CONTENT
-        end
-
-        buffer << src.getch
-
-        rb_compile_error err_msg if src.eos?
-      end
-
-      str = buffer
-    end
-
-    src.unread_many(eos + "\n")
-
-    self.lex_strterm = s(:heredoc, eos, func, last_line)
-    self.yacc_value = s(:str, str.join.delete("\r"))
-
-    return :tSTRING_CONTENT
-  end
-
-  def parse_quote(c)
-    beg, nnd = nil, nil
-    short_hand = false
-
-    # Short-hand (e.g. %{,%.,%!,... versus %Q{).
-    unless c =~ /[a-z0-9]/i then
-      beg, c = c, 'Q'
-      short_hand = true
-    else # Long-hand (e.g. %Q{}).
-      short_hand = false
-      beg = src.getch
-      if beg =~ /[a-z0-9]/i then
-        rb_compile_error "unknown type of %string"
-      end
-    end
-
-    if c == RubyLexer::EOF or beg == RubyLexer::EOF then
-      rb_compile_error "unterminated quoted string meets nnd of file"
-    end
-
-    # Figure nnd-char.  "\0" is special to indicate beg=nnd and that no nesting?
-    nnd = case beg
-          when '(' then
-            ')'
-          when '[' then
-            ']'
-          when '{' then
-            '}'
-          when '<' then
-            '>'
-          else
-            nnd, beg = beg, "\0"
-            nnd
-          end
-
-    string_type, token_type = STR_DQUOTE, :tSTRING_BEG
-    self.yacc_value = t("%#{c}#{beg}")
-
-    case (c)
-    when 'Q' then
-      self.yacc_value = t("%#{short_hand ? nnd : c + beg}")
-    when 'q' then
-      string_type, token_type = STR_SQUOTE, :tSTRING_BEG
-    when 'W' then
-      string_type, token_type = STR_DQUOTE | STR_FUNC_QWORDS, :tWORDS_BEG
-      src.scan(/\s*/)
-    when 'w' then
-      string_type, token_type = STR_SQUOTE | STR_FUNC_QWORDS, :tQWORDS_BEG
-      src.scan(/\s*/)
-    when 'x' then
-      string_type, token_type = STR_XQUOTE, :tXSTRING_BEG
-    when 'r' then
-      string_type, token_type = STR_REGEXP, :tREGEXP_BEG
-    when 's' then
-      string_type, token_type = STR_SSYM, :tSYMBEG
-      self.lex_state = :expr_fname
-    else
-      rb_compile_error "Unknown type of %string. Expected 'Q', 'q', 'w', 'x', 'r' or any non letter character, but found '" + c + "'."
-    end
-
-    self.lex_strterm = s(:strterm, string_type, nnd, beg)
-
-    return token_type
-  end
-
-  def heredoc_identifier
-    term, func = nil, 0
-    token_buffer.clear
-
-    case
-    when src.scan(/(-?)(['"`])(.*?)\2/) then
-      term = src[2]
-      func |= STR_FUNC_INDENT unless src[1].empty?
-      func |= case term
-              when "\'" then
-                STR_SQUOTE
-              when '"' then
-                STR_DQUOTE
-              else
-                STR_XQUOTE
-              end
-      token_buffer << src[3]
-    when src.scan(/-?(['"`])(?!\1*\Z)/) then
-      rb_compile_error "unterminated here document identifier"
-    when src.scan(/(-?)(\w+)/) then
-      term = '"'
-      func |= STR_DQUOTE
-      func |= STR_FUNC_INDENT unless src[1].empty?
-      token_buffer << src[2]
-    else
-      return nil
-    end
-
-    if src.check(/.*\n/) then
-      # TODO: think about storing off the char range instead
-      line = src.string[src.pos, src.matched_size]
-      src.string[src.pos, src.matched_size] = ''
-    else
-      line = nil
-    end
-
-    self.lex_strterm = s(:heredoc, token_buffer.join, func, line)
-
-    if term == '`' then
-      self.yacc_value = t("`")
-      return :tXSTRING_BEG
-    else
-      self.yacc_value = t("\"")
-      return :tSTRING_BEG
-    end
-  end
-
-  def arg_ambiguous
-    self.warning("Ambiguous first argument. make sure.")
-  end
-
-  def store_comment
-    @comments.push(*self.token_buffer)
-    self.token_buffer.clear
-  end
-
-  def comments
-    c = @comments.join
-    @comments.clear
-    c
+  def warning s
+    # do nothing for now
   end
 
   ##
@@ -1463,61 +1520,5 @@ class RubyLexer
 
       return result
     end
-  end
-
-  def int_with_base base
-    rb_compile_error "Invalid numeric format" if src.matched =~ /__/
-    self.yacc_value = src.matched.to_i(base)
-    return :tINTEGER
-  end
-
-  ##
-  #  Parse a number from the input stream.
-  #
-  # @param c The first character of the number.
-  # @return A int constant wich represents a token.
-
-  def parse_number c
-    self.lex_state = :expr_end
-
-    src.unscan # put number back in - stupid lexer...
-
-    case
-    when src.scan(/[+-]?0[xbd]\b/) then
-      rb_compile_error "Invalid numeric format"
-    when src.scan(/[+-]?0x[a-f0-9_]+/i) then
-      return int_with_base(16)
-    when src.scan(/[+-]?0b[01_]+/) then
-      return int_with_base(2)
-    when src.scan(/[+-]?0d[0-9_]+/) then
-      return int_with_base(10)
-    when src.scan(/[+-]?0o?[0-7_]*[89]/) then
-      rb_compile_error "Illegal octal digit."
-    when src.scan(/[+-]?0o?[0-7_]+|0o/) then
-      return int_with_base(8)
-    when src.scan(/[+-]?[\d_]+_(e|\.)/) then
-      rb_compile_error "Trailing '_' in number."
-
-    when src.scan(/[+-]?[\d_]+\.[\d_]+(e[+-]?[\d_]+)?\b|[+-]?[\d_]+e[+-]?[\d_]+\b/) then
-      number = src.matched
-      rb_compile_error "Invalid numeric format" if number =~ /__/
-      self.yacc_value = number.to_f
-      return :tFLOAT
-    when src.scan(/[+-]?0\b/) then
-      return int_with_base(10)
-    when src.scan(/[+-]?[\d_]+\b/) then
-      return int_with_base(10)
-    else
-      rb_compile_error "Bad number format"
-    end
-  end
-
-  def warning s
-    # do nothing for now
-  end
-
-  def rb_compile_error msg
-    msg += ". near line #{src.lineno}: #{src.rest[/^.*/].inspect}"
-    raise SyntaxError, msg
   end
 end
