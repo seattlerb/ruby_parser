@@ -12,13 +12,13 @@ class StringScanner
     string[0..pos][/\A.*__LINE__/m].split(/\n/).size
   end
 
-  if ENV['TALLY'] then
-    alias :old_getch :getch
-    def getch
-      warn({:getch => caller[0]}.inspect)
-      old_getch
-    end
-  end
+#   if ENV['TALLY'] then
+#     alias :old_getch :getch
+#     def getch
+#       warn({:getch => caller[0]}.inspect)
+#       old_getch
+#     end
+#   end
 
   def unread c
     return if c.nil? # UGH
@@ -35,6 +35,7 @@ class StringScanner
     pos <= 2 or string[pos-2] == ?\n
   end
 end
+
 class RubyLexer
   attr_accessor :command_start
   attr_accessor :cmdarg
@@ -102,17 +103,25 @@ class RubyLexer
     c
   end
 
+  def current_line
+    src.current_line
+  end
+
   def heredoc here
     _, eos, func, last_line = here
 
-    raise "empty heredoc token" if eos.empty?
+    if eos.empty? then
+      rb_compile_error "empty heredoc token"
+    end
 
     str     = []
     indent  = (func & RubyLexer::STR_FUNC_INDENT) != 0
     re      = indent ? /[ \t]*#{eos}(\r?\n|\z)/ : /#{eos}(\r?\n|\z)/
     err_msg = "can't match #{re.inspect} anywhere in "
 
-    rb_compile_error err_msg if src.eos?
+    if src.eos? then
+      rb_compile_error err_msg
+    end
 
     if src.beginning_of_line? && src.scan(re) then
       src.unread_many last_line
@@ -123,7 +132,9 @@ class RubyLexer
     if (func & RubyLexer::STR_FUNC_EXPAND) == 0 then
       until src.scan(re) do
         str << src.scan(/.*\n/)
-        rb_compile_error err_msg if src.eos?
+        if src.eos? then
+          rb_compile_error err_msg
+        end
       end
     else
       c = src.getch
@@ -148,7 +159,9 @@ class RubyLexer
       until src.scan(re) do
         c = tokadd_string func, "\n", nil, buffer
 
-        rb_compile_error err_msg if c == RubyLexer::EOF
+        if c == RubyLexer::EOF then
+          rb_compile_error err_msg
+        end
 
         if c != "\n" then
           self.yacc_value = s(:str, buffer.join.delete("\r"))
@@ -157,7 +170,9 @@ class RubyLexer
 
         buffer << src.getch
 
-        rb_compile_error err_msg if src.eos?
+        if src.eos? then
+          rb_compile_error err_msg
+        end
       end
 
       str = buffer
@@ -178,7 +193,9 @@ class RubyLexer
     case
     when src.scan(/(-?)(['"`])(.*?)\2/) then
       term = src[2]
-      func |= STR_FUNC_INDENT unless src[1].empty?
+      unless src[1].empty? then
+        func |= STR_FUNC_INDENT
+      end
       func |= case term
               when "\'" then
                 STR_SQUOTE
@@ -193,7 +210,9 @@ class RubyLexer
     when src.scan(/(-?)(\w+)/) then
       term = '"'
       func |= STR_DQUOTE
-      func |= STR_FUNC_INDENT unless src[1].empty?
+      unless src[1].empty? then
+        func |= STR_FUNC_INDENT
+      end
       token_buffer << src[2]
     else
       return nil
@@ -229,7 +248,9 @@ class RubyLexer
   end
 
   def int_with_base base
-    rb_compile_error "Invalid numeric format" if src.matched =~ /__/
+    if src.matched =~ /__/ then
+      rb_compile_error "Invalid numeric format"
+    end
     self.yacc_value = src.matched.to_i(base)
     return :tINTEGER
   end
@@ -268,7 +289,9 @@ class RubyLexer
 
     when src.scan(/[+-]?[\d_]+\.[\d_]+(e[+-]?[\d_]+)?\b|[+-]?[\d_]+e[+-]?[\d_]+\b/) then
       number = src.matched
-      rb_compile_error "Invalid numeric format" if number =~ /__/
+      if number =~ /__/ then
+        rb_compile_error "Invalid numeric format"
+      end
       self.yacc_value = number.to_f
       return :tFLOAT
     when src.scan(/[+-]?0\b/) then
@@ -352,14 +375,18 @@ class RubyLexer
     func = string_type
     paren = open
 
-    return :tSTRING_END unless func
+    unless func then
+      return :tSTRING_END
+    end
 
     c = src.getch
 
     if (func & STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
       begin
         c = src.getch
-        break if c == RubyLexer::EOF # HACK UGH
+        if c == RubyLexer::EOF then # HACK UGH
+          break
+        end
       end while String === c and c =~ /\s/
       space = true
     end
@@ -382,10 +409,11 @@ class RubyLexer
       return ' '
     end
 
-    self.token_buffer = []
+    self.token_buffer.clear
 
     if (func & STR_FUNC_EXPAND) != 0 && c == '#' then
-      case c = src.getch
+      c = src.getch
+      case c
       when '$', '@' then
         src.unread c
         return :tSTRING_DVAR
@@ -551,12 +579,18 @@ class RubyLexer
         c = src.getch
         case c
         when "\n" then
-          break if ((func & RubyLexer::STR_FUNC_QWORDS) != 0) # TODO: check break
-          next  if ((func & RubyLexer::STR_FUNC_EXPAND) != 0)
+          if (func & RubyLexer::STR_FUNC_QWORDS) != 0 then # TODO: check break
+            break
+          end
+          if (func & RubyLexer::STR_FUNC_EXPAND) != 0 then
+            next
+          end
 
           buffer << "\\"
         when "\\" then
-          buffer << c if (func & RubyLexer::STR_FUNC_ESCAPE) != 0
+          if (func & RubyLexer::STR_FUNC_ESCAPE) != 0 then
+            buffer << c
+          end
         else
           if (func & RubyLexer::STR_FUNC_REGEXP) != 0 then
             src.unread c
@@ -657,7 +691,9 @@ class RubyLexer
 
           self.store_comment
 
-          return RubyLexer::EOF if src.eos?
+          if src.eos? then
+            return RubyLexer::EOF
+          end
         end
         # Replace a string of newlines with a single one
 
@@ -725,7 +761,7 @@ class RubyLexer
         return :tBANG
       when '=' then
         # documentation nodes - FIX: cruby much cleaner w/ lookahead
-        if src.was_begin_of_line and src.scan(/begin/) then
+        if src.was_begin_of_line and src.scan(/begin(?=\s)/) then
           self.token_buffer.clear
           self.token_buffer << "=begin"
           c = src.getch
@@ -748,7 +784,9 @@ class RubyLexer
                 rb_compile_error "embedded document meets end of file"
               end
 
-              next unless c == '='
+              unless c == '=' then
+                next
+              end
 
               if src.was_begin_of_line && src.scan(/end/) then
                 token_buffer << "end"
@@ -756,15 +794,13 @@ class RubyLexer
                 src.unread "\n"
                 break
               end
-            end
+            end # loop
 
             self.store_comment
 
             next
           end
-          src.unread(c)
         end
-
 
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
@@ -773,7 +809,9 @@ class RubyLexer
         end
 
         c = src.getch
-        if c == '=' then
+
+        case c
+        when '=' then
           c = src.getch
           if c == '=' then
             self.yacc_value = t("===")
@@ -782,14 +820,14 @@ class RubyLexer
           src.unread(c)
           self.yacc_value = t("==")
           return :tEQ
-        end
-        if c == '~' then
+        when '~' then
           self.yacc_value = t("=~")
           return :tMATCH
-        elsif c == '>' then
+        when '>' then
           self.yacc_value = t("=>")
           return :tASSOC
         end
+
         src.unread(c)
         self.yacc_value = t("=")
         return '='
@@ -802,7 +840,9 @@ class RubyLexer
             lex_state != :expr_class &&
             (!lex_state.is_argument || space_seen)) then
           tok = self.heredoc_identifier
-          return tok if tok
+          if tok then
+            return tok
+          end
         end
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
@@ -861,16 +901,16 @@ class RubyLexer
         return :tSTRING_BEG
       when '`' then
         self.yacc_value = t("`")
-        if lex_state == :expr_fname then
+        case lex_state
+        when :expr_fname then
           self.lex_state = :expr_end
           return :tBACK_REF2
-        end
-        if lex_state == :expr_dot then
-          if command_state then
-            self.lex_state = :expr_cmdarg
-          else
-            self.lex_state = :expr_arg
-          end
+        when :expr_dot then
+          self.lex_state = if command_state then
+                             :expr_cmdarg
+                           else
+                             :expr_arg
+                           end
           return :tBACK_REF2
         end
         self.lex_strterm = s(:strterm, STR_XQUOTE, '`', "\0")
@@ -888,7 +928,9 @@ class RubyLexer
 
         c = src.getch
 
-        rb_compile_error "incomplete character syntax" if c == RubyLexer::EOF
+        if c == RubyLexer::EOF then
+          rb_compile_error "incomplete character syntax"
+        end
 
         if c =~ /\s|\v/ then
           unless lex_state.is_argument then
@@ -1026,6 +1068,7 @@ class RubyLexer
             c = src.getch
             return parse_number(c)
           end
+          src.unread c
           self.yacc_value = t("+")
           return :tUPLUS
         end
@@ -1050,6 +1093,7 @@ class RubyLexer
           self.yacc_value = t("-")
           return :tOP_ASGN
         end
+
         if (lex_state == :expr_beg || lex_state == :expr_mid ||
             (lex_state.is_argument && space_seen && c !~ /\s/)) then
           if lex_state.is_argument then
@@ -1231,7 +1275,7 @@ class RubyLexer
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
           if (c = src.getch) == ']' then
-            if src.check(/=/) then
+            if src.check(/\=/) then
               c = src.getch
               self.yacc_value = t("[]=")
               return :tASET
@@ -1255,13 +1299,13 @@ class RubyLexer
       when '{' then
         c = :tLCURLY
 
-        if lex_state.is_argument || lex_state == :expr_end then
-          c = :tLCURLY      #  block (primary)
-        elsif lex_state == :expr_endarg then
-          c = :tLBRACE_ARG  #  block (expr)
-        else
-          c = :tLBRACE      #  hash
-        end
+        c = if lex_state.is_argument || lex_state == :expr_end then
+              :tLCURLY      #  block (primary)
+            elsif lex_state == :expr_endarg then
+              :tLBRACE_ARG  #  block (expr)
+            else
+              :tLBRACE      #  hash
+            end
         cond.push false
         cmdarg.push false
         self.lex_state = :expr_beg
@@ -1273,9 +1317,7 @@ class RubyLexer
           space_seen = true
           next #  skip \\n
         end
-        src.unread c
-        self.yacc_value = t("\\")
-        return "\\"
+        rb_compile_error "bare backslash only allowed before newline"
       when '%' then
         if lex_state == :expr_beg || lex_state == :expr_mid then
           return parse_quote(src.getch)
@@ -1288,7 +1330,9 @@ class RubyLexer
           return :tOP_ASGN
         end
 
-        return parse_quote(c) if lex_state.is_argument && space_seen && c !~ /\s/
+        if lex_state.is_argument && space_seen && c !~ /\s/ then
+          return parse_quote(c)
+        end
 
         self.lex_state = case lex_state
                          when :expr_fname, :expr_dot then
@@ -1473,15 +1517,25 @@ class RubyLexer
 
             if keyword.id0 == :kDO then
               self.command_start = true
-              return :kDO_COND  if cond.is_in_state
-              return :kDO_BLOCK if cmdarg.is_in_state && state != :expr_cmdarg
-              return :kDO_BLOCK if state == :expr_endarg
+              if cond.is_in_state then
+                return :kDO_COND
+              end
+              if cmdarg.is_in_state && state != :expr_cmdarg then
+                return :kDO_BLOCK
+              end
+              if state == :expr_endarg then
+                return :kDO_BLOCK
+              end
               return :kDO
             end
 
-            return keyword.id0 if state == :expr_beg
+            if state == :expr_beg then
+              return keyword.id0
+            end
 
-            self.lex_state = :expr_beg unless keyword.id0 == keyword.id1
+            unless keyword.id0 == keyword.id1 then
+              self.lex_state = :expr_beg
+            end
 
             return keyword.id1
           end

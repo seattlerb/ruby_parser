@@ -1,7 +1,6 @@
 require 'stringio'
 require 'racc/parser'
 require 'sexp'
-require 'strscan'
 
 class RubyParser < Racc::Parser
   VERSION = '1.0.0'
@@ -156,7 +155,7 @@ class RubyParser < Racc::Parser
     return s(:true)                  if id == :true
     return s(:false)                 if id == :false
     return s(:str, self.file)        if id == :"__FILE__"
-    return s(:lit, lexer.src.current_line) if id == :"__LINE__"
+    return s(:lit, lexer.current_line) if id == :"__LINE__"
 
     result = case id.to_s
              when /^@@/ then
