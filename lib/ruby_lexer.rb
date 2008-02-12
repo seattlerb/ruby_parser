@@ -115,7 +115,7 @@ class RubyLexer
     end
 
     str     = []
-    indent  = (func & RubyLexer::STR_FUNC_INDENT) != 0
+    indent  = (func & STR_FUNC_INDENT) != 0
     re      = indent ? /[ \t]*#{eos}(\r?\n|\z)/ : /#{eos}(\r?\n|\z)/
     err_msg = "can't match #{re.inspect} anywhere in "
 
@@ -129,9 +129,9 @@ class RubyLexer
       return :tSTRING_END
     end
 
-    if (func & RubyLexer::STR_FUNC_EXPAND) == 0 then
+    if (func & STR_FUNC_EXPAND) == 0 then
       until src.scan(re) do
-        str << src.scan(/.*\n/)
+        str << src.scan(/.*(\n|\z)/)
         if src.eos? then
           rb_compile_error err_msg
         end
@@ -556,7 +556,7 @@ class RubyLexer
   end
 
   def tokadd_string(func, term, paren, buffer)
-    should_expand = (func & RubyLexer::STR_FUNC_EXPAND) != 0
+    should_expand = (func & STR_FUNC_EXPAND) != 0
     until (c = src.getch) == RubyLexer::EOF do
       if c == paren then
         self.nest += 1
@@ -579,30 +579,30 @@ class RubyLexer
         c = src.getch
         case c
         when "\n" then
-          if (func & RubyLexer::STR_FUNC_QWORDS) != 0 then # TODO: check break
+          if (func & STR_FUNC_QWORDS) != 0 then # TODO: check break
             break
           end
-          if (func & RubyLexer::STR_FUNC_EXPAND) != 0 then
+          if (func & STR_FUNC_EXPAND) != 0 then
             next
           end
 
           buffer << "\\"
         when "\\" then
-          if (func & RubyLexer::STR_FUNC_ESCAPE) != 0 then
+          if (func & STR_FUNC_ESCAPE) != 0 then
             buffer << c
           end
         else
-          if (func & RubyLexer::STR_FUNC_REGEXP) != 0 then
+          if (func & STR_FUNC_REGEXP) != 0 then
             src.unread c
             tokadd_escape term
             next
-          elsif (func & RubyLexer::STR_FUNC_EXPAND) != 0 then
+          elsif (func & STR_FUNC_EXPAND) != 0 then
             src.unread c
-            if (func & RubyLexer::STR_FUNC_ESCAPE) != 0 then
+            if (func & STR_FUNC_ESCAPE) != 0 then
               buffer << "\\"
             end
             c = read_escape
-          elsif (func & RubyLexer::STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
+          elsif (func & STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
             # ignore backslashed spaces in %w
           elsif c != term && !(paren && c == paren) then
             buffer << "\\"
@@ -615,12 +615,12 @@ class RubyLexer
         #     c = nextc();
         #   }
         # }
-      elsif (func & RubyLexer::STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
+      elsif (func & STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
         src.unread c
         break
       end
 
-      if c == "\0" && (func & RubyLexer::STR_FUNC_SYMBOL) != 0 then
+      if c == "\0" && (func & STR_FUNC_SYMBOL) != 0 then
         rb_compile_error "symbol cannot contain '\\0'"
       end
 
@@ -685,7 +685,7 @@ class RubyLexer
           src.unread c # god this lexer is lame
           token_buffer.clear
 
-          while src.scan(/\s*#.*\n+/) do
+          while src.scan(/\s*#.*(\n+|\z)/) do
             token_buffer << src.matched.gsub(/^ +#/, '#').gsub(/^ +$/, '')
           end
 

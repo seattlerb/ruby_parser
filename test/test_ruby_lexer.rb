@@ -342,6 +342,10 @@ class TestRubyLexer < Test::Unit::TestCase
     assert_equal "=begin blah\nblah\n=end\n", @lex.comments
   end
 
+  def test_yylex_comment_eos
+    util_lex_token("# comment")
+  end
+
   def test_yylex_constant
     util_lex_token("ArgumentError",
                    :tCONSTANT, t("ArgumentError"))
@@ -451,6 +455,10 @@ class TestRubyLexer < Test::Unit::TestCase
 
   def test_yylex_float
     util_lex_token "1.0", :tFLOAT, 1.0
+  end
+
+  def test_yylex_float_bad_no_underscores
+    util_bad_token "1__0.0"
   end
 
   def test_yylex_float_bad_no_zero_leading
@@ -593,34 +601,6 @@ class TestRubyLexer < Test::Unit::TestCase
                    "\n",             t("EOF"))
   end
 
-  def test_yylex_heredoc_bad_eos
-    util_bad_token("a = <<EOF",
-                   :tIDENTIFIER,     t("a"),
-                   "=",              t("="),
-                   :tSTRING_BEG,     t("\""))
-  end
-
-  def test_yylex_heredoc_bad_eos_empty
-    util_bad_token("a = <<''\nblah\n\n",
-                   :tIDENTIFIER,     t("a"),
-                   "=",              t("="),
-                   :tSTRING_BEG,     t("\""))
-  end
-
-  def test_yylex_heredoc_bad_eos_term
-    util_bad_token("a = <<'EOF",
-                   :tIDENTIFIER,     t("a"),
-                   "=",              t("="),
-                   :tSTRING_BEG,     t("\""))
-  end
-
-  def test_yylex_heredoc_bad_eos_term_nl
-    util_bad_token("a = <<'EOF\ns = 'blah blah'",
-                   :tIDENTIFIER,     t("a"),
-                   "=",              t("="),
-                   :tSTRING_BEG,     t("\""))
-  end
-
   def test_yylex_heredoc_double
     util_lex_token("a = <<\"EOF\"\n  blah blah\nEOF\n",
                    :tIDENTIFIER,     t("a"),
@@ -657,6 +637,35 @@ class TestRubyLexer < Test::Unit::TestCase
                    "\n",             t("EOF"))
   end
 
+  def test_yylex_heredoc_none
+    util_lex_token("a = <<EOF\nblah\nblah\nEOF",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tSTRING_BEG,     t("\""),
+                   :tSTRING_CONTENT, s(:str, "blah\nblah\n"),
+                   :tSTRING_CONTENT, s(:str, ""),
+                   :tSTRING_END,     t("EOF"),
+                   "\n",             t("EOF"))
+  end
+
+  def test_yylex_heredoc_none_bad_eos
+    util_bad_token("a = <<EOF",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tSTRING_BEG,     t("\""))
+  end
+
+  def test_yylex_heredoc_none_dash
+    util_lex_token("a = <<-EOF\nblah\nblah\n  EOF",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tSTRING_BEG,     t("\""),
+                   :tSTRING_CONTENT, s(:str, "blah\nblah\n"),
+                   :tSTRING_CONTENT, s(:str, ""),
+                   :tSTRING_END,     t("EOF"),
+                   "\n",             t("EOF"))
+  end
+
   def test_yylex_heredoc_single
     util_lex_token("a = <<'EOF'\n  blah blah\nEOF\n",
                    :tIDENTIFIER,     t("a"),
@@ -665,6 +674,34 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_CONTENT, s(:str, "  blah blah\n"),
                    :tSTRING_END,     t("EOF"),
                    "\n",             t("EOF"))
+  end
+
+  def test_yylex_heredoc_single_bad_eos_body
+    util_bad_token("a = <<'EOF'\nblah",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tSTRING_BEG,     t("\""))
+  end
+
+  def test_yylex_heredoc_single_bad_eos_empty
+    util_bad_token("a = <<''\n",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tSTRING_BEG,     t("\""))
+  end
+
+  def test_yylex_heredoc_single_bad_eos_term
+    util_bad_token("a = <<'EOF",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tSTRING_BEG,     t("\""))
+  end
+
+  def test_yylex_heredoc_single_bad_eos_term_nl
+    util_bad_token("a = <<'EOF\ns = 'blah blah'",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tSTRING_BEG,     t("\""))
   end
 
   def test_yylex_heredoc_single_dash

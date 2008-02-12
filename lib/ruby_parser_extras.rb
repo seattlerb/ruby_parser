@@ -6,7 +6,7 @@ class RubyParser < Racc::Parser
   VERSION = '1.0.0'
 
   attr_accessor :lexer, :in_def, :in_single, :file
-  attr_reader :env, :warnings, :comments
+  attr_reader :env, :comments
 
   def initialize
     super
@@ -15,12 +15,6 @@ class RubyParser < Racc::Parser
     self.in_single = 0
     @env = Environment.new
     @comments = []
-  end
-
-  alias :old_yyerror :yyerror
-  def yyerror msg=nil
-    warn msg if msg
-    old_yyerror
   end
 
   def parse(str, file = "(string)")
@@ -37,15 +31,6 @@ class RubyParser < Racc::Parser
   def do_parse
     _racc_do_parse_rb(_racc_setup, false)
   end
-
-  def yyparse(recv, mid)
-    _racc_yyparse_rb(recv, mid, _racc_setup, true)
-  end
-
-  def on_error( error_token_id, error_value, value_stack )
-    p :error => [ error_token_id, error_value, value_stack ]
-    raise "boom"
-  end if ENV["DEBUG"]
 
   def next_token
     if self.lexer.advance then
@@ -73,7 +58,6 @@ class RubyParser < Racc::Parser
              when /^[A-Z]/ then
                s(:cdecl, id)
              else
-
                case self.env[id]
                when :lvar then
                  s(:lasgn, id)
@@ -88,17 +72,8 @@ class RubyParser < Racc::Parser
                  else
                    s(:dasgn_curr, id)
                  end
-#                  if env.dynamic? then
-#                    if env.dasgn_curr? id then
-#                      s(:dasgn_curr, id)
-#                    else
-#                      s(:dasgn, id)
-#                    end
-#                  else
-#                    s(:lasgn, id)
-#                  end                   
                else
-                 raise "wtf?"
+                 raise "wtf? unknown type: #{self.env[id]}"
                end
              end
 
@@ -107,12 +82,6 @@ class RubyParser < Racc::Parser
     result << value if value
 
     return result
-  end
-
-  def warnings= warnings
-    @warnings = warnings
-
-    self.lexer.warnings = warnings
   end
 
   def arg_add(node1, node2)
@@ -132,13 +101,6 @@ class RubyParser < Racc::Parser
       lhs << rhs
     when :attrasgn, :call then
       args = lhs.array(true) || lhs.argscat(true) || lhs.splat(true) # FIX: fragile
-#       args = case lhs[1][1]
-#              when :array, :argscat, :splat then
-#                lhs.delete_at 1
-#              else
-#                nil # TODO: check - no clue what it should be, or even if
-#              end
-
       lhs << arg_add(args, rhs)
     end
 
@@ -624,10 +586,6 @@ class Environment
     self.current[k] = v
   end
 
-  def has_key? k
-    self.all.has_key? k
-  end
-
   def all
     idx = @dyn.index false
     @env[0..idx].reverse.inject { |env, scope| env.merge scope }
@@ -644,10 +602,6 @@ class Environment
 
   def dynamic?
     @dyn[0] != false
-  end
-
-  def dasgn_curr? name # TODO: I think this is wrong - nuke
-    (! has_key?(name) && dynamic?) || current.has_key?(name)
   end
 
   def extend dyn = false
@@ -760,24 +714,6 @@ class Sexp
   def node_type
     first
   end
-end
-
-def bitch
-  c = caller
-  m = c[0].split.last
-  warn "bitch: you shouldn't be doing #{m}: from #{c[1]}"
-end
-
-class NilClass
-#   def method_missing msg, *args
-#     c = caller
-#     warn "called #{msg} on nil (args = #{args.inspect}): from #{c[0]}"
-#     nil
-#   end
-end
-
-def d s
-  warn s.inspect
 end
 
 # END HACK

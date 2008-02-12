@@ -94,6 +94,11 @@ task :find_bug do
   end
 end
 
+task :sort do
+  sh 'tail +40 lib/ruby_lexer.rb | grepsort "^ +def" -'
+  sh 'grepsort "^ +def (test|util)" test/test_ruby_lexer.rb'
+end
+
 task :rcov_info => :parser do
   pattern = ENV['PATTERN'] || "test/test_*.rb"
   ruby "-Ilib -S rcov --text-report --save coverage.info #{pattern}"
