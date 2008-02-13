@@ -169,6 +169,21 @@ class TestRubyLexer < Test::Unit::TestCase
     util_escape "\230", 'M-\cx'
   end
 
+  def test_yylex_ambiguous_uminus
+    util_lex_token("m -3",
+                   :tIDENTIFIER, t("m"),
+                   :tUMINUS_NUM, t("-"),
+                   :tINTEGER, 3)
+    # TODO: verify warning
+  end
+
+  def test_yylex_ambiguous_uplus
+    util_lex_token("m +3",
+                   :tIDENTIFIER, t("m"),
+                   :tINTEGER, 3)
+    # TODO: verify warning
+  end
+
   def test_yylex_and
     util_lex_token "&", :tAMPER, t("&")
   end
@@ -241,6 +256,13 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tXSTRING_BEG, t("`"),
                    :tSTRING_CONTENT, s(:str, "ls"),
                    :tSTRING_END, t("`"))
+  end
+
+  def test_yylex_backtick_cmdarg
+    @lex.lex_state = :expr_dot
+    util_lex_token("\n`", :tBACK_REF2, t("`")) # \n ensures expr_cmd
+
+    assert_equal :expr_cmdarg, @lex.lex_state
   end
 
   def test_yylex_backtick_dot
@@ -360,6 +382,11 @@ class TestRubyLexer < Test::Unit::TestCase
     assert_raises SyntaxError do
       util_lex_token "@@1"
     end
+  end
+
+  def test_yylex_def_bad_name
+    @lex.lex_state = :expr_fname
+    util_bad_token("def [ ", :kDEF, t("def"))
   end
 
   def test_yylex_div
@@ -547,6 +574,11 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token('$-x', :tGVAR, t("$-x"))
   end
 
+  def test_yylex_global_number
+    @lex.lex_state = :expr_fname
+    util_lex_token("$1", :tGVAR, t("$1"))
+  end
+
   def test_yylex_global_other
     util_lex_token('[$~, $*, $$, $?, $!, $@, $/, $\, $;, $,, $., $=, $:, $<, $>, $"]',
                    :tLBRACK, t("["),
@@ -618,6 +650,20 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_CONTENT, s(:str, "  blah blah\n"),
                    :tSTRING_END,     t("EOF"),
                    "\n",             t("EOF"))
+  end
+
+  def test_yylex_heredoc_double_eos
+    util_bad_token("a = <<\"EOF\"\nblah",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tSTRING_BEG,     t("\""))
+  end
+
+  def test_yylex_heredoc_double_eos_nl
+    util_bad_token("a = <<\"EOF\"\nblah\n",
+                   :tIDENTIFIER,     t("a"),
+                   "=",              t("="),
+                   :tSTRING_BEG,     t("\""))
   end
 
   def test_yylex_heredoc_double_interp
@@ -999,13 +1045,47 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tLBRACE, t("{"))
   end
 
-  def test_yylex_open_square_bracket
+  def test_yylex_open_curly_bracket_arg
+    @lex.lex_state = :expr_arg
+    util_lex_token("m { 3 }",
+                   :tIDENTIFIER, t("m"),
+                   :tLCURLY, t("{"),
+                   :tINTEGER, 3,
+                   :tRCURLY, t("end")) # FIX?
+  end
+
+  def test_yylex_open_curly_bracket_block
+    @lex.lex_state = :expr_endarg # seen m(3)
+    util_lex_token("{ 4 }",
+                   :tLBRACE_ARG, t("{"),
+                   :tINTEGER, 4,
+                   :tRCURLY, t("end")) # FIX?
+  end
+
+  def test_yylex_open_square_bracket_arg
+    @lex.lex_state = :expr_arg
+    util_lex_token("m [ 3 ]",
+                   :tIDENTIFIER, t("m"),
+                   :tLBRACK, t("["),
+                   :tINTEGER, 3,
+                   :tRBRACK, t("]"))
+  end
+
+  def test_yylex_open_square_bracket_ary
     util_lex_token("[1, 2, 3]",
                    :tLBRACK, t("["),
                    :tINTEGER, 1,
                    ",", t(","),
                    :tINTEGER, 2,
                    ",", t(","),
+                   :tINTEGER, 3,
+                   :tRBRACK, t("]"))
+  end
+
+  def test_yylex_open_square_bracket_meth
+    util_lex_token("m[3]",
+                   :tIDENTIFIER, t("m"),
+                   "[", t("["),
                    :tINTEGER, 3,
                    :tRBRACK, t("]"))
   end
@@ -1356,6 +1436,11 @@ class TestRubyLexer < Test::Unit::TestCase
     assert_equal :expr_beg, @lex.lex_state
   end
 
+  def test_yylex_string_bad_eos
+    util_bad_token('%{nest',
+                   :tSTRING_BEG,     t('%}'))
+  end
+
   def test_yylex_string_double
     util_lex_token('"string"',
                    :tSTRING_BEG,     t('"'),
@@ -1450,6 +1535,20 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_CONTENT, s(:str, "\ns2"),
                    " ",              s(:str, "\ns2"), # FIX
                    :tSTRING_END,     s(:str, "\ns2")) # FIX
+  end
+
+  def test_yylex_string_pct_angle
+    util_lex_token("%<blah>",
+                   :tSTRING_BEG, t("%>"),
+                   :tSTRING_CONTENT, s(:str, "blah"),
+                   :tSTRING_END, t(">"))
+  end
+
+  def test_yylex_string_pct_other
+    util_lex_token("%%blah%",
+                   :tSTRING_BEG, t("%%"),
+                   :tSTRING_CONTENT, s(:str, "blah"),
+                   :tSTRING_END, t("%"))
   end
 
   def test_yylex_string_pct_w

@@ -33,7 +33,7 @@ end
 task :parser => ["lib/ruby_parser.rb"]
 
 rule '.rb' => '.y' do |t|
-  sh "racc -g -o #{t.name} #{t.source}"
+  sh "racc -l -t -o #{t.name} #{t.source}"
 end
 
 task :clean do

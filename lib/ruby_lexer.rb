@@ -70,11 +70,7 @@ class RubyLexer
     c
   end
 
-  def current_line
-    src.current_line
-  end
-
-  def heredoc here
+  def heredoc here # Region has 78 lines, 1717 characters
     _, eos, func, last_line = here
 
     if eos.empty? then
@@ -153,7 +149,7 @@ class RubyLexer
     return :tSTRING_CONTENT
   end
 
-  def heredoc_identifier
+  def heredoc_identifier # Region has 50 lines, 1241 characters
     term, func = nil, STR_FUNC_PLAIN
     token_buffer.clear
 
@@ -270,15 +266,14 @@ class RubyLexer
     end
   end
 
-  def parse_quote(c)
+  def parse_quote(c) # Region has 64 lines
     beg, nnd = nil, nil
     short_hand = false
 
-    # Short-hand (e.g. %{,%.,%!,... versus %Q{).
-    unless c =~ /[a-z0-9]/i then
+    unless c =~ /[a-z0-9]/i then # Short-hand (e.g. %{,%.,%!,... versus %Q{).
       beg, c = c, 'Q'
       short_hand = true
-    else # Long-hand (e.g. %Q{}).
+    else                         # Long-hand (e.g. %Q{}).
       short_hand = false
       beg = src.getch
       if beg =~ /[a-z0-9]/i then
@@ -287,7 +282,7 @@ class RubyLexer
     end
 
     if c == RubyLexer::EOF or beg == RubyLexer::EOF then
-      rb_compile_error "unterminated quoted string meets nnd of file"
+      rb_compile_error "unterminated quoted string meets end of file"
     end
 
     # Figure nnd-char.  "\0" is special to indicate beg=nnd and that no nesting?
@@ -335,7 +330,7 @@ class RubyLexer
     return token_type
   end
 
-  def parse_string(quote)
+  def parse_string(quote) # Region has 65 lines
     _, string_type, term, open = quote
 
     space = false # FIX: remove these
@@ -407,77 +402,70 @@ class RubyLexer
   end
 
   def read_escape
-    case
-    when src.scan(/\\/) then                   # Backslash
-      return '\\'
-    when src.scan(/n/) then                    # newline
-      return "\n"
-    when src.scan(/t/) then                    # horizontal tab
-      return "\t"
-    when src.scan(/r/) then                    # carriage-return
-      return "\r"
-    when src.scan(/f/) then                    # form-feed
-      return "\f"
-    when src.scan(/v/) then                    # vertical tab
-      return "\13"
-    when src.scan(/a/) then                    # alarm(bell)
-      return "\007"
-    when src.scan(/e/) then                    # escape
-      return "\033"
-    when src.scan(/b/) then                    # backspace
-      return "\010"
-    when src.scan(/s/) then                    # space
-      return " "
-    when src.scan(/[0-7]{1,3}/) then             # octal constant
-      return src.matched.to_i(8).chr
-    when src.scan(/x([0-9a-fA-Fa-f]{2})/) then # hex constant
-      return src[1].to_i(16).chr
-    when src.scan(/M-\\/) then
-      c = self.read_escape
-      c[0] |= 0x80
-      return c
-    when src.scan(/M-(.)/) then
-      c = src[1]
-      c[0] |= 0x80
-      return c
-    when src.scan(/C-\\|c\\/) then
-      c = self.read_escape
-      c[0] &= 0x9f
-      return c
-    when src.scan(/C-\?|c\?/) then
-      return 0177.chr
-    when src.scan(/(C-|c)(.)/) then
-      c = src[2]
-      c[0] &= 0x9f
-      return c
-    when src.scan(/[McCx0-9]/) || src.eos? then
-      rb_compile_error("Invalid escape character syntax")
-    else
-      return src.getch
-    end
+    c = case
+        when src.scan(/\\/) then                   # Backslash
+          '\\'
+        when src.scan(/n/) then                    # newline
+          "\n"
+        when src.scan(/t/) then                    # horizontal tab
+          "\t"
+        when src.scan(/r/) then                    # carriage-return
+          "\r"
+        when src.scan(/f/) then                    # form-feed
+          "\f"
+        when src.scan(/v/) then                    # vertical tab
+          "\13"
+        when src.scan(/a/) then                    # alarm(bell)
+          "\007"
+        when src.scan(/e/) then                    # escape
+          "\033"
+        when src.scan(/b/) then                    # backspace
+          "\010"
+        when src.scan(/s/) then                    # space
+          " "
+        when src.scan(/[0-7]{1,3}/) then           # octal constant
+          src.matched.to_i(8).chr
+        when src.scan(/x([0-9a-fA-Fa-f]{2})/) then # hex constant
+          src[1].to_i(16).chr
+        when src.scan(/M-\\/) then
+          c = self.read_escape
+          c[0] |= 0x80
+          c
+        when src.scan(/M-(.)/) then
+          c = src[1]
+          c[0] |= 0x80
+          c
+        when src.scan(/C-\\|c\\/) then
+          c = self.read_escape
+          c[0] &= 0x9f
+          c
+        when src.scan(/C-\?|c\?/) then
+          0177.chr
+        when src.scan(/(C-|c)(.)/) then
+          c = src[2]
+          c[0] &= 0x9f
+          c
+        when src.scan(/[McCx0-9]/) || src.eos? then
+          rb_compile_error("Invalid escape character syntax")
+        else
+          src.getch
+        end
+    c
   end
 
   def regx_options
-    options = []
-    bad = []
+    good, bad = [], []
 
-    while c = src.getch and c =~ /[a-z]/ do
-      case c
-      when /^[ixmonesu]$/ then
-        options << c
-      else
-        bad << c
-      end
+    if src.scan(/[a-z]+/) then
+      good, bad = src.matched.split(//).partition { |s| s =~ /^[ixmonesu]$/ }
     end
-
-    src.unread c
 
     unless bad.empty? then
       rb_compile_error("unknown regexp option%s - %s" %
                        [(bad.size > 1 ? "s" : ""), bad.join.inspect])
     end
 
-    return options.join
+    return good.join
   end
 
   def reset
@@ -522,7 +510,7 @@ class RubyLexer
     end
   end
 
-  def tokadd_string(func, term, paren, buffer)
+  def tokadd_string(func, term, paren, buffer) # Region has 73 lines
     should_expand = (func & STR_FUNC_EXPAND) != 0
     until (c = src.getch) == RubyLexer::EOF do
       if c == paren then
@@ -607,7 +595,7 @@ class RubyLexer
   # TODO: remove ALL sexps coming from here and move up to grammar
   # TODO: only literal values should come up from the lexer.
 
-  def yylex
+  def yylex # Region has 938 lines
     c = ''
     space_seen = false
     command_state = false
@@ -1255,10 +1243,7 @@ class RubyLexer
             self.yacc_value = t("[]")
             return :tAREF
           end
-          # TODO: dead code?
-          src.unread c
-          self.yacc_value = t("[")
-          return '['
+          rb_compile_error "unexpected '['"
         elsif lex_state == :expr_beg || lex_state == :expr_mid then
           c = :tLBRACK
         elsif lex_state.is_argument && space_seen then
