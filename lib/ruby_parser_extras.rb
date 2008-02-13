@@ -1,6 +1,40 @@
 require 'stringio'
 require 'racc/parser'
 require 'sexp'
+require 'strscan'
+
+class StringScanner
+  def lineno
+    string[0..pos].split(/\n/).size
+  end
+
+  def current_line # HAHA fuck you (HACK)
+    string[0..pos][/\A.*__LINE__/m].split(/\n/).size
+  end
+
+#   if ENV['TALLY'] then
+#     alias :old_getch :getch
+#     def getch
+#       warn({:getch => caller[0]}.inspect)
+#       old_getch
+#     end
+#   end
+
+  def unread c
+    return if c.nil? # UGH
+    warn({:unread => caller[0]}.inspect) if ENV['TALLY']
+    string[pos, 0] = c
+  end
+
+  def unread_many str
+    warn({:unread_many => caller[0]}.inspect) if ENV['TALLY']
+    string[pos, 0] = str
+  end
+
+  def was_begin_of_line
+    pos <= 2 or string[pos-2] == ?\n
+  end
+end
 
 class RubyParser < Racc::Parser
   VERSION = '1.0.0'

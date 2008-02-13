@@ -1,40 +1,6 @@
 $: << File.expand_path("~/Work/p4/zss/src/ParseTree/dev/lib") # for me, not you.
 require 'sexp'
 require 'ruby_parser_extras'
-require 'strscan'
-
-class StringScanner
-  def lineno
-    string[0..pos].split(/\n/).size
-  end
-
-  def current_line # HAHA fuck you (HACK)
-    string[0..pos][/\A.*__LINE__/m].split(/\n/).size
-  end
-
-#   if ENV['TALLY'] then
-#     alias :old_getch :getch
-#     def getch
-#       warn({:getch => caller[0]}.inspect)
-#       old_getch
-#     end
-#   end
-
-  def unread c
-    return if c.nil? # UGH
-    warn({:unread => caller[0]}.inspect) if ENV['TALLY']
-    string[pos, 0] = c
-  end
-
-  def unread_many str
-    warn({:unread_many => caller[0]}.inspect) if ENV['TALLY']
-    string[pos, 0] = str
-  end
-
-  def was_begin_of_line
-    pos <= 2 or string[pos-2] == ?\n
-  end
-end
 
 class RubyLexer
   attr_accessor :command_start
@@ -69,12 +35,13 @@ class RubyLexer
   EOF = nil # was 0... ugh
 
   # ruby constants for strings (should this be moved somewhere else?)
-  STR_FUNC_ESCAPE=0x01
-  STR_FUNC_EXPAND=0x02
-  STR_FUNC_REGEXP=0x04
-  STR_FUNC_QWORDS=0x08
-  STR_FUNC_SYMBOL=0x10
-  STR_FUNC_INDENT=0x20 # <<-HEREDOC
+  STR_FUNC_PLAIN  = 0x00
+  STR_FUNC_ESCAPE = 0x01 # TODO: remove and replace with REGEXP
+  STR_FUNC_EXPAND = 0x02
+  STR_FUNC_REGEXP = 0x04
+  STR_FUNC_AWORDS  = 0x08
+  STR_FUNC_SYMBOL = 0x10
+  STR_FUNC_INDENT = 0x20 # <<-HEREDOC
 
   STR_SQUOTE = 0
   STR_DQUOTE = STR_FUNC_EXPAND
@@ -187,7 +154,7 @@ class RubyLexer
   end
 
   def heredoc_identifier
-    term, func = nil, 0
+    term, func = nil, STR_FUNC_PLAIN
     token_buffer.clear
 
     case
@@ -347,10 +314,10 @@ class RubyLexer
     when 'q' then
       string_type, token_type = STR_SQUOTE, :tSTRING_BEG
     when 'W' then
-      string_type, token_type = STR_DQUOTE | STR_FUNC_QWORDS, :tWORDS_BEG
+      string_type, token_type = STR_DQUOTE | STR_FUNC_AWORDS, :tWORDS_BEG
       src.scan(/\s*/)
     when 'w' then
-      string_type, token_type = STR_SQUOTE | STR_FUNC_QWORDS, :tQWORDS_BEG
+      string_type, token_type = STR_SQUOTE | STR_FUNC_AWORDS, :tAWORDS_BEG
       src.scan(/\s*/)
     when 'x' then
       string_type, token_type = STR_XQUOTE, :tXSTRING_BEG
@@ -381,7 +348,7 @@ class RubyLexer
 
     c = src.getch
 
-    if (func & STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
+    if (func & STR_FUNC_AWORDS) != 0 && c =~ /\s/ then
       begin
         c = src.getch
         if c == RubyLexer::EOF then # HACK UGH
@@ -392,7 +359,7 @@ class RubyLexer
     end
 
     if c == term && self.nest == 0 then
-      if func & STR_FUNC_QWORDS != 0 then
+      if func & STR_FUNC_AWORDS != 0 then
         quote[1] = nil
         return ' '
       end
@@ -411,7 +378,7 @@ class RubyLexer
 
     self.token_buffer.clear
 
-    if (func & STR_FUNC_EXPAND) != 0 && c == '#' then
+    if (func & STR_FUNC_EXPAND) != 0 && c == '#' then # TODO: why first?
       c = src.getch
       case c
       when '$', '@' then
@@ -577,19 +544,21 @@ class RubyLexer
         src.unread(c2)
       elsif c == "\\" then
         c = src.getch
+
         case c
         when "\n" then
-          if (func & STR_FUNC_QWORDS) != 0 then # TODO: check break
-            break
-          end
-          if (func & STR_FUNC_EXPAND) != 0 then
+          if (func & STR_FUNC_AWORDS) != 0 then
+            buffer << "\n"
             next
+          elsif (func & STR_FUNC_EXPAND) != 0 then
+            next
+          else
+            buffer << "\\"
           end
-
-          buffer << "\\"
         when "\\" then
           if (func & STR_FUNC_ESCAPE) != 0 then
             buffer << c
+            next
           end
         else
           if (func & STR_FUNC_REGEXP) != 0 then
@@ -598,11 +567,8 @@ class RubyLexer
             next
           elsif (func & STR_FUNC_EXPAND) != 0 then
             src.unread c
-            if (func & STR_FUNC_ESCAPE) != 0 then
-              buffer << "\\"
-            end
-            c = read_escape
-          elsif (func & STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
+            c = self.read_escape
+          elsif (func & STR_FUNC_AWORDS) != 0 && c =~ /\s/ then
             # ignore backslashed spaces in %w
           elsif c != term && !(paren && c == paren) then
             buffer << "\\"
@@ -615,7 +581,7 @@ class RubyLexer
         #     c = nextc();
         #   }
         # }
-      elsif (func & STR_FUNC_QWORDS) != 0 && c =~ /\s/ then
+      elsif (func & STR_FUNC_AWORDS) != 0 && c =~ /\s/ then
         src.unread c
         break
       end
@@ -760,6 +726,7 @@ class RubyLexer
         self.yacc_value = t("!")
         return :tBANG
       when '=' then
+
         # documentation nodes - FIX: cruby much cleaner w/ lookahead
         if src.was_begin_of_line and src.scan(/begin(?=\s)/) then
           self.token_buffer.clear
@@ -802,7 +769,8 @@ class RubyLexer
           end
         end
 
-        if lex_state == :expr_fname || lex_state == :expr_dot then
+        case lex_state
+        when :expr_fname, :expr_dot then
           self.lex_state = :expr_arg
         else
           self.lex_state = :expr_beg
@@ -1029,16 +997,19 @@ class RubyLexer
           self.yacc_value = t("|")
           return :tOP_ASGN
         end
+
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
         else
           self.lex_state = :expr_beg
         end
+
         src.unread c
         self.yacc_value = t("|")
         return :tPIPE
       when '+' then
         c = src.getch
+
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
           if c == '@' then
@@ -1078,6 +1049,7 @@ class RubyLexer
         return :tPLUS
       when '-' then
         c = src.getch
+
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
           if c == '@' then
@@ -1283,6 +1255,7 @@ class RubyLexer
             self.yacc_value = t("[]")
             return :tAREF
           end
+          # TODO: dead code?
           src.unread c
           self.yacc_value = t("[")
           return '['
@@ -1533,7 +1506,7 @@ class RubyLexer
               return keyword.id0
             end
 
-            unless keyword.id0 == keyword.id1 then
+            if keyword.id0 != keyword.id1 then
               self.lex_state = :expr_beg
             end
 

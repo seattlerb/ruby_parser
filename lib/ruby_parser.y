@@ -15,7 +15,7 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tLBRACK tRBRACK tLBRACE tLBRACE_ARG tSTAR tSTAR2 tAMPER tAMPER2
       tTILDE tPERCENT tDIVIDE tPLUS tMINUS tLT tGT tPIPE tBANG tCARET
       tLCURLY tRCURLY tBACK_REF2 tSYMBEG tSTRING_BEG tXSTRING_BEG tREGEXP_BEG
-      tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END
+      tWORDS_BEG tAWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END
       tLAST_TOKEN
 
 preclow
@@ -799,7 +799,7 @@ primary      : literal
              | xstring
              | regexp
              | words
-             | qwords
+             | awords
              | var_ref
              | backref
              | tFID {
@@ -1298,7 +1298,7 @@ words          : tWORDS_BEG ' ' tSTRING_END {
                  result = val[1];
                  }
 
-word_list      :  {
+word_list      : {
                    result = s(:array)
                  }
                | word_list word ' ' {
@@ -1311,10 +1311,10 @@ word           : string_content
                    result = self.literal_concat(val[0], val[1]);
                  }
 
-qwords         : tQWORDS_BEG ' ' tSTRING_END {
+awords         : tAWORDS_BEG ' ' tSTRING_END {
                    result = s(:zarray)
                  }
-               | tQWORDS_BEG qword_list tSTRING_END {
+               | tAWORDS_BEG qword_list tSTRING_END {
                    result = val[1]
                  }
 

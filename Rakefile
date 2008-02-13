@@ -95,7 +95,7 @@ task :find_bug do
 end
 
 task :sort do
-  sh 'tail +40 lib/ruby_lexer.rb | grepsort "^ +def" -'
+  sh 'grepsort "^ +def" lib/ruby_lexer.rb'
   sh 'grepsort "^ +def (test|util)" test/test_ruby_lexer.rb'
 end
 
