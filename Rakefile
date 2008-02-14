@@ -112,4 +112,17 @@ task :rcov_overlay do
   }.compact.inspect
 end
 
+task :loc do
+  loc = `wc -l ../1.0.0/lib/ruby_lexer.rb`[/\d+/]
+  flog = `flog -s ../1.0.0/lib/ruby_lexer.rb`[/\d+\.\d+/]
+
+  puts "1.0.0: loc = #{loc} flog = #{flog}"
+
+
+  loc = `cat lib/ruby_lexer.rb lib/ruby_parser_extras.rb | wc -l`[/\d+/]
+  flog = `flog -s lib/ruby_lexer.rb lib/ruby_parser_extras.rb`[/\d+\.\d+/]
+
+  puts "dev  : loc = #{loc} flog = #{flog}"
+end
+
 # vim: syntax=Ruby
