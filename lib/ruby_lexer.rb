@@ -249,7 +249,6 @@ class RubyLexer
       return int_with_base(8)
     when src.scan(/[+-]?[\d_]+_(e|\.)/) then
       rb_compile_error "Trailing '_' in number."
-
     when src.scan(/[+-]?[\d_]+\.[\d_]+(e[+-]?[\d_]+)?\b|[+-]?[\d_]+e[+-]?[\d_]+\b/) then
       number = src.matched
       if number =~ /__/ then
@@ -266,19 +265,21 @@ class RubyLexer
     end
   end
 
-  def parse_quote(c) # Region has 64 lines
+  def parse_quote # Region has 64 lines
     beg, nnd = nil, nil
     short_hand = false
 
-    unless c =~ /[a-z0-9]/i then # Short-hand (e.g. %{,%.,%!,... versus %Q{).
-      beg, c = c, 'Q'
-      short_hand = true
-    else                         # Long-hand (e.g. %Q{}).
+    c = src.getch
+
+    if c =~ /[a-z0-9]/i then # Long-hand (e.g. %Q{}).
       short_hand = false
       beg = src.getch
       if beg =~ /[a-z0-9]/i then
         rb_compile_error "unknown type of %string"
       end
+    else                     # Short-hand (e.g. %{,%.,%!,... versus %Q{).
+      beg, c = c, 'Q'
+      short_hand = true
     end
 
     if c == RubyLexer::EOF or beg == RubyLexer::EOF then
@@ -1278,7 +1279,7 @@ class RubyLexer
         rb_compile_error "bare backslash only allowed before newline"
       when '%' then
         if lex_state == :expr_beg || lex_state == :expr_mid then
-          return parse_quote(src.getch)
+          return parse_quote
         end
 
         c = src.getch
@@ -1289,7 +1290,8 @@ class RubyLexer
         end
 
         if lex_state.is_argument && space_seen && c !~ /\s/ then
-          return parse_quote(c)
+          src.unread c
+          return parse_quote
         end
 
         self.lex_state = case lex_state

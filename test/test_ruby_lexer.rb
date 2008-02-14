@@ -29,32 +29,46 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_parse_quote
-    @lex.src = 'blah)'
-    node = @lex.parse_quote('(')
+    @lex.src = '(blah)'
+    node = @lex.parse_quote
     assert_equal :tSTRING_BEG, node
     assert_equal s(:strterm, RubyLexer::STR_DQUOTE, ")", "("), @lex.lex_strterm
     assert_equal ["%)"], @lex.yacc_value.args # FIX double check this
   end
 
   def test_parse_quote_angle
-    @lex.src = 'blah>'
-    node = @lex.parse_quote('<')
+    @lex.src = '<blah>'
+    node = @lex.parse_quote
     assert_equal :tSTRING_BEG, node
     assert_equal s(:strterm, RubyLexer::STR_DQUOTE, ">", "<"), @lex.lex_strterm
     assert_equal ["%>"], @lex.yacc_value.args # FIX double check this
   end
 
+  def test_parse_quote_bad_eos
+    @lex.src = ''
+    assert_raises SyntaxError do
+      node = @lex.parse_quote
+    end
+  end
+
+  def test_parse_quote_bad_string_type
+    @lex.src = 'QblahQ'
+    assert_raises SyntaxError do
+      node = @lex.parse_quote
+    end
+  end
+
   def test_parse_quote_curly
-    @lex.src = 'blah}'
-    node = @lex.parse_quote('{')
+    @lex.src = '{blah}'
+    node = @lex.parse_quote
     assert_equal :tSTRING_BEG, node
     assert_equal s(:strterm, RubyLexer::STR_DQUOTE, "}", "{"), @lex.lex_strterm
     assert_equal ["%}"], @lex.yacc_value.args # FIX double check this
   end
 
   def test_parse_quote_other
-    @lex.src = 'blah%'
-    node = @lex.parse_quote('%')
+    @lex.src = '%blah%'
+    node = @lex.parse_quote
     assert_equal :tSTRING_BEG, node
     assert_equal s(:strterm, RubyLexer::STR_DQUOTE, "%", "\0"), @lex.lex_strterm
     assert_equal ["%%"], @lex.yacc_value.args # FIX double check this
