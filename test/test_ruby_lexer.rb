@@ -20,121 +20,6 @@ class TestRubyLexer < Test::Unit::TestCase
     deny   @lex.advance # nada
   end
 
-  def test_parse_number
-    @lex.src = '142'
-    c = @lex.src.getch # FIX or remove this test... too prescriptive/brittle
-    node = @lex.parse_number(c)
-    assert_equal :tINTEGER, node
-    assert_equal 142, @lex.yacc_value
-  end
-
-  def test_parse_quote
-    @lex.src = '(blah)'
-    node = @lex.parse_quote
-    assert_equal :tSTRING_BEG, node
-    assert_equal s(:strterm, RubyLexer::STR_DQUOTE, ")", "("), @lex.lex_strterm
-    assert_equal ["%)"], @lex.yacc_value.args # FIX double check this
-  end
-
-  def test_parse_quote_angle
-    @lex.src = '<blah>'
-    node = @lex.parse_quote
-    assert_equal :tSTRING_BEG, node
-    assert_equal s(:strterm, RubyLexer::STR_DQUOTE, ">", "<"), @lex.lex_strterm
-    assert_equal ["%>"], @lex.yacc_value.args # FIX double check this
-  end
-
-  def test_parse_quote_bad_eos
-    @lex.src = ''
-    assert_raises SyntaxError do
-      node = @lex.parse_quote
-    end
-  end
-
-  def test_parse_quote_bad_string_type
-    @lex.src = 'QblahQ'
-    assert_raises SyntaxError do
-      node = @lex.parse_quote
-    end
-  end
-
-  def test_parse_quote_curly
-    @lex.src = '{blah}'
-    node = @lex.parse_quote
-    assert_equal :tSTRING_BEG, node
-    assert_equal s(:strterm, RubyLexer::STR_DQUOTE, "}", "{"), @lex.lex_strterm
-    assert_equal ["%}"], @lex.yacc_value.args # FIX double check this
-  end
-
-  def test_parse_quote_other
-    @lex.src = '%blah%'
-    node = @lex.parse_quote
-    assert_equal :tSTRING_BEG, node
-    assert_equal s(:strterm, RubyLexer::STR_DQUOTE, "%", "\0"), @lex.lex_strterm
-    assert_equal ["%%"], @lex.yacc_value.args # FIX double check this
-  end
-
-  def test_parse_string_double
-    @lex.src = 'blah # blah"'
-    lex_term = s(:strterm, RubyLexer::STR_DQUOTE, '"', "\0")
-    @lex.lex_strterm = lex_term
-    node = @lex.parse_string(@lex.lex_strterm)
-    assert_equal :tSTRING_CONTENT, node
-    assert_equal s(:str, "blah # blah"), @lex.yacc_value
-    assert_equal lex_term, @lex.lex_strterm
-  end
-
-  def test_parse_string_double_inter
-    @lex.src = 'a #$a"'
-    lex_term = s(:strterm, RubyLexer::STR_DQUOTE, '"', "\0")
-    @lex.lex_strterm = lex_term
-    node = @lex.parse_string(@lex.lex_strterm)
-    assert_equal :tSTRING_CONTENT, node
-    assert_equal s(:str, "a "), @lex.yacc_value
-    assert_equal lex_term, @lex.lex_strterm
-
-    node = @lex.parse_string(@lex.lex_strterm)
-    assert_equal :tSTRING_DVAR, node
-    # $a
-    assert_equal lex_term, @lex.lex_strterm
-
-    @lex.src = 'b #@b"'
-    lex_term = s(:strterm, RubyLexer::STR_DQUOTE, '"', "\0")
-    @lex.lex_strterm = lex_term
-    node = @lex.parse_string(@lex.lex_strterm)
-    assert_equal :tSTRING_CONTENT, node
-    assert_equal s(:str, "b "), @lex.yacc_value
-    assert_equal lex_term, @lex.lex_strterm
-
-    node = @lex.parse_string(@lex.lex_strterm)
-    assert_equal :tSTRING_DVAR, node
-    # @b
-    assert_equal lex_term, @lex.lex_strterm
-
-    @lex.src = 'c #{c}"'
-    lex_term = s(:strterm, RubyLexer::STR_DQUOTE, '"', "\0")
-    @lex.lex_strterm = lex_term
-    node = @lex.parse_string(@lex.lex_strterm)
-    assert_equal :tSTRING_CONTENT, node
-    assert_equal s(:str, "c "), @lex.yacc_value
-    assert_equal lex_term, @lex.lex_strterm
-
-    node = @lex.parse_string(@lex.lex_strterm)
-    assert_equal :tSTRING_DBEG, node
-    # #{c}
-    assert_equal lex_term, @lex.lex_strterm
-  end
-
-  def test_parse_string_single
-    @lex.src = "blah blah'"
-    lex_term = s(:strterm, RubyLexer::STR_SQUOTE, "'", "\0")
-    @lex.lex_strterm = lex_term
-    node = @lex.parse_string(@lex.lex_strterm)
-    assert_equal :tSTRING_CONTENT, node
-    assert_equal s(:str, "blah blah"), @lex.yacc_value
-    assert_equal lex_term, @lex.lex_strterm
-  end
-
   def test_read_escape
     util_escape "\\",   '\\'
     util_escape "\n",   'n'
@@ -1451,6 +1336,11 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_string_bad_eos
+    util_bad_token('%',
+                   :tSTRING_BEG,     t('%'))
+  end
+
+  def test_yylex_string_bad_eos_quote
     util_bad_token('%{nest',
                    :tSTRING_BEG,     t('%}'))
   end
