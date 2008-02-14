@@ -113,16 +113,18 @@ task :rcov_overlay do
 end
 
 task :loc do
-  loc = `wc -l ../1.0.0/lib/ruby_lexer.rb`[/\d+/]
-  flog = `flog -s ../1.0.0/lib/ruby_lexer.rb`[/\d+\.\d+/]
+  loc1 = `wc -l ../1.0.0/lib/ruby_lexer.rb`[/\d+/].to_i
+  flog1 = `flog -s ../1.0.0/lib/ruby_lexer.rb`[/\d+\.\d+/].to_f
 
-  puts "1.0.0: loc = #{loc} flog = #{flog}"
+  puts "1.0.0: loc = #{loc1} flog = #{flog1}"
 
 
-  loc = `cat lib/ruby_lexer.rb lib/ruby_parser_extras.rb | wc -l`[/\d+/]
-  flog = `flog -s lib/ruby_lexer.rb lib/ruby_parser_extras.rb`[/\d+\.\d+/]
+  loc2 = `cat lib/ruby_lexer.rb lib/ruby_parser_extras.rb | wc -l`[/\d+/].to_i
+  flog2 = `flog -s lib/ruby_lexer.rb lib/ruby_parser_extras.rb`[/\d+\.\d+/].to_f
 
-  puts "dev  : loc = #{loc} flog = #{flog}"
+  puts "dev  : loc = #{loc2} flog = #{flog2}"
+
+  puts "delta: loc = #{loc2-loc1} flog = #{flog2-flog1}"
 end
 
 # vim: syntax=Ruby
