@@ -265,21 +265,15 @@ class RubyLexer
     end
   end
 
-  def parse_quote # Region has 64 lines
-    beg, nnd = nil, nil
-    short_hand = false
+  def parse_quote
+    beg, nnd, short_hand, c = nil, nil, false, nil
 
-    c = src.getch
-
-    if c =~ /[a-z0-9]/i then # Long-hand (e.g. %Q{}).
-      short_hand = false
-      beg = src.getch
-      if beg =~ /[a-z0-9]/i then
-        rb_compile_error "unknown type of %string"
-      end
-    else                     # Short-hand (e.g. %{,%.,%!,... versus %Q{).
-      beg, c = c, 'Q'
-      short_hand = true
+    if src.scan(/[a-z0-9]{1,2}/i) then # Long-hand (e.g. %Q{}).
+      rb_compile_error "unknown type of %string" if
+        src.matched_size == 2
+      c, beg, short_hand = src.matched, src.getch, false
+    else                               # Short-hand (e.g. %{, %., %!, etc)
+      c, beg, short_hand = 'Q', src.getch, true
     end
 
     if c == RubyLexer::EOF or beg == RubyLexer::EOF then
@@ -287,107 +281,87 @@ class RubyLexer
     end
 
     # Figure nnd-char.  "\0" is special to indicate beg=nnd and that no nesting?
-    nnd = case beg
-          when '(' then
-            ')'
-          when '[' then
-            ']'
-          when '{' then
-            '}'
-          when '<' then
-            '>'
-          else
-            nnd, beg = beg, "\0"
-            nnd
-          end
+    nnd = { "(" => ")", "[" => "]", "{" => "}", "<" => ">" }[beg]
+    nnd, beg = beg, "\0" if nnd.nil?
 
-    string_type, token_type = STR_DQUOTE, :tSTRING_BEG
-    self.yacc_value = t("%#{c}#{beg}")
+    token_type, self.yacc_value = nil, t("%#{c}#{beg}")
+    token_type, string_type = case c
+                              when 'Q' then
+                                ch = short_hand ? nnd : c + beg
+                                self.yacc_value = t("%#{ch}")
+                                [:tSTRING_BEG,   STR_DQUOTE]
+                              when 'q' then
+                                [:tSTRING_BEG,   STR_SQUOTE]
+                              when 'W' then
+                                src.scan(/\s*/)
+                                [:tWORDS_BEG,    STR_DQUOTE | STR_FUNC_AWORDS]
+                              when 'w' then
+                                src.scan(/\s*/)
+                                [:tAWORDS_BEG,   STR_SQUOTE | STR_FUNC_AWORDS]
+                              when 'x' then
+                                [:tXSTRING_BEG,  STR_XQUOTE]
+                              when 'r' then
+                                [:tREGEXP_BEG,   STR_REGEXP]
+                              when 's' then
+                                self.lex_state  = :expr_fname
+                                [:tSYMBEG,       STR_SSYM]
+                              end
 
-    case (c)
-    when 'Q' then
-      self.yacc_value = t("%#{short_hand ? nnd : c + beg}")
-    when 'q' then
-      string_type, token_type = STR_SQUOTE, :tSTRING_BEG
-    when 'W' then
-      string_type, token_type = STR_DQUOTE | STR_FUNC_AWORDS, :tWORDS_BEG
-      src.scan(/\s*/)
-    when 'w' then
-      string_type, token_type = STR_SQUOTE | STR_FUNC_AWORDS, :tAWORDS_BEG
-      src.scan(/\s*/)
-    when 'x' then
-      string_type, token_type = STR_XQUOTE, :tXSTRING_BEG
-    when 'r' then
-      string_type, token_type = STR_REGEXP, :tREGEXP_BEG
-    when 's' then
-      string_type, token_type = STR_SSYM, :tSYMBEG
-      self.lex_state = :expr_fname
-    else
-      rb_compile_error "Unknown type of %string. Expected 'Q', 'q', 'w', 'x', 'r' or any non letter character, but found '" + c + "'."
-    end
+    rb_compile_error "Bad %string type. Expected [Qqwxr\W], found '#{c}'." if
+      token_type.nil?
 
     self.lex_strterm = s(:strterm, string_type, nnd, beg)
 
     return token_type
   end
 
-  def parse_string(quote) # Region has 65 lines
+  def parse_string(quote)
     _, string_type, term, open = quote
 
     space = false # FIX: remove these
     func = string_type
     paren = open
+    term_re = Regexp.escape term
+
+    awords = (func & STR_FUNC_AWORDS) != 0
+    regexp = (func & STR_FUNC_REGEXP) != 0
+    expand = (func & STR_FUNC_EXPAND) != 0
 
     unless func then
       return :tSTRING_END
     end
 
-    c = src.getch
+    space = true if awords and src.scan(/\s+/)
 
-    if (func & STR_FUNC_AWORDS) != 0 && c =~ /\s/ then
-      begin
-        c = src.getch
-        if c == RubyLexer::EOF then # HACK UGH
-          break
-        end
-      end while String === c and c =~ /\s/
-      space = true
-    end
-
-    if c == term && self.nest == 0 then
-      if func & STR_FUNC_AWORDS != 0 then
+    if self.nest == 0 && src.scan(/#{term_re}/) then
+      if awords then
         quote[1] = nil
         return ' '
-      end
-      unless func & STR_FUNC_REGEXP != 0 then
+      elsif regexp then
+        self.yacc_value = self.regx_options
+        return :tREGEXP_END
+      else
         self.yacc_value = t(term)
         return :tSTRING_END
       end
-      self.yacc_value = self.regx_options
-      return :tREGEXP_END
     end
 
     if space then
-      src.unread c
       return ' '
     end
 
     self.token_buffer.clear
 
-    if (func & STR_FUNC_EXPAND) != 0 && c == '#' then # TODO: why first?
-      c = src.getch
-      case c
-      when '$', '@' then
-        src.unread c
+    if expand
+      case
+      when src.scan(/#(?=[$@])/) then
         return :tSTRING_DVAR
-      when '{' then
+      when src.scan(/#[{]/) then
         return :tSTRING_DBEG
-      else
+      when src.scan(/#/) then
         token_buffer << '#'
       end
     end
-
-    src.unread c
 
     if tokadd_string(func, term, paren, token_buffer) == RubyLexer::EOF then
       rb_compile_error "unterminated string meets end of file"
