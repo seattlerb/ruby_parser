@@ -70,21 +70,16 @@ class RubyLexer
     c
   end
 
-  def heredoc here # Region has 78 lines, 1717 characters
+  def heredoc here
     _, eos, func, last_line = here
 
-    if eos.empty? then
-      rb_compile_error "empty heredoc token"
-    end
-
-    str     = []
     indent  = (func & STR_FUNC_INDENT) != 0
+    expand  = (func & STR_FUNC_EXPAND) != 0
     re      = indent ? /[ \t]*#{eos}(\r?\n|\z)/ : /#{eos}(\r?\n|\z)/
     err_msg = "can't match #{re.inspect} anywhere in "
 
-    if src.eos? then
-      rb_compile_error err_msg
-    end
+    rb_compile_error err_msg if
+      src.eos?
 
     if src.beginning_of_line? && src.scan(re) then
       src.unread_many last_line
@@ -92,64 +87,54 @@ class RubyLexer
       return :tSTRING_END
     end
 
-    if (func & STR_FUNC_EXPAND) == 0 then
-      until src.scan(re) do
-        str << src.scan(/.*(\n|\z)/)
-        if src.eos? then
-          rb_compile_error err_msg
-        end
-      end
-    else
-      c = src.getch
-      buffer = []
+    token_buffer.clear
 
-      if c == "#" then
-        c = src.getch
-        case c
-        when "$", "@" then
-          src.unread c
-          self.yacc_value = t("#" + c)
-          return :tSTRING_DVAR
-        when "{" then
-          self.yacc_value = t("#" + c)
-          return :tSTRING_DBEG
-        end
-        buffer << "#"
+    if expand then
+      case
+      when src.scan(/#[$@]/) then
+        src.pos -= 1 # FIX omg stupid
+        self.yacc_value = t(src.matched)
+        return :tSTRING_DVAR
+      when src.scan(/#[{]/) then
+        self.yacc_value = t(src.matched)
+        return :tSTRING_DBEG
+      when src.scan(/#/) then
+        token_buffer << '#'
       end
 
-      src.unread c
-
       until src.scan(re) do
-        c = tokadd_string func, "\n", nil, buffer
+        c = tokadd_string func, "\n", nil, token_buffer
 
-        if c == RubyLexer::EOF then
-          rb_compile_error err_msg
-        end
+        rb_compile_error err_msg if
+          c == RubyLexer::EOF
 
         if c != "\n" then
-          self.yacc_value = s(:str, buffer.join.delete("\r"))
+          self.yacc_value = s(:str, token_buffer.join.delete("\r"))
           return :tSTRING_CONTENT
+        else
+          token_buffer << src.getch # always \n
         end
 
-        buffer << src.getch
-
-        if src.eos? then
-          rb_compile_error err_msg
-        end
+        rb_compile_error err_msg if
+          src.eos?
       end
-
-      str = buffer
+    else
+      until src.scan(re) do
+        token_buffer << src.scan(/.*(\n|\z)/)
+        rb_compile_error err_msg if
+          src.eos?
+      end
     end
 
     src.unread_many(eos + "\n")
 
     self.lex_strterm = s(:heredoc, eos, func, last_line)
-    self.yacc_value = s(:str, str.join.delete("\r"))
+    self.yacc_value = s(:str, token_buffer.join.delete("\r"))
 
     return :tSTRING_CONTENT
   end
 
-  def heredoc_identifier # Region has 50 lines, 1241 characters
+  def heredoc_identifier
     term, func = nil, STR_FUNC_PLAIN
     token_buffer.clear
 
@@ -486,7 +471,15 @@ class RubyLexer
   end
 
   def tokadd_string(func, term, paren, buffer) # Region has 73 lines
-    should_expand = (func & STR_FUNC_EXPAND) != 0
+    awords = (func & STR_FUNC_AWORDS) != 0
+    escape = (func & STR_FUNC_ESCAPE) != 0
+    expand = (func & STR_FUNC_EXPAND) != 0
+    regexp = (func & STR_FUNC_REGEXP) != 0
+
+    # TODO:
+    # paren_re = Regexp.new Regexp.escape(paren)
+    # term_re  = Regexp.new Regexp.escape(term)
+
     until (c = src.getch) == RubyLexer::EOF do
       if c == paren then
         self.nest += 1
@@ -496,7 +489,7 @@ class RubyLexer
           break
         end
         self.nest -= 1
-      elsif should_expand && c == '#' && !src.check(/\n/) then
+      elsif expand && c == '#' && !src.check(/\n/) then
         c2 = src.getch
 
         if c2 == '$' || c2 == '@' || c2 == '{' then
@@ -510,28 +503,28 @@ class RubyLexer
 
         case c
         when "\n" then
-          if (func & STR_FUNC_AWORDS) != 0 then
+          if awords then
             buffer << "\n"
             next
-          elsif (func & STR_FUNC_EXPAND) != 0 then
+          elsif expand then
             next
           else
             buffer << "\\"
           end
         when "\\" then
-          if (func & STR_FUNC_ESCAPE) != 0 then
+          if escape then
             buffer << c
             next
           end
         else
-          if (func & STR_FUNC_REGEXP) != 0 then
+          if regexp then
             src.unread c
             tokadd_escape term
             next
-          elsif (func & STR_FUNC_EXPAND) != 0 then
+          elsif expand then
             src.unread c
             c = self.read_escape
-          elsif (func & STR_FUNC_AWORDS) != 0 && c =~ /\s/ then
+          elsif awords && c =~ /\s/ then
             # ignore backslashed spaces in %w
           elsif c != term && !(paren && c == paren) then
             buffer << "\\"
