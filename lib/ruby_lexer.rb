@@ -70,7 +70,7 @@ class RubyLexer
     c
   end
 
-  def heredoc here
+  def heredoc here # Region has 63 lines, 1595 characters
     _, eos, func, last_line = here
 
     indent  = (func & STR_FUNC_INDENT) != 0
@@ -470,66 +470,55 @@ class RubyLexer
     end
   end
 
-  def tokadd_string(func, term, paren, buffer) # Region has 73 lines
+  def tokadd_string(func, term, paren, buffer) # Region has 73 lines flog:122.3
     awords = (func & STR_FUNC_AWORDS) != 0
     escape = (func & STR_FUNC_ESCAPE) != 0
     expand = (func & STR_FUNC_EXPAND) != 0
     regexp = (func & STR_FUNC_REGEXP) != 0
+    symbol = (func & STR_FUNC_SYMBOL) != 0
 
-    # TODO:
-    # paren_re = Regexp.new Regexp.escape(paren)
-    # term_re  = Regexp.new Regexp.escape(term)
+    paren_re = paren.nil? ? nil : Regexp.new(Regexp.escape(paren))
+    term_re  = Regexp.new(Regexp.escape(term))
 
-    until (c = src.getch) == RubyLexer::EOF do
-      if c == paren then
+    until src.eos? do
+      c = nil
+      case
+      when paren_re && src.scan(paren_re) then
         self.nest += 1
-      elsif c == term then
-        if self.nest == 0 then
-          src.unread c
-          break
-        end
+      when self.nest == 0 && src.scan(term_re) then
+        src.pos -= 1
+        break
+      when src.scan(term_re) then
         self.nest -= 1
-      elsif expand && c == '#' && !src.check(/\n/) then
-        c2 = src.getch
-
-        if c2 == '$' || c2 == '@' || c2 == '{' then
-          src.unread c2
-          src.unread c
-          break
+      when ((awords && src.scan(/\s/)) ||
+            (expand && src.scan(/#(?=[\$\@\{])/))) then
+        src.pos -= 1
+        break
+      when awords && src.scan(/\\\n/) then
+        buffer << "\n"
+        next
+      when expand && src.scan(/\\\n/) then
+        next
+      when ((expand && src.scan(/#(?!\n)/)) ||
+            src.scan(/\\\n/) ||
+            (awords && src.scan(/\\\s/))) then
+        # do nothing
+      when src.scan(/\\\\/) then
+        if escape then
+          buffer << "\\"
+          next
         end
-        src.unread(c2)
-      elsif c == "\\" then
+      when regexp && src.scan(/\\/) then
+        self.tokadd_escape term
+        next
+      when expand && src.scan(/\\/) then
+        c = self.read_escape
+      when src.scan(/\\/) then
         c = src.getch
-
-        case c
-        when "\n" then
-          if awords then
-            buffer << "\n"
-            next
-          elsif expand then
-            next
-          else
-            buffer << "\\"
-          end
-        when "\\" then
-          if escape then
-            buffer << c
-            next
-          end
-        else
-          if regexp then
-            src.unread c
-            tokadd_escape term
-            next
-          elsif expand then
-            src.unread c
-            c = self.read_escape
-          elsif awords && c =~ /\s/ then
-            # ignore backslashed spaces in %w
-          elsif c != term && !(paren && c == paren) then
-            buffer << "\\"
-          end
+        if c != term && !(paren && c == paren) then
+          buffer << "\\"
         end
+        # \\ case:
         # else if (ismbchar(c)) {
         #   int i, len = mbclen(c)-1;
         #   for (i = 0; i < len; i++) {
@@ -537,17 +526,19 @@ class RubyLexer
         #     c = nextc();
         #   }
         # }
-      elsif (func & STR_FUNC_AWORDS) != 0 && c =~ /\s/ then
-        src.unread c
-        break
+      else
+        c = src.getch
+        if symbol && src.scan(/\0/) then # TODO: why after getch?
+          rb_compile_error "symbol cannot contain '\\0'"
+        end
       end
 
-      if c == "\0" && (func & STR_FUNC_SYMBOL) != 0 then
-        rb_compile_error "symbol cannot contain '\\0'"
-      end
+      c = src.matched unless c
+      buffer << c
+    end # until
+    c = src.matched unless c
 
-      buffer << c # unless c == "\r"
-    end # while
+    return RubyLexer::EOF if src.eos?
 
     return c
   end
