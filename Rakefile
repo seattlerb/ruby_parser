@@ -2,6 +2,8 @@
 
 require 'rubygems'
 require 'hoe'
+
+$: << '../../ParseTree/dev/lib/'
 require './lib/ruby_parser_extras.rb'
 
 hoe = Hoe.new('ruby_parser', RubyParser::VERSION) do |parser|
