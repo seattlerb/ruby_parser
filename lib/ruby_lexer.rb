@@ -112,7 +112,7 @@ class RubyLexer
           self.yacc_value = s(:str, token_buffer.join.delete("\r"))
           return :tSTRING_CONTENT
         else
-          token_buffer << src.getch # always \n
+          token_buffer << src.scan(/\n/)
         end
 
         rb_compile_error err_msg if
@@ -361,55 +361,54 @@ class RubyLexer
   end
 
   def read_escape
-    c = case
-        when src.scan(/\\/) then                   # Backslash
-          '\\'
-        when src.scan(/n/) then                    # newline
-          "\n"
-        when src.scan(/t/) then                    # horizontal tab
-          "\t"
-        when src.scan(/r/) then                    # carriage-return
-          "\r"
-        when src.scan(/f/) then                    # form-feed
-          "\f"
-        when src.scan(/v/) then                    # vertical tab
-          "\13"
-        when src.scan(/a/) then                    # alarm(bell)
-          "\007"
-        when src.scan(/e/) then                    # escape
-          "\033"
-        when src.scan(/b/) then                    # backspace
-          "\010"
-        when src.scan(/s/) then                    # space
-          " "
-        when src.scan(/[0-7]{1,3}/) then           # octal constant
-          src.matched.to_i(8).chr
-        when src.scan(/x([0-9a-fA-Fa-f]{2})/) then # hex constant
-          src[1].to_i(16).chr
-        when src.scan(/M-\\/) then
-          c = self.read_escape
-          c[0] |= 0x80
-          c
-        when src.scan(/M-(.)/) then
-          c = src[1]
-          c[0] |= 0x80
-          c
-        when src.scan(/C-\\|c\\/) then
-          c = self.read_escape
-          c[0] &= 0x9f
-          c
-        when src.scan(/C-\?|c\?/) then
-          0177.chr
-        when src.scan(/(C-|c)(.)/) then
-          c = src[2]
-          c[0] &= 0x9f
-          c
-        when src.scan(/[McCx0-9]/) || src.eos? then
-          rb_compile_error("Invalid escape character syntax")
-        else
-          src.getch
-        end
-    c
+    case
+    when src.scan(/\\/) then                   # Backslash
+      '\\'
+    when src.scan(/n/) then                    # newline
+      "\n"
+    when src.scan(/t/) then                    # horizontal tab
+      "\t"
+    when src.scan(/r/) then                    # carriage-return
+      "\r"
+    when src.scan(/f/) then                    # form-feed
+      "\f"
+    when src.scan(/v/) then                    # vertical tab
+      "\13"
+    when src.scan(/a/) then                    # alarm(bell)
+      "\007"
+    when src.scan(/e/) then                    # escape
+      "\033"
+    when src.scan(/b/) then                    # backspace
+      "\010"
+    when src.scan(/s/) then                    # space
+      " "
+    when src.scan(/[0-7]{1,3}/) then           # octal constant
+      src.matched.to_i(8).chr
+    when src.scan(/x([0-9a-fA-Fa-f]{2})/) then # hex constant
+      src[1].to_i(16).chr
+    when src.scan(/M-\\/) then
+      c = self.read_escape
+      c[0] |= 0x80
+      c
+    when src.scan(/M-(.)/) then
+      c = src[1]
+      c[0] |= 0x80
+      c
+    when src.scan(/C-\\|c\\/) then
+      c = self.read_escape
+      c[0] &= 0x9f
+      c
+    when src.scan(/C-\?|c\?/) then
+      0177.chr
+    when src.scan(/(C-|c)(.)/) then
+      c = src[2]
+      c[0] &= 0x9f
+      c
+    when src.scan(/[McCx0-9]/) || src.eos? then
+      rb_compile_error("Invalid escape character syntax")
+    else
+      src.getch
+    end
   end
 
   def regx_options
@@ -461,11 +460,10 @@ class RubyLexer
     when src.scan(/[McCx]/) || src.eos? then
       rb_compile_error "Invalid escape character syntax"
     else
-      c = src.getch
-      if (c != "\\" || c != term)
+      unless src.check(/\\|#{Regexp.escape term}/) then
         self.token_buffer << "\\"
       end
-      self.token_buffer << c
+      self.token_buffer << src.scan(/./m)
     end
   end
 
@@ -513,8 +511,7 @@ class RubyLexer
       when expand && src.scan(/\\/) then
         c = self.read_escape
       when src.scan(/\\/) then
-        c = src.getch
-        if c != term && !(paren && c == paren) then
+        if !src.scan(term_re) && !(paren && src.scan(paren_re)) then
           buffer << "\\"
         end
         # \\ case:
@@ -536,8 +533,7 @@ class RubyLexer
       buffer << c
     end # until
     c = src.matched unless c
-
-    return RubyLexer::EOF if src.eos?
+    c = RubyLexer::EOF if src.eos?
 
     return c
   end
@@ -608,7 +604,7 @@ class RubyLexer
         next
       when /#|\n/ then
         if c == '#' then
-          src.unread c # god this lexer is lame
+          src.unread c # ok
           token_buffer.clear
 
           while src.scan(/\s*#.*(\n+|\z)/) do
@@ -636,39 +632,35 @@ class RubyLexer
         self.lex_state = :expr_beg
         return "\n"
       when '*' then
-        result = nil
-        c = src.getch
-        if c == '*' then
-          c = src.getch
-          if c == '=' then
-            self.lex_state = :expr_beg
-            self.yacc_value = t("**")
-            return :tOP_ASGN
-          end
-          src.unread c
+        case
+        when src.scan(/\*=/) then
+          self.lex_state = :expr_beg
           self.yacc_value = t("**")
-          result = :tPOW
-        else
-          if c == '=' then
-            self.lex_state = :expr_beg
-            self.yacc_value = t("*")
-            return :tOP_ASGN
-          end
-          src.unread c
-          if lex_state.is_argument && space_seen && c !~ /\s/ then
-            warning("`*' interpreted as argument prefix")
-            result = :tSTAR
-          elsif lex_state == :expr_beg || lex_state == :expr_mid then
-            result = :tSTAR
-          else
-            result = :tSTAR2
-          end
+          return :tOP_ASGN
+        when src.scan(/\*/) then
+          self.yacc_value = t("**")
+          self.fix_arg_lex_state
+          return :tPOW
+        when src.scan(/\=/) then
+          self.lex_state = :expr_beg
           self.yacc_value = t("*")
+          return :tOP_ASGN
+        else
+          result = if lex_state.is_argument && space_seen && !src.check(/\s/) then
+                     warning("`*' interpreted as argument prefix")
+                     :tSTAR
+                   elsif lex_state == :expr_beg || lex_state == :expr_mid then
+                     :tSTAR
+                   else
+                     :tSTAR2
+                   end
+
+          self.yacc_value = t("*")
+
+          self.fix_arg_lex_state
+
+          return result
         end
-
-        self.fix_arg_lex_state
-
-        return result
       when '!' then
         self.lex_state = :expr_beg
 
@@ -720,63 +712,56 @@ class RubyLexer
           return '='
         end
       when '<' then
-        c = src.getch
-        if (c == '<' &&
-            lex_state != :expr_end &&
-            lex_state != :expr_dot &&
-            lex_state != :expr_endarg &&
-            lex_state != :expr_class &&
-            (!lex_state.is_argument || space_seen)) then
-          tok = self.heredoc_identifier
-          if tok then
-            return tok
+        if src.scan(/</) then
+          if (! [:expr_end,    :expr_dot,
+                 :expr_endarg, :expr_class].include?(lex_state) &&
+              (!lex_state.is_argument || space_seen)) then
+            tok = self.heredoc_identifier
+            if tok then
+              return tok
+            end
           end
+          src.unread "<" # ok
         end
 
         self.fix_arg_lex_state
 
-        if c == '=' then
-          if (c = src.getch) == '>' then
-            self.yacc_value = t("<=>")
-            return :tCMP
-          end
-          src.unread c
+        case
+        when src.scan(/\=\>/) then
+          self.yacc_value = t("<=>")
+          return :tCMP
+        when src.scan(/\=/) then
           self.yacc_value = t("<=")
           return :tLEQ
-        end
-        if c == '<' then
-          if (c = src.getch) == '=' then
-            self.lex_state = :expr_beg
-            self.yacc_value = t("\<\<")
-            return :tOP_ASGN
-          end
-          src.unread(c)
-          self.yacc_value = t("<<")
+        when src.scan(/\<\=/) then
+          self.lex_state = :expr_beg
+          self.yacc_value = t("\<\<")
+          return :tOP_ASGN
+        when src.scan(/\</) then
+          self.yacc_value = t("\<\<")
           return :tLSHFT
+        else
+          self.yacc_value = t("<")
+          return :tLT
         end
-        self.yacc_value = t("<")
-        src.unread(c)
-        return :tLT
       when '>' then
         self.fix_arg_lex_state
 
-        if (c = src.getch) == '=' then
+        case
+        when src.scan(/\=/) then
           self.yacc_value = t(">=")
           return :tGEQ
-        end
-        if c == '>' then
-          if (c = src.getch) == '=' then
-            self.lex_state = :expr_beg
-            self.yacc_value = t(">>")
-            return :tOP_ASGN
-          end
-          src.unread c
+        when src.scan(/>=/) then
+          self.lex_state = :expr_beg
+          self.yacc_value = t(">>")
+          return :tOP_ASGN
+        when src.scan(/>/) then
           self.yacc_value = t(">>")
           return :tRSHFT
+        else
+          self.yacc_value = t(">")
+          return :tGT
         end
-        src.unread c
-        self.yacc_value = t(">")
-        return :tGT
       when '"' then
         self.lex_strterm = s(:strterm, STR_DQUOTE, '"', "\0") # TODO: question this
         self.yacc_value = t("\"")
@@ -808,15 +793,13 @@ class RubyLexer
           return '?'
         end
 
-        c = src.getch
-
-        if c == RubyLexer::EOF then
+        if src.eos? then
           rb_compile_error "incomplete character syntax"
         end
 
-        if c =~ /\s|\v/ then
+        if src.check(/\s|\v/) then
           unless lex_state.is_argument then
-            c2 = case c
+            c2 = case src.matched
                  when " " then
                    's'
                  when "\n" then
@@ -837,24 +820,25 @@ class RubyLexer
           end
 
           # ternary
-          src.unread c
           self.lex_state = :expr_beg
           self.yacc_value = t("?")
           return '?'
-#         elsif ismbchar(c) then # ternary, also
-#           rb_warn("multibyte character literal not supported yet; use ?\\" + c)
-#           support.unread c
-#           self.lex_state = :expr_beg
-#           return '?'
-        elsif c =~ /\w/ && src.check(/\w/) then
-          # ternary, also
-          src.unread c
+          # elsif ismbchar(c) then # ternary, also
+          # rb_warn "multibyte character literal not supported yet; use ?\\#{c}"
+          # support.unread c
+          # self.lex_state = :expr_beg
+          # return '?'
+        elsif src.check(/\w(?=\w)/) then # ternary, also
           self.lex_state = :expr_beg
           self.yacc_value = t("?")
           return '?'
-        elsif c == "\\" then
-          c = self.read_escape
         end
+
+        c = if src.scan(/\\/) then
+              self.read_escape
+            else
+              src.scan(/./m)
+            end
         c[0] &= 0xff
         self.lex_state = :expr_end
         self.yacc_value = c[0]
@@ -888,28 +872,24 @@ class RubyLexer
         self.yacc_value = t("&")
         return result
       when '|' then
-        if (c = src.getch) == '|' then
+        case
+        when src.scan(/\|\=/) then
           self.lex_state = :expr_beg
-          if (c = src.getch) == '=' then
-            self.lex_state = :expr_beg
-            self.yacc_value = t("||")
-            return :tOP_ASGN
-          end
-          src.unread c
+          self.yacc_value = t("||")
+          return :tOP_ASGN
+        when src.scan(/\|/) then
+          self.lex_state = :expr_beg
           self.yacc_value = t("||")
           return :tOROP
-        end
-        if c == '=' then
+        when src.scan(/\=/) then
           self.lex_state = :expr_beg
           self.yacc_value = t("|")
           return :tOP_ASGN
+        else
+          self.fix_arg_lex_state
+          self.yacc_value = t("|")
+          return :tPIPE
         end
-
-        self.fix_arg_lex_state
-
-        src.unread c
-        self.yacc_value = t("|")
-        return :tPIPE
       when '+' then
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
@@ -1000,7 +980,7 @@ class RubyLexer
           return :tDOT
         end
       when /[0-9]/ then
-        src.unread c
+        src.unread c # ok
         return parse_number
       when ')' then # REFACTOR: omg this is lame... next 3 are all the same
         cond.lexpop
@@ -1133,16 +1113,16 @@ class RubyLexer
         result = c
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
-          if (c = src.getch) == ']' then
-            if src.check(/\=/) then
-              c = src.getch
-              self.yacc_value = t("[]=")
-              return :tASET
-            end
+          case
+          when src.scan(/\]\=/) then
+            self.yacc_value = t("[]=")
+            return :tASET
+          when src.scan(/\]/) then
             self.yacc_value = t("[]")
             return :tAREF
+          else
+            rb_compile_error "unexpected '['"
           end
-          rb_compile_error "unexpected '['"
         elsif lex_state == :expr_beg || lex_state == :expr_mid then
           result = :tLBRACK
         elsif lex_state.is_argument && space_seen then
@@ -1202,31 +1182,31 @@ class RubyLexer
         last_state = lex_state
         self.lex_state = :expr_end
         token_buffer.clear
+
+        token_buffer << '$'
+
+        case
+        when src.scan(/_(?!\w)/) then
+          self.yacc_value = t('$_')
+          return :tGVAR
+        end
+
         c = src.getch
         case c
         when '_' then #  $_: last read line string
-          token_buffer << '$'
           token_buffer << '_'
 
-          unless src.scan(/\w/) then
-            self.yacc_value = t(token_buffer.join)
-            return :tGVAR
-          else
+          if src.scan(/\w/) then
             c = src.matched
           end
         when /[~*$?!@\/\\;,.=:<>\"]/ then
-          token_buffer << '$'
           token_buffer << c
           self.yacc_value = t(token_buffer.join)
           return :tGVAR
         when '-' then
-          token_buffer << '$'
           token_buffer << c
-          c = src.getch
-          if c =~ /\w/ then
-            token_buffer << c
-          else
-            src.unread c
+          if src.scan(/\w/) then
+            token_buffer << src.matched
           end
           self.yacc_value = t(token_buffer.join)
           #  xxx shouldn't check if valid option variable
@@ -1234,7 +1214,6 @@ class RubyLexer
         when /[\&\`\'\+]/ then
           # Explicit reference to these vars as symbols...
           if last_state == :expr_fname then
-            token_buffer << '$'
             token_buffer << c
             self.yacc_value = t(token_buffer.join)
             return :tGVAR
@@ -1243,7 +1222,6 @@ class RubyLexer
           self.yacc_value = s(:back_ref, c.to_sym)
           return :tBACK_REF
         when /[1-9]/ then
-          token_buffer << '$'
           token_buffer << c
           if src.scan(/\d+/) then
             token_buffer.push(*src.matched.split(//))
@@ -1256,15 +1234,18 @@ class RubyLexer
             return :tNTH_REF
           end
         when '0' then
-          token_buffer << '$'
+          # do nothing
         else
           unless c =~ /\w/ then
             src.unread c
             self.yacc_value = t("$")
             return '$'
           end
-          token_buffer << '$'
+          # do nothing
         end
+
+        ############################################################
+
       when '@' then
         token_buffer.clear
         token_buffer << '@'

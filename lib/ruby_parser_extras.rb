@@ -471,47 +471,47 @@ class Keyword
   MAX_HASH_VALUE  = 55
   # maximum key range = 50, duplicates = 0
 
+  ASSO_VALUES = [
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 11, 56, 56, 36, 56,  1, 37,
+                 31,  1, 56, 56, 56, 56, 29, 56,  1, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56,  1, 56, 32,  1,  2,
+                 1,   1,  4, 23, 56, 17, 56, 20,  9,  2,
+                 9,  26, 14, 56,  5,  1,  1, 16, 56, 21,
+                 20,  9, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                 56, 56, 56, 56, 56, 56
+                ]
+
   def self.hash_keyword(str, len)
     hval = len
 
-    asso_values = [
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 11, 56, 56, 36, 56,  1, 37,
-                   31,  1, 56, 56, 56, 56, 29, 56,  1, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56,  1, 56, 32,  1,  2,
-                   1,   1,  4, 23, 56, 17, 56, 20,  9,  2,
-                   9,  26, 14, 56,  5,  1,  1, 16, 56, 21,
-                   20,  9, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                   56, 56, 56, 56, 56, 56
-                  ]
-
     case hval
     when 2, 1 then
-      hval += asso_values[str[0]]
+      hval += ASSO_VALUES[str[0]]
     else
-      hval += asso_values[str[2]]
-      hval += asso_values[str[0]]
+      hval += ASSO_VALUES[str[2]]
+      hval += ASSO_VALUES[str[0]]
     end
 
-    hval += asso_values[str[len - 1]]
+    hval += ASSO_VALUES[str[len - 1]]
     return hval
   end
 
@@ -526,58 +526,58 @@ class Keyword
   # :expr_dot    = right after . or ::, no reserved words.
   # :expr_class  = immediate after class, no here document.
 
-  def self.keyword(str, len = str.size)
-    wordlist = [
-                [""], [""], [""], [""], [""], [""],
-                ["end",      [:kEND,      :kEND        ], :expr_end   ],
-                ["else",     [:kELSE,     :kELSE       ], :expr_beg   ],
-                ["case",     [:kCASE,     :kCASE       ], :expr_beg   ],
-                ["ensure",   [:kENSURE,   :kENSURE     ], :expr_beg   ],
-                ["module",   [:kMODULE,   :kMODULE     ], :expr_beg   ],
-                ["elsif",    [:kELSIF,    :kELSIF      ], :expr_beg   ],
-                ["def",      [:kDEF,      :kDEF        ], :expr_fname ],
-                ["rescue",   [:kRESCUE,   :kRESCUE_MOD ], :expr_mid   ],
-                ["not",      [:kNOT,      :kNOT        ], :expr_beg   ],
-                ["then",     [:kTHEN,     :kTHEN       ], :expr_beg   ],
-                ["yield",    [:kYIELD,    :kYIELD      ], :expr_arg   ],
-                ["for",      [:kFOR,      :kFOR        ], :expr_beg   ],
-                ["self",     [:kSELF,     :kSELF       ], :expr_end   ],
-                ["false",    [:kFALSE,    :kFALSE      ], :expr_end   ],
-                ["retry",    [:kRETRY,    :kRETRY      ], :expr_end   ],
-                ["return",   [:kRETURN,   :kRETURN     ], :expr_mid   ],
-                ["true",     [:kTRUE,     :kTRUE       ], :expr_end   ],
-                ["if",       [:kIF,       :kIF_MOD     ], :expr_beg   ],
-                ["defined?", [:kDEFINED,  :kDEFINED    ], :expr_arg   ],
-                ["super",    [:kSUPER,    :kSUPER      ], :expr_arg   ],
-                ["undef",    [:kUNDEF,    :kUNDEF      ], :expr_fname ],
-                ["break",    [:kBREAK,    :kBREAK      ], :expr_mid   ],
-                ["in",       [:kIN,       :kIN         ], :expr_beg   ],
-                ["do",       [:kDO,       :kDO         ], :expr_beg   ],
-                ["nil",      [:kNIL,      :kNIL        ], :expr_end   ],
-                ["until",    [:kUNTIL,    :kUNTIL_MOD  ], :expr_beg   ],
-                ["unless",   [:kUNLESS,   :kUNLESS_MOD ], :expr_beg   ],
-                ["or",       [:kOR,       :kOR         ], :expr_beg   ],
-                ["next",     [:kNEXT,     :kNEXT       ], :expr_mid   ],
-                ["when",     [:kWHEN,     :kWHEN       ], :expr_beg   ],
-                ["redo",     [:kREDO,     :kREDO       ], :expr_end   ],
-                ["and",      [:kAND,      :kAND        ], :expr_beg   ],
-                ["begin",    [:kBEGIN,    :kBEGIN      ], :expr_beg   ],
-                ["__LINE__", [:k__LINE__, :k__LINE__   ], :expr_end   ],
-                ["class",    [:kCLASS,    :kCLASS      ], :expr_class ],
-                ["__FILE__", [:k__FILE__, :k__FILE__   ], :expr_end   ],
-                ["END",      [:klEND,     :klEND       ], :expr_end   ],
-                ["BEGIN",    [:klBEGIN,   :klBEGIN     ], :expr_end   ],
-                ["while",    [:kWHILE,    :kWHILE_MOD  ], :expr_beg   ],
-                [""], [""], [""], [""], [""], [""], [""], [""], [""],
-                [""],
-                ["alias",    [:kALIAS,    :kALIAS      ], :expr_fname ],
-               ].map { |args| KWtable.new(*args) }
+  WORDLIST = [
+              [""], [""], [""], [""], [""], [""],
+              ["end",      [:kEND,      :kEND        ], :expr_end   ],
+              ["else",     [:kELSE,     :kELSE       ], :expr_beg   ],
+              ["case",     [:kCASE,     :kCASE       ], :expr_beg   ],
+              ["ensure",   [:kENSURE,   :kENSURE     ], :expr_beg   ],
+              ["module",   [:kMODULE,   :kMODULE     ], :expr_beg   ],
+              ["elsif",    [:kELSIF,    :kELSIF      ], :expr_beg   ],
+              ["def",      [:kDEF,      :kDEF        ], :expr_fname ],
+              ["rescue",   [:kRESCUE,   :kRESCUE_MOD ], :expr_mid   ],
+              ["not",      [:kNOT,      :kNOT        ], :expr_beg   ],
+              ["then",     [:kTHEN,     :kTHEN       ], :expr_beg   ],
+              ["yield",    [:kYIELD,    :kYIELD      ], :expr_arg   ],
+              ["for",      [:kFOR,      :kFOR        ], :expr_beg   ],
+              ["self",     [:kSELF,     :kSELF       ], :expr_end   ],
+              ["false",    [:kFALSE,    :kFALSE      ], :expr_end   ],
+              ["retry",    [:kRETRY,    :kRETRY      ], :expr_end   ],
+              ["return",   [:kRETURN,   :kRETURN     ], :expr_mid   ],
+              ["true",     [:kTRUE,     :kTRUE       ], :expr_end   ],
+              ["if",       [:kIF,       :kIF_MOD     ], :expr_beg   ],
+              ["defined?", [:kDEFINED,  :kDEFINED    ], :expr_arg   ],
+              ["super",    [:kSUPER,    :kSUPER      ], :expr_arg   ],
+              ["undef",    [:kUNDEF,    :kUNDEF      ], :expr_fname ],
+              ["break",    [:kBREAK,    :kBREAK      ], :expr_mid   ],
+              ["in",       [:kIN,       :kIN         ], :expr_beg   ],
+              ["do",       [:kDO,       :kDO         ], :expr_beg   ],
+              ["nil",      [:kNIL,      :kNIL        ], :expr_end   ],
+              ["until",    [:kUNTIL,    :kUNTIL_MOD  ], :expr_beg   ],
+              ["unless",   [:kUNLESS,   :kUNLESS_MOD ], :expr_beg   ],
+              ["or",       [:kOR,       :kOR         ], :expr_beg   ],
+              ["next",     [:kNEXT,     :kNEXT       ], :expr_mid   ],
+              ["when",     [:kWHEN,     :kWHEN       ], :expr_beg   ],
+              ["redo",     [:kREDO,     :kREDO       ], :expr_end   ],
+              ["and",      [:kAND,      :kAND        ], :expr_beg   ],
+              ["begin",    [:kBEGIN,    :kBEGIN      ], :expr_beg   ],
+              ["__LINE__", [:k__LINE__, :k__LINE__   ], :expr_end   ],
+              ["class",    [:kCLASS,    :kCLASS      ], :expr_class ],
+              ["__FILE__", [:k__FILE__, :k__FILE__   ], :expr_end   ],
+              ["END",      [:klEND,     :klEND       ], :expr_end   ],
+              ["BEGIN",    [:klBEGIN,   :klBEGIN     ], :expr_end   ],
+              ["while",    [:kWHILE,    :kWHILE_MOD  ], :expr_beg   ],
+              [""], [""], [""], [""], [""], [""], [""], [""], [""],
+              [""],
+              ["alias",    [:kALIAS,    :kALIAS      ], :expr_fname ],
+             ].map { |args| KWtable.new(*args) }
 
+  def self.keyword(str, len = str.size)
     if len <= MAX_WORD_LENGTH && len >= MIN_WORD_LENGTH then
       key = hash_keyword(str, len)
       if key <= MAX_HASH_VALUE && key >= 0 then
-        s = wordlist[key].name
-        return wordlist[key] if str == s
+        s = WORDLIST[key].name
+        return WORDLIST[key] if str == s
       end
     end
 
