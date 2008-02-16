@@ -478,6 +478,11 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token("$1", :tGVAR, t("$1"))
   end
 
+  def test_yylex_global_number_big
+    @lex.lex_state = :expr_fname
+    util_lex_token("$1234", :tGVAR, t("$1234"))
+  end
+
   def test_yylex_global_other
     util_lex_token('[$~, $*, $$, $?, $!, $@, $/, $\, $;, $,, $., $=, $:, $<, $>, $"]',
                    :tLBRACK, t("["),
