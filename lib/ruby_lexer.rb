@@ -75,14 +75,14 @@ class RubyLexer
 
     indent  = (func & STR_FUNC_INDENT) != 0
     expand  = (func & STR_FUNC_EXPAND) != 0
-    re      = indent ? /[ \t]*#{eos}(\r?\n|\z)/ : /#{eos}(\r?\n|\z)/
-    err_msg = "can't match #{re.inspect} anywhere in "
+    eos_re  = indent ? /[ \t]*#{eos}(\r?\n|\z)/ : /#{eos}(\r?\n|\z)/
+    err_msg = "can't match #{eos_re.inspect} anywhere in "
 
     rb_compile_error err_msg if
       src.eos?
 
-    if src.beginning_of_line? && src.scan(re) then
-      src.unread_many last_line
+    if src.beginning_of_line? && src.scan(eos_re) then
+      src.unread_many last_line # TODO: figure out how to remove this
       self.yacc_value = t(eos)
       return :tSTRING_END
     end
@@ -102,7 +102,7 @@ class RubyLexer
         token_buffer << '#'
       end
 
-      until src.scan(re) do
+      until src.scan(eos_re) do
         c = tokadd_string func, "\n", nil, token_buffer
 
         rb_compile_error err_msg if
@@ -118,15 +118,16 @@ class RubyLexer
         rb_compile_error err_msg if
           src.eos?
       end
+
+      # tack on a NL after the heredoc token - FIX NL should not be needed
+      src.unread_many(eos + "\n") # TODO: remove this... stupid stupid stupid
     else
-      until src.scan(re) do
+      until src.check(eos_re) do
         token_buffer << src.scan(/.*(\n|\z)/)
         rb_compile_error err_msg if
           src.eos?
       end
     end
-
-    src.unread_many(eos + "\n")
 
     self.lex_strterm = s(:heredoc, eos, func, last_line)
     self.yacc_value = s(:str, token_buffer.join.delete("\r"))
@@ -470,7 +471,7 @@ class RubyLexer
     end
   end
 
-  def tokadd_string(func, term, paren, buffer) # Region has 73 lines flog:122.3
+  def tokadd_string(func, term, paren, buffer)
     awords = (func & STR_FUNC_AWORDS) != 0
     escape = (func & STR_FUNC_ESCAPE) != 0
     expand = (func & STR_FUNC_EXPAND) != 0
@@ -547,6 +548,27 @@ class RubyLexer
     # do nothing for now
   end
 
+  def temp_handle_strterm
+    token = nil
+
+    if lex_strterm[0] == :heredoc then
+      token = self.heredoc(lex_strterm)
+      if token == :tSTRING_END then
+        self.lex_strterm = nil
+        self.lex_state = :expr_end
+      end
+    else
+      token = self.parse_string(lex_strterm)
+
+      if token == :tSTRING_END || token == :tREGEXP_END then
+        self.lex_strterm = nil
+        self.lex_state = :expr_end
+      end
+    end
+
+    return token
+  end
+
   ##
   # Returns the next token. Also sets yy_val is needed.
   #
@@ -554,30 +576,13 @@ class RubyLexer
   # TODO: remove ALL sexps coming from here and move up to grammar
   # TODO: only literal values should come up from the lexer.
 
-  def yylex # Region has 938 lines
+  def yylex # Region has 796 lines, 22436 characters
     c = ''
     space_seen = false
     command_state = false
 
     if lex_strterm then
-      token = nil
-
-      if lex_strterm[0] == :heredoc then
-        token = self.heredoc(lex_strterm)
-        if token == :tSTRING_END then
-          self.lex_strterm = nil
-          self.lex_state = :expr_end
-        end
-      else
-        token = self.parse_string(lex_strterm)
-
-        if token == :tSTRING_END || token == :tREGEXP_END then
-          self.lex_strterm = nil
-          self.lex_state = :expr_end
-        end
-      end
-
-      return token
+      return temp_handle_strterm
     end
 
     command_state = self.command_start
@@ -1369,11 +1374,8 @@ class RubyLexer
         token_buffer.push(*src.matched.split(//)) # TODO: that split is tarded.
       end
 
-      c = src.getch # HACK
-      if c =~ /\!|\?/ && token_buffer[0] =~ /\w/ && ! src.check(/=/) then
-        token_buffer << c
-      else
-        src.unread c
+      if token_buffer[0] =~ /\w/ && src.scan(/[\!\?](?!=)/) then
+        token_buffer << src.matched
       end
 
       result = nil
@@ -1395,20 +1397,10 @@ class RubyLexer
           result = :tFID
         else
           if lex_state == :expr_fname then
-            c = src.getch
-            if c == '=' then
-              c2 = src.getch
-
-              if c2 != '~' && c2 != '>' && (c2 != '=' || (c2 == "\n" && src.check(/>/))) then
-                result = :tIDENTIFIER
-                token_buffer << c
-                src.unread c2
-              else
-                src.unread c2
-                src.unread c
-              end
-            else
-              src.unread c
+            # ident=, not =~ => == or followed by =>
+            if src.scan(/=(?:(?![~>=])|(?==>))/) then
+              result = :tIDENTIFIER
+              token_buffer << src.matched
             end
           end
 
@@ -1457,7 +1449,7 @@ class RubyLexer
 
             return keyword.id1
           end
-        end
+        end # lex_state == :expr_dot
 
         if (lex_state == :expr_beg ||
             lex_state == :expr_mid ||
@@ -1474,21 +1466,18 @@ class RubyLexer
         end
       end
 
-
-      temp_val = token_buffer.join
-
       # Lame: parsing logic made it into lexer in ruby...So we
       # are emulating
       # FIXME:  I believe this is much simpler now...
-# HACK
-#       if (IdUtil.var_type(temp_val) == IdUtil.LOCAL_VAR &&
-#           last_state != :expr_dot &&
-#           (BlockStaticScope === scope && (scope.is_defined(temp_val) >= 0)) ||
-#           (scope.local_scope.is_defined(temp_val) >= 0)) then
-#         self.lex_state = :expr_end
-#       end
+      # HACK
+      # if (IdUtil.var_type(temp_val) == IdUtil.LOCAL_VAR &&
+      #     last_state != :expr_dot &&
+      #     (BlockStaticScope === scope && (scope.is_defined(temp_val) >= 0)) ||
+      #     (scope.local_scope.is_defined(temp_val) >= 0)) then
+      #   self.lex_state = :expr_end
+      # end
 
-      self.yacc_value = t(temp_val)
+      self.yacc_value = t(token_buffer.join)
 
       return result
     end

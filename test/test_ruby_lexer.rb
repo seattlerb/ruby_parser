@@ -678,6 +678,14 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token("identifier?", :tFID, t("identifier?"))
   end
 
+  def test_yylex_identifier_equals_arrow
+    @lex.lex_state = :expr_fname
+    util_lex_token(":blah==>",
+                   :tSYMBEG, t(":"),
+                   :tIDENTIFIER, t("blah="),
+                   :tASSOC, t("=>"))
+  end
+
   def test_yylex_identifier_equals_caret
     util_lex_fname "^", :tCARET
   end

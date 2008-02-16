@@ -113,17 +113,15 @@ task :rcov_overlay do
 end
 
 task :loc do
-  loc1 = `wc -l ../1.0.0/lib/ruby_lexer.rb`[/\d+/].to_i
-  flog1 = `flog -s ../1.0.0/lib/ruby_lexer.rb`[/\d+\.\d+/].to_f
+  loc1  = `wc -l ../1.0.0/lib/ruby_lexer.rb`[/\d+/]
+  flog1 = `flog -s ../1.0.0/lib/ruby_lexer.rb`[/\d+\.\d+/]
+  loc2  = `cat lib/ruby_lexer.rb lib/ruby_parser_extras.rb | wc -l`[/\d+/]
+  flog2 = `flog -s lib/ruby_lexer.rb lib/ruby_parser_extras.rb`[/\d+\.\d+/]
+
+  loc1, loc2, flog1, flog2 = loc1.to_i, loc2.to_i, flog1.to_f, flog2.to_f
 
   puts "1.0.0: loc = #{loc1} flog = #{flog1}"
-
-
-  loc2 = `cat lib/ruby_lexer.rb lib/ruby_parser_extras.rb | wc -l`[/\d+/].to_i
-  flog2 = `flog -s lib/ruby_lexer.rb lib/ruby_parser_extras.rb`[/\d+\.\d+/].to_f
-
   puts "dev  : loc = #{loc2} flog = #{flog2}"
-
   puts "delta: loc = #{loc2-loc1} flog = #{flog2-flog1}"
 end
 
