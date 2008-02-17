@@ -578,10 +578,11 @@ class RubyLexer
   # TODO: remove ALL sexps coming from here and move up to grammar
   # TODO: only literal values should come up from the lexer.
 
-  def yylex # Region has 796 lines, 22436 characters
+  def yylex
     c = ''
     space_seen = false
     command_state = false
+    token_buffer.clear
 
     if lex_strterm then
       return temp_handle_strterm
@@ -593,19 +594,16 @@ class RubyLexer
     last_state = lex_state
 
     loop do
-      ############################################################
-      # BEGIN case c
-      c = src.getch
-      case c
-      when /\004|\032|\000/, RubyLexer::EOF then # ^D, ^Z, EOF
+      case
+      when src.scan(/\004|\032|\000/), src.eos? then # ^D, ^Z, EOF
         return RubyLexer::EOF
-      when /\ |\t|\f|\r|\13/ then # white spaces, 13 = '\v
+      when src.scan(/\ |\t|\f|\r|\13/) then # white spaces, 13 = '\v
         space_seen = true
         next
-      when /#|\n/ then
+      when src.scan(/#|\n/) then
+        c = src.matched
         if c == '#' then
           src.unread c # ok
-          token_buffer.clear
 
           while src.scan(/\s*#.*(\n+|\z)/) do
             token_buffer << src.matched.gsub(/^ +#/, '#').gsub(/^ +$/, '')
@@ -631,54 +629,64 @@ class RubyLexer
         self.command_start = true
         self.lex_state = :expr_beg
         return "\n"
-      when '*' then
-        case
-        when src.scan(/\*=/) then
-          self.lex_state = :expr_beg
-          self.yacc_value = t("**")
-          return :tOP_ASGN
-        when src.scan(/\*/) then
-          self.yacc_value = t("**")
-          self.fix_arg_lex_state
-          return :tPOW
-        when src.scan(/\=/) then
-          self.lex_state = :expr_beg
-          self.yacc_value = t("*")
-          return :tOP_ASGN
-        else
-          result = if lex_state.is_argument && space_seen && !src.check(/\s/) then
-                     warning("`*' interpreted as argument prefix")
-                     :tSTAR
-                   elsif lex_state == :expr_beg || lex_state == :expr_mid then
-                     :tSTAR
-                   else
-                     :tSTAR2
-                   end
-
-          self.yacc_value = t("*")
-
-          self.fix_arg_lex_state
-
-          return result
-        end
-      when '!' then
+      when src.scan(/\*\*=/) then
         self.lex_state = :expr_beg
+        self.yacc_value = t("**")
+        return :tOP_ASGN
+      when src.scan(/\*\*/) then
+        self.yacc_value = t("**")
+        self.fix_arg_lex_state
+        return :tPOW
+      when src.scan(/\*\=/) then
+        self.lex_state = :expr_beg
+        self.yacc_value = t("*")
+        return :tOP_ASGN
+      when src.scan(/\*/) then
+        result = if lex_state.is_argument && space_seen && !src.check(/\s/) then
+                   warning("`*' interpreted as argument prefix")
+                   :tSTAR
+                 elsif lex_state == :expr_beg || lex_state == :expr_mid then
+                   :tSTAR
+                 else
+                   :tSTAR2
+                 end
 
-        case
-        when src.scan(/\=/) then
-          self.yacc_value = t("!=")
-          return :tNEQ
-        when src.scan(/~/) then
-          self.yacc_value = t("!~")
-          return :tNMATCH
-        end
+        self.yacc_value = t("*")
 
+        self.fix_arg_lex_state
+
+        return result
+      when src.scan(/\!\=/) then
+        self.lex_state = :expr_beg
+        self.yacc_value = t("!=")
+        return :tNEQ
+      when src.scan(/\!~/) then
+        self.lex_state = :expr_beg
+        self.yacc_value = t("!~")
+        return :tNMATCH
+      when src.scan(/\!/) then
+        self.lex_state = :expr_beg
         self.yacc_value = t("!")
         return :tBANG
-      when '=' then
+      when src.scan(/\=\=\=/) then
+        self.fix_arg_lex_state
+        self.yacc_value = t("===")
+        return :tEQQ
+      when src.scan(/\=\=/) then
+        self.fix_arg_lex_state
+        self.yacc_value = t("==")
+        return :tEQ
+      when src.scan(/\=~/) then
+        self.fix_arg_lex_state
+        self.yacc_value = t("=~")
+        return :tMATCH
+      when src.scan(/\=>/) then
+        self.fix_arg_lex_state
+        self.yacc_value = t("=>")
+        return :tASSOC
+      when src.scan(/\=/) then
         # documentation nodes
         if src.was_begin_of_line and src.scan(/begin(?=\s)/) then
-          self.token_buffer.clear
           self.token_buffer << '=' # FIX merge up
           self.token_buffer << src.matched
 
@@ -690,83 +698,63 @@ class RubyLexer
           self.store_comment
 
           next
-        end
-
-        self.fix_arg_lex_state
-
-        case
-        when src.scan(/\=\=/) then
-          self.yacc_value = t("===")
-          return :tEQQ
-        when src.scan(/\=/) then
-          self.yacc_value = t("==")
-          return :tEQ
-        when src.scan(/~/) then
-          self.yacc_value = t("=~")
-          return :tMATCH
-        when src.scan(/>/) then
-          self.yacc_value = t("=>")
-          return :tASSOC
         else
+          self.fix_arg_lex_state
           self.yacc_value = t("=")
           return '='
         end
-      when '<' then
-        if src.scan(/</) then
-          if (! [:expr_end,    :expr_dot,
-                 :expr_endarg, :expr_class].include?(lex_state) &&
-              (!lex_state.is_argument || space_seen)) then
-            tok = self.heredoc_identifier
-            if tok then
-              return tok
-            end
+      when src.scan(/\<\=\>/) then
+        self.fix_arg_lex_state
+        self.yacc_value = t("<=>")
+        return :tCMP
+      when src.scan(/\<\=/) then
+        self.fix_arg_lex_state
+        self.yacc_value = t("<=")
+        return :tLEQ
+      when src.scan(/\<\<\=/) then
+        self.fix_arg_lex_state
+        self.lex_state = :expr_beg
+        self.yacc_value = t("\<\<")
+        return :tOP_ASGN
+      when src.scan(/\<\</) then
+        if (! [:expr_end,    :expr_dot,
+               :expr_endarg, :expr_class].include?(lex_state) &&
+            (!lex_state.is_argument || space_seen)) then
+          tok = self.heredoc_identifier
+          if tok then
+            return tok
           end
-          src.unread "<" # ok
         end
 
         self.fix_arg_lex_state
-
-        case
-        when src.scan(/\=\>/) then
-          self.yacc_value = t("<=>")
-          return :tCMP
-        when src.scan(/\=/) then
-          self.yacc_value = t("<=")
-          return :tLEQ
-        when src.scan(/\<\=/) then
-          self.lex_state = :expr_beg
-          self.yacc_value = t("\<\<")
-          return :tOP_ASGN
-        when src.scan(/\</) then
-          self.yacc_value = t("\<\<")
-          return :tLSHFT
-        else
-          self.yacc_value = t("<")
-          return :tLT
-        end
-      when '>' then
+        self.yacc_value = t("\<\<")
+        return :tLSHFT
+      when src.scan(/\</) then
         self.fix_arg_lex_state
-
-        case
-        when src.scan(/\=/) then
-          self.yacc_value = t(">=")
-          return :tGEQ
-        when src.scan(/>=/) then
-          self.lex_state = :expr_beg
-          self.yacc_value = t(">>")
-          return :tOP_ASGN
-        when src.scan(/>/) then
-          self.yacc_value = t(">>")
-          return :tRSHFT
-        else
-          self.yacc_value = t(">")
-          return :tGT
-        end
-      when '"' then
+        self.yacc_value = t("<")
+        return :tLT
+      when src.scan(/\>\=/) then
+        self.fix_arg_lex_state
+        self.yacc_value = t(">=")
+        return :tGEQ
+      when src.scan(/\>\>=/) then
+        self.fix_arg_lex_state
+        self.lex_state = :expr_beg
+        self.yacc_value = t(">>")
+        return :tOP_ASGN
+      when src.scan(/\>\>/) then
+        self.fix_arg_lex_state
+        self.yacc_value = t(">>")
+        return :tRSHFT
+      when src.scan(/\>/) then
+        self.fix_arg_lex_state
+        self.yacc_value = t(">")
+        return :tGT
+      when src.scan(/\"/) then
         self.lex_strterm = s(:strterm, STR_DQUOTE, '"', "\0") # TODO: question this
         self.yacc_value = t("\"")
         return :tSTRING_BEG
-      when '`' then
+      when src.scan(/\`/) then
         self.yacc_value = t("`")
         case lex_state
         when :expr_fname then
@@ -782,11 +770,11 @@ class RubyLexer
         end
         self.lex_strterm = s(:strterm, STR_XQUOTE, '`', "\0")
         return :tXSTRING_BEG
-      when "\'" then
+      when src.scan(/\'/) then
         self.lex_strterm = s(:strterm, STR_SQUOTE, "\'", "\0")
         self.yacc_value = t("'")
         return :tSTRING_BEG
-      when '?' then
+      when src.scan(/\?/) then
         if lex_state == :expr_end || lex_state == :expr_endarg then
           self.lex_state = :expr_beg
           self.yacc_value = t("?")
@@ -843,22 +831,19 @@ class RubyLexer
         self.lex_state = :expr_end
         self.yacc_value = c[0]
         return :tINTEGER
-      when '&' then
-        case
-        when src.scan(/&=/) then
-          self.yacc_value = t("&&")
-          self.lex_state = :expr_beg
-          return :tOP_ASGN
-        when src.scan(/&/) then
-          self.lex_state = :expr_beg
-          self.yacc_value = t("&&")
-          return :tANDOP
-        when src.scan(/\=/) then
-          self.yacc_value = t("&")
-          self.lex_state = :expr_beg
-          return :tOP_ASGN
-        end
-
+      when src.scan(/\&&=/) then
+        self.yacc_value = t("&&")
+        self.lex_state = :expr_beg
+        return :tOP_ASGN
+      when src.scan(/\&&/) then
+        self.lex_state = :expr_beg
+        self.yacc_value = t("&&")
+        return :tANDOP
+      when src.scan(/\&\=/) then
+        self.yacc_value = t("&")
+        self.lex_state = :expr_beg
+        return :tOP_ASGN
+      when src.scan(/&/) then
         result = if lex_state.is_argument && space_seen && !src.check(/\s/) then
                    warning("`&' interpreted as argument prefix")
                    :tAMPER
@@ -871,26 +856,23 @@ class RubyLexer
         self.fix_arg_lex_state
         self.yacc_value = t("&")
         return result
-      when '|' then
-        case
-        when src.scan(/\|\=/) then
-          self.lex_state = :expr_beg
-          self.yacc_value = t("||")
-          return :tOP_ASGN
-        when src.scan(/\|/) then
-          self.lex_state = :expr_beg
-          self.yacc_value = t("||")
-          return :tOROP
-        when src.scan(/\=/) then
-          self.lex_state = :expr_beg
-          self.yacc_value = t("|")
-          return :tOP_ASGN
-        else
-          self.fix_arg_lex_state
-          self.yacc_value = t("|")
-          return :tPIPE
-        end
-      when '+' then
+      when src.scan(/\|\|\=/) then
+        self.lex_state = :expr_beg
+        self.yacc_value = t("||")
+        return :tOP_ASGN
+      when src.scan(/\|\|/) then
+        self.lex_state = :expr_beg
+        self.yacc_value = t("||")
+        return :tOROP
+      when src.scan(/\|\=/) then
+        self.lex_state = :expr_beg
+        self.yacc_value = t("|")
+        return :tOP_ASGN
+      when src.scan(/\|/) then
+        self.fix_arg_lex_state
+        self.yacc_value = t("|")
+        return :tPIPE
+      when src.scan(/\+/) then
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
           if src.scan(/@/) then
@@ -926,7 +908,7 @@ class RubyLexer
         self.lex_state = :expr_beg
         self.yacc_value = t("+")
         return :tPLUS
-      when '-' then
+      when src.scan(/-/) then
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
           if src.scan(/@/) then
@@ -963,59 +945,54 @@ class RubyLexer
         self.yacc_value = t("-")
 
         return :tMINUS
-      when '.' then
+      when src.scan(/\.\.\./) then
         self.lex_state = :expr_beg
-        case
-        when src.scan(/\.\./) then
-          self.yacc_value = t("...")
-          return :tDOT3
-        when src.scan(/\./) then
-          self.yacc_value = t("..")
-          return :tDOT2
-        when src.scan(/\d/) then
-          rb_compile_error "no .<digit> floating literal anymore put 0 before dot"
-        else
-          self.lex_state = :expr_dot
-          self.yacc_value = t(".")
-          return :tDOT
-        end
-      when /[0-9]/ then
-        src.unread c # ok
+        self.yacc_value = t("...")
+        return :tDOT3
+      when src.scan(/\.\./) then
+        self.lex_state = :expr_beg
+        self.yacc_value = t("..")
+        return :tDOT2
+      when src.scan(/\.\d/) then
+        rb_compile_error "no .<digit> floating literal anymore put 0 before dot"
+      when src.scan(/\./) then
+        self.lex_state = :expr_dot
+        self.yacc_value = t(".")
+        return :tDOT
+      when src.check(/[0-9]/) then
         return parse_number
-      when ')' then # REFACTOR: omg this is lame... next 3 are all the same
+      when src.scan(/\)/) then # REFACTOR: omg this is lame... next 3 are all the same
         cond.lexpop
         cmdarg.lexpop
         self.lex_state = :expr_end
         self.yacc_value = t(")")
         return :tRPAREN
-      when ']' then
+      when src.scan(/\]/) then
         cond.lexpop
         cmdarg.lexpop
         self.lex_state = :expr_end
         self.yacc_value = t("]")
         return :tRBRACK
-      when '}' then
+      when src.scan(/\}/) then
         cond.lexpop
         cmdarg.lexpop
         self.lex_state = :expr_end
         self.yacc_value = t("end") # except this... *sigh*
         return :tRCURLY
-      when ':' then
-        if src.scan(/:/) then
-          if (lex_state == :expr_beg ||
-              lex_state == :expr_mid ||
-              lex_state == :expr_class ||
-              (lex_state.is_argument && space_seen)) then
-            self.lex_state = :expr_beg
-            self.yacc_value = t("::")
-            return :tCOLON3
-          end
-
-          self.lex_state = :expr_dot
-          self.yacc_value = t(":")
-          return :tCOLON2
+      when src.scan(/::/) then
+        if (lex_state == :expr_beg ||
+            lex_state == :expr_mid ||
+            lex_state == :expr_class ||
+            (lex_state.is_argument && space_seen)) then
+          self.lex_state = :expr_beg
+          self.yacc_value = t("::")
+          return :tCOLON3
         end
 
+        self.lex_state = :expr_dot
+        self.yacc_value = t(":")
+        return :tCOLON2
+      when src.scan(/\:/) then
         if (lex_state == :expr_end ||
             lex_state == :expr_endarg ||
             src.check(/\s/)) then
@@ -1034,7 +1011,7 @@ class RubyLexer
         self.lex_state = :expr_fname
         self.yacc_value = t(":")
         return :tSYMBEG
-      when '/' then
+      when src.scan(/\//) then
         if lex_state == :expr_beg || lex_state == :expr_mid then
           self.lex_strterm = s(:strterm, STR_REGEXP, '/', "\0")
           self.yacc_value = t("/")
@@ -1060,36 +1037,33 @@ class RubyLexer
 
         self.yacc_value = t("/")
         return :tDIVIDE
-      when '^' then
-        if src.scan(/=/) then
-          self.lex_state = :expr_beg
-          self.yacc_value = t("^")
-          return :tOP_ASGN
-        end
-
+      when src.scan(/\^=/) then
+        self.lex_state = :expr_beg
+        self.yacc_value = t("^")
+        return :tOP_ASGN
+      when src.scan(/\^/) then
         self.fix_arg_lex_state
-
         self.yacc_value = t("^")
         return :tCARET
-      when ';' then
+      when src.scan(/\;/) then
         self.command_start = true
         self.lex_state = :expr_beg
         self.yacc_value = t(";")
-        return c
-      when ',' then
+        return src.matched
+      when src.scan(/\,/) then
         self.lex_state = :expr_beg
         self.yacc_value = t(",")
-        return c
-      when '~' then
+        return src.matched
+      when src.scan(/\~/) then
         if lex_state == :expr_fname || lex_state == :expr_dot then
           src.scan(/@/)
         end
 
         self.fix_arg_lex_state
-
         self.yacc_value = t("~")
+
         return :tTILDE
-      when '(' then
+      when src.scan(/\(/) then
         result = :tLPAREN2
         self.command_start = true
         if lex_state == :expr_beg || lex_state == :expr_mid then
@@ -1109,8 +1083,8 @@ class RubyLexer
         self.yacc_value = t("(")
 
         return result
-      when '[' then
-        result = c
+      when src.scan(/\[/) then
+        result = src.matched
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
           case
@@ -1135,8 +1109,7 @@ class RubyLexer
         self.yacc_value = t("[")
 
         return result
-      when '{' then
-        # TODO: figure out why they used 'c' here:
+      when src.scan(/\{/) then
         result = if lex_state.is_argument || lex_state == :expr_end then
                    :tLCURLY      #  block (primary)
                  elsif lex_state == :expr_endarg then
@@ -1152,13 +1125,13 @@ class RubyLexer
         self.yacc_value = t("{")
 
         return result
-      when "\\" then
+      when src.scan(/\\/) then
         if src.scan(/\n/) then
           space_seen = true
           next
         end
         rb_compile_error "bare backslash only allowed before newline"
-      when '%' then
+      when src.scan(/\%/) then
         if lex_state == :expr_beg || lex_state == :expr_mid then
           return parse_quote
         end
@@ -1174,35 +1147,36 @@ class RubyLexer
         end
 
         self.fix_arg_lex_state
-
         self.yacc_value = t("%")
 
         return :tPERCENT
-      when '$' then
+      when src.scan(/\$/) then
         last_state = lex_state
         self.lex_state = :expr_end
 
-        token_buffer.clear
-        token_buffer << '$'
-
         case
         when src.scan(/_(\w)/) then
+          token_buffer << '$'
           token_buffer << '_'
-          c = src[1]
+          # HACK? c = src[1]
           # pass through
         when src.scan(/_/) then
+          token_buffer << '$'
           self.yacc_value = t('$_')
           return :tGVAR
         when src.scan(/[~*$?!@\/\\;,.=:<>\"]/) then
+          token_buffer << '$'
           token_buffer << src.matched
           self.yacc_value = t(token_buffer.join)
           return :tGVAR
         when src.scan(/-\w?/) then
+          token_buffer << '$'
           token_buffer << src.matched
           self.yacc_value = t(token_buffer.join)
           #  xxx shouldn't check if valid option variable
           return :tGVAR
         when src.scan(/[\&\`\'\+]/) then
+          token_buffer << '$'
           # Explicit reference to these vars as symbols...
           if last_state == :expr_fname then
             token_buffer << src.matched
@@ -1213,6 +1187,7 @@ class RubyLexer
             return :tBACK_REF
           end
         when src.scan(/[1-9]\d*/) then
+          token_buffer << '$'
           token_buffer.push(*src.matched.split(//))
           if last_state == :expr_fname then
             self.yacc_value = t(token_buffer.join)
@@ -1222,16 +1197,18 @@ class RubyLexer
             return :tNTH_REF
           end
         when src.scan(/0/) then
-          # do nothing
+          token_buffer << '$'
+          # pass through
         when src.check(/\W|\z/) then
+          token_buffer << '$'
           self.yacc_value = t("$")
           return '$'
         else
-          c = src.scan(/./m)
+          token_buffer << '$'
+          src.scan(/./m)
           # pass through
         end
-      when '@' then
-        token_buffer.clear
+      when src.scan(/\@/) then
         token_buffer << '@'
 
         if src.scan(/(@)?\d/) then
@@ -1249,23 +1226,17 @@ class RubyLexer
         unless src.scan(/\w/) then
           self.yacc_value = t("@")
           return '@'
-        else
-          c = src.matched # FIX
         end
-      when '_' then
+      when src.scan(/\_/) then
         if src.was_begin_of_line && src.scan(/_END__(\n|\Z)/) then
           return RubyLexer::EOF
         end
-        token_buffer.clear
       else
-        unless c =~ /\w/ then
+        c = src.getch # FIX: I really hate this
+        if c =~ /\W/ then
           rb_compile_error "Invalid char '#{c.inspect}' in expression"
         end
-        token_buffer.clear
       end
-
-      # END case c
-      ############################################################
 
       src.pos -= 1 # HACK
       if src.scan(/\w+/) then
