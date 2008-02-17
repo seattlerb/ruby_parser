@@ -343,7 +343,7 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_dollar
-    util_lex_token("$", '$', t("$")) # FIX: wtf is this?!?
+    util_lex_token('$', '$', t('$')) # FIX: wtf is this?!?
   end
 
   def test_yylex_dot # HINT message sends

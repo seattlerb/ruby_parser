@@ -255,9 +255,9 @@ class RubyLexer
     if src.scan(/[a-z0-9]{1,2}/i) then # Long-hand (e.g. %Q{}).
       rb_compile_error "unknown type of %string" if
         src.matched_size == 2
-      c, beg, short_hand = src.matched, src.getch, false
+      c, beg, short_hand = src.matched, src.scan(/./m), false
     else                               # Short-hand (e.g. %{, %., %!, etc)
-      c, beg, short_hand = 'Q', src.getch, true
+      c, beg, short_hand = 'Q', src.scan(/./m), true
     end
 
     if c == RubyLexer::EOF or beg == RubyLexer::EOF then
@@ -407,7 +407,7 @@ class RubyLexer
     when src.scan(/[McCx0-9]/) || src.eos? then
       rb_compile_error("Invalid escape character syntax")
     else
-      src.getch
+      src.scan(/./m)
     end
   end
 
@@ -523,8 +523,8 @@ class RubyLexer
         #   }
         # }
       else
-        c = src.getch
-        if symbol && src.scan(/\0/) then # TODO: why after getch?
+        c = src.scan(/./m) # FIX: I don't like this style
+        if symbol && src.scan(/\0/) then
           rb_compile_error "symbol cannot contain '\\0'"
         end
       end
@@ -1181,51 +1181,39 @@ class RubyLexer
       when '$' then
         last_state = lex_state
         self.lex_state = :expr_end
-        token_buffer.clear
 
+        token_buffer.clear
         token_buffer << '$'
 
         case
-        when src.scan(/_(?!\w)/) then
+        when src.scan(/_(\w)/) then
+          token_buffer << '_'
+          c = src[1]
+          # pass through
+        when src.scan(/_/) then
           self.yacc_value = t('$_')
           return :tGVAR
-        end
-
-        c = src.getch
-        case c
-        when '_' then #  $_: last read line string
-          token_buffer << '_'
-
-          if src.scan(/\w/) then
-            c = src.matched
-          end
-        when /[~*$?!@\/\\;,.=:<>\"]/ then
-          token_buffer << c
+        when src.scan(/[~*$?!@\/\\;,.=:<>\"]/) then
+          token_buffer << src.matched
           self.yacc_value = t(token_buffer.join)
           return :tGVAR
-        when '-' then
-          token_buffer << c
-          if src.scan(/\w/) then
-            token_buffer << src.matched
-          end
+        when src.scan(/-\w?/) then
+          token_buffer << src.matched
           self.yacc_value = t(token_buffer.join)
           #  xxx shouldn't check if valid option variable
           return :tGVAR
-        when /[\&\`\'\+]/ then
+        when src.scan(/[\&\`\'\+]/) then
           # Explicit reference to these vars as symbols...
           if last_state == :expr_fname then
-            token_buffer << c
+            token_buffer << src.matched
             self.yacc_value = t(token_buffer.join)
             return :tGVAR
+          else
+            self.yacc_value = s(:back_ref, src.matched.to_sym)
+            return :tBACK_REF
           end
-
-          self.yacc_value = s(:back_ref, c.to_sym)
-          return :tBACK_REF
-        when /[1-9]/ then
-          token_buffer << c
-          if src.scan(/\d+/) then
-            token_buffer.push(*src.matched.split(//))
-          end
+        when src.scan(/[1-9]\d*/) then
+          token_buffer.push(*src.matched.split(//))
           if last_state == :expr_fname then
             self.yacc_value = t(token_buffer.join)
             return :tGVAR
@@ -1233,19 +1221,15 @@ class RubyLexer
             self.yacc_value = s(:nth_ref, token_buffer.join[1..-1].to_i)
             return :tNTH_REF
           end
-        when '0' then
+        when src.scan(/0/) then
           # do nothing
+        when src.check(/\W|\z/) then
+          self.yacc_value = t("$")
+          return '$'
         else
-          unless c =~ /\w/ then
-            src.unread c
-            self.yacc_value = t("$")
-            return '$'
-          end
-          # do nothing
+          c = src.scan(/./m)
+          # pass through
         end
-
-        ############################################################
-
       when '@' then
         token_buffer.clear
         token_buffer << '@'
