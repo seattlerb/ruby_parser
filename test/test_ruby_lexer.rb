@@ -1190,6 +1190,20 @@ class TestRubyLexer < Test::Unit::TestCase
     util_bad_token '/regex\\M/', :tREGEXP_BEG, t("/")
   end
 
+  def test_yylex_regexp_escape_backslash_slash
+    util_lex_token('/\\//',
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, '\\/'),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_backslash_terminator
+    util_lex_token('%r%blah\\%blah%',
+                   :tREGEXP_BEG,     t("%r\000"), # FIX ?!?
+                   :tSTRING_CONTENT, s(:str, "blah%blah"),
+                   :tREGEXP_END,     "")
+  end
+
   def test_yylex_regexp_escape_bad_eos
     util_bad_token '/regex\\', :tREGEXP_BEG, t("/")
   end
@@ -1197,7 +1211,7 @@ class TestRubyLexer < Test::Unit::TestCase
   def test_yylex_regexp_escape_bs
     util_lex_token('/regex\\\\regex/',
                    :tREGEXP_BEG,     t("/"),
-                   :tSTRING_CONTENT, s(:str, "regex\\regex"),
+                   :tSTRING_CONTENT, s(:str, "regex\\\\regex"),
                    :tREGEXP_END,     "")
   end
 
@@ -1222,6 +1236,14 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tREGEXP_END,     "")
   end
 
+  def test_yylex_regexp_escape_double_backslash
+    regexp = '/[\\/\\\\]$/'
+    util_lex_token(regexp,
+                   :tREGEXP_BEG,     t("/"),
+                   :tSTRING_CONTENT, s(:str, regexp[1..-2]),
+                   :tREGEXP_END,     "")
+  end
+
   def test_yylex_regexp_escape_hex
     util_lex_token('/regex\\x61xp/',
                    :tREGEXP_BEG,     t("/"),
@@ -1229,8 +1251,15 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tREGEXP_END,     "")
   end
 
+  def test_yylex_regexp_escape_hex_one
+    util_lex_token('/^[\\xd\\xa]{2}/on',
+                   :tREGEXP_BEG,     t('/'),
+                   :tSTRING_CONTENT, s(:str, '^[\\xd\\xa]{2}'),
+                   :tREGEXP_END,     'on')
+  end
+
   def test_yylex_regexp_escape_hex_bad
-    util_bad_token '/regex\\x6zxp/', :tREGEXP_BEG, t("/")
+    util_bad_token '/regex\\xzxp/', :tREGEXP_BEG, t("/")
   end
 
   def test_yylex_regexp_escape_oct1
@@ -1365,13 +1394,6 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_END,     t('"'))
   end
 
-  def test_yylex_string_double_nested_curlies
-    util_lex_token('%{nest{one{two}one}nest}',
-                   :tSTRING_BEG,     t('%}'),
-                   :tSTRING_CONTENT, s(:str, "nest{one{two}one}nest"),
-                   :tSTRING_END,     t('}'))
-  end
-
   def test_yylex_string_double_escape_M
     util_lex_token('"\\M-g"',
                    :tSTRING_BEG,     t('"'),
@@ -1411,6 +1433,13 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_DBEG,    nil,
                    :tSTRING_CONTENT, s(:str, "3} # "),
                    :tSTRING_END,     t("\""))
+  end
+
+  def test_yylex_string_double_nested_curlies
+    util_lex_token('%{nest{one{two}one}nest}',
+                   :tSTRING_BEG,     t('%}'),
+                   :tSTRING_CONTENT, s(:str, "nest{one{two}one}nest"),
+                   :tSTRING_END,     t('}'))
   end
 
   def test_yylex_string_double_no_interp

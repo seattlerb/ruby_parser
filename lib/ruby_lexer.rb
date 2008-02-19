@@ -91,6 +91,14 @@ class RubyLexer
     self.yacc_value = t(val)
   end
 
+  def fix_arg_lex_state
+    self.lex_state = if lex_state == :expr_fname || lex_state == :expr_dot
+                       :expr_arg
+                     else
+                       :expr_beg
+                     end
+  end
+
   def heredoc here # Region has 63 lines, 1595 characters
     _, eos, func, last_line = here
 
@@ -124,7 +132,7 @@ class RubyLexer
       end
 
       until src.scan(eos_re) do
-        c = tokadd_string func, "\n", nil, token_buffer
+        c = tokadd_string func, "\n", nil
 
         rb_compile_error err_msg if
           c == RubyLexer::EOF
@@ -215,14 +223,6 @@ class RubyLexer
     @comments = []
 
     reset
-  end
-
-  def fix_arg_lex_state
-    self.lex_state = if lex_state == :expr_fname || lex_state == :expr_dot
-                       :expr_arg
-                     else
-                       :expr_beg
-                     end
   end
 
   def int_with_base base
@@ -376,7 +376,7 @@ class RubyLexer
       end
     end
 
-    if tokadd_string(func, term, paren, token_buffer) == RubyLexer::EOF then
+    if tokadd_string(func, term, paren) == RubyLexer::EOF then
       rb_compile_error "unterminated string meets end of file"
     end
 
@@ -477,26 +477,27 @@ class RubyLexer
 
   def tokadd_escape term
     case
-    when src.scan(/\n/) then
+    when src.scan(/\\\n/) then
       # just ignore
-    when src.scan(/[0-7]{1,3}|x[0-9a-fA-F]{2}/) then
-      self.token_buffer << "\\" << src.matched
-    when src.scan(/([MC]-|c)\\/) then
-      self.token_buffer << "\\" << src[1]
+    when src.scan(/\\([0-7]{1,3}|x[0-9a-fA-F]{1,2})/) then
+      self.token_buffer << src.matched
+    when src.scan(/\\([MC]-|c)(?=\\)/) then
+      self.token_buffer << src.matched
       self.tokadd_escape term
-    when src.scan(/([MC]-|c)(.)/) then
-      self.token_buffer << "\\" << src.matched
-    when src.scan(/[McCx]/) || src.eos? then
+    when src.scan(/\\([MC]-|c)(.)/) then
+      self.token_buffer << src.matched
+    when src.scan(/\\[McCx]/) || src.eos? then
       rb_compile_error "Invalid escape character syntax"
+    when src.scan(/\\(\/|[^#{Regexp.escape term}])/) then
+      self.token_buffer << "\\" << src[1]
+    when src.scan(/\\(.)/m) then
+      self.token_buffer << src[1]
     else
-      unless src.check(/\\|#{Regexp.escape term}/) then
-        self.token_buffer << "\\"
-      end
-      self.token_buffer << src.getch
+      rb_compile_error "Invalid escape character syntax"
     end
   end
 
-  def tokadd_string(func, term, paren, buffer)
+  def tokadd_string(func, term, paren)
     awords = (func & STR_FUNC_AWORDS) != 0
     escape = (func & STR_FUNC_ESCAPE) != 0
     expand = (func & STR_FUNC_EXPAND) != 0
@@ -521,7 +522,7 @@ class RubyLexer
         src.pos -= 1
         break
       when awords && src.scan(/\\\n/) then
-        buffer << "\n"
+        token_buffer << "\n"
         next
       when expand && src.scan(/\\\n/) then
         next
@@ -531,17 +532,17 @@ class RubyLexer
         # do nothing
       when src.scan(/\\\\/) then
         if escape then
-          buffer << "\\"
+          token_buffer << src.matched
           next
         end
-      when regexp && src.scan(/\\/) then
+      when regexp && src.check(/\\/) then
         self.tokadd_escape term
         next
       when expand && src.scan(/\\/) then
         c = self.read_escape
       when src.scan(/\\/) then
-        if !src.scan(term_re) && !(paren && src.scan(paren_re)) then
-          buffer << "\\"
+        unless src.scan(term_re) || paren.nil? || src.scan(paren_re) then
+          token_buffer << "\\"
         end
         # \\ case:
         # else if (ismbchar(c)) {
@@ -559,7 +560,7 @@ class RubyLexer
       end
 
       c = src.matched unless c
-      buffer << c
+      token_buffer << c
     end # until
 
     c = src.matched unless c

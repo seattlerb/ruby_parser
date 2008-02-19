@@ -439,7 +439,6 @@ class RubyParser < Racc::Parser
   end
 
   def warning s
-    raise "no"
     # do nothing for now
   end
 end
