@@ -12,6 +12,7 @@ base types.
 == FEATURES/PROBLEMS:
 
 * Pure ruby, no compiles.
+* Includes preceding comment data for defn/defs/class/module nodes!
 * Incredibly simple interface.
 * Output is 100% equivalent to ParseTree.
   * Can utilize PT's SexpProcessor and UnifiedRuby for language processing.
@@ -20,7 +21,6 @@ base types.
 * Known Issue: I don't currently support newline nodes.
 * Known Issue: Totally awesome.
 * Known Issue: dasgn_curr decls can be out of order from ParseTree's.
-* TODO: Add comment nodes.
 
 == SYNOPSIS:
 

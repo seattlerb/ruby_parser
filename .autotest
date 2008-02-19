@@ -30,4 +30,3 @@ end
 require 'autotest/rcov'
 Autotest::RCov.command = 'rcov_info'
 Autotest::RCov.pattern = 'test/test_ruby_lexer.rb'
-
