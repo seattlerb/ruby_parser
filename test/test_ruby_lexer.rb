@@ -397,8 +397,24 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tIDENTIFIER, t('to_s'))
   end
 
+  def test_yylex_float_dot_E
+    util_lex_token "1.0E10", :tFLOAT, 1.0e10
+  end
+
+  def test_yylex_float_dot_E_neg
+    util_lex_token("-1.0E10",
+                   :tUMINUS_NUM, t("-"),
+                   :tFLOAT, 1.0e10)
+  end
+
   def test_yylex_float_dot_e
     util_lex_token "1.0e10", :tFLOAT, 1.0e10
+  end
+
+  def test_yylex_float_dot_e_neg
+    util_lex_token("-1.0e10",
+                   :tUMINUS_NUM, t("-"),
+                   :tFLOAT, 1.0e10)
   end
 
   def test_yylex_float_e
@@ -1200,7 +1216,28 @@ class TestRubyLexer < Test::Unit::TestCase
   def test_yylex_regexp_escape_backslash_terminator
     util_lex_token('%r%blah\\%blah%',
                    :tREGEXP_BEG,     t("%r\000"), # FIX ?!?
-                   :tSTRING_CONTENT, s(:str, "blah%blah"),
+                   :tSTRING_CONTENT, s(:str, "blah\\%blah"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_backslash_terminator_meta1
+    util_lex_token('%r{blah\\}blah}',
+                   :tREGEXP_BEG,     t("%r{"), # FIX ?!?
+                   :tSTRING_CONTENT, s(:str, "blah\\}blah"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_backslash_terminator_meta2
+    util_lex_token('%r/blah\\/blah/',
+                   :tREGEXP_BEG,     t("%r\000"), # FIX ?!?
+                   :tSTRING_CONTENT, s(:str, "blah\\/blah"),
+                   :tREGEXP_END,     "")
+  end
+
+  def test_yylex_regexp_escape_backslash_terminator_meta3
+    util_lex_token('%r/blah\\%blah/',
+                   :tREGEXP_BEG,     t("%r\000"), # FIX ?!?
+                   :tSTRING_CONTENT, s(:str, "blah\\%blah"),
                    :tREGEXP_END,     "")
   end
 
@@ -1415,6 +1452,20 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_END,     t('"'))
   end
 
+  def test_yylex_string_double_escape_bs1
+    util_lex_token('"a\\a\\a"',
+                   :tSTRING_BEG,     t('"'),
+                   :tSTRING_CONTENT, s(:str, "a\a\a"),
+                   :tSTRING_END,     t('"'))
+  end
+
+  def test_yylex_string_double_escape_bs2
+    util_lex_token('"a\\\\a"',
+                   :tSTRING_BEG,     t('"'),
+                   :tSTRING_CONTENT, s(:str, "a\\a"),
+                   :tSTRING_END,     t('"'))
+  end
+
   def test_yylex_string_double_escape_octal
     util_lex_token('"n = \\101\\102\\103"',
                    :tSTRING_BEG,     t('"'),
@@ -1512,6 +1563,16 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_CONTENT, s(:str, "s1"),
                    " ",              nil,
                    :tSTRING_CONTENT, s(:str, "\ns2"),
+                   " ",              nil,
+                   :tSTRING_END,     nil)
+  end
+
+  def test_yylex_string_pct_w_bs_sp
+    util_lex_token("%w[s\\ 1 s\\ 2]",
+                   :tAWORDS_BEG,     t("%w["),
+                   :tSTRING_CONTENT, s(:str, "s 1"),
+                   " ",              nil,
+                   :tSTRING_CONTENT, s(:str, "s 2"),
                    " ",              nil,
                    :tSTRING_END,     nil)
   end

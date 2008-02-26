@@ -223,6 +223,13 @@ end
     assert_equal pt, @processor.parse(rb)
   end
 
+  def test_empty
+    rb = ""
+    pt = nil
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
   def test_evstr_evstr
     rb = "\"#\{a}#\{b}\""
     pt = s(:dstr, "", s(:evstr, s(:vcall, :a)), s(:evstr, s(:vcall, :b)))

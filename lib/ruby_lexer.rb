@@ -33,7 +33,7 @@ class RubyLexer
   EOF = :eof_haha!
 
   # ruby constants for strings (should this be moved somewhere else?)
-  STR_FUNC_PLAIN  = 0x00
+  STR_FUNC_BORING = 0x00
   STR_FUNC_ESCAPE = 0x01 # TODO: remove and replace with REGEXP
   STR_FUNC_EXPAND = 0x02
   STR_FUNC_REGEXP = 0x04
@@ -41,9 +41,9 @@ class RubyLexer
   STR_FUNC_SYMBOL = 0x10
   STR_FUNC_INDENT = 0x20 # <<-HEREDOC
 
-  STR_SQUOTE = 0
-  STR_DQUOTE = STR_FUNC_EXPAND
-  STR_XQUOTE = STR_FUNC_EXPAND
+  STR_SQUOTE = STR_FUNC_BORING
+  STR_DQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
+  STR_XQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
   STR_REGEXP = STR_FUNC_REGEXP | STR_FUNC_ESCAPE | STR_FUNC_EXPAND
   STR_SSYM   = STR_FUNC_SYMBOL
   STR_DSYM   = STR_FUNC_SYMBOL | STR_FUNC_EXPAND
@@ -165,7 +165,7 @@ class RubyLexer
   end
 
   def heredoc_identifier
-    term, func = nil, STR_FUNC_PLAIN
+    term, func = nil, STR_FUNC_BORING
     token_buffer.clear
 
     case
@@ -262,7 +262,7 @@ class RubyLexer
       return int_with_base(8)
     when src.scan(/[+-]?[\d_]+_(e|\.)/) then
       rb_compile_error "Trailing '_' in number."
-    when src.scan(/[+-]?[\d_]+\.[\d_]+(e[+-]?[\d_]+)?\b|[+-]?[\d_]+e[+-]?[\d_]+\b/) then
+    when src.scan(/[+-]?[\d_]+\.[\d_]+(e[+-]?[\d_]+)?\b|[+-]?[\d_]+e[+-]?[\d_]+\b/i) then
       number = src.matched
       if number =~ /__/ then
         rb_compile_error "Invalid numeric format"
@@ -486,12 +486,10 @@ class RubyLexer
       self.tokadd_escape term
     when src.scan(/\\([MC]-|c)(.)/) then
       self.token_buffer << src.matched
-    when src.scan(/\\[McCx]/) || src.eos? then
+    when src.scan(/\\[McCx]/) then
       rb_compile_error "Invalid escape character syntax"
-    when src.scan(/\\(\/|[^#{Regexp.escape term}])/) then
-      self.token_buffer << "\\" << src[1]
     when src.scan(/\\(.)/m) then
-      self.token_buffer << src[1]
+      self.token_buffer << src.matched
     else
       rb_compile_error "Invalid escape character syntax"
     end
@@ -526,15 +524,15 @@ class RubyLexer
         next
       when expand && src.scan(/\\\n/) then
         next
-      when ((expand && src.scan(/#(?!\n)/)) ||
-            src.scan(/\\\n/) ||
-            (awords && src.scan(/\\\s/))) then
+      when awords && src.scan(/\\\s/) then
+        c = ' '
+      when (expand && src.scan(/#(?!\n)/)) || src.scan(/\\\n/) then
         # do nothing
       when src.scan(/\\\\/) then
         if escape then
-          token_buffer << src.matched
-          next
+          token_buffer << '\\'
         end
+        c = '\\'
       when regexp && src.check(/\\/) then
         self.tokadd_escape term
         next
