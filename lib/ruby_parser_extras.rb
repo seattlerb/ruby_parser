@@ -3,11 +3,22 @@ require 'racc/parser'
 require 'sexp'
 require 'strscan'
 
-class StringScanner
-  def current_line # HAHA fuck you (HACK)
-    string[0..pos][/\A.*__LINE__/m].split(/\n/).size
-  end
+# WHY do I have to do this?!?
+class Regexp
+  ONCE     = 0 # 16 # ?
+  ENC_NONE = /x/n.options
+  ENC_EUC  = /x/e.options
+  ENC_SJIS = /x/s.options
+  ENC_UTF8 = /x/u.options
+end
 
+class Fixnum
+  def ord
+    self # I hate ruby 1.9 string changes
+  end
+end
+
+class StringScanner
 #   if ENV['TALLY'] then
 #     alias :old_getch :getch
 #     def getch
@@ -15,6 +26,10 @@ class StringScanner
 #       old_getch
 #     end
 #   end
+
+  def current_line # HAHA fuck you (HACK)
+    string[0..pos][/\A.*__LINE__/m].split(/\n/).size
+  end
 
   def lineno
     string[0..pos].split(/\n/).size
@@ -46,7 +61,7 @@ class RubyParser < Racc::Parser
     return head if tail.nil?
     return tail if head.nil?
 
-    head = s(:block, head) unless head.first == :block
+    head = s(:block, head) unless head.node_type == :block
     head << tail
   end
 
@@ -75,7 +90,7 @@ class RubyParser < Racc::Parser
 
   def assignable(lhs, value = nil)
     id = lhs.to_sym
-    id = id.to_sym if Token === id
+    id = id.to_sym if Sexp === id
 
     raise SyntaxError, "Can't change the value of #{id}" if
       id.to_s =~ /^(?:self|nil|true|false|__LINE__|__FILE__)$/
@@ -211,9 +226,8 @@ class RubyParser < Racc::Parser
   end
 
   def gettable(id)
-    id = id.to_sym      if Token  === id # HACK
-    id = id.last.to_sym if Sexp   === id # HACK
-    id = id.to_sym      if String === id # HACK
+    id = id.to_sym if Sexp === id # HACK
+    id = id.to_sym if String === id # HACK
 
     return s(:self)                  if id == :self
     return s(:nil)                   if id == :nil
@@ -349,7 +363,7 @@ class RubyParser < Racc::Parser
   end
 
   def new_super args
-    if args && args.first == :block_pass then
+    if args && args.node_type == :block_pass then
       t, body, bp = args
       result = s(t, bp, s(:super, body))
     else
@@ -413,12 +427,13 @@ class RubyParser < Racc::Parser
 
   def ret_args node
     if node then
-      if node[0] == :block_pass then
-        raise SyntaxError, "block argument should not be given"
-      end
+      raise SyntaxError, "block argument should not be given" if
+        node[0] == :block_pass
 
       node = node.last if node[0] == :array && node.size == 2
-      node = s(:svalue, node) if node[0] == :splat and not node.paren # HACK matz wraps ONE of the FOUR splats in a newline to distinguish. I use paren for now. ugh
+      # HACK matz wraps ONE of the FOUR splats in a newline to
+      # distinguish. I use paren for now. ugh
+      node = s(:svalue, node) if node[0] == :splat and not node.paren
     end
 
     node
@@ -559,13 +574,13 @@ class Keyword
 
     case hval
     when 2, 1 then
-      hval += ASSO_VALUES[str[0]]
+      hval += ASSO_VALUES[str[0].ord]
     else
-      hval += ASSO_VALUES[str[2]]
-      hval += ASSO_VALUES[str[0]]
+      hval += ASSO_VALUES[str[2].ord]
+      hval += ASSO_VALUES[str[0].ord]
     end
 
-    hval += ASSO_VALUES[str[len - 1]]
+    hval += ASSO_VALUES[str[len - 1].ord]
     return hval
   end
 
@@ -673,7 +688,6 @@ class StackState
   end
 
   def pop
-    # raise "#{@name} empty" if @stack.size <= 1
     r = @stack.pop
     @stack.push false if @stack.size == 0
     r
@@ -682,38 +696,6 @@ class StackState
   def push val
     raise if val != true and val != false
     @stack.push val
-  end
-end
-
-def t str
-  Token.new str
-end
-
-class Token # TODO: nuke this and use sexps
-  attr_accessor :args
-
-  def first # HACK
-    self.args.first
-  end
-
-  def initialize(token)
-    @args = Array(token)
-  end
-
-  def inspect
-    "t(#{args.join.inspect})"
-  end
-
-  def to_sym
-    self.value.to_sym
-  end
-
-  def value # TODO: eventually phase this out (or make it official)
-    self.args.first
-  end
-
-  def == o
-    Token === o and self.args == o.args
   end
 end
 
@@ -741,6 +723,10 @@ class Sexp
   def value
     raise "multi item sexp" if size > 2
     last
+  end
+
+  def to_sym
+    self.value.to_sym
   end
 
   def values

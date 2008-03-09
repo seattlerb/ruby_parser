@@ -508,7 +508,7 @@ arg          : lhs '=' arg {
                  }
              | arg tDOT2 arg {
                  v1, v2 = val[0], val[2]
-                 if v1.first == :lit and v2.first == :lit and Fixnum === v1.last and Fixnum === v2.last then
+                 if v1.node_type == :lit and v2.node_type == :lit and Fixnum === v1.last and Fixnum === v2.last then
                    result = s(:lit, (v1.last)..(v2.last))
                  else
                    result = s(:dot2, v1, v2)
@@ -516,7 +516,7 @@ arg          : lhs '=' arg {
                }
              | arg tDOT3 arg {
                  v1, v2 = val[0], val[2]
-                 if v1.first == :lit and v2.first == :lit and Fixnum === v1.last and Fixnum === v2.last then
+                 if v1.node_type == :lit and v2.node_type == :lit and Fixnum === v1.last and Fixnum === v2.last then
                    result = s(:lit, (v1.last)...(v2.last))
                  else
                    result = s(:dot3, v1, v2)
@@ -829,7 +829,7 @@ primary      : literal
                  result = s(:colon3, val[1].value.to_sym)
                }
              | primary_value '[' aref_args tRBRACK {
-                 if val[0].first == :self then
+                 if val[0].node_type == :self then
                    result = s(:fcall, :"[]")
                  else
                    result = s(:call, val[0], :"[]")
@@ -918,7 +918,7 @@ primary      : literal
                   result = s(:case, val[1]);
 
                   body = val[3]
-                  while body and body.first == :when
+                  while body and body.node_type == :when
                     result << body
                     body = body.delete_at 3
                   end
@@ -1256,15 +1256,15 @@ regexp        : tREGEXP_BEG xstring_contents tREGEXP_END {
                          'x' => Regexp::EXTENDED,
                          'i' => Regexp::IGNORECASE,
                          'm' => Regexp::MULTILINE,
-                         'n' => 16,
-                         'e' => 32,
-                         's' => 48, # TODO: really?!?
-                         'u' => 64,
-                         'o' => 0, # ignore for now
+                         'o' => Regexp::ONCE,
+                         'n' => Regexp::ENC_NONE,
+                         'e' => Regexp::ENC_EUC,
+                         's' => Regexp::ENC_SJIS,
+                         'u' => Regexp::ENC_UTF8,
                          }[c]
                     raise "unknown regexp option: #{c}" unless v
                     o += v
-                    k = c if c =~ /[nesu]/
+                    k = c if c =~ /[esu]/
                   end
 
                   case node[0]

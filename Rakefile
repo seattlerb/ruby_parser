@@ -22,8 +22,9 @@ end
 
 Rake.application.all_tasks["default"].prerequisites.clear
 
-task :default => :parser
-task :test => :parser
+[:default, :multi, :test].each do |t|
+  task t => :parser
+end
 
 path = "pkg/ruby_parser-#{RubyParser::VERSION}"
 task path => :parser do

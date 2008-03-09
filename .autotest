@@ -27,6 +27,12 @@ Autotest.add_hook :run_command do |at|
   system "rake parser"
 end
 
+class Autotest
+  def ruby
+    File.expand_path "~/.multiruby/install/1.9.0-0/bin/ruby"
+  end
+end if ENV['ONENINE']
+
 require 'autotest/rcov'
 Autotest::RCov.command = 'rcov_info'
-Autotest::RCov.pattern = 'test/test_ruby_lexer.rb'
+# Autotest::RCov.pattern = 'test/test_ruby_lexer.rb'
