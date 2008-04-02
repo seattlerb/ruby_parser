@@ -18,30 +18,30 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tWORDS_BEG tAWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END
       tLAST_TOKEN
 
-preclow
-  nonassoc tLOWEST
-  nonassoc tLBRACE_ARG
-  nonassoc kIF_MOD kUNLESS_MOD kWHILE_MOD kUNTIL_MOD
-  left     kOR kAND
-  right    kNOT
-  nonassoc kDEFINED
-  right    '=' tOP_ASGN
-  left     kRESCUE_MOD
-  right    '?' ':'
-  nonassoc tDOT2 tDOT3
-  left     tOROP
-  left     tANDOP
-  nonassoc tCMP tEQ tEQQ tNEQ tMATCH tNMATCH
-  left     tGT tGEQ tLT tLEQ
-  left     tPIPE tCARET
-  left     tAMPER2
-  left     tLSHFT tRSHFT
-  left     tPLUS tMINUS
-  left     tSTAR2 tDIVIDE tPERCENT
-  right    tUMINUS_NUM tUMINUS
-  right    tPOW
-  right    tBANG tTILDE tUPLUS
 prechigh
+  right    tBANG tTILDE tUPLUS
+  right    tPOW
+  right    tUMINUS_NUM tUMINUS
+  left     tSTAR2 tDIVIDE tPERCENT
+  left     tPLUS tMINUS
+  left     tLSHFT tRSHFT
+  left     tAMPER2
+  left     tPIPE tCARET
+  left     tGT tGEQ tLT tLEQ
+  nonassoc tCMP tEQ tEQQ tNEQ tMATCH tNMATCH
+  left     tANDOP
+  left     tOROP
+  nonassoc tDOT2 tDOT3
+  right    '?' ':'
+  left     kRESCUE_MOD
+  right    '=' tOP_ASGN
+  nonassoc kDEFINED
+  right    kNOT
+  left     kOR kAND
+  nonassoc kIF_MOD kUNLESS_MOD kWHILE_MOD kUNTIL_MOD
+  nonassoc tLBRACE_ARG
+  nonassoc tLOWEST
+preclow
 
 rule
 
@@ -84,10 +84,10 @@ stmt          : kALIAS fitem { lexer.lex_state = :expr_fname } fitem {
                   result = s(:alias, val[1], val[3])
                 }
              | kALIAS tGVAR tGVAR {
-                  result = s(:valias, val[1].value.to_sym, val[2].value.to_sym)
+                  result = s(:valias, val[1].to_sym, val[2].to_sym)
                  }
              | kALIAS tGVAR tBACK_REF {
-                 result = s(:valias, val[1].value.to_sym, :"$#{val[2].last}")
+                 result = s(:valias, val[1].to_sym, :"$#{val[2].last}")
                }
              | kALIAS tGVAR tNTH_REF {
                   yyerror("can't make alias for the number variables");
@@ -167,7 +167,7 @@ stmt          : kALIAS fitem { lexer.lex_state = :expr_fname } fitem {
                  }
              | var_lhs tOP_ASGN command_call {
                   name = val[0].last
-                  asgn_op = val[1].value.to_sym
+                  asgn_op = val[1].to_sym
                   val[2] = value_expr(val[2])
 
                   case asgn_op
@@ -183,7 +183,7 @@ stmt          : kALIAS fitem { lexer.lex_state = :expr_fname } fitem {
                 end
                  }
              | primary_value '[' aref_args tRBRACK tOP_ASGN command_call {
-                  result = s(:op_asgn1, val[0], val[2], val[4].value.to_sym, val[5]);
+                  result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5]);
                  }
              | primary_value tDOT tIDENTIFIER tOP_ASGN command_call {
                   result = s(:op_asgn, val[0], val[4], val[2].value, val[3].value);
@@ -262,11 +262,11 @@ cmd_brace_block : tLBRACE_ARG {
                     self.env.unextend;
                   }
 
-command      : operation command_args = tLOWEST {
-                 result = new_fcall(val[0].value.to_sym, val[1])
+command      : operation command_args =tLOWEST {
+                 result = new_fcall(val[0].to_sym, val[1])
                }
              | operation command_args cmd_brace_block {
-                 result = new_fcall(val[0].value.to_sym, val[1])
+                 result = new_fcall(val[0].to_sym, val[1])
                  if val[2] then
                    if result[0] == :block_pass then
                       raise "both block arg and actual block given"
@@ -275,13 +275,13 @@ command      : operation command_args = tLOWEST {
                    result = val[2]
                  end
                }
-             | primary_value tDOT operation2 command_args = tLOWEST {
+             | primary_value tDOT operation2 command_args =tLOWEST {
                  result = new_call(val[0], val[2].to_sym, val[3])
                }
              | primary_value tDOT operation2 command_args cmd_brace_block {
                  result = new_call(val[0], val[2].to_sym, val[3])
                }
-             | primary_value tCOLON2 operation2 command_args = tLOWEST {
+             | primary_value tCOLON2 operation2 command_args =tLOWEST {
                  result = new_call(val[0], val[2].to_sym, val[3])
                }
              | primary_value tCOLON2 operation2 command_args cmd_brace_block {
@@ -370,7 +370,7 @@ mlhs_node    : variable {
                    yyerror("dynamic constant assignment");
                  end
 
-                 result = s(:const, nil, s(:colon3, val[1].value.to_sym))
+                 result = s(:const, nil, s(:colon3, val[1].to_sym))
                }
              | backref {
                   self.backref_assign_error(val[0]);
@@ -403,7 +403,7 @@ lhs          : variable {
                     yyerror("dynamic constant assignment");
                   end
 
-                  result = s(:const, nil, s(:colon3, val[1].value.to_sym))
+                  result = s(:const, nil, s(:colon3, val[1].to_sym))
                   }
              | backref {
                    self.backref_assign_error(val[0]);
@@ -415,7 +415,7 @@ cname         : tIDENTIFIER {
              | tCONSTANT
 
 cpath         : tCOLON3 cname {
-                  result = s(:colon3, val[1].value.to_sym)
+                  result = s(:colon3, val[1].to_sym)
                  }
              | cname {
                   result = s(:colon2, nil, val[0].value);
@@ -435,7 +435,7 @@ fname         : tIDENTIFIER | tCONSTANT | tFID
                   result = val[0];
                 }
 
-fitem         : fname  { result = s(:lit, val[0].value.to_sym) } # TODO: cruby has fsym and dsym
+fitem         : fname  { result = s(:lit, val[0].to_sym) } # TODO: cruby has fsym and dsym
               | symbol { result = s(:lit, val[0]) }
 
 undef_list    : fitem {
@@ -469,7 +469,7 @@ arg          : lhs '=' arg {
                  }
              | var_lhs tOP_ASGN arg {
                  name = val[0].value
-                 asgn_op = val[1].value.to_sym
+                 asgn_op = val[1].to_sym
 
                  val[2] = remove_begin(val[2])
 
@@ -486,13 +486,13 @@ arg          : lhs '=' arg {
                  end
                  }
              | primary_value '[' aref_args tRBRACK tOP_ASGN arg {
-                  result = s(:op_asgn1, val[0], val[2], val[4].value.to_sym, val[5]);
+                  result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5]);
                  }
              | primary_value tDOT tIDENTIFIER tOP_ASGN arg {
-                  result = s(:op_asgn2, val[0], :"#{val[2].value}=", val[3].value.to_sym, val[4]);
+                  result = s(:op_asgn2, val[0], :"#{val[2].value}=", val[3].to_sym, val[4]);
                  }
              | primary_value tDOT tCONSTANT tOP_ASGN arg {
-                  result = s(:op_asgn2, val[0], :"#{val[2].value}=", val[3].value.to_sym, val[4])
+                  result = s(:op_asgn2, val[0], :"#{val[2].value}=", val[3].to_sym, val[4])
                  }
              | primary_value tCOLON2 tIDENTIFIER tOP_ASGN arg {
                   result = s(:op_asgn, val[0], val[4], val[2].value, val[3].value);
@@ -803,7 +803,7 @@ primary      : literal
              | var_ref
              | backref
              | tFID {
-                 result = s(:fcall, val[0].value.to_sym)
+                 result = s(:fcall, val[0].to_sym)
                }
              | kBEGIN bodystmt kEND {
                  unless val[1] then
@@ -823,10 +823,10 @@ primary      : literal
                  result.paren = true
                  }
              | primary_value tCOLON2 tCONSTANT {
-                 result = s(:colon2, val[0], val[2].value.to_sym)
+                 result = s(:colon2, val[0], val[2].to_sym)
                }
              | tCOLON3 tCONSTANT {
-                 result = s(:colon3, val[1].value.to_sym)
+                 result = s(:colon3, val[1].to_sym)
                }
              | primary_value '[' aref_args tRBRACK {
                  if val[0].node_type == :self then
@@ -858,7 +858,7 @@ primary      : literal
                  result = s(:defined, val[3]);
                }
              | operation brace_block {
-                 name = val[0].value.to_sym
+                 name = val[0].to_sym
                  iter = val[1]
 #                 iter[2] = iter[2][1] if iter[2][0] == :block and iter[2].size == 2 # HACK
                  iter.insert 1, s(:fcall, name)
@@ -1003,7 +1003,7 @@ primary      : literal
                  self.env.extend
                } f_arglist bodystmt kEND {
                  name, args, body = val[1], val[3], val[4] # TODO: refactor
-                 name = name.value.to_sym
+                 name = name.to_sym
                  body ||= s(:nil)
 
                  block_arg = args.block_arg(:remove)
@@ -1029,7 +1029,7 @@ primary      : literal
                  body = self.block_append(args, body, body && body[0] == :block)
                  body.insert 2, block_arg if block_arg
 
-                 result = s(:defs, recv, name.value.to_sym, s(:scope, body))
+                 result = s(:defs, recv, name.to_sym, s(:scope, body))
                  result.comments = self.comments.pop
 
                  self.env.unextend;
@@ -1118,16 +1118,16 @@ block_call    : command do_block {
               }
 
 method_call   : operation paren_args {
-                  result = new_fcall(val[0].value.to_sym, val[1])
+                  result = new_fcall(val[0].to_sym, val[1])
                 }
               | primary_value tDOT operation2 opt_paren_args {
-                  result = new_call(val[0], val[2].value.to_sym, val[3])
+                  result = new_call(val[0], val[2].to_sym, val[3])
                 }
               | primary_value tCOLON2 operation2 paren_args {
-                  result = new_call(val[0], val[2].value.to_sym, val[3])
+                  result = new_call(val[0], val[2].to_sym, val[3])
                 }
               | primary_value tCOLON2 operation3 {
-                  result = new_call(val[0], val[2].value.to_sym)
+                  result = new_call(val[0], val[2].to_sym)
                 }
               | kSUPER paren_args {
                   result = self.new_super(val[1]);
@@ -1363,20 +1363,20 @@ string_content : tSTRING_CONTENT
                  }
 
 string_dvar    : tGVAR {
-                   result = s(:gvar, val[0].value.to_sym);
+                   result = s(:gvar, val[0].to_sym);
                  }
                | tIVAR {
-                   result = s(:ivar, val[0].value.to_sym);
+                   result = s(:ivar, val[0].to_sym);
                  }
                | tCVAR {
-                   result = s(:cvar, val[0].value.to_sym);
+                   result = s(:cvar, val[0].to_sym);
                  }
                | backref
 
 
 symbol         : tSYMBEG sym {
                    lexer.lex_state = :expr_end
-                   result = val[1].value.to_sym
+                   result = val[1].to_sym
                  }
 
 sym            : fname | tIVAR | tGVAR | tCVAR
@@ -1400,10 +1400,10 @@ dsym           : tSYMBEG xstring_contents tSTRING_END {
 
 numeric      : tINTEGER
              | tFLOAT
-             | tUMINUS_NUM tINTEGER = tLOWEST {
+             | tUMINUS_NUM tINTEGER =tLOWEST {
                  result = -val[1] # TODO: pt_testcase
                }
-             | tUMINUS_NUM tFLOAT = tLOWEST {
+             | tUMINUS_NUM tFLOAT =tLOWEST {
                  result = -val[1] # TODO: pt_testcase
                }
 
@@ -1539,7 +1539,7 @@ f_norm_arg   : tCONSTANT {
                  yyerror("formal argument cannot be a class variable");
                }
              | tIDENTIFIER {
-                 identifier = val[0].value.to_sym
+                 identifier = val[0].to_sym
                  self.env[identifier] = :lvar
 
                  result = val[0];
@@ -1547,10 +1547,10 @@ f_norm_arg   : tCONSTANT {
 
 f_arg          : f_norm_arg {
                    result = s(:args)
-                   result << val[0].value.to_sym
+                   result << val[0].to_sym
                  }
                | f_arg ',' f_norm_arg {
-                   val[0] << val[2].value.to_sym
+                   val[0] << val[2].to_sym
                    result = val[0]
                  }
 
@@ -1569,7 +1569,7 @@ f_optarg     : f_opt {
 restarg_mark  : tSTAR2 | tSTAR
 
 f_rest_arg    : restarg_mark tIDENTIFIER { # TODO: differs from parse.y - needs tests
-                  name = val[1].value.to_sym
+                  name = val[1].to_sym
                   self.assignable(name)
                   result = :"*#{name}"
                 }
@@ -1582,7 +1582,7 @@ f_rest_arg    : restarg_mark tIDENTIFIER { # TODO: differs from parse.y - needs 
 blkarg_mark   : tAMPER2 | tAMPER
 
 f_block_arg   : blkarg_mark tIDENTIFIER {
-                  identifier = val[1].value.to_sym
+                  identifier = val[1].to_sym
 
                   self.env[identifier] = self.env.dynamic? ? :dvar : :lvar
                   result = s(:block_arg, identifier.to_sym)
