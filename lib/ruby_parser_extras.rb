@@ -190,19 +190,6 @@ class RubyParser < Racc::Parser
     _racc_do_parse_rb(_racc_setup, false)
   end if ENV['PURE_RUBY']
 
-  def dyna_init body, known_vars = [] # HACK HACK HACK - this is the worst
-    var = nil
-    vars = self.env.dynamic.keys - known_vars
-
-    vars.each do |id|
-      if self.env.used? id then
-        var = s(:dasgn_curr, id, var).compact
-      end
-    end
-
-    self.block_append(var, body, body && body[0] == :block)
-  end
-
   def get_match_node lhs, rhs
     if lhs then
       case lhs[0]

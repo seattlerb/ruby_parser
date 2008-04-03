@@ -258,7 +258,7 @@ cmd_brace_block : tLBRACE_ARG {
                     self.env.extend :dynamic
                   } opt_block_var  { result = self.env.dynamic.keys }
                   compstmt tRCURLY {
-                    result = s(:iter, val[2], dyna_init(val[4], val[3]))
+                    result = s(:iter, val[2], val[4])
                     self.env.unextend;
                   }
 
@@ -1091,7 +1091,7 @@ do_block      : kDO_BLOCK {
                 compstmt kEND {
 
                   vars = val[2]
-                  body = self.dyna_init(val[4], val[3])
+                  body = val[4]
 
                   result = s(:iter)
                   result << vars
@@ -1141,7 +1141,7 @@ brace_block   : tLCURLY {
                 } opt_block_var { result = self.env.dynamic.keys }
                 compstmt tRCURLY { # REFACTOR
                   args = val[2]
-                  body = self.dyna_init(val[4], val[3])
+                  body = val[4]
                   result = s(:iter)
                   result << args
                   result << body if body
@@ -1152,7 +1152,7 @@ brace_block   : tLCURLY {
                 } opt_block_var { result = self.env.dynamic.keys }
                 compstmt kEND {
                   args = val[2]
-                  body = self.dyna_init(val[4], val[3])
+                  body = val[4]
                   result = s(:iter)
                   result << args
                   result << body if body
