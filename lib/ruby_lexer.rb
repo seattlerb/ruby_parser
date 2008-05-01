@@ -284,9 +284,17 @@ class RubyLexer
     if src.scan(/[a-z0-9]{1,2}/i) then # Long-hand (e.g. %Q{}).
       rb_compile_error "unknown type of %string" if
         src.matched_size == 2
-      c, beg, short_hand = src.matched, src.getch, false
+      c = src.matched
+      beg = src.getch
+      short_hand = false
+      # HACK: stupid rubinius
+      # c, beg, short_hand = src.matched, src.getch, false
     else                               # Short-hand (e.g. %{, %., %!, etc)
-      c, beg, short_hand = 'Q', src.getch, true
+      c = 'Q'
+      beg = src.getch
+      short_hand = true
+      # HACK: stupid rubinius
+      # c, beg, short_hand = 'Q', src.getch, true
     end
 
     if src.eos? or c == RubyLexer::EOF or beg == RubyLexer::EOF then
