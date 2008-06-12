@@ -14,14 +14,6 @@ end
 
 hoe.spec.files += ['lib/ruby_parser.rb'] # jim.... cmon man
 
-module Rake::TaskManager
-  def all_tasks
-    @tasks
-  end
-end
-
-Rake.application.all_tasks["default"].prerequisites.clear
-
 [:default, :multi, :test].each do |t|
   task t => :parser
 end

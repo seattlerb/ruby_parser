@@ -10,6 +10,8 @@ require 'pt_testcase'
 
 class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
 
+  alias :refute_nil :assert_not_nil unless defined? Mini
+
   # Regular ParseTreeTestCase tests
   eval ParseTreeTestCase.testcases.map { |node, data|
     next if node.to_s =~ /bmethod|dmethod/
@@ -18,8 +20,8 @@ class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
        rb = #{data['Ruby'].inspect}
        pt = #{data['ParseTree'].inspect}
 
-       assert_not_nil rb, \"Ruby for #{node} undefined\"
-       assert_not_nil pt, \"ParseTree for #{node} undefined\"
+       refute_nil rb, \"Ruby for #{node} undefined\"
+       refute_nil pt, \"ParseTree for #{node} undefined\"
 
        assert_equal Sexp.from_array(pt), @processor.parse(rb)
      end"
@@ -36,8 +38,8 @@ if false then
        rb = #{data['Ruby'].inspect}
        pt = ParseTree.new(true).parse_tree_for_string(rb).first
 
-       assert_not_nil rb, \"Ruby for #{node} undefined\"
-       assert_not_nil pt, \"ParseTree for #{node} undefined\"
+       refute_nil rb, \"Ruby for #{node} undefined\"
+       refute_nil pt, \"ParseTree for #{node} undefined\"
 
        assert_equal Sexp.from_array(pt), @processor.parse(rb)
      end"
@@ -72,7 +74,7 @@ end
          rb = File.read(file)
 
          pt = ParseTree.new.parse_tree_for_string rb
-         assert_not_nil pt, \"ParseTree for #{name} undefined\"
+         refute_nil pt, \"ParseTree for #{name} undefined\"
 
          rp = @processor.parse rb
          assert_equal Sexp.from_array(pt).first, rp, \"RP different from PT\"

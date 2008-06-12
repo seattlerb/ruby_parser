@@ -9,7 +9,8 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def setup
-    @lex = RubyLexer.new
+    p = RubyParser.new
+    @lex = p.lexer
     @lex.src = "blah blah"
     @lex.lex_state = :expr_beg
   end

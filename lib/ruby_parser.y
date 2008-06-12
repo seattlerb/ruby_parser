@@ -362,8 +362,7 @@ mlhs_node    : variable {
                    yyerror("dynamic constant assignment");
                  end
 
-                 result = s(:constdecl, nil,
-                            s(:colon2, val[0], val[2].value), nil)
+                 result = s(:const, s(:colon2, val[0], val[2].value.to_sym), nil)
                }
              | tCOLON3 tCONSTANT {
                  if (self.in_def || self.in_single > 0) then
@@ -383,27 +382,28 @@ lhs          : variable {
                  result = self.aryset(val[0], val[2]);
                }
              | primary_value tDOT tIDENTIFIER {
-                 result = s(:attrasgn, val[0], :"#{val[2].value}=");
+                 result = s(:attrasgn, val[0], :"#{val[2].value}=")
                }
              | primary_value tCOLON2 tIDENTIFIER {
-                 result = s(:attrasgn, val[0], :"#{val[2].value}=");
+                 result = s(:attrasgn, val[0], :"#{val[2].value}=")
                }
              | primary_value tDOT tCONSTANT {
-                 result = s(:attrasgn, val[0], :"#{val[2].value}=");
+                 result = s(:attrasgn, val[0], :"#{val[2].value}=")
                }
              | primary_value tCOLON2 tCONSTANT {
                  if (self.in_def || self.in_single > 0) then
-                   yyerror("dynamic constant assignment");
+                   yyerror("dynamic constant assignment")
                  end
 
-                 result = s(:constdecl, nil, s(:colon2, val[0], val[2].value), nil);
+                 result = s(:const,
+                            s(:colon2, val[0], val[2].value.to_sym))
                  }
              | tCOLON3 tCONSTANT {
                   if (self.in_def || self.in_single > 0) then
                     yyerror("dynamic constant assignment");
                   end
 
-                  result = s(:const, nil, s(:colon3, val[1].to_sym))
+                  result = s(:const, s(:colon3, val[1].to_sym))
                   }
              | backref {
                    self.backref_assign_error(val[0]);
@@ -418,10 +418,10 @@ cpath         : tCOLON3 cname {
                   result = s(:colon3, val[1].to_sym)
                  }
              | cname {
-                  result = s(:colon2, nil, val[0].value);
+                  result = val[0].value.to_sym
                  }
              | primary_value tCOLON2 cname {
-                  result = s(:colon2, val[0], val[2].value);
+                  result = s(:colon2, val[0], val[2].value.to_sym);
                  }
 
 fname         : tIDENTIFIER | tCONSTANT | tFID
@@ -967,7 +967,7 @@ primary      : literal
                   self.env.extend
                 } bodystmt kEND {
                   scope = s(:scope, val[4]).compact
-                  result = s(:class, val[1].last.to_sym, val[2], scope)
+                  result = s(:class, val[1], val[2], scope)
                   result.comments = self.comments.pop
                   self.env.unextend
                  }
@@ -993,7 +993,7 @@ primary      : literal
                  self.env.extend;
                } bodystmt kEND {
                  body = val[3] ? s(:scope, val[3]) : s(:scope)
-                 result = s(:module, val[1].last.to_sym, body)
+                 result = s(:module, val[1], body)
                  result.comments = self.comments.pop
                  self.env.unextend;
                }

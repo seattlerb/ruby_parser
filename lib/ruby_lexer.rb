@@ -14,6 +14,8 @@ class RubyLexer
 
   attr_accessor :lex_strterm
 
+  attr_accessor :parser # HACK for very end of lexer... *sigh*
+
   # Stream of data that yylex examines.
   attr_reader :src
 
@@ -1076,6 +1078,7 @@ class RubyLexer
         return result
       when src.scan(/\[/) then
         result = src.matched
+
         if lex_state == :expr_fname || lex_state == :expr_dot then
           self.lex_state = :expr_arg
           case
@@ -1310,18 +1313,13 @@ class RubyLexer
         end
       end
 
-      # Lame: parsing logic made it into lexer in ruby...So we
-      # are emulating
-      # FIXME:  I believe this is much simpler now...
-      # HACK
-      # if (IdUtil.var_type(temp_val) == IdUtil.LOCAL_VAR &&
-      #     last_state != :expr_dot &&
-      #     (BlockStaticScope === scope && (scope.is_defined(temp_val) >= 0)) ||
-      #     (scope.local_scope.is_defined(temp_val) >= 0)) then
-      #   self.lex_state = :expr_end
-      # end
-
       self.yacc_value = s(token_buffer.join)
+
+      var = self.parser.env[self.yacc_value.to_sym]
+      if var == :lvar && last_state != :expr_dot then # HACK: partial port
+        # ((dyna_in_block()&&rb_dvar_defined(yylval.id))||local_id(yylval.id)))
+        self.lex_state = :expr_end
+      end
 
       return result
     end

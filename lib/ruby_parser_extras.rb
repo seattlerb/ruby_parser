@@ -251,6 +251,7 @@ class RubyParser < Racc::Parser
   def initialize
     super
     self.lexer = RubyLexer.new
+    self.lexer.parser = self
     self.in_def = false
     self.in_single = 0
     @env = Environment.new
@@ -391,6 +392,11 @@ class RubyParser < Racc::Parser
     when :attrasgn, :call then
       args = lhs.array(true) || lhs.argscat(true) || lhs.splat(true) # FIX: fragile
       lhs << arg_add(args, rhs)
+    when :const then
+      lhs[0] = :cdecl
+      lhs << rhs
+    else
+      raise "unknown lhs #{lhs.inspect}"
     end
 
     lhs
