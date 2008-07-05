@@ -111,21 +111,21 @@ class RubyParser < Racc::Parser
                  s(:lasgn, id)
                when :dvar, nil then
                  if self.env.current[id] == :dvar then
-                   s(:dasgn_curr, id)
+                   s(:lasgn, id)
                  elsif self.env[id] == :dvar then
                    self.env.use(id)
-                   s(:dasgn, id)
+                   s(:lasgn, id)
                  elsif ! self.env.dynamic? then
                    s(:lasgn, id)
                  else
-                   s(:dasgn_curr, id)
+                   s(:lasgn, id)
                  end
                else
                  raise "wtf? unknown type: #{self.env[id]}"
                end
              end
 
-    self.env[id] = (self.env.dynamic? ? :dvar : :lvar) unless self.env[id]
+    self.env[id] ||= :lvar
 
     result << value if value
 
@@ -172,11 +172,11 @@ class RubyParser < Racc::Parser
       return s(:or,  cond(node[1]), cond(node[2]))
     when :dot2 then
       label = "flip#{node.hash}"
-      env[label] = self.env.dynamic? ? :dvar : :lvar
+      env[label] = :lvar
       return s(:flip2, node[1], node[2])
     when :dot3 then
       label = "flip#{node.hash}"
-      env[label] = self.env.dynamic? ? :dvar : :lvar
+      env[label] = :lvar
       return s(:flip3, node[1], node[2])
     else
       return node
@@ -237,9 +237,9 @@ class RubyParser < Racc::Parser
                if type then
                  s(type, id)
                elsif env.dynamic? and :dvar == env[id] then
-                 s(:dvar, id)
+                 s(:lvar, id)
                else
-                 s(:vcall, id)
+                 s(:call, nil, id, s(:arglist))
                end
              end
 
@@ -325,6 +325,9 @@ class RubyParser < Racc::Parser
   def new_call recv, meth, args = nil # REFACTOR - merge with fcall
     if args && args[0] == :block_pass then
       new_args = args.array(true) || args.argscat(true) || args.splat(true)
+      new_args ||= s(:arglist)
+      new_args[0] = :arglist if new_args[0] == :array
+
       call = s(:call, recv, meth)
       call << new_args if new_args
       args << call
@@ -332,22 +335,14 @@ class RubyParser < Racc::Parser
       return args
     end
     result = s(:call, recv, meth)
-    result << args if args
+    args ||= s(:arglist)
+    args[0] = :arglist if args[0] == :array
+    result << args
     result
   end
 
-  def new_fcall meth, args
-    if args and args[0] == :block_pass then
-      new_args = args.array(true) || args.argscat(true) || args.splat(true)
-      call = s(:fcall, meth)
-      call << new_args if new_args
-      args << call
-      return args
-    end
-
-    r = s(:fcall, meth)
-    r << args if args and args != s(:array)
-    r
+  def new_fcall meth, args = nil # TODO: remove
+    new_call(nil, meth, args)
   end
 
   def new_super args

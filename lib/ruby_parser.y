@@ -134,7 +134,7 @@ stmt          : kALIAS fitem { lexer.lex_state = :expr_fname } fitem {
                  end
                }
              | stmt kRESCUE_MOD stmt {
-                  result = s(:rescue, val[0], s(:resbody, nil, val[2]))
+                  result = s(:rescue, val[0], s(:resbody, s(:array), val[2]))
                  }
              | klBEGIN {
                  if (self.in_def || self.in_single > 0) then
@@ -179,7 +179,8 @@ stmt          : kALIAS fitem { lexer.lex_state = :expr_fname } fitem {
                     result = s(:op_asgn_and, self.gettable(name), val[0])
                   else
                     result = val[0]
-                    result << s(:call, self.gettable(name), asgn_op, s(:array, val[2]))
+                    result << s(:call, self.gettable(name), asgn_op,
+                                s(:arglist, val[2]))
                 end
                  }
              | primary_value '[' aref_args tRBRACK tOP_ASGN command_call {
@@ -248,10 +249,10 @@ command_call : command
 
 block_command : block_call
               | block_call tDOT operation2 command_args {
-                  result = s(:call, val[0], val[2], val[3]);
+                  result = s(:call, val[0], val[2], val[3])
                 }
               | block_call tCOLON2 operation2 command_args {
-                  result = s(:call, val[0], val[2], val[3]);
+                  result = s(:call, val[0], val[2], val[3])
                 }
 
 cmd_brace_block : tLBRACE_ARG {
@@ -465,7 +466,7 @@ arg          : lhs '=' arg {
                }
              | lhs '=' arg kRESCUE_MOD arg {
                  result = self.node_assign(val[0],
-                            s(:rescue, val[2], s(:resbody, nil, val[4])))
+                            s(:rescue, val[2], s(:resbody, s(:array), val[4])))
                  }
              | var_lhs tOP_ASGN arg {
                  name = val[0].value
@@ -481,7 +482,9 @@ arg          : lhs '=' arg {
                    val[0] << val[2]
                    result = s(:op_asgn_and, self.gettable(name), val[0]);
                  else
-                   val[0][2] = s(:call, self.gettable(name), asgn_op, s(:array, val[2]))
+                   # TODO: why [2] ?
+                   val[0][2] = s(:call, self.gettable(name), asgn_op,
+                                 s(:arglist, val[2]))
                    result = val[0];
                  end
                  }
@@ -523,73 +526,73 @@ arg          : lhs '=' arg {
                  end
                }
              | arg tPLUS arg {
-                  result = s(:call, val[0], :+, s(:array, val[2]))
+                  result = s(:call, val[0], :+, s(:arglist, val[2]))
                  }
              | arg tMINUS arg {
-                  result = s(:call, val[0], :-, s(:array, val[2]))
+                  result = s(:call, val[0], :-, s(:arglist, val[2]))
                  }
              | arg tSTAR2 arg {
-                  result = s(:call, val[0], :*, s(:array, val[2]))
+                  result = s(:call, val[0], :*, s(:arglist, val[2]))
                  }
              | arg tDIVIDE arg {
-                  result = s(:call, val[0], :"/", s(:array, val[2]))
+                  result = s(:call, val[0], :"/", s(:arglist, val[2]))
                  }
              | arg tPERCENT arg {
-                  result = s(:call, val[0], :%, s(:array, val[2]))
+                  result = s(:call, val[0], :%, s(:arglist, val[2]))
                  }
              | arg tPOW arg {
-                 result = s(:call, val[0], :**, s(:array, val[2]))
+                 result = s(:call, val[0], :**, s(:arglist, val[2]))
                  }
              | tUMINUS_NUM tINTEGER tPOW arg {
-                  result = s(:call, s(:call, s(:lit, val[1]), :"**", s(:array, val[3])), :"-@");
+                  result = s(:call, s(:call, s(:lit, val[1]), :"**", s(:arglist, val[3])), :"-@", s(:arglist));
                  }
              | tUMINUS_NUM tFLOAT tPOW arg {
-                  result = s(:call, s(:call, s(:lit, val[1]), :"**", s(:array, val[3])), :"-@");
+                  result = s(:call, s(:call, s(:lit, val[1]), :"**", s(:arglist, val[3])), :"-@", s(:arglist));
                  }
              | tUPLUS arg {
                   if val[1][0] == :lit then
                     result = val[1]
                   else
-                    result = s(:call, val[1], :"+@")
+                    result = s(:call, val[1], :"+@", s(:arglist))
                   end
                  }
              | tUMINUS arg {
-                  result = s(:call, val[1], :"-@");
+                  result = s(:call, val[1], :"-@", s(:arglist))
                  }
              | arg tPIPE arg {
-                  result = s(:call, val[0], :"|", s(:array, val[2]));
+                  result = s(:call, val[0], :"|", s(:arglist, val[2]))
                  }
              | arg tCARET arg {
-                  result = s(:call, val[0], :"^", s(:array, val[2]));
+                  result = s(:call, val[0], :"^", s(:arglist, val[2]))
                  }
              | arg tAMPER2 arg {
-                  result = s(:call, val[0], :"&", s(:array, val[2]));
+                  result = s(:call, val[0], :"&", s(:arglist, val[2]))
                  }
              | arg tCMP arg {
-                  result = s(:call, val[0], :"<=>", s(:array, val[2]));
+                  result = s(:call, val[0], :"<=>", s(:arglist, val[2]))
                  }
              | arg tGT arg {
-                  result = s(:call, val[0], :">", s(:array, val[2]));
+                  result = s(:call, val[0], :">", s(:arglist, val[2]))
                  }
              | arg tGEQ arg {
-                  result = s(:call, val[0], :">=", s(:array, val[2]));
+                  result = s(:call, val[0], :">=", s(:arglist, val[2]))
                  }
              | arg tLT arg {
-                  result = s(:call, val[0], :"<", s(:array, val[2]));
+                  result = s(:call, val[0], :"<", s(:arglist, val[2]))
                  }
              | arg tLEQ arg {
-                  result = s(:call, val[0], :"<=", s(:array, val[2]));
+                  result = s(:call, val[0], :"<=", s(:arglist, val[2]))
                  }
              | arg tEQ arg {
-                  result = s(:call, val[0], :"==", s(:array, val[2]));
+                  result = s(:call, val[0], :"==", s(:arglist, val[2]))
                  }
              | arg tEQQ arg {
-                  result = s(:call, val[0], :"===", s(:array, val[2]));
+                  result = s(:call, val[0], :"===", s(:arglist, val[2]))
                  }
              | arg tNEQ arg {
                   val[0] = value_expr val[0] # TODO: port call_op and clean these
                   val[2] = value_expr val[2]
-                  result = s(:not, s(:call, val[0], :"==", s(:array, val[2])));
+                  result = s(:not, s(:call, val[0], :"==", s(:arglist, val[2])))
                  }
              | arg tMATCH arg {
                   result = self.get_match_node(val[0], val[2])
@@ -602,17 +605,17 @@ arg          : lhs '=' arg {
                  }
              | tTILDE arg {
                   val[2] = value_expr val[2]
-                  result = s(:call, val[1], :"~");
+                  result = s(:call, val[1], :"~", s(:arglist))
                  }
              | arg tLSHFT arg {
                   val[0] = value_expr val[0]
                   val[2] = value_expr val[2]
-                  result = s(:call, val[0], :"<<", s(:array, val[2])) # " stupid emacs
+                  result = s(:call, val[0], :"<<", s(:arglist, val[2]))
                  }
              | arg tRSHFT arg {
                   val[0] = value_expr val[0]
                   val[2] = value_expr val[2]
-                  result = s(:call, val[0], :">>", s(:array, val[2]))
+                  result = s(:call, val[0], :">>", s(:arglist, val[2]))
                  }
              | arg tANDOP arg {
                   result = logop(:and, val[0], val[2])
@@ -803,7 +806,7 @@ primary      : literal
              | var_ref
              | backref
              | tFID {
-                 result = s(:fcall, val[0].to_sym)
+                 result = new_fcall(val[0].to_sym)
                }
              | kBEGIN bodystmt kEND {
                  unless val[1] then
@@ -829,12 +832,13 @@ primary      : literal
                  result = s(:colon3, val[1].to_sym)
                }
              | primary_value '[' aref_args tRBRACK {
+                 val[2] ||= s(:arglist)
+                 val[2][0] = :arglist if val[2][0] == :array # REFACTOR
                  if val[0].node_type == :self then
-                   result = s(:fcall, :"[]")
+                   result = new_fcall(:"[]", val[2])
                  else
-                   result = s(:call, val[0], :"[]")
+                   result = s(:call, val[0], :"[]", val[2])
                  end
-                 result << val[2] if val[2]
                }
              | tLBRACK aref_args tRBRACK {
                   result = val[1] || s(:zarray)
@@ -861,7 +865,7 @@ primary      : literal
                  name = val[0].to_sym
                  iter = val[1]
 #                 iter[2] = iter[2][1] if iter[2][0] == :block and iter[2].size == 2 # HACK
-                 iter.insert 1, s(:fcall, name)
+                 iter.insert 1, new_fcall(name)
                  result = iter
                }
              | method_call
@@ -1006,10 +1010,8 @@ primary      : literal
                  name = name.to_sym
                  body ||= s(:nil)
 
-                 block_arg = args.block_arg(:remove)
-                 body = self.block_append(args, body, body && body[0] == :block)
-                 body.insert 2, block_arg if block_arg
-                 result = s(:defn, name, s(:scope, body))
+                 body = s(:block, body) if body && body[0] != :block
+                 result = s(:defn, name, args, s(:scope, body))
                  result.comments = self.comments.pop
 
                  self.env.unextend
@@ -1025,11 +1027,9 @@ primary      : literal
                } f_arglist bodystmt kEND {   # 6-8
                  recv, name, args, body = val[1], val[4], val[6], val[7]
 
-                 block_arg = args.block_arg(:remove)
-                 body = self.block_append(args, body, body && body[0] == :block)
-                 body.insert 2, block_arg if block_arg
+                 body = body ? s(:block, body) : s(:block)
 
-                 result = s(:defs, recv, name.to_sym, s(:scope, body))
+                 result = s(:defs, recv, name.to_sym, args, s(:scope, body))
                  result.comments = self.comments.pop
 
                  self.env.unextend;
@@ -1110,11 +1110,11 @@ block_call    : command do_block {
               }
               | block_call tDOT operation2 opt_paren_args {
                   result = s(:call, val[0], val[2]);
-                  result << val[3] if val[3]
+                  result << val[3] || s(:arglist)
               }
               | block_call tCOLON2 operation2 opt_paren_args {
                   result = s(:call, val[0], val[2]);
-                  result << val[3] if val[3]
+                  result << val[3] || s(:arglist)
               }
 
 method_call   : operation paren_args {
@@ -1175,16 +1175,16 @@ when_args     : args
 cases         : opt_else | case_body
 
 opt_rescue    : kRESCUE exc_list exc_var then compstmt opt_rescue {
-                  result = s(:resbody, val[1])
-                  if val[2] then
-                    val[2] = node_assign(val[2], s(:gvar, :"$!"))
+                  exc_list = val[1] || s(:array)
 
-                    strip = val[4] && val[4][0] == :block
-                    val[4] = block_append(val[2], val[4])
-                    val[4].push(*val[4].pop[1..-1]) if strip # HACK removes nested block from block_append
+                  result = s(:resbody, exc_list)
+                  if val[2] then
+                    exc_list << node_assign(val[2], s(:gvar, :"$!"))
+
+                    val[4] = s(:block, val[4]) if val[4] && val[4][0] != :block
                   end
 
-                  result << val[4] if val[4]
+                  result << val[4]
                   result << val[5] if val[5]
                  }
              | {result = nil;}
@@ -1575,7 +1575,7 @@ f_rest_arg    : restarg_mark tIDENTIFIER { # TODO: differs from parse.y - needs 
                 }
              | restarg_mark {
                  name = :"*"
-                 self.env[name] = self.env.dynamic? ? :dvar : :lvar # FIX
+                 self.env[name] = :lvar
                  result = name
                }
 
@@ -1584,7 +1584,7 @@ blkarg_mark   : tAMPER2 | tAMPER
 f_block_arg   : blkarg_mark tIDENTIFIER {
                   identifier = val[1].to_sym
 
-                  self.env[identifier] = self.env.dynamic? ? :dvar : :lvar
+                  self.env[identifier] = :lvar
                   result = s(:block_arg, identifier.to_sym)
                  }
 

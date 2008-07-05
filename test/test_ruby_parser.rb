@@ -127,17 +127,17 @@ end
   end
 
   def test_block_append_tail_block
-    head = s(:vcall, :f1)
+    head = s(:call, nil, :f1, s(:arglist))
     tail = s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y)))
     expected = s(:block,
-                 s(:vcall, :f1),
+                 s(:call, nil, :f1, s(:arglist)),
                  s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y))))
     assert_equal expected, @processor.block_append(head, tail)
   end
 
   def test_call_env
     @processor.env[:a] = :lvar
-    expected = s(:call, s(:lvar, :a), :happy)
+    expected = s(:call, s(:lvar, :a), :happy, s(:arglist))
 
     assert_equal expected, @processor.parse('a.happy')
   end
@@ -145,16 +145,16 @@ end
   def test_dasgn_icky2
     rb = "a do\n  v = nil\n  begin\n    yield\n  rescue Exception => v\n    break\n  end\nend"
     pt = s(:iter,
-           s(:fcall, :a),
+           s(:call, nil, :a, s(:arglist)),
            nil,
            s(:block,
-             s(:dasgn_curr, :v, s(:nil)),
+             s(:lasgn, :v, s(:nil)),
              s(:begin,
                s(:rescue,
                  s(:yield),
                  s(:resbody,
-                   s(:array, s(:const, :Exception)),
-                   s(:block, s(:dasgn_curr, :v, s(:gvar, :$!)), s(:break)))))))
+                   s(:array, s(:const, :Exception), s(:lasgn, :v, s(:gvar, :$!))),
+                   s(:block, s(:break)))))))
 
     assert_equal pt, @processor.parse(rb)
   end
@@ -163,7 +163,7 @@ end
     rb = "# blah 1\n# blah 2\n\nclass X\n  # blah 3\n  def blah\n    # blah 4\n  end\nend"
     pt = s(:class, :X, nil,
            s(:scope,
-             s(:defn, :blah, s(:scope, s(:block, s(:args), s(:nil))))))
+             s(:defn, :blah, s(:args), s(:scope, s(:block, s(:nil))))))
 
     actual = @processor.parse(rb)
     assert_equal pt, actual
@@ -176,7 +176,7 @@ end
     rb = "# blah 1\n  \n  # blah 2\n\nmodule X\n  # blah 3\n  def blah\n    # blah 4\n  end\nend"
     pt = s(:module, :X,
            s(:scope,
-             s(:defn, :blah, s(:scope, s(:block, s(:args), s(:nil))))))
+             s(:defn, :blah, s(:args), s(:scope, s(:block, s(:nil))))))
 
     actual = @processor.parse(rb)
     assert_equal pt, actual
@@ -186,7 +186,7 @@ end
 
   def test_defn_comments
     rb = "# blah 1\n# blah 2\n\ndef blah\nend"
-    pt = s(:defn, :blah, s(:scope, s(:block, s(:args), s(:nil))))
+    pt = s(:defn, :blah, s(:args), s(:scope, s(:block, s(:nil))))
 
     actual = @processor.parse(rb)
     assert_equal pt, actual
@@ -195,7 +195,7 @@ end
 
   def test_defs_comments
     rb = "# blah 1\n# blah 2\n\ndef self.blah\nend"
-    pt = s(:defs, s(:self), :blah, s(:scope, s(:args)))
+    pt = s(:defs, s(:self), :blah, s(:args), s(:scope, s(:block)))
 
     actual = @processor.parse(rb)
     assert_equal pt, actual
@@ -205,15 +205,17 @@ end
   def test_do_bug # TODO: rename
     rb = "a 1\na.b do |c|\n  # do nothing\nend"
     pt = s(:block,
-           s(:fcall, :a, s(:array, s(:lit, 1))),
-           s(:iter, s(:call, s(:vcall, :a), :b), s(:dasgn_curr, :c)))
+           s(:call, nil, :a, s(:arglist, s(:lit, 1))),
+           s(:iter,
+             s(:call, s(:call, nil, :a, s(:arglist)), :b, s(:arglist)),
+             s(:lasgn, :c)))
 
     assert_equal pt, @processor.parse(rb)
   end
 
   def test_dstr_evstr
     rb = "\"#\{'a'}#\{b}\""
-    pt = s(:dstr, "a", s(:evstr, s(:vcall, :b)))
+    pt = s(:dstr, "a", s(:evstr, s(:call, nil, :b, s(:arglist))))
 
     assert_equal pt, @processor.parse(rb)
   end
@@ -234,14 +236,14 @@ end
 
   def test_evstr_evstr
     rb = "\"#\{a}#\{b}\""
-    pt = s(:dstr, "", s(:evstr, s(:vcall, :a)), s(:evstr, s(:vcall, :b)))
+    pt = s(:dstr, "", s(:evstr, s(:call, nil, :a, s(:arglist))), s(:evstr, s(:call, nil, :b, s(:arglist))))
 
     assert_equal pt, @processor.parse(rb)
   end
 
   def test_evstr_str
     rb = "\"#\{a} b\""
-    pt = s(:dstr, "", s(:evstr, s(:vcall, :a)), s(:str, " b"))
+    pt = s(:dstr, "", s(:evstr, s(:call, nil, :a, s(:arglist))), s(:str, " b"))
 
     assert_equal pt, @processor.parse(rb)
   end
@@ -264,16 +266,16 @@ end
 
   def test_literal_concat_dstr_dstr
     lhs      = s(:dstr, "Failed to download spec ",
-                 s(:evstr, s(:vcall, :spec_name)),
+                 s(:evstr, s(:call, nil, :spec_name, s(:arglist))),
                  s(:str, " from "),
-                 s(:evstr, s(:vcall, :source_uri)),
+                 s(:evstr, s(:call, nil, :source_uri, s(:arglist))),
                  s(:str, ":\n"))
     rhs      = s(:dstr, "\t",
                  s(:evstr, s(:call, s(:ivar, :@fetch_error), :message)))
     expected = s(:dstr, "Failed to download spec ",
-                 s(:evstr, s(:vcall, :spec_name)),
+                 s(:evstr, s(:call, nil, :spec_name, s(:arglist))),
                  s(:str, " from "),
-                 s(:evstr, s(:vcall, :source_uri)),
+                 s(:evstr, s(:call, nil, :source_uri, s(:arglist))),
                  s(:str, ":\n"),
                  s(:str, "\t"),
                  s(:evstr, s(:call, s(:ivar, :@fetch_error), :message)))
@@ -282,8 +284,8 @@ end
   end
 
   def test_literal_concat_dstr_evstr
-    lhs, rhs = s(:dstr, "a"), s(:evstr, s(:vcall, :b))
-    expected = s(:dstr, "a", s(:evstr, s(:vcall, :b)))
+    lhs, rhs = s(:dstr, "a"), s(:evstr, s(:call, nil, :b, s(:arglist)))
+    expected = s(:dstr, "a", s(:evstr, s(:call, nil, :b, s(:arglist))))
 
     assert_equal expected, @processor.literal_concat(lhs, rhs)
   end
@@ -348,11 +350,11 @@ end
   end
 
   def test_logop_nested_mix
-    lhs = s(:or, s(:vcall, :a), s(:vcall, :b))
-    rhs = s(:and, s(:vcall, :c), s(:vcall, :d))
+    lhs = s(:or, s(:call, nil, :a, s(:arglist)), s(:call, nil, :b, s(:arglist)))
+    rhs = s(:and, s(:call, nil, :c, s(:arglist)), s(:call, nil, :d, s(:arglist)))
     exp = s(:or,
-            s(:or, s(:vcall, :a), s(:vcall, :b)),
-            s(:and, s(:vcall, :c), s(:vcall, :d)))
+            s(:or, s(:call, nil, :a, s(:arglist)), s(:call, nil, :b, s(:arglist))),
+            s(:and, s(:call, nil, :c, s(:arglist)), s(:call, nil, :d, s(:arglist))))
 
     lhs.paren = true
     rhs.paren = true
@@ -362,14 +364,14 @@ end
 
   def test_str_evstr
     rb = "\"a #\{b}\""
-    pt = s(:dstr, "a ", s(:evstr, s(:vcall, :b)))
+    pt = s(:dstr, "a ", s(:evstr, s(:call, nil, :b, s(:arglist))))
 
     assert_equal pt, @processor.parse(rb)
   end
 
   def test_str_pct_Q_nested
     rb = "%Q[before [#\{nest}] after]"
-    pt = s(:dstr, "before [", s(:evstr, s(:vcall, :nest)), s(:str, "] after"))
+    pt = s(:dstr, "before [", s(:evstr, s(:call, nil, :nest, s(:arglist))), s(:str, "] after"))
 
     assert_equal pt, @processor.parse(rb)
   end
