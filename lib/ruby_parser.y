@@ -179,7 +179,7 @@ stmt          : kALIAS fitem { lexer.lex_state = :expr_fname } fitem {
                     result = s(:op_asgn_and, self.gettable(name), val[0])
                   else
                     result = val[0]
-                    result << s(:call, self.gettable(name), asgn_op,
+                    result << new_call(self.gettable(name), asgn_op,
                                 s(:arglist, val[2]))
                 end
                  }
@@ -249,10 +249,10 @@ command_call : command
 
 block_command : block_call
               | block_call tDOT operation2 command_args {
-                  result = s(:call, val[0], val[2], val[3])
+                  result = new_call(val[0], val[2], val[3])
                 }
               | block_call tCOLON2 operation2 command_args {
-                  result = s(:call, val[0], val[2], val[3])
+                  result = new_call(val[0], val[2], val[3])
                 }
 
 cmd_brace_block : tLBRACE_ARG {
@@ -264,10 +264,10 @@ cmd_brace_block : tLBRACE_ARG {
                   }
 
 command      : operation command_args =tLOWEST {
-                 result = new_fcall(val[0].to_sym, val[1])
+                 result = new_call(nil, val[0].to_sym, val[1])
                }
              | operation command_args cmd_brace_block {
-                 result = new_fcall(val[0].to_sym, val[1])
+                 result = new_call(nil, val[0].to_sym, val[1])
                  if val[2] then
                    if result[0] == :block_pass then
                       raise "both block arg and actual block given"
@@ -350,13 +350,13 @@ mlhs_node    : variable {
                  result = self.aryset(val[0], val[2]);
                }
              | primary_value tDOT tIDENTIFIER {
-                 result = s(:attrasgn, val[0], :"#{val[2].value}=");
+                 result = s(:attrasgn, val[0], :"#{val[2].value}=", s(:arglist));
                }
              | primary_value tCOLON2 tIDENTIFIER {
-                 result = s(:attrasgn, val[0], :"#{val[2].value}=");
+                 result = s(:attrasgn, val[0], :"#{val[2].value}=", s(:arglist));
                }
              | primary_value tDOT tCONSTANT {
-                 result = s(:attrasgn, val[0], :"#{val[2].value}=");
+                 result = s(:attrasgn, val[0], :"#{val[2].value}=", s(:arglist));
                }
              | primary_value tCOLON2 tCONSTANT {
                  if (self.in_def || self.in_single > 0) then
@@ -483,7 +483,7 @@ arg          : lhs '=' arg {
                    result = s(:op_asgn_and, self.gettable(name), val[0]);
                  else
                    # TODO: why [2] ?
-                   val[0][2] = s(:call, self.gettable(name), asgn_op,
+                   val[0][2] = new_call(self.gettable(name), asgn_op,
                                  s(:arglist, val[2]))
                    result = val[0];
                  end
@@ -526,73 +526,73 @@ arg          : lhs '=' arg {
                  end
                }
              | arg tPLUS arg {
-                  result = s(:call, val[0], :+, s(:arglist, val[2]))
+                  result = new_call(val[0], :+, s(:arglist, val[2]))
                  }
              | arg tMINUS arg {
-                  result = s(:call, val[0], :-, s(:arglist, val[2]))
+                  result = new_call(val[0], :-, s(:arglist, val[2]))
                  }
              | arg tSTAR2 arg {
-                  result = s(:call, val[0], :*, s(:arglist, val[2]))
+                  result = new_call(val[0], :*, s(:arglist, val[2]))
                  }
              | arg tDIVIDE arg {
-                  result = s(:call, val[0], :"/", s(:arglist, val[2]))
+                  result = new_call(val[0], :"/", s(:arglist, val[2]))
                  }
              | arg tPERCENT arg {
-                  result = s(:call, val[0], :%, s(:arglist, val[2]))
+                  result = new_call(val[0], :%, s(:arglist, val[2]))
                  }
              | arg tPOW arg {
-                 result = s(:call, val[0], :**, s(:arglist, val[2]))
+                 result = new_call(val[0], :**, s(:arglist, val[2]))
                  }
              | tUMINUS_NUM tINTEGER tPOW arg {
-                  result = s(:call, s(:call, s(:lit, val[1]), :"**", s(:arglist, val[3])), :"-@", s(:arglist));
+                  result = new_call(new_call(s(:lit, val[1]), :"**", s(:arglist, val[3])), :"-@", s(:arglist));
                  }
              | tUMINUS_NUM tFLOAT tPOW arg {
-                  result = s(:call, s(:call, s(:lit, val[1]), :"**", s(:arglist, val[3])), :"-@", s(:arglist));
+                  result = new_call(new_call(s(:lit, val[1]), :"**", s(:arglist, val[3])), :"-@", s(:arglist));
                  }
              | tUPLUS arg {
                   if val[1][0] == :lit then
                     result = val[1]
                   else
-                    result = s(:call, val[1], :"+@", s(:arglist))
+                    result = new_call(val[1], :"+@", s(:arglist))
                   end
                  }
              | tUMINUS arg {
-                  result = s(:call, val[1], :"-@", s(:arglist))
+                  result = new_call(val[1], :"-@", s(:arglist))
                  }
              | arg tPIPE arg {
-                  result = s(:call, val[0], :"|", s(:arglist, val[2]))
+                  result = new_call(val[0], :"|", s(:arglist, val[2]))
                  }
              | arg tCARET arg {
-                  result = s(:call, val[0], :"^", s(:arglist, val[2]))
+                  result = new_call(val[0], :"^", s(:arglist, val[2]))
                  }
              | arg tAMPER2 arg {
-                  result = s(:call, val[0], :"&", s(:arglist, val[2]))
+                  result = new_call(val[0], :"&", s(:arglist, val[2]))
                  }
              | arg tCMP arg {
-                  result = s(:call, val[0], :"<=>", s(:arglist, val[2]))
+                  result = new_call(val[0], :"<=>", s(:arglist, val[2]))
                  }
              | arg tGT arg {
-                  result = s(:call, val[0], :">", s(:arglist, val[2]))
+                  result = new_call(val[0], :">", s(:arglist, val[2]))
                  }
              | arg tGEQ arg {
-                  result = s(:call, val[0], :">=", s(:arglist, val[2]))
+                  result = new_call(val[0], :">=", s(:arglist, val[2]))
                  }
              | arg tLT arg {
-                  result = s(:call, val[0], :"<", s(:arglist, val[2]))
+                  result = new_call(val[0], :"<", s(:arglist, val[2]))
                  }
              | arg tLEQ arg {
-                  result = s(:call, val[0], :"<=", s(:arglist, val[2]))
+                  result = new_call(val[0], :"<=", s(:arglist, val[2]))
                  }
              | arg tEQ arg {
-                  result = s(:call, val[0], :"==", s(:arglist, val[2]))
+                  result = new_call(val[0], :"==", s(:arglist, val[2]))
                  }
              | arg tEQQ arg {
-                  result = s(:call, val[0], :"===", s(:arglist, val[2]))
+                  result = new_call(val[0], :"===", s(:arglist, val[2]))
                  }
              | arg tNEQ arg {
                   val[0] = value_expr val[0] # TODO: port call_op and clean these
                   val[2] = value_expr val[2]
-                  result = s(:not, s(:call, val[0], :"==", s(:arglist, val[2])))
+                  result = s(:not, new_call(val[0], :"==", s(:arglist, val[2])))
                  }
              | arg tMATCH arg {
                   result = self.get_match_node(val[0], val[2])
@@ -605,17 +605,17 @@ arg          : lhs '=' arg {
                  }
              | tTILDE arg {
                   val[2] = value_expr val[2]
-                  result = s(:call, val[1], :"~", s(:arglist))
+                  result = new_call(val[1], :"~", s(:arglist))
                  }
              | arg tLSHFT arg {
                   val[0] = value_expr val[0]
                   val[2] = value_expr val[2]
-                  result = s(:call, val[0], :"<<", s(:arglist, val[2]))
+                  result = new_call(val[0], :"<<", s(:arglist, val[2]))
                  }
              | arg tRSHFT arg {
                   val[0] = value_expr val[0]
                   val[2] = value_expr val[2]
-                  result = s(:call, val[0], :">>", s(:arglist, val[2]))
+                  result = new_call(val[0], :">>", s(:arglist, val[2]))
                  }
              | arg tANDOP arg {
                   result = logop(:and, val[0], val[2])
@@ -806,7 +806,7 @@ primary      : literal
              | var_ref
              | backref
              | tFID {
-                 result = new_fcall(val[0].to_sym)
+                 result = new_call(nil, val[0].to_sym)
                }
              | kBEGIN bodystmt kEND {
                  unless val[1] then
@@ -835,13 +835,13 @@ primary      : literal
                  val[2] ||= s(:arglist)
                  val[2][0] = :arglist if val[2][0] == :array # REFACTOR
                  if val[0].node_type == :self then
-                   result = new_fcall(:"[]", val[2])
+                   result = new_call(nil, :"[]", val[2])
                  else
-                   result = s(:call, val[0], :"[]", val[2])
+                   result = new_call(val[0], :"[]", val[2])
                  end
                }
              | tLBRACK aref_args tRBRACK {
-                  result = val[1] || s(:zarray)
+                  result = val[1] || s(:array)
                  }
              | tLBRACE assoc_list tRCURLY {
                  result = s(:hash, *val[1].values)
@@ -865,7 +865,7 @@ primary      : literal
                  name = val[0].to_sym
                  iter = val[1]
 #                 iter[2] = iter[2][1] if iter[2][0] == :block and iter[2].size == 2 # HACK
-                 iter.insert 1, new_fcall(name)
+                 iter.insert 1, new_call(nil, name)
                  result = iter
                }
              | method_call
@@ -1036,17 +1036,17 @@ primary      : literal
                  self.in_single -= 1
                }
              | kBREAK {
-                  result = s(:break)
-                 }
+                result = s(:break)
+               }
              | kNEXT {
-                  result = s(:next)
-                 }
+                result = s(:next)
+               }
              | kREDO {
-                  result = s(:redo)
-                 }
+                result = s(:redo)
+               }
              | kRETRY {
-                  result = s(:retry)
-                 }
+                result = s(:retry)
+               }
 
 primary_value : primary {
                   result = value_expr(val[0])
@@ -1109,16 +1109,16 @@ block_call    : command do_block {
                 result.insert 1, val[0]
               }
               | block_call tDOT operation2 opt_paren_args {
-                  result = s(:call, val[0], val[2]);
+                  result = new_call(val[0], val[2]);
                   result << val[3] || s(:arglist)
               }
               | block_call tCOLON2 operation2 opt_paren_args {
-                  result = s(:call, val[0], val[2]);
+                  result = new_call(val[0], val[2]);
                   result << val[3] || s(:arglist)
               }
 
 method_call   : operation paren_args {
-                  result = new_fcall(val[0].to_sym, val[1])
+                  result = new_call(nil, val[0].to_sym, val[1])
                 }
               | primary_value tDOT operation2 opt_paren_args {
                   result = new_call(val[0], val[2].to_sym, val[3])
@@ -1292,7 +1292,7 @@ regexp        : tREGEXP_BEG xstring_contents tREGEXP_END {
                  }
 
 words          : tWORDS_BEG ' ' tSTRING_END {
-                   result = s(:zarray);
+                   result = s(:array);
                  }
                | tWORDS_BEG word_list tSTRING_END {
                  result = val[1];
@@ -1312,7 +1312,7 @@ word           : string_content
                  }
 
 awords         : tAWORDS_BEG ' ' tSTRING_END {
-                   result = s(:zarray)
+                   result = s(:array)
                  }
                | tAWORDS_BEG qword_list tSTRING_END {
                    result = val[1]
@@ -1462,72 +1462,35 @@ f_arglist      : tLPAREN2 f_args opt_nl tRPAREN {
                    result = val[0];
                  }
 
+# def args arg, optarg, rest_arg, block_arg
+
 f_args       : f_arg ',' f_optarg ',' f_rest_arg opt_f_block_arg {
-                 result = val[0]
-                 if val[2] then
-                   val[2][1..-1].each do |lasgn| # FIX clean sexp iter
-                     raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
-                     result << lasgn[1]
-                   end
-                 end
-                 result << val[4] if val[4]
-                 result << val[2] if val[2]
-                 result << val[5] if val[5]
+                 result = args val[0], val[2], val[4], val[5]
                }
-             | f_arg ',' f_optarg opt_f_block_arg {
-                 result = val[0]
-                 if val[2] then
-                   val[2][1..-1].each do |lasgn| # FIX clean sexp iter
-                     raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
-                     result << lasgn[1]
-                   end
-                 end
-                 result << val[2] if val[2]
-                 result << val[3] if val[3]
-                 }
-             | f_arg ',' f_rest_arg opt_f_block_arg {
-                 result = val[0]
-                 result << val[2] if val[2]
-                 result << val[3] if val[3]
-                 }
-             | f_arg opt_f_block_arg {
-                 result = val[0]
-                 result << val[1] if val[1]
-                 }
-             | f_optarg ',' f_rest_arg opt_f_block_arg {
-                 result = s(:args)
-                 if val[0] then
-                   val[0][1..-1].each do |lasgn| # FIX clean sexp iter
-                     raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
-                     result << lasgn[1]
-                   end
-                 end
-
-                 result << val[2] if val[2]
-                 result << val[0] if val[0]
-                 result << val[3] if val[3]
+             | f_arg ',' f_optarg                opt_f_block_arg {
+                 result = args val[0], val[2],    nil, val[3]
                }
-             | f_optarg opt_f_block_arg {
-                 result = s(:args)
-                 if val[0] then
-                   val[0][1..-1].each do |lasgn| # FIX clean sexp iter
-                     raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
-                     result << lasgn[1]
-                   end
-                 end
-
-                 result << val[0] if val[0]
-                 result << val[1] if val[1]
+             | f_arg ','              f_rest_arg opt_f_block_arg {
+                 result = args val[0],    nil, val[2], val[3]
                }
-             | f_rest_arg opt_f_block_arg {
-                   result = s(:args, val[0], val[1]).compact
-                 }
-             | f_block_arg {
-                   result = s(:args, val[0]).compact
-                 }
-             |  {
-                   result = s(:args)
-                 }
+             | f_arg                             opt_f_block_arg {
+                 result = args val[0],    nil,    nil, val[1]
+               }
+             |           f_optarg ',' f_rest_arg opt_f_block_arg {
+                 result = args    nil, val[0], val[2], val[3]
+               }
+             |           f_optarg                opt_f_block_arg {
+                 result = args    nil, val[0],    nil, val[1]
+               }
+             |                        f_rest_arg opt_f_block_arg {
+                 result = args    nil,    nil, val[0], val[1]
+               }
+             |                                       f_block_arg {
+                 result = args    nil,    nil,    nil, val[0]
+               }
+             | {
+                 result = args    nil,    nil,    nil,    nil
+               }
 
 f_norm_arg   : tCONSTANT {
                  yyerror("formal argument cannot be a constant");

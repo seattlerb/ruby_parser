@@ -66,8 +66,11 @@ class RubyParser < Racc::Parser
   end
 
   def arg_add(node1, node2)
-    return s(:array, node2) unless node1
-    return node1 << node2 if node1[0] == :array
+    return s(:arglist, node2) unless node1
+
+    node1[0] = :arglist if node1[0] == :array
+    return node1 << node2 if node1[0] == :arglist
+
     return s(:argspush, node1, node2)
   end
 
@@ -82,6 +85,23 @@ class RubyParser < Racc::Parser
 
   def arg_concat node1, node2
     return node2.nil? ? node1 : s(:argscat, node1, node2)
+  end
+
+  def args arg, optarg, rest_arg, block_arg
+    arg ||= s(:args)
+
+    result = arg
+    if optarg then
+      optarg[1..-1].each do |lasgn| # FIX clean sexp iter
+        raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
+        result << lasgn[1]
+      end
+    end
+    result << rest_arg  if rest_arg
+    result << optarg    if optarg # TODO? huh - processed above as well
+    result << block_arg if block_arg
+
+    result
   end
 
   def aryset receiver, index
@@ -209,7 +229,7 @@ class RubyParser < Racc::Parser
       end
     end
 
-    return s(:call, lhs, :"=~", s(:array, rhs))
+    return s(:call, lhs, :"=~", s(:arglist, rhs))
   end
 
   def gettable(id)
@@ -322,11 +342,11 @@ class RubyParser < Racc::Parser
     return s(type, left, right)
   end
 
-  def new_call recv, meth, args = nil # REFACTOR - merge with fcall
+  def new_call recv, meth, args = nil
     if args && args[0] == :block_pass then
       new_args = args.array(true) || args.argscat(true) || args.splat(true)
       new_args ||= s(:arglist)
-      new_args[0] = :arglist if new_args[0] == :array
+      new_args[0] = :arglist if new_args[0] == :array # TODO: remove
 
       call = s(:call, recv, meth)
       call << new_args if new_args
@@ -336,13 +356,9 @@ class RubyParser < Racc::Parser
     end
     result = s(:call, recv, meth)
     args ||= s(:arglist)
-    args[0] = :arglist if args[0] == :array
+    args[0] = :arglist if args[0] == :array # TODO: remove
     result << args
     result
-  end
-
-  def new_fcall meth, args = nil # TODO: remove
-    new_call(nil, meth, args)
   end
 
   def new_super args
