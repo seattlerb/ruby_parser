@@ -8,80 +8,29 @@ $: << File.expand_path('~/Work/p4/zss/src/ParseTree/dev/test')
 
 require 'pt_testcase'
 
-class TestRubyParser < Test::Unit::TestCase # ParseTreeTestCase
-
-  alias :refute_nil :assert_not_nil unless defined? Mini
-
-  # Regular ParseTreeTestCase tests
-  eval ParseTreeTestCase.testcases.map { |node, data|
-    next if node.to_s =~ /bmethod|dmethod/
-    next if Array === data['Ruby'] # runtime only crap
-    "def test_#{node}
-       rb = #{data['Ruby'].inspect}
-       pt = #{data['ParseTree'].inspect}
-
-       refute_nil rb, \"Ruby for #{node} undefined\"
-       refute_nil pt, \"ParseTree for #{node} undefined\"
-
-       assert_equal Sexp.from_array(pt), @processor.parse(rb)
-     end"
-  }.compact.join("\n")
-
-if false then
-  require 'parse_tree'
-
-  # Regular ParseTreeTestCase tests
-  eval ParseTreeTestCase.testcases.map { |node, data|
-    next if node.to_s =~ /bmethod|dmethod/
-    next if Array === data['Ruby'] # runtime only crap
-    "def test_nl_#{node}
-       rb = #{data['Ruby'].inspect}
-       pt = ParseTree.new(true).parse_tree_for_string(rb).first
-
-       refute_nil rb, \"Ruby for #{node} undefined\"
-       refute_nil pt, \"ParseTree for #{node} undefined\"
-
-       assert_equal Sexp.from_array(pt), @processor.parse(rb)
-     end"
-  }.compact.join("\n")
+class RubyParser
+  def process input
+    parse input
+  end
 end
 
-  # Scour the world and compare against ParseTree
-  if ENV['ZOMGPONIES'] or File.exist? 'zomgponies' then
-    require 'parse_tree'
-
-    base = "/usr/lib/ruby"
-    base = "unit"
-
-    files = Dir[File.join(base, "**/*.rb")]
-
-    # these files/patterns cause parse_tree_show to bus error (or just suck):
-    files.reject! { |f| f =~ /environments.environment|rss.maker.base|rails_generator|ferret.browser|rubinius.spec.core.module.(constants|name|remove_const)_spec|tkextlib.tcllib.tablelist/ }
-
-    # these are rejected for dasgn_curr ordering failures... I'll fix them later.
-    # (or mri parse errors--I should have separated them out)
-    files.reject! { |f| f =~ /lib.flog|lib.autotest.notify|lib.analyzer.tools.rails.stat|flog.lib.flog|rakelib.struct.generator|rubinius.kernel.core.array|lib.rbosa.rb|src.rbosa.rb|spec.spec.mocks.mock.spec.rb|dsl.shared.behaviour.spec.rb|spec.spec.dsl.behaviour.spec|lib.hpricot.parse.rb|resolve.rb|parsers.parse.f95|rubinius.shotgun.lib.primitives.ltm|rubinius.lib.bin.compile|rubinius.kernel.core.object|rubinius.kernel.core.file|rubinius.compiler2.garnet.bindingagent|ruby_to_c_test_r2ctestcase|lib.more.like.this|resolv\.rb|test.r2ctestcase/ }
-
-    warn "Generating #{files.size} tests from #{base}"
-
-    eval files.map { |file|
-      name = file[base.size..-1].gsub(/\W+/, '_')
-
-      loc = `wc -l #{file}`.strip.to_i
-
-      "def test#{name}_#{loc}
-         file = #{file.inspect}
-         rb = File.read(file)
-
-         pt = ParseTree.new.parse_tree_for_string rb
-         refute_nil pt, \"ParseTree for #{name} undefined\"
-
-         rp = @processor.parse rb
-         assert_equal Sexp.from_array(pt).first, rp, \"RP different from PT\"
-         File.unlink #{file.inspect}
-       end"
-    }.compact.join("\n")
+class RubyParserTestCase < ParseTreeTestCase
+  def self.previous key
+    "Ruby"
   end
+
+  def self.generate_test klass, node, data, input_name, output_name
+    return if node.to_s =~ /bmethod|dmethod/
+    return if Array === data['Ruby']
+
+    output_name = "ParseTree"
+
+    super
+  end
+end
+
+class TestRubyParser < RubyParserTestCase
+  alias :refute_nil :assert_not_nil unless defined? Mini
 
   def setup
     super
