@@ -15,7 +15,7 @@ Autotest.add_hook :initialize do |at|
   end
 
   at.add_mapping(/pt_testcase.rb/) do |f, _|
-    at.files_matching(/^test.*rb$/)
+    at.files_matching(/test_.*rb$/)
   end
 
   %w(TestEnvironment TestStackState).each do |klass|
