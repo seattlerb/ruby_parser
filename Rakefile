@@ -25,6 +25,7 @@ task path => :parser do
   end
 end
 
+desc "build the parser"
 task :parser => ["lib/ruby_parser.rb"]
 
 rule '.rb' => '.y' do |t|
