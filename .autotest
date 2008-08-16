@@ -1,5 +1,7 @@
 # -*- ruby -*-
 
+require 'autotest/restart'
+
 Autotest.add_hook :initialize do |at|
   at.extra_files << "../../ParseTree/dev/test/pt_testcase.rb"
   at.libs << ":../../ParseTree/dev/lib:../../ParseTree/dev/test"
@@ -21,6 +23,10 @@ Autotest.add_hook :initialize do |at|
   %w(TestEnvironment TestStackState).each do |klass|
     at.extra_class_map[klass] = "test/test_ruby_parser_extras.rb"
   end
+
+  %w(TestRubyParser TestParseTree).each do |klass| # HACK
+    at.extra_class_map[klass] = "test/test_ruby_parser.rb"
+  end
 end
 
 Autotest.add_hook :run_command do |at|
@@ -33,6 +39,6 @@ class Autotest
   end
 end if ENV['ONENINE']
 
-require 'autotest/rcov'
-Autotest::RCov.command = 'rcov_info'
+# require 'autotest/rcov'
+# Autotest::RCov.command = 'rcov_info'
 # Autotest::RCov.pattern = 'test/test_ruby_lexer.rb'
