@@ -467,17 +467,23 @@ class RubyLexer
 
   def reset
     self.command_start = true
-    self.lex_strterm = nil
-    self.token = nil
-    self.yacc_value = nil
+    self.lex_strterm   = nil
+    self.token         = nil
+    self.yacc_value    = nil
 
-    @src = nil
+    @src       = nil
     @lex_state = nil
+  end
+
+  def s(*args)
+    result = Sexp.new(*args)
+    result.line = src.lineno
+    result
   end
 
   def src= src
     raise "bad src: #{src.inspect}" unless String === src
-    @src = StringScanner.new src
+    @src = StringScanner.new(src) # HACK $src
   end
 
   def store_comment

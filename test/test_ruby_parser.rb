@@ -201,7 +201,7 @@ class TestRubyParser < RubyParserTestCase
     rb = 'a = 42'
     pt = s(:lasgn, :a, s(:lit, 42))
     expected_env = { :a => :lvar }
-    
+
     assert_equal pt, @processor.parse(rb)
     assert_equal expected_env, @processor.env.all
   end
@@ -338,10 +338,96 @@ class TestRubyParser < RubyParserTestCase
 
     assert_equal pt, @processor.parse(rb)
   end
+
+  STARTING_LINE = {
+    "begin_rescue_twice"            => 2, # HACK - I just couldn't do better
+    "structure_unused_literal_wwtt" => 3,
+    "undef_block_1"                 => 2,
+    "undef_block_2"                 => 2,
+    "undef_block_3"                 => 2,
+    "undef_block_wtf"               => 2,
+    "until_post"                    => 2,
+    "until_post_not"                => 2,
+    "while_post"                    => 2,
+    "while_post_not"                => 2,
+  }
+
+  def assert_processor klass, node, data, input_name, output_name
+    flunk "Processor is nil" if processor.nil?
+
+    assert data.has_key?(input_name), "Unknown input data"
+    assert data.has_key?(output_name), "Missing test data"
+
+    $missing[node] << output_name unless data.has_key? output_name
+
+    input    = data[input_name].deep_clone
+    expected = data[output_name].deep_clone
+
+    case expected
+    when :unsupported then
+      assert_raises(UnsupportedNodeError) do
+        processor.process(input)
+      end
+    else
+      extra_expected = []
+      extra_input = []
+
+      _, expected, extra_expected = *expected if
+        Array === expected and expected.first == :defx
+      _, input, extra_input = *input if
+        Array === input and input.first == :defx
+
+      debug  = input.deep_clone
+      result = processor.process(input)
+
+      assert_equal(expected, result,
+                   "failed on input: #{debug.inspect}")
+
+      expected = STARTING_LINE[node] || 1
+      assert_equal expected, result.line, "should have proper line number"
+
+      extra_input.each do |extra|
+        processor.process(extra)
+      end
+      extra = processor.extra_methods rescue []
+      assert_equal extra_expected, extra
+    end
+  end
+
+  def test_linenums
+    rb = "a = 42\np a"
+    pt = s(:block,
+           s(:lasgn, :a, s(:lit, 42)),
+           s(:call, nil, :p, s(:arglist, s(:lvar, :a))))
+
+    result = @processor.parse(rb)
+
+    assert_equal pt, result
+
+    assert_equal 1, result.line,       "block should have line number"
+    assert_equal 1, result.lasgn.line, "lasgn should have line number"
+    assert_equal 2, result.call.line,  "call should have line number"
+  end
+
+  def test_linenums2
+    rb = "def x(y)\n  p(y)\n  y *= 2\n  return y;\nend" # TODO: remove () & ;
+    pt = s(:defn, :x, s(:args, :y),
+           s(:scope,
+             s(:block,
+               s(:call, nil, :p, s(:arglist, s(:lvar, :y))),
+               s(:lasgn, :y,
+                 s(:call, s(:lvar, :y), :*, s(:arglist, s(:lit, 2)))),
+               s(:return, s(:lvar, :y)))))
+
+    result = @processor.parse(rb)
+
+    assert_equal pt, result
+
+    body = result.scope.block
+
+    assert_equal 1, result.line,      "defn should have line number"
+    assert_equal 2, body.call.line,   "call should have line number"
+    assert_equal 3, body.lasgn.line,  "lasgn should have line number"
+    assert_equal 4, body.return.line, "return should have line number"
+  end
 end
-
-__END__
-
-# blah18.rb
-
-assert_equal("sub", $_)

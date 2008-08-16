@@ -57,8 +57,10 @@ bodystmt      : compstmt opt_rescue opt_else opt_ensure {
                   if val[1] then
                     result = s(:rescue)
                     result << val[0] if val[0]
-                    result << val[1] if val[1]
+                    result << val[1]
                     result << val[2] if val[2]
+
+                    result.line = val[1].line
                   elsif not val[2].nil? then
                     warning("else without rescue is useless")
                     result = block_append(result, val[2])
@@ -112,29 +114,33 @@ stmt          : kALIAS fitem { lexer.lex_state = :expr_fname } fitem {
                  end
                }
              | stmt kWHILE_MOD expr_value {
-                 block, pre = val[0], true
+                 block, expr, pre = val[0], val[2], true
                  block, pre = block.last, false if block[0] == :begin
 
-                 val[2] = cond val[2]
-                 if val[2][0] == :not then
-                   result = s(:until, val[2].last, block, pre)
+                 expr = cond expr
+                 if expr.first == :not then
+                   result = s(:until, expr.last, block, pre)
                  else
-                   result = s(:while, val[2], block, pre)
+                   result = s(:while, expr, block, pre)
                  end
+
+                 result.line(block.line)
                }
              | stmt kUNTIL_MOD expr_value { # REFACTOR
-                 block, pre = val[0], true 
+                 block, expr, pre = val[0], val[2], true
                  block, pre = block.last, false if block[0] == :begin
 
-                 val[2] = cond val[2]
-                 if val[2][0] == :not then
-                   result = s(:while, val[2].last, block, pre)
+                 expr = cond expr
+                 if expr[0] == :not then
+                   result = s(:while, expr.last, block, pre)
                  else
-                   result = s(:until, val[2], block, pre)
+                   result = s(:until, expr, block, pre)
                  end
+                 result.line(block.line)
                }
              | stmt kRESCUE_MOD stmt {
                   result = s(:rescue, val[0], s(:resbody, s(:array), val[2]))
+                  result.line = val[0].line
                  }
              | klBEGIN {
                  if (self.in_def || self.in_single > 0) then
@@ -142,17 +148,15 @@ stmt          : kALIAS fitem { lexer.lex_state = :expr_fname } fitem {
                  end
                  self.env.extend;
                } tLCURLY compstmt tRCURLY {
-                 result = s(:iter, s(:preexe), nil)
-                 result << val[3] if val[3]
+                 result = new_iter s(:preexe), nil, val[3] # TODO: add test?
                  result = nil # TODO: since it isn't supposed to go in the AST
                }
              | klEND tLCURLY compstmt tRCURLY {
                  if (self.in_def || self.in_single > 0) then
                    # yyerror("END in method; use at_exit"); HACK
                  end
-                 result = s(:iter, s(:postexe), nil)
-                 result << val[2] if val[2]
-                 }
+                 result = new_iter s(:postexe), nil, val[2]
+               }
              | lhs '=' command_call {
                   result = self.node_assign(val[0], val[2])
                  }
@@ -181,7 +185,8 @@ stmt          : kALIAS fitem { lexer.lex_state = :expr_fname } fitem {
                     result = val[0]
                     result << new_call(self.gettable(name), asgn_op,
                                 s(:arglist, val[2]))
-                end
+                  end
+                  result.line = val[0].line
                  }
              | primary_value '[' aref_args tRBRACK tOP_ASGN command_call {
                   result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5]);
@@ -249,25 +254,25 @@ command_call : command
 
 block_command : block_call
               | block_call tDOT operation2 command_args {
-                  result = new_call(val[0], val[2], val[3])
+                  result = new_call val[0], val[2], val[3]
                 }
               | block_call tCOLON2 operation2 command_args {
-                  result = new_call(val[0], val[2], val[3])
+                  result = new_call val[0], val[2], val[3]
                 }
 
 cmd_brace_block : tLBRACE_ARG {
                     self.env.extend :dynamic
                   } opt_block_var  { result = self.env.dynamic.keys }
                   compstmt tRCURLY {
-                    result = s(:iter, val[2], val[4])
-                    self.env.unextend;
+                    result = new_iter nil, val[2], val[4]
+                    self.env.unextend
                   }
 
 command      : operation command_args =tLOWEST {
-                 result = new_call(nil, val[0].to_sym, val[1])
+                 result = new_call nil, val[0].to_sym, val[1]
                }
              | operation command_args cmd_brace_block {
-                 result = new_call(nil, val[0].to_sym, val[1])
+                 result = new_call nil, val[0].to_sym, val[1]
                  if val[2] then
                    if result[0] == :block_pass then
                       raise "both block arg and actual block given"
@@ -277,16 +282,16 @@ command      : operation command_args =tLOWEST {
                  end
                }
              | primary_value tDOT operation2 command_args =tLOWEST {
-                 result = new_call(val[0], val[2].to_sym, val[3])
+                 result = new_call val[0], val[2].to_sym, val[3]
                }
              | primary_value tDOT operation2 command_args cmd_brace_block {
-                 result = new_call(val[0], val[2].to_sym, val[3])
+                 result = new_call val[0], val[2].to_sym, val[3]
                }
              | primary_value tCOLON2 operation2 command_args =tLOWEST {
-                 result = new_call(val[0], val[2].to_sym, val[3])
+                 result = new_call val[0], val[2].to_sym, val[3]
                }
              | primary_value tCOLON2 operation2 command_args cmd_brace_block {
-                 result = new_call(val[0], val[2].to_sym, val[3])
+                 result = new_call val[0], val[2].to_sym, val[3]
                  if val[4] then
                    if result[0] == :block_pass then # REFACTOR
                      raise "both block arg and actual block given"
@@ -296,10 +301,10 @@ command      : operation command_args =tLOWEST {
                  end
                }
              | kSUPER command_args {
-                 result = self.new_super(val[1]);
+                 result = new_super val[1]
                }
              | kYIELD command_args {
-                 result = self.new_yield(val[1]);
+                 result = new_yield val[1]
                }
 
 mlhs          : mlhs_basic
@@ -467,14 +472,15 @@ arg          : lhs '=' arg {
              | lhs '=' arg kRESCUE_MOD arg {
                  result = self.node_assign(val[0],
                             s(:rescue, val[2], s(:resbody, s(:array), val[4])))
-                 }
+                 result.line = val[0].line
+               }
              | var_lhs tOP_ASGN arg {
                  name = val[0].value
                  asgn_op = val[1].to_sym
 
                  val[2] = remove_begin(val[2])
 
-                 case asgn_op
+                 case asgn_op # REFACTOR
                  when :"||" then
                    val[0] << val[2]
                    result = s(:op_asgn_or, self.gettable(name), val[0]);
@@ -487,6 +493,7 @@ arg          : lhs '=' arg {
                                  s(:arglist, val[2]))
                    result = val[0];
                  end
+                 result.line = val[0].line
                  }
              | primary_value '[' aref_args tRBRACK tOP_ASGN arg {
                   result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5]);
@@ -526,25 +533,25 @@ arg          : lhs '=' arg {
                  end
                }
              | arg tPLUS arg {
-                  result = new_call(val[0], :+, s(:arglist, val[2]))
+                  result = new_call val[0], :+, s(:arglist, val[2])
                  }
              | arg tMINUS arg {
-                  result = new_call(val[0], :-, s(:arglist, val[2]))
+                  result = new_call val[0], :-, s(:arglist, val[2])
                  }
              | arg tSTAR2 arg {
-                  result = new_call(val[0], :*, s(:arglist, val[2]))
+                  result = new_call val[0], :*, s(:arglist, val[2])
                  }
              | arg tDIVIDE arg {
-                  result = new_call(val[0], :"/", s(:arglist, val[2]))
+                  result = new_call val[0], :"/", s(:arglist, val[2])
                  }
              | arg tPERCENT arg {
-                  result = new_call(val[0], :%, s(:arglist, val[2]))
+                  result = new_call val[0], :%, s(:arglist, val[2])
                  }
              | arg tPOW arg {
-                 result = new_call(val[0], :**, s(:arglist, val[2]))
+                 result = new_call val[0], :**, s(:arglist, val[2])
                  }
              | tUMINUS_NUM tINTEGER tPOW arg {
-                  result = new_call(new_call(s(:lit, val[1]), :"**", s(:arglist, val[3])), :"-@", s(:arglist));
+                  result = new_call(new_call(s(:lit, val[1]), :"**", s(:arglist, val[3])), :"-@", s(:arglist))
                  }
              | tUMINUS_NUM tFLOAT tPOW arg {
                   result = new_call(new_call(s(:lit, val[1]), :"**", s(:arglist, val[3])), :"-@", s(:arglist));
@@ -553,41 +560,41 @@ arg          : lhs '=' arg {
                   if val[1][0] == :lit then
                     result = val[1]
                   else
-                    result = new_call(val[1], :"+@", s(:arglist))
+                    result = new_call val[1], :"+@", s(:arglist)
                   end
                  }
              | tUMINUS arg {
-                  result = new_call(val[1], :"-@", s(:arglist))
+                  result = new_call val[1], :"-@", s(:arglist)
                  }
              | arg tPIPE arg {
-                  result = new_call(val[0], :"|", s(:arglist, val[2]))
+                  result = new_call val[0], :"|", s(:arglist, val[2])
                  }
              | arg tCARET arg {
-                  result = new_call(val[0], :"^", s(:arglist, val[2]))
+                  result = new_call val[0], :"^", s(:arglist, val[2])
                  }
              | arg tAMPER2 arg {
-                  result = new_call(val[0], :"&", s(:arglist, val[2]))
+                  result = new_call val[0], :"&", s(:arglist, val[2])
                  }
              | arg tCMP arg {
-                  result = new_call(val[0], :"<=>", s(:arglist, val[2]))
+                  result = new_call val[0], :"<=>", s(:arglist, val[2])
                  }
              | arg tGT arg {
-                  result = new_call(val[0], :">", s(:arglist, val[2]))
+                  result = new_call val[0], :">", s(:arglist, val[2])
                  }
              | arg tGEQ arg {
-                  result = new_call(val[0], :">=", s(:arglist, val[2]))
+                  result = new_call val[0], :">=", s(:arglist, val[2])
                  }
              | arg tLT arg {
-                  result = new_call(val[0], :"<", s(:arglist, val[2]))
+                  result = new_call val[0], :"<", s(:arglist, val[2])
                  }
              | arg tLEQ arg {
-                  result = new_call(val[0], :"<=", s(:arglist, val[2]))
+                  result = new_call val[0], :"<=", s(:arglist, val[2])
                  }
              | arg tEQ arg {
-                  result = new_call(val[0], :"==", s(:arglist, val[2]))
+                  result = new_call val[0], :"==", s(:arglist, val[2])
                  }
              | arg tEQQ arg {
-                  result = new_call(val[0], :"===", s(:arglist, val[2]))
+                  result = new_call val[0], :"===", s(:arglist, val[2])
                  }
              | arg tNEQ arg {
                   val[0] = value_expr val[0] # TODO: port call_op and clean these
@@ -605,17 +612,17 @@ arg          : lhs '=' arg {
                  }
              | tTILDE arg {
                   val[2] = value_expr val[2]
-                  result = new_call(val[1], :"~", s(:arglist))
+                  result = new_call val[1], :"~", s(:arglist)
                  }
              | arg tLSHFT arg {
                   val[0] = value_expr val[0]
                   val[2] = value_expr val[2]
-                  result = new_call(val[0], :"<<", s(:arglist, val[2]))
+                  result = new_call val[0], :"\<\<", s(:arglist, val[2])
                  }
              | arg tRSHFT arg {
                   val[0] = value_expr val[0]
                   val[2] = value_expr val[2]
-                  result = new_call(val[0], :">>", s(:arglist, val[2]))
+                  result = new_call val[0], :">>", s(:arglist, val[2])
                  }
              | arg tANDOP arg {
                   result = logop(:and, val[0], val[2])
@@ -806,7 +813,7 @@ primary      : literal
              | var_ref
              | backref
              | tFID {
-                 result = new_call(nil, val[0].to_sym)
+                 result = new_call nil, val[0].to_sym
                }
              | kBEGIN bodystmt kEND {
                  unless val[1] then
@@ -814,6 +821,8 @@ primary      : literal
                  else
                    result = s(:begin, val[1])
                  end
+
+                 result.line = val[0].line
                }
              | tLPAREN_ARG expr {
                   lexer.lex_state = :expr_endarg
@@ -835,9 +844,9 @@ primary      : literal
                  val[2] ||= s(:arglist)
                  val[2][0] = :arglist if val[2][0] == :array # REFACTOR
                  if val[0].node_type == :self then
-                   result = new_call(nil, :"[]", val[2])
+                   result = new_call nil, :"[]", val[2]
                  else
-                   result = new_call(val[0], :"[]", val[2])
+                   result = new_call val[0], :"[]", val[2]
                  end
                }
              | tLBRACK aref_args tRBRACK {
@@ -850,7 +859,7 @@ primary      : literal
                  result = s(:return)
                }
              | kYIELD tLPAREN2 call_args tRPAREN {
-                 result = self.new_yield(val[2]);
+                 result = new_yield val[2]
                }
              | kYIELD tLPAREN2 tRPAREN {
                  result = s(:yield)
@@ -862,17 +871,18 @@ primary      : literal
                  result = s(:defined, val[3]);
                }
              | operation brace_block {
-                 name = val[0].to_sym
+                 oper = val[0]
                  iter = val[1]
-#                 iter[2] = iter[2][1] if iter[2][0] == :block and iter[2].size == 2 # HACK
-                 iter.insert 1, new_call(nil, name)
+                 call = new_call(nil, oper.to_sym)
+                 call.line = oper.line
+                 iter.insert 1, call
                  result = iter
+                 result.line = oper.line
                }
              | method_call
              | method_call brace_block {
                  call = val[0]
                  iter = val[1]
-#                 iter[2] = iter[2][1] if iter[2][0] == :block and iter[2].size == 2 # HACK
                  iter.insert 1, call
                  result = iter
                }
@@ -920,6 +930,7 @@ primary      : literal
                }
              | kCASE expr_value opt_terms case_body kEND {
                   result = s(:case, val[1]);
+                  result.line = val[0].line
 
                   body = val[3]
                   while body and body.node_type == :when
@@ -937,6 +948,7 @@ primary      : literal
                  }
              | kCASE opt_terms case_body kEND {
                   result = s(:case, nil); # REFACTOR
+                  result.line = val[0].line
 
                   body = val[2]
                   while body and body.first == :when
@@ -954,6 +966,7 @@ primary      : literal
                }
              | kCASE opt_terms kELSE compstmt kEND { # TODO: need a test
                  result = s(:case, nil, val[3])
+                 result.line = val[0].line
                }
             | kFOR block_var kIN {
                  lexer.cond.push true
@@ -972,6 +985,7 @@ primary      : literal
                 } bodystmt kEND {
                   scope = s(:scope, val[4]).compact
                   result = s(:class, val[1], val[2], scope)
+                  result.line = val[0].line
                   result.comments = self.comments.pop
                   self.env.unextend
                  }
@@ -985,6 +999,7 @@ primary      : literal
                 } bodystmt kEND {
                   scope = s(:scope, val[6]).compact
                   result = s(:sclass, val[2], scope)
+                  result.line = val[0].line
                   self.env.unextend;
                   self.in_def = val[3]
                   self.in_single = val[5]
@@ -998,6 +1013,7 @@ primary      : literal
                } bodystmt kEND {
                  body = val[3] ? s(:scope, val[3]) : s(:scope)
                  result = s(:module, val[1], body)
+                 result.line = val[0].line
                  result.comments = self.comments.pop
                  self.env.unextend;
                }
@@ -1007,11 +1023,11 @@ primary      : literal
                  self.env.extend
                } f_arglist bodystmt kEND {
                  name, args, body = val[1], val[3], val[4] # TODO: refactor
-                 name = name.to_sym
                  body ||= s(:nil)
 
                  body = s(:block, body) if body && body[0] != :block
-                 result = s(:defn, name, args, s(:scope, body))
+                 result = s(:defn, name.to_sym, args, s(:scope, body))
+                 result.line = name.line
                  result.comments = self.comments.pop
 
                  self.env.unextend
@@ -1030,6 +1046,7 @@ primary      : literal
                  body = body ? s(:block, body) : s(:block)
 
                  result = s(:defs, recv, name.to_sym, args, s(:scope, body))
+                 result.line = name.line
                  result.comments = self.comments.pop
 
                  self.env.unextend;
@@ -1089,14 +1106,9 @@ do_block      : kDO_BLOCK {
                   self.env.extend :dynamic
                 } opt_block_var { result = self.env.dynamic.keys }
                 compstmt kEND {
-
-                  vars = val[2]
-                  body = val[4]
-
-                  result = s(:iter)
-                  result << vars
-                  result << val[1] if val[1]
-                  result << body if body
+                  vars   = val[2]
+                  body   = val[4]
+                  result = new_iter nil, vars, body
 
                   self.env.unextend;
                 }
@@ -1109,28 +1121,28 @@ block_call    : command do_block {
                 result.insert 1, val[0]
               }
               | block_call tDOT operation2 opt_paren_args {
-                  result = new_call(val[0], val[2]);
+                  result = new_call val[0], val[2]
                   result << val[3] || s(:arglist)
               }
               | block_call tCOLON2 operation2 opt_paren_args {
-                  result = new_call(val[0], val[2]);
+                  result = new_call val[0], val[2]
                   result << val[3] || s(:arglist)
               }
 
 method_call   : operation paren_args {
-                  result = new_call(nil, val[0].to_sym, val[1])
+                  result = new_call nil, val[0].to_sym, val[1]
                 }
               | primary_value tDOT operation2 opt_paren_args {
-                  result = new_call(val[0], val[2].to_sym, val[3])
+                  result = new_call val[0], val[2].to_sym, val[3]
                 }
               | primary_value tCOLON2 operation2 paren_args {
-                  result = new_call(val[0], val[2].to_sym, val[3])
+                  result = new_call val[0], val[2].to_sym, val[3]
                 }
               | primary_value tCOLON2 operation3 {
-                  result = new_call(val[0], val[2].to_sym)
+                  result = new_call val[0], val[2].to_sym
                 }
               | kSUPER paren_args {
-                  result = self.new_super(val[1]);
+                  result = new_super val[1]
                 }
               | kSUPER {
                   result = s(:zsuper)
@@ -1140,12 +1152,11 @@ brace_block   : tLCURLY {
                   self.env.extend :dynamic
                 } opt_block_var { result = self.env.dynamic.keys }
                 compstmt tRCURLY { # REFACTOR
-                  args = val[2]
-                  body = val[4]
-                  result = s(:iter)
-                  result << args
-                  result << body if body
+                  args   = val[2]
+                  body   = val[4]
+                  result = new_iter nil, args, body
                   self.env.unextend
+                  result.line = val[0].line
                 }
               | kDO {
                   self.env.extend :dynamic
@@ -1153,10 +1164,9 @@ brace_block   : tLCURLY {
                 compstmt kEND {
                   args = val[2]
                   body = val[4]
-                  result = s(:iter)
-                  result << args
-                  result << body if body
+                  result = new_iter nil, args, body
                   self.env.unextend
+                  result.line = val[0].line
                 }
 
 case_body     : kWHEN when_args then compstmt cases {
@@ -1178,10 +1188,14 @@ opt_rescue    : kRESCUE exc_list exc_var then compstmt opt_rescue {
                   exc_list = val[1] || s(:array)
 
                   result = s(:resbody, exc_list)
-                  if val[2] then
-                    exc_list << node_assign(val[2], s(:gvar, :"$!"))
+                  result.line = val[0].line
 
-                    val[4] = s(:block, val[4]) if val[4] && val[4][0] != :block
+                  if val[2] then
+                    l = val[2].line
+                    exc_list << node_assign(val[2], s(:gvar, :"$!").line(l))
+
+                    val[4] = s(:block, val[4]).line(l) if
+                      val[4] && val[4][0] != :block
                   end
 
                   result << val[4]

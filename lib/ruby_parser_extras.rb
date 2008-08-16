@@ -31,17 +31,17 @@ class StringScanner
     string[0..pos][/\A.*__LINE__/m].split(/\n/).size
   end
 
-  def lineno
+  def lineno # FIX
     string[0..pos].split(/\n/).size
   end
 
-  def unread c
+  def unread c # TODO: remove this entirely - we should not need it
     return if c.nil? # UGH
     warn({:unread => caller[0]}.inspect) if ENV['TALLY']
     string[pos, 0] = c
   end
 
-  def unread_many str
+  def unread_many str # TODO: remove this entirely - we should not need it
     warn({:unread_many => caller[0]}.inspect) if ENV['TALLY']
     string[pos, 0] = str
   end
@@ -49,6 +49,44 @@ class StringScanner
   def was_begin_of_line
     pos <= 2 or string[pos-2] == ?\n
   end
+
+  # TODO:
+  # def last_line(src)
+  #   if n = src.rindex("\n")
+  #     src[(n+1) .. -1]
+  #   else
+  #     src
+  #   end
+  # end
+  # private :last_line
+
+  # def next_words_on_error
+  #   if n = @src.rest.index("\n")
+  #     @src.rest[0 .. (n-1)]
+  #   else
+  #     @src.rest
+  #   end
+  # end
+
+  # def prev_words_on_error(ev)
+  #   pre = @pre
+  #   if ev and /#{Regexp.quote(ev)}$/ =~ pre
+  #     pre = $`
+  #   end
+  #   last_line(pre)
+  # end
+
+  # def on_error(et, ev, values)
+  #   lines_of_rest = @src.rest.to_a.length
+  #   prev_words = prev_words_on_error(ev)
+  #   at = 4 + prev_words.length
+  #   message = <<-MSG
+  # RD syntax error: line #{@blockp.line_index - lines_of_rest}:
+  # ...#{prev_words} #{(ev||'')} #{next_words_on_error()} ...
+  #   MSG
+  #   message << " " * at + "^" * (ev ? ev.length : 0) + "\n"
+  #   raise ParseError, message
+  # end
 end
 
 class RubyParser < Racc::Parser
@@ -63,6 +101,8 @@ class RubyParser < Racc::Parser
 
     head = s(:block, head) unless head.node_type == :block
     head << tail
+    head.minimize_line
+    head
   end
 
   def arg_add(node1, node2)
@@ -163,6 +203,7 @@ class RubyParser < Racc::Parser
 
     head = remove_begin(head)
     head = s(:block, head) unless head[0] == :block
+    head.minimize_line
 
     if strip_tail_block and Sexp === tail and tail[0] == :block then
       head.push(*tail.values)
@@ -361,6 +402,15 @@ class RubyParser < Racc::Parser
     result
   end
 
+  def new_iter call, args, body
+    result = s(:iter)
+    result << call if call
+    result << args
+    result << body if body
+    result.minimize_line
+    result
+  end
+
   def new_super args
     if args && args.node_type == :block_pass then
       t, body, bp = args
@@ -385,7 +435,7 @@ class RubyParser < Racc::Parser
 
   def next_token
     if self.lexer.advance then
-      [self.lexer.token, self.lexer.yacc_value]
+      return self.lexer.token, self.lexer.yacc_value
     else
       return [false, '$end']
     end
@@ -443,8 +493,17 @@ class RubyParser < Racc::Parser
     node
   end
 
-  def value_expr node # HACK
-    node = remove_begin node
+  def s(*args)
+    result = Sexp.new(*args)
+    subsexp = result.grep(Sexp)
+    result.line = subsexp.first.line unless subsexp.empty? # grab if possible
+    result.line ||= lexer.src.lineno if lexer.src          # otherwise...
+    result
+  end
+
+  def value_expr oldnode # HACK
+    node = remove_begin oldnode
+    node.line = oldnode.line
     node[2] = value_expr(node[2]) if node and node[0] == :if
     node
   end
@@ -716,6 +775,23 @@ class Sexp
   attr_writer :paren
   attr_accessor :comments
 
+  def line(n=nil)
+    if n then
+      @line = n
+      self
+    else
+      @line ||= nil
+    end
+  end
+
+  def line= n
+    @line = n
+  end
+
+  def minimize_line
+    @line = self.grep(Sexp).map { |s| s.line }.compact.min || self.line
+  end
+
   def node_type
     first
   end
@@ -735,6 +811,15 @@ class Sexp
 
   def values
     self[1..-1]
+  end
+
+  def inspect # :nodoc:
+    sexp_str = self.map {|x|x.inspect}.join(', ')
+    if line then
+      "s(#{sexp_str}).line(#{line})"
+    else
+      "s(#{sexp_str})"
+    end
   end
 end
 
