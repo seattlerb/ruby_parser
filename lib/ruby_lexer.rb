@@ -478,6 +478,7 @@ class RubyLexer
   def s(*args)
     result = Sexp.new(*args)
     result.line = src.lineno
+    result.file = self.parser.file
     result
   end
 

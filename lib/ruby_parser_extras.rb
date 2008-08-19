@@ -498,6 +498,7 @@ class RubyParser < Racc::Parser
     subsexp = result.grep(Sexp)
     result.line = subsexp.first.line unless subsexp.empty? # grab if possible
     result.line ||= lexer.src.lineno if lexer.src          # otherwise...
+    result.file = self.file
     result
   end
 
@@ -774,6 +775,7 @@ end
 class Sexp
   attr_writer :paren
   attr_accessor :comments
+  attr_accessor :file
 
   def line(n=nil)
     if n then
@@ -813,6 +815,7 @@ class Sexp
     self[1..-1]
   end
 
+  alias :real_inspect :inspect
   def inspect # :nodoc:
     sexp_str = self.map {|x|x.inspect}.join(', ')
     if line then

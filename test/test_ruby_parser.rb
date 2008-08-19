@@ -352,64 +352,36 @@ class TestRubyParser < RubyParserTestCase
     "while_post_not"                => 2,
   }
 
-  def assert_processor klass, node, data, input_name, output_name
-    flunk "Processor is nil" if processor.nil?
-
-    assert data.has_key?(input_name), "Unknown input data"
-    assert data.has_key?(output_name), "Missing test data"
-
-    $missing[node] << output_name unless data.has_key? output_name
-
-    input    = data[input_name].deep_clone
-    expected = data[output_name].deep_clone
-
-    case expected
-    when :unsupported then
-      assert_raises(UnsupportedNodeError) do
-        processor.process(input)
-      end
-    else
-      extra_expected = []
-      extra_input = []
-
-      _, expected, extra_expected = *expected if
-        Array === expected and expected.first == :defx
-      _, input, extra_input = *input if
-        Array === input and input.first == :defx
-
-      debug  = input.deep_clone
-      result = processor.process(input)
-
-      assert_equal(expected, result,
-                   "failed on input: #{debug.inspect}")
-
-      expected = STARTING_LINE[node] || 1
-      assert_equal expected, result.line, "should have proper line number"
-
-      extra_input.each do |extra|
-        processor.process(extra)
-      end
-      extra = processor.extra_methods rescue []
-      assert_equal extra_expected, extra
-    end
+  def after_process_hook klass, node, data, input_name, output_name
+    expected = STARTING_LINE[node] || 1
+    assert_equal expected, @result.line, "should have proper line number"
   end
 
-  def test_linenums
+  def test_position_info
     rb = "a = 42\np a"
     pt = s(:block,
            s(:lasgn, :a, s(:lit, 42)),
            s(:call, nil, :p, s(:arglist, s(:lvar, :a))))
 
-    result = @processor.parse(rb)
+    result = @processor.parse(rb, "blah.rb")
 
     assert_equal pt, result
 
     assert_equal 1, result.line,       "block should have line number"
     assert_equal 1, result.lasgn.line, "lasgn should have line number"
     assert_equal 2, result.call.line,  "call should have line number"
+
+    expected = "blah.rb"
+
+    assert_equal expected, result.file
+    assert_equal expected, result.lasgn.file
+    assert_equal expected, result.call.file
+
+    assert_same result.file, result.lasgn.file
+    assert_same result.file, result.call.file
   end
 
-  def test_linenums2
+  def test_position_info2
     rb = "def x(y)\n  p(y)\n  y *= 2\n  return y;\nend" # TODO: remove () & ;
     pt = s(:defn, :x, s(:args, :y),
            s(:scope,
