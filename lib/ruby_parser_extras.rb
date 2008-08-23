@@ -414,7 +414,8 @@ class RubyParser < Racc::Parser
   def new_super args
     if args && args.node_type == :block_pass then
       t, body, bp = args
-      result = s(t, bp, s(:super, body))
+      body, bp = bp, body unless bp
+      result = s(t, bp, s(:super, body).compact)
     else
       result = s(:super)
       result << args if args and args != s(:array)
@@ -463,7 +464,7 @@ class RubyParser < Racc::Parser
     lhs
   end
 
-  def parse(str, file = "(string)")
+  def process(str, file = "(string)")
     raise "bad val: #{str.inspect}" unless String === str
 
     self.file = file
@@ -473,9 +474,14 @@ class RubyParser < Racc::Parser
 
     do_parse
   end
+  alias :parse :process
 
   def remove_begin node
-    node = node[-1] if node and node[0] == :begin and node.size == 2
+    oldnode = node
+    if node and node[0] == :begin and node.size == 2 then
+      node = node[-1]
+      node.line = oldnode.line
+    end
     node
   end
 
@@ -504,7 +510,7 @@ class RubyParser < Racc::Parser
 
   def value_expr oldnode # HACK
     node = remove_begin oldnode
-    node.line = oldnode.line
+    node.line = oldnode.line if oldnode
     node[2] = value_expr(node[2]) if node and node[0] == :if
     node
   end
@@ -513,7 +519,7 @@ class RubyParser < Racc::Parser
     return nil unless node
     return node unless node[0] == :block
 
-    node[1..-2] = node[1..-2].map { |n| remove_begin(n) }
+    node[1..-1] = node[1..-1].map { |n| remove_begin(n) }
     node
   end
 

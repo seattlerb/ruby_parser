@@ -98,12 +98,11 @@ class TestRubyParser < RubyParserTestCase
            nil,
            s(:block,
              s(:lasgn, :v, s(:nil)),
-             s(:begin,
-               s(:rescue,
-                 s(:yield),
-                 s(:resbody,
-                   s(:array, s(:const, :Exception), s(:lasgn, :v, s(:gvar, :$!))),
-                   s(:block, s(:break)))))))
+             s(:rescue,
+               s(:yield),
+               s(:resbody,
+                 s(:array, s(:const, :Exception), s(:lasgn, :v, s(:gvar, :$!))),
+                 s(:block, s(:break))))))
 
     assert_equal pt, @processor.parse(rb)
   end
@@ -340,16 +339,18 @@ class TestRubyParser < RubyParserTestCase
   end
 
   STARTING_LINE = {
-    "begin_rescue_twice"            => 2, # HACK - I just couldn't do better
-    "structure_unused_literal_wwtt" => 3,
-    "undef_block_1"                 => 2,
-    "undef_block_2"                 => 2,
-    "undef_block_3"                 => 2,
-    "undef_block_wtf"               => 2,
-    "until_post"                    => 2,
-    "until_post_not"                => 2,
-    "while_post"                    => 2,
-    "while_post_not"                => 2,
+    "defn_rescue"                         => 2,
+    "defn_rescue_mri_verbose_flag"        => 2,
+    "structure_unused_literal_wwtt"       => 3,
+    "undef_block_1"                       => 2,
+    "undef_block_2"                       => 2,
+    "undef_block_3"                       => 2,
+    "undef_block_wtf"                     => 2,
+    "until_post"                          => 2,
+    "until_post_not"                      => 2,
+    "while_post"                          => 2,
+    "while_post2"                         => 2,
+    "while_post_not"                      => 2,
   }
 
   def after_process_hook klass, node, data, input_name, output_name

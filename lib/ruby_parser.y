@@ -71,6 +71,7 @@ bodystmt      : compstmt opt_rescue opt_else opt_ensure {
 
 compstmt     : stmts opt_terms {
                  result = void_stmts(val[0])
+                 result = remove_begin(result) if result
                }
 
 stmts        : none
@@ -1025,7 +1026,9 @@ primary      : literal
                  name, args, body = val[1], val[3], val[4] # TODO: refactor
                  body ||= s(:nil)
 
-                 body = s(:block, body) if body && body[0] != :block
+                 body ||= s(:block)
+                 body = s(:block, body) unless body.first == :block
+
                  result = s(:defn, name.to_sym, args, s(:scope, body))
                  result.line = name.line
                  result.comments = self.comments.pop
@@ -1043,7 +1046,8 @@ primary      : literal
                } f_arglist bodystmt kEND {   # 6-8
                  recv, name, args, body = val[1], val[4], val[6], val[7]
 
-                 body = body ? s(:block, body) : s(:block)
+                 body ||= s(:block)
+                 body = s(:block, body) unless body.first == :block
 
                  result = s(:defs, recv, name.to_sym, args, s(:scope, body))
                  result.line = name.line
