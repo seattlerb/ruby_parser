@@ -354,6 +354,7 @@ mlhs_node    : variable {
                }
              | primary_value '[' aref_args tRBRACK {
                  result = self.aryset(val[0], val[2]);
+                 val[2][0] = :arglist
                }
              | primary_value tDOT tIDENTIFIER {
                  result = s(:attrasgn, val[0], :"#{val[2].value}=", s(:arglist));
@@ -498,6 +499,7 @@ arg          : lhs '=' arg {
                  }
              | primary_value '[' aref_args tRBRACK tOP_ASGN arg {
                   result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5]);
+                  val[2][0] = :arglist
                  }
              | primary_value tDOT tIDENTIFIER tOP_ASGN arg {
                   result = s(:op_asgn2, val[0], :"#{val[2].value}=", val[3].to_sym, val[4]);
@@ -863,10 +865,10 @@ primary      : literal
                  result = new_yield val[2]
                }
              | kYIELD tLPAREN2 tRPAREN {
-                 result = s(:yield)
+                 result = new_yield
                }
              | kYIELD {
-                 result = s(:yield)
+                 result = new_yield
                }
              | kDEFINED opt_nl tLPAREN2 expr tRPAREN {
                  result = s(:defined, val[3]);

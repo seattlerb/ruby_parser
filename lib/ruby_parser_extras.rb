@@ -423,7 +423,7 @@ class RubyParser < Racc::Parser
     result
   end
 
-  def new_yield(node)
+  def new_yield(node = nil)
     if node then
       raise SyntaxError, "Block argument should not be given." if
         node.node_type == :block_pass
@@ -431,7 +431,7 @@ class RubyParser < Racc::Parser
       node = node.last if node.node_type == :array and node.size == 2
     end
 
-    return s(:yield, node)
+    return s(:yield, node).compact
   end
 
   def next_token
