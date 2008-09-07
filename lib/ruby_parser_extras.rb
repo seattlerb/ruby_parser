@@ -137,9 +137,10 @@ class RubyParser < Racc::Parser
         result << lasgn[1]
       end
     end
+
     result << rest_arg  if rest_arg
+    result << :"&#{block_arg.last}" if block_arg
     result << optarg    if optarg # TODO? huh - processed above as well
-    result << block_arg if block_arg
 
     result
   end
