@@ -206,10 +206,44 @@ class TestRubyParser < RubyParserTestCase
   end
 
   def test_list_append
+    a = s(:lit, 1)
+    b = s(:lit, 2)
+    c = s(:lit, 3)
+
+    result = @processor.list_append(s(:array, b.dup), c.dup)
+
+    assert_equal s(:array, b, c), result
+
+    result = @processor.list_append(b.dup, c.dup)
+
+    assert_equal s(:array, b, c), result
+
+    result = @processor.list_append(result, a.dup)
+
+    assert_equal s(:array, b, c, a), result
+
     lhs, rhs = s(:array, s(:lit, :iter)), s(:when, s(:const, :BRANCHING), nil)
     expected = s(:array, s(:lit, :iter), s(:when, s(:const, :BRANCHING), nil))
 
     assert_equal expected, @processor.list_append(lhs, rhs)
+  end
+
+  def test_list_prepend
+    a = s(:lit, 1)
+    b = s(:lit, 2)
+    c = s(:lit, 3)
+
+    result = @processor.list_prepend(b.dup, s(:array, c.dup))
+
+    assert_equal s(:array, b, c), result
+
+    result = @processor.list_prepend(b.dup, c.dup)
+
+    assert_equal s(:array, b, c), result
+
+    result = @processor.list_prepend(a.dup, result)
+
+    assert_equal s(:array, a, b, c), result
   end
 
   def test_literal_concat_dstr_dstr
