@@ -3,13 +3,20 @@
 require 'rubygems'
 require 'hoe'
 
-$: << '../../ParseTree/dev/lib/'
+Hoe.add_include_dirs("../../ParseTree/dev/lib",
+                     "../../ParseTree/dev/test",
+                     "../../RubyInline/dev/lib",
+                     "../../ruby_parser/dev/lib",
+                     "../../sexp_processor/dev/lib")
+
 require './lib/ruby_parser_extras.rb'
 
 hoe = Hoe.new('ruby_parser', RubyParser::VERSION) do |parser|
   parser.rubyforge_name = 'parsetree'
   parser.developer('Ryan Davis', 'ryand-ruby@zenspider.com')
   parser.extra_deps << 'ParseTree'
+
+  parser.extra_deps << ['sexp_processor', '>= 3.0.0']
 end
 
 hoe.spec.files += ['lib/ruby_parser.rb'] # jim.... cmon man
