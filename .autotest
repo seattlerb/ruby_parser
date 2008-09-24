@@ -4,7 +4,7 @@ require 'autotest/restart'
 
 Autotest.add_hook :initialize do |at|
   at.extra_files << "../../ParseTree/dev/test/pt_testcase.rb"
-  at.libs << ":../../ParseTree/dev/lib:../../ParseTree/dev/test"
+  at.libs << ":../../ParseTree/dev/lib:../../ParseTree/dev/test:../../sexp_processor/dev/lib"
   at.add_exception 'unit'
   at.add_exception 'coverage'
   at.add_exception '.diff'
