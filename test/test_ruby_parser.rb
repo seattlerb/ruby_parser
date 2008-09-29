@@ -373,8 +373,17 @@ class TestRubyParser < RubyParserTestCase
   end
 
   STARTING_LINE = {
+    "begin"                               => 2,
+    "begin_rescue_ensure"                 => 2,
+    "begin_rescue_twice"                  => 2,
+    "begin_rescue_twice_mri_verbose_flag" => 2,
+    "case_no_expr"                        => 2,
     "defn_rescue"                         => 2,
     "defn_rescue_mri_verbose_flag"        => 2,
+    "ensure"                              => 2,
+    "rescue_block_body"                   => 2,
+    "rescue_block_nada"                   => 2,
+    "rescue_exceptions"                   => 2,
     "structure_unused_literal_wwtt"       => 3,
     "undef_block_1"                       => 2,
     "undef_block_2"                       => 2,

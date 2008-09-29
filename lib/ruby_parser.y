@@ -67,7 +67,7 @@ bodystmt      : compstmt opt_rescue opt_else opt_ensure {
 
                     result << val[2] if val[2]
 
-                    result.line = val[1].line
+                    result.line = (val[0] || val[1]).line
                   elsif not val[2].nil? then
                     warning("else without rescue is useless")
                     result = block_append(result, val[2])
@@ -917,11 +917,11 @@ primary      : literal
                  lexer.cond.pop
                } compstmt kEND {
                  block = val[5]
-                 val[2] = cond val[2]
-                 if val[2][0] == :not then
-                   result = s(:until, val[2].last, block, true);
+                 cond = self.cond val[2]
+                 if cond[0] == :not then
+                   result = s(:until, cond.last, block, true).line(val[0].line)
                  else
-                   result = s(:while, val[2], block, true);
+                   result = s(:while, cond, block, true).line(val[0].line)
                  end
                }
              | kUNTIL {
@@ -932,9 +932,9 @@ primary      : literal
                  block = val[5]
                  val[2] = cond val[2]
                  if val[2][0] == :not then
-                   result = s(:while, val[2].last, block, true);
+                   result = s(:while, val[2].last, block, true).line(val[0].line)
                  else
-                   result = s(:until, val[2], block, true);
+                   result = s(:until, val[2], block, true).line(val[0].line)
                  end
                }
              | kCASE expr_value opt_terms case_body kEND {
@@ -982,7 +982,7 @@ primary      : literal
                } expr_value do {
                  lexer.cond.pop;
                } compstmt kEND {
-                 result = s(:for, val[4], val[1])
+                 result = s(:for, val[4], val[1]).line(val[0].line)
                  result << val[7] if val[7]
                }
              | kCLASS cpath superclass {
@@ -1038,7 +1038,7 @@ primary      : literal
                  body = s(:block, body) unless body.first == :block
 
                  result = s(:defn, name.to_sym, args, s(:scope, body))
-                 result.line = name.line
+                 result.line = val[0].line
                  result.comments = self.comments.pop
 
                  self.env.unextend
@@ -1058,7 +1058,7 @@ primary      : literal
                  body = s(:block, body) unless body.first == :block
 
                  result = s(:defs, recv, name.to_sym, args, s(:scope, body))
-                 result.line = name.line
+                 result.line = val[0].line
                  result.comments = self.comments.pop
 
                  self.env.unextend;

@@ -1439,6 +1439,13 @@ class TestRubyLexer < Test::Unit::TestCase
                    :tSTRING_END,     s('"'))
   end
 
+  def test_yylex_string_escape_x_single
+    util_lex_token('"\\x0"',
+                   :tSTRING_BEG,     s('"'),
+                   :tSTRING_CONTENT, s(:str, "\000"),
+                   :tSTRING_END,     s('"'))
+  end
+
   def test_yylex_string_double_escape_chars
     util_lex_token('"s\\tri\\ng"',
                    :tSTRING_BEG,     s('"'),

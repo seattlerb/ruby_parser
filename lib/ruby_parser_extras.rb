@@ -18,7 +18,7 @@ class Fixnum
   end
 end
 
-class StringScanner
+class RPStringScanner < StringScanner
 #   if ENV['TALLY'] then
 #     alias :old_getch :getch
 #     def getch
@@ -31,10 +31,12 @@ class StringScanner
     string[0..pos][/\A.*__LINE__/m].split(/\n/).size
   end
 
-  def lineno # FIX
-    string[0..pos].split(/\n/).size
+  def lineno
+    string[0..pos].count("\n") + 1
   end
 
+  # TODO: once we get rid of these, we can make things like
+  # TODO: current_line and lineno much more accurate and easy to do
   def unread c # TODO: remove this entirely - we should not need it
     return if c.nil? # UGH
     warn({:unread => caller[0]}.inspect) if ENV['TALLY']
@@ -256,22 +258,22 @@ class RubyParser < Racc::Parser
     if lhs then
       case lhs[0]
       when :dregx, :dregx_once then
-        return s(:match2, lhs, rhs)
+        return s(:match2, lhs, rhs).line(lhs.line)
       when :lit then
-        return s(:match2, lhs, rhs) if Regexp === lhs.last
+        return s(:match2, lhs, rhs).line(lhs.line) if Regexp === lhs.last
       end
     end
 
     if rhs then
       case rhs[0]
       when :dregx, :dregx_once then
-        return s(:match3, rhs, lhs)
+        return s(:match3, rhs, lhs).line(lhs.line)
       when :lit then
-        return s(:match3, rhs, lhs) if Regexp === rhs.last
+        return s(:match3, rhs, lhs).line(lhs.line) if Regexp === rhs.last
       end
     end
 
-    return s(:call, lhs, :"=~", s(:arglist, rhs))
+    return s(:call, lhs, :"=~", s(:arglist, rhs)).line(lhs.line)
   end
 
   def gettable(id)
@@ -398,12 +400,14 @@ class RubyParser < Racc::Parser
       new_args[0] = :arglist if new_args[0] == :array # TODO: remove
 
       call = s(:call, recv, meth)
+      call.line(recv.line) if recv
       call << new_args if new_args
       args << call
 
       return args
     end
     result = s(:call, recv, meth)
+    result.line(recv.line) if recv
     args ||= s(:arglist)
     args[0] = :arglist if args[0] == :array # TODO: remove
     result << args
@@ -511,7 +515,7 @@ class RubyParser < Racc::Parser
     result = Sexp.new(*args)
     subsexp = result.grep(Sexp)
     result.line = subsexp.first.line unless subsexp.empty? # grab if possible
-    result.line ||= lexer.src.lineno if lexer.src          # otherwise...
+    result.line ||= lexer.lineno if lexer.src          # otherwise...
     result.file = self.file
     result
   end
