@@ -40,6 +40,22 @@ class TestRubyParser < RubyParserTestCase
     @processor = RubyParser.new
   end
 
+  def test_attrasgn_array_lhs
+    rb = '[1, 2, 3, 4][from .. to] = ["a", "b", "c"]'
+    pt = s(:attrasgn,
+           s(:array, s(:lit, 1), s(:lit, 2), s(:lit, 3), s(:lit, 4)),
+           :[]=,
+           s(:arglist,
+             s(:dot2,
+               s(:call, nil, :from, s(:arglist)),
+               s(:call, nil, :to, s(:arglist))),
+             s(:array, s(:str, "a"), s(:str, "b"), s(:str, "c"))))
+
+    result = @processor.parse(rb)
+
+    assert_equal pt, result
+  end
+
   def test_block_append
     head = s(:args)
     tail = s(:zsuper)

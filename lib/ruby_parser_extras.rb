@@ -148,6 +148,7 @@ class RubyParser < Racc::Parser
   end
 
   def aryset receiver, index
+    index[0] = :arglist if index[0] == :array
     s(:attrasgn, receiver, :"[]=", index)
   end
 
@@ -395,7 +396,7 @@ class RubyParser < Racc::Parser
 
   def new_call recv, meth, args = nil
     if args && args[0] == :block_pass then
-      new_args = args.array(true) || args.argscat(true) || args.splat(true)
+      new_args = args.array(true) || args.argscat(true) || args.splat(true) # FIX: fragile
       new_args ||= s(:arglist)
       new_args[0] = :arglist if new_args[0] == :array # TODO: remove
 
@@ -464,7 +465,7 @@ class RubyParser < Racc::Parser
       :masgn, :cdecl, :cvdecl, :cvasgn then
       lhs << rhs
     when :attrasgn, :call then
-      args = lhs.array(true) || lhs.argscat(true) || lhs.splat(true) # FIX: fragile
+      args = lhs.pop unless Symbol === lhs.last
       lhs << arg_add(args, rhs)
     when :const then
       lhs[0] = :cdecl
@@ -836,7 +837,7 @@ class Sexp
   alias :real_inspect :inspect
   def inspect # :nodoc:
     sexp_str = self.map {|x|x.inspect}.join(', ')
-    if line && !ENV['SHUT_UP'] then
+    if line && ENV['VERBOSE'] then
       "s(#{sexp_str}).line(#{line})"
     else
       "s(#{sexp_str})"

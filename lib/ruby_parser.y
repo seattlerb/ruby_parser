@@ -361,7 +361,6 @@ mlhs_node    : variable {
                }
              | primary_value '[' aref_args tRBRACK {
                  result = self.aryset(val[0], val[2]);
-                 val[2][0] = :arglist
                }
              | primary_value tDOT tIDENTIFIER {
                  result = s(:attrasgn, val[0], :"#{val[2].value}=", s(:arglist));
