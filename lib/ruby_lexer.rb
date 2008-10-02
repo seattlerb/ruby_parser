@@ -526,6 +526,7 @@ class RubyLexer
     regexp = (func & STR_FUNC_REGEXP) != 0
     symbol = (func & STR_FUNC_SYMBOL) != 0
 
+    # TODO: pass these in as regexps damnit.
     paren_re = paren.nil? ? nil : Regexp.new(Regexp.escape(paren))
     term_re  = Regexp.new(Regexp.escape(term))
 
@@ -613,26 +614,7 @@ class RubyLexer
     self.yacc_value = nil
 
     if lex_strterm then
-      token = nil
-
-      if lex_strterm[0] == :heredoc then
-        token = self.heredoc(lex_strterm)
-        if token == :tSTRING_END then
-          self.lineno = nil
-          self.lex_strterm = nil
-          self.lex_state = :expr_end
-        end
-      else
-        token = self.parse_string(lex_strterm)
-
-        if token == :tSTRING_END || token == :tREGEXP_END then
-          self.lineno = nil
-          self.lex_strterm = nil
-          self.lex_state = :expr_end
-        end
-      end
-
-      return token
+      return yylex_string
     end
 
     command_state = self.command_start
@@ -1438,5 +1420,28 @@ class RubyLexer
 
       return result
     end
+  end
+
+  def yylex_string
+    token = nil
+
+    if lex_strterm[0] == :heredoc then
+      token = self.heredoc(lex_strterm)
+      if token == :tSTRING_END then
+        self.lineno = nil
+        self.lex_strterm = nil
+        self.lex_state = :expr_end
+      end
+    else
+      token = self.parse_string(lex_strterm)
+
+      if token == :tSTRING_END || token == :tREGEXP_END then
+        self.lineno = nil
+        self.lex_strterm = nil
+        self.lex_state = :expr_end
+      end
+    end
+
+    return token
   end
 end
