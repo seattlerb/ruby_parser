@@ -391,6 +391,7 @@ class TestRubyParser < RubyParserTestCase
   STARTING_LINE = {
     "begin"                               => 2,
     "begin_rescue_ensure"                 => 2,
+    "begin_rescue_ensure_all_empty"       => 2,
     "begin_rescue_twice"                  => 2,
     "begin_rescue_twice_mri_verbose_flag" => 2,
     "case_no_expr"                        => 2,
