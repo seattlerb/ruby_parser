@@ -54,13 +54,20 @@ class RubyLexer
   if SPY then
     @@stats = Hash.new 0
 
+    def @@stats.[]= k, v
+      return unless k.inspect =~ /^#{SPY}/o if SPY =~ /^:/
+      super
+    end
+
     def self.stats
       @@stats
     end
 
     at_exit {
-      require 'pp'
-      pp RubyLexer.stats.sort_by {|k,v| -v}.first(20)
+      at_exit {
+        require 'pp'
+        pp RubyLexer.stats.sort_by {|k,v| -v}
+      }
     }
   end
 
@@ -526,56 +533,64 @@ class RubyLexer
     regexp = (func & STR_FUNC_REGEXP) != 0
     symbol = (func & STR_FUNC_SYMBOL) != 0
 
-    # TODO: pass these in as regexps damnit.
     paren_re = paren.nil? ? nil : Regexp.new(Regexp.escape(paren))
     term_re  = Regexp.new(Regexp.escape(term))
 
     until src.eos? do
       c = nil
       case
-      when paren_re && src.scan(paren_re) then
-        self.nest += 1
       when self.nest == 0 && src.scan(term_re) then
+        @@stats[:tokadd_string1] += 1 if SPY
         src.pos -= 1
         break
+      when paren_re && src.scan(paren_re) then
+        @@stats[:tokadd_string2] += 1 if SPY
+        self.nest += 1
       when src.scan(term_re) then
+        @@stats[:tokadd_string3] += 1 if SPY
         self.nest -= 1
-      when ((awords && src.scan(/\s/)) ||
-            (expand && src.scan(/#(?=[\$\@\{])/))) then
+      when awords && src.scan(/\s/) then
+        @@stats[:tokadd_string4] += 1 if SPY
         src.pos -= 1
         break
       when awords && src.scan(/\\\n/) then
+        @@stats[:tokadd_string6] += 1 if SPY
         token_buffer << "\n"
         next
-      when expand && src.scan(/\\\n/) then
-        next
       when awords && src.scan(/\\\s/) then
+        @@stats[:tokadd_string8] += 1 if SPY
         c = ' '
-      when (expand && src.scan(/#(?!\n)/)) || src.scan(/\\\n/) then
+      when expand && src.scan(/#(?=[\$\@\{])/) then
+        @@stats[:tokadd_string5] += 1 if SPY
+        src.pos -= 1
+        break
+      when expand && src.scan(/\\\n/) then
+        @@stats[:tokadd_string7] += 1 if SPY
+        next
+      when expand && src.scan(/#(?!\n)/) then
+        @@stats[:tokadd_string9] += 1 if SPY
         # do nothing
-      when src.scan(/\\\\/) then
-        if escape then
-          token_buffer << '\\'
-        end
-        c = '\\'
       when regexp && src.check(/\\/) then
+        @@stats[:tokadd_string12] += 1 if SPY
         self.tokadd_escape term
         next
       when expand && src.scan(/\\/) then
+        @@stats[:tokadd_string13] += 1 if SPY
         c = self.read_escape
+      when src.scan(/\\\n/) then
+        @@stats[:tokadd_string10] += 1 if SPY
+        # do nothing
+      when src.scan(/\\\\/) then
+        @@stats[:tokadd_string11] += 1 if SPY
+        token_buffer << '\\' if escape
+        c = '\\'
       when src.scan(/\\/) then
+        @@stats[:tokadd_string14] += 1 if SPY
         unless src.scan(term_re) || paren.nil? || src.scan(paren_re) then
           token_buffer << "\\"
         end
-        # \\ case:
-        # else if (ismbchar(c)) {
-        #   int i, len = mbclen(c)-1;
-        #   for (i = 0; i < len; i++) {
-        #     tokadd(c);
-        #     c = nextc();
-        #   }
-        # }
       else
+        @@stats[:tokadd_string15] += 1 if SPY
         c = src.getch # FIX: I don't like this style
         if symbol && src.scan(/\0/) then
           rb_compile_error "symbol cannot contain '\\0'"
