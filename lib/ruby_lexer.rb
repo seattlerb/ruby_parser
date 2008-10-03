@@ -591,10 +591,21 @@ class RubyLexer
         end
       else
         @@stats[:tokadd_string15] += 1 if SPY
-        c = src.getch # FIX: I don't like this style
-        if symbol && src.scan(/\0/) then
-          rb_compile_error "symbol cannot contain '\\0'"
+
+        t = Regexp.escape term
+        x = Regexp.escape(paren) if paren && paren != "\000"
+        re = if awords then
+               /[^#{t}#{x}\#\0\ \n\\]+/
+             else
+               /[^#{t}#{x}\#\0\\]+/
+             end
+        if src.scan(re) then
+          c = src.matched
+        else
+          c = src.getch # FIX: I don't like this style
         end
+
+        rb_compile_error "symbol cannot contain '\\0'" if symbol && c =~ /\0/
       end
 
       c = src.matched unless c
