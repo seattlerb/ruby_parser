@@ -1383,7 +1383,7 @@ qword_list     : {
                    result = s(:array)
                  }
                | qword_list tSTRING_CONTENT ' ' {
-                   result = val[0] << val[1]
+                   result = val[0] << s(:str, val[1])
                  }
 
 string_contents: { result = s(:str, "") }
