@@ -35,7 +35,10 @@ desc "build the parser"
 task :parser => ["lib/ruby_parser.rb"]
 
 rule '.rb' => '.y' do |t|
-  sh "racc -l -t -o #{t.name} #{t.source}"
+  # -v = verbose
+  # -t = debugging parser ~4% reduction in speed -- keep for now
+  # -l = no-line-convert
+  sh "racc -v -t -l -o #{t.name} #{t.source}"
 end
 
 task :clean do
@@ -126,5 +129,14 @@ task :loc do
   puts "dev  : loc = #{loc2} flog = #{flog2}"
   puts "delta: loc = #{loc2-loc1} flog = #{flog2-flog1}"
 end
+
+task :benchmark do
+  p, x = "profile", "txt"
+  n = Dir["#{p}.*.#{x}"].map { |s| s[/\d+/].to_i }.max + 1 rescue 1
+  f = "#{p}.#{n}.#{x}"
+
+  ruby "-w -I../../ParseTree/dev/lib:../../ParseTree/dev/test:../../RubyInline/dev/lib:../../sexp_processor/dev/lib:lib bin/ruby_parse -q -g unit/*.rb 2>&1 | tee #{f}"
+end
+
 
 # vim: syntax=Ruby
