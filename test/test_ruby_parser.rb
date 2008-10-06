@@ -118,7 +118,7 @@ class TestRubyParser < RubyParserTestCase
                s(:yield),
                s(:resbody,
                  s(:array, s(:const, :Exception), s(:lasgn, :v, s(:gvar, :$!))),
-                 s(:block, s(:break))))))
+                 s(:break)))))
 
     assert_equal pt, @processor.parse(rb)
   end

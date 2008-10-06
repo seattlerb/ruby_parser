@@ -130,6 +130,12 @@ task :loc do
   puts "delta: loc = #{loc2-loc1} flog = #{flog2-flog1}"
 end
 
+desc "Validate against all normal files in unit dir"
+task :validate do
+  sh "./cmp.rb unit/*.rb"
+end
+
+desc "Benchmark against all normal files in unit dir"
 task :benchmark do
   p, x = "profile", "txt"
   n = Dir["#{p}.*.#{x}"].map { |s| s[/\d+/].to_i }.max + 1 rescue 1
