@@ -8,6 +8,8 @@ class RubyLexer
   attr_accessor :cond
   attr_accessor :nest
 
+  ESC_RE = /\\([0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-.|(C-|c)\?|(C-|c).|[^0-7xMCc])/
+
   # Additional context surrounding tokens that both the lexer and
   # grammar use.
   attr_reader :lex_state
@@ -50,12 +52,20 @@ class RubyLexer
   STR_SSYM   = STR_FUNC_SYMBOL
   STR_DSYM   = STR_FUNC_SYMBOL | STR_FUNC_EXPAND
 
-  SPY = ENV['SPY']
+  SPY_VERBOSE = ENV['SPY_VERBOSE']
+  SPY = case ENV['SPY']
+        when /^:/ then
+          /#{ENV['SPY']}/o
+        when /^\// then
+          /#{ENV['SPY'][1..-2]}/o
+        end
+
   if SPY then
     @@stats = Hash.new 0
 
     def @@stats.[]= k, v
-      return unless k.inspect =~ /^#{SPY}/o if SPY =~ /^:/
+      return if SPY && SPY !~ k.inspect
+      p [k, v] if SPY_VERBOSE
       super
     end
 
@@ -76,6 +86,7 @@ class RubyLexer
   # @return true if not at end of file (EOF).
 
   def advance
+    @@stats[:def_advance] += 1 if SPY
     r = yylex
     self.token = r
 
@@ -87,12 +98,14 @@ class RubyLexer
   end
 
   def comments
+    @@stats[:def_comments] += 1 if SPY
     c = @comments.join
     @comments.clear
     c
   end
 
   def expr_beg_push val
+    @@stats[:def_expr_beg_push] += 1 if SPY
     cond.push false
     cmdarg.push false
     self.lex_state = :expr_beg
@@ -100,6 +113,7 @@ class RubyLexer
   end
 
   def fix_arg_lex_state
+    @@stats[:def_fix_arg_lex_state] += 1 if SPY
     self.lex_state = if lex_state == :expr_fname || lex_state == :expr_dot
                        :expr_arg
                      else
@@ -107,7 +121,8 @@ class RubyLexer
                      end
   end
 
-  def heredoc here # Region has 63 lines, 1595 characters
+  def heredoc here # 63 lines
+    @@stats[:def_heredoc] += 1 if SPY
     _, eos, func, last_line = here
 
     indent  = (func & STR_FUNC_INDENT) != 0
@@ -172,7 +187,8 @@ class RubyLexer
     return :tSTRING_CONTENT
   end
 
-  def heredoc_identifier
+  def heredoc_identifier # 51 lines
+    @@stats[:def_heredoc_identifier] += 1 if SPY
     term, func = nil, STR_FUNC_BORING
     token_buffer.clear
 
@@ -234,6 +250,7 @@ class RubyLexer
   end
 
   def int_with_base base
+    @@stats[:def_int_with_base] += 1 if SPY
     if src.matched =~ /__/ then
       rb_compile_error "Invalid numeric format"
     end
@@ -242,21 +259,15 @@ class RubyLexer
   end
 
   def lex_state= o
+    @@stats[[:def_lex_state=, caller.first, o]] += 1 if SPY
     raise "wtf?" unless Symbol === o
     @lex_state = o
   end
 
   attr_writer :lineno
   def lineno
+    @@stats[:def_lineno] += 1 if SPY
     @lineno ||= src.lineno
-  end
-
-  def wtf?
-    p :lexer_wtf? => {
-      :line => self.lineno,
-      :rest => self.src.rest,
-      :past => self.src.string[0...self.src.pos]
-    }
   end
 
   ##
@@ -266,6 +277,7 @@ class RubyLexer
   # @return A int constant wich represents a token.
 
   def parse_number
+    @@stats[:def_parse_number] += 1 if SPY
     self.lex_state = :expr_end
 
     case
@@ -299,7 +311,8 @@ class RubyLexer
     end
   end
 
-  def parse_quote
+  def parse_quote # 58 lines
+    @@stats[:def_parse_quote] += 1 if SPY
     beg, nnd, short_hand, c = nil, nil, false, nil
 
     if src.scan(/[a-z0-9]{1,2}/i) then # Long-hand (e.g. %Q{}).
@@ -357,7 +370,8 @@ class RubyLexer
     return token_type
   end
 
-  def parse_string(quote)
+  def parse_string(quote) # 65 lines
+    @@stats[:def_parse_string] += 1 if SPY
     _, string_type, term, open = quote
 
     space = false # FIX: remove these
@@ -369,7 +383,7 @@ class RubyLexer
     regexp = (func & STR_FUNC_REGEXP) != 0
     expand = (func & STR_FUNC_EXPAND) != 0
 
-    unless func then
+    unless func then # FIX: impossible, prolly needs == 0
       self.lineno = nil
       return :tSTRING_END
     end
@@ -379,12 +393,14 @@ class RubyLexer
     if self.nest == 0 && src.scan(/#{term_re}/) then
       if awords then
         quote[1] = nil
+        @@stats[:def_parse_string_return_awords] += 1 if SPY
         return ' '
       elsif regexp then
         self.yacc_value = self.regx_options
         self.lineno = nil
         return :tREGEXP_END
       else
+        @@stats[:def_parse_string_end_string] += 1 if SPY
         self.yacc_value = term
         self.lineno = nil
         return :tSTRING_END
@@ -392,6 +408,7 @@ class RubyLexer
     end
 
     if space then
+        @@stats[:def_parse_string_return_space] += 1 if SPY
       return ' '
     end
 
@@ -413,15 +430,20 @@ class RubyLexer
     end
 
     self.yacc_value = token_buffer.join
+
+    @@stats[[:def_parse_string_content, token_buffer.join]] += 1 if SPY
+
     return :tSTRING_CONTENT
   end
 
   def rb_compile_error msg
+    @@stats[:def_rb_compile_error] += 1 if SPY
     msg += ". near line #{self.lineno}: #{src.rest[/^.*/].inspect}"
     raise SyntaxError, msg
   end
 
-  def read_escape
+  def read_escape # 51 lines
+    @@stats[:def_read_escape] += 1 if SPY
     case
     when src.scan(/\\/) then                   # Backslash
       '\\'
@@ -472,7 +494,8 @@ class RubyLexer
     end
   end
 
-  def regx_options
+  def regx_options # 15 lines
+    @@stats[:def_regx_options] += 1 if SPY
     good, bad = [], []
 
     if src.scan(/[a-z]+/) then
@@ -488,6 +511,7 @@ class RubyLexer
   end
 
   def reset
+    @@stats[:def_reset] += 1 if SPY
     self.command_start = true
     self.lex_strterm   = nil
     self.token         = nil
@@ -498,6 +522,7 @@ class RubyLexer
   end
 
   def s(*args)
+    @@stats[[:def_s, args]] += 1 if SPY
     result = Sexp.new(*args)
     result.line = self.lineno
     result.file = self.parser.file
@@ -505,16 +530,19 @@ class RubyLexer
   end
 
   def src= src
+    @@stats[:def_src] += 1 if SPY
     raise "bad src: #{src.inspect}" unless String === src
     @src = RPStringScanner.new(src) # HACK $src
   end
 
   def store_comment
+    @@stats[:def_store_comment] += 1 if SPY
     @comments.push(*self.token_buffer)
     self.token_buffer.clear
   end
 
-  def tokadd_escape term
+  def tokadd_escape term # 20 lines
+    @@stats[:def_tokadd_escape] += 1 if SPY
     case
     when src.scan(/\\\n/) then
       # just ignore
@@ -534,7 +562,8 @@ class RubyLexer
     end
   end
 
-  def tokadd_string(func, term, paren)
+  def tokadd_string(func, term, paren) # 105 lines
+    @@stats[:def_tokadd_string] += 1 if SPY
     awords = (func & STR_FUNC_AWORDS) != 0
     escape = (func & STR_FUNC_ESCAPE) != 0
     expand = (func & STR_FUNC_EXPAND) != 0
@@ -562,13 +591,13 @@ class RubyLexer
         @@stats[:tokadd_string4] += 1 if SPY
         src.pos -= 1
         break
-        when expand && src.scan(/#(?=[\$\@\{])/) then
-          @@stats[:tokadd_string5] += 1 if SPY
-          src.pos -= 1
-          break
-        when expand && src.scan(/#(?!\n)/) then
-          @@stats[:tokadd_string9] += 1 if SPY
-          # do nothing
+      when expand && src.scan(/#(?=[\$\@\{])/) then
+        @@stats[:tokadd_string5] += 1 if SPY
+        src.pos -= 1
+        break
+      when expand && src.scan(/#(?!\n)/) then
+        @@stats[:tokadd_string9] += 1 if SPY
+        # do nothing
       when src.check(/\\/) then
         case
         when awords && src.scan(/\\\n/) then
@@ -586,8 +615,8 @@ class RubyLexer
           self.tokadd_escape term
           next
         when expand && src.scan(/\\/) then
-          @@stats[:tokadd_string13] += 1 if SPY
           c = self.read_escape
+          @@stats[[:tokadd_string13, c]] += 1 if SPY
         when src.scan(/\\\n/) then
           @@stats[:tokadd_string10] += 1 if SPY
           # do nothing
@@ -628,15 +657,55 @@ class RubyLexer
 
       c = src.matched unless c
       token_buffer << c
+      @@stats[[:tokadd_buffer, token_buffer.join]] += 1 if SPY
     end # until
 
     c = src.matched unless c
     c = RubyLexer::EOF if src.eos?
 
+    @@stats[[:tokadd_return, c]] += 1 if SPY
+
     return c
   end
 
+  def unescape s
+    @@stats[:def_convert_escape] += 1 if SPY
+
+    r = {
+      "a"    => "\007",
+      "b"    => "\010",
+      "e"    => "\033",
+      "f"    => "\f",
+      "n"    => "\n",
+      "r"    => "\r",
+      "s"    => " ",
+      "t"    => "\t",
+      "v"    => "\13",
+      "\\"   => '\\',
+      "C-\?" => 0177.chr,
+      "c\?"  => 0177.chr,
+    }[s]
+
+    return r if r
+
+    case s
+    when /^[0-7]{1,3}/ then
+      $&.to_i(8).chr
+    when /^x([0-9a-fA-F]{1,2})/ then
+      $1.to_i(16).chr
+    when /^M-(.)/ then
+      ($1[0].ord | 0x80).chr
+    when /^(C-|c)(.)/ then
+      ($2[0].ord & 0x9f).chr
+    when /^[McCx0-9]/ then
+      rb_compile_error("Invalid escape character syntax")
+    else
+      s
+    end
+  end
+
   def warning s
+    @@stats[:def_warning] += 1 if SPY
     # do nothing for now
   end
 
@@ -647,7 +716,9 @@ class RubyLexer
   # TODO: remove ALL sexps coming from here and move up to grammar
   # TODO: only literal values should come up from the lexer.
 
-  def yylex
+  def yylex # 826 lines
+    @@stats[:def_yylex] += 1 if SPY
+
     c = ''
     space_seen = false
     command_state = false
@@ -657,9 +728,7 @@ class RubyLexer
     self.token = nil
     self.yacc_value = nil
 
-    if lex_strterm then
-      return yylex_string
-    end
+    return yylex_string if lex_strterm
 
     command_state = self.command_start
     self.command_start = false
@@ -690,8 +759,8 @@ class RubyLexer
               return RubyLexer::EOF
             end
           end
-          # Replace a string of newlines with a single one
 
+          # Replace a string of newlines with a single one
           src.scan(/\n+/)
 
           if [:expr_beg, :expr_fname,
@@ -799,7 +868,12 @@ class RubyLexer
               return '='
             end
           end
-        elsif src.scan(/\"/) then
+        elsif src.scan(/\"(#{ESC_RE}|#(ESC_RE|[^\{\@\$\"\\])|[^\"\\\#])*\"/) then
+          @@stats[:case15_2] += 1 if SPY
+          self.yacc_value = src.matched[1..-2].gsub(ESC_RE) { unescape $1 }
+          self.lex_state = :expr_end
+          return :tSTRING
+        elsif src.scan(/\"/) then # FALLBACK
           @@stats[:case15] += 1 if SPY
           self.lex_strterm = s(:strterm, STR_DQUOTE, '"', "\0") # TODO: question this
           self.yacc_value = "\""
@@ -1457,6 +1531,9 @@ class RubyLexer
       token = token_buffer.join
       self.yacc_value = token
 
+      @@stats[[:yylex_yacc_value, token]] += 1 if SPY
+      @@stats[[:yylex_return, token]] += 1 if SPY
+
       if last_state != :expr_dot then
         var = self.parser.env[token.to_sym]
         if var == :lvar then # HACK: partial port
@@ -1469,7 +1546,8 @@ class RubyLexer
     end
   end
 
-  def yylex_string
+  def yylex_string # 23 lines
+    @@stats[:def_yylex_string] += 1 if SPY
     token = nil
 
     if lex_strterm[0] == :heredoc then
@@ -1490,15 +1568,5 @@ class RubyLexer
     end
 
     return token
-  end
-end
-
-if RubyLexer::SPY then
-  class String
-    alias :old_to_sym :to_sym
-    def to_sym
-      RubyLexer.stats[caller.first(2)] += 1
-      self.old_to_sym
-    end
   end
 end

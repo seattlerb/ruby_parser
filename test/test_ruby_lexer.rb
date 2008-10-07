@@ -1427,58 +1427,42 @@ class TestRubyLexer < Test::Unit::TestCase
 
   def test_yylex_string_double
     util_lex_token('"string"',
-                   :tSTRING_BEG,     '"',
-                   :tSTRING_CONTENT, "string",
-                   :tSTRING_END,     '"')
+                   :tSTRING, "string")
   end
 
   def test_yylex_string_double_escape_M
     util_lex_token('"\\M-g"',
-                   :tSTRING_BEG,     '"',
-                   :tSTRING_CONTENT, "\347",
-                   :tSTRING_END,     '"')
+                   :tSTRING, "\347")
   end
 
   def test_yylex_string_escape_x_single
     util_lex_token('"\\x0"',
-                   :tSTRING_BEG,     '"',
-                   :tSTRING_CONTENT, "\000",
-                   :tSTRING_END,     '"')
+                   :tSTRING, "\000")
   end
 
   def test_yylex_string_double_escape_chars
     util_lex_token('"s\\tri\\ng"',
-                   :tSTRING_BEG,     '"',
-                   :tSTRING_CONTENT, "s\tri\ng",
-                   :tSTRING_END,     '"')
+                   :tSTRING, "s\tri\ng")
   end
 
   def test_yylex_string_double_escape_hex
     util_lex_token('"n = \\x61\\x62\\x63"',
-                   :tSTRING_BEG,     '"',
-                   :tSTRING_CONTENT, "n = abc",
-                   :tSTRING_END,     '"')
+                   :tSTRING, "n = abc")
   end
 
   def test_yylex_string_double_escape_bs1
     util_lex_token('"a\\a\\a"',
-                   :tSTRING_BEG,     '"',
-                   :tSTRING_CONTENT, "a\a\a",
-                   :tSTRING_END,     '"')
+                   :tSTRING, "a\a\a")
   end
 
   def test_yylex_string_double_escape_bs2
     util_lex_token('"a\\\\a"',
-                   :tSTRING_BEG,     '"',
-                   :tSTRING_CONTENT, "a\\a",
-                   :tSTRING_END,     '"')
+                   :tSTRING, "a\\a")
   end
 
   def test_yylex_string_double_escape_octal
     util_lex_token('"n = \\101\\102\\103"',
-                   :tSTRING_BEG,     '"',
-                   :tSTRING_CONTENT, "n = ABC",
-                   :tSTRING_END,     '"')
+                   :tSTRING, "n = ABC")
   end
 
   def test_yylex_string_double_interp
@@ -1503,14 +1487,10 @@ class TestRubyLexer < Test::Unit::TestCase
 
   def test_yylex_string_double_no_interp
     util_lex_token("\"# blah\"",                                # pound first
-                   :tSTRING_BEG,     "\"",
-                   :tSTRING_CONTENT, "# blah",
-                   :tSTRING_END,     "\"")
+                   :tSTRING, "# blah")
 
     util_lex_token("\"blah # blah\"",                           # pound not first
-                   :tSTRING_BEG,     "\"",
-                   :tSTRING_CONTENT, "blah # blah",
-                   :tSTRING_END,     "\"")
+                   :tSTRING, "blah # blah")
   end
 
   def test_yylex_string_pct_Q
