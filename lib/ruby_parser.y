@@ -1556,7 +1556,7 @@ f_args       : f_arg ',' f_optarg ',' f_rest_arg opt_f_block_arg {
                }
 
 f_norm_arg   : tCONSTANT {
-                 yyerror("formal argument cannot be a constant");
+                 yyerror "formal argument cannot be a constant: #{val[0]}"
                }
              | tIVAR {
                  yyerror("formal argument cannot be an instance variable");

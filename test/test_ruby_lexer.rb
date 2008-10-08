@@ -1567,23 +1567,17 @@ class TestRubyLexer < Test::Unit::TestCase
 
   def test_yylex_string_single
     util_lex_token("'string'",
-                   :tSTRING_BEG,     "'",
-                   :tSTRING_CONTENT, "string",
-                   :tSTRING_END,     "'")
+                   :tSTRING, "string")
   end
 
   def test_yylex_string_single_escape_chars
     util_lex_token("'s\\tri\\ng'",
-                   :tSTRING_BEG,     "'",
-                   :tSTRING_CONTENT, "s\\tri\\ng",
-                   :tSTRING_END,     "'")
+                   :tSTRING, "s\\tri\\ng")
   end
 
   def test_yylex_string_single_nl
     util_lex_token("'blah\\\nblah'",
-                   :tSTRING_BEG,     "'",
-                   :tSTRING_CONTENT, "blah\\\nblah",
-                   :tSTRING_END,     "'")
+                   :tSTRING, "blah\\\nblah")
   end
 
   def test_yylex_symbol
