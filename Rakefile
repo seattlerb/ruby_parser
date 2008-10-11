@@ -137,11 +137,12 @@ end
 
 desc "Benchmark against all normal files in unit dir"
 task :benchmark do
+  files = ENV['FILES'] || 'unit/*.rb'
   p, x = "profile", "txt"
   n = Dir["#{p}.*.#{x}"].map { |s| s[/\d+/].to_i }.max + 1 rescue 1
   f = "#{p}.#{n}.#{x}"
 
-  ruby "-w -I../../ParseTree/dev/lib:../../ParseTree/dev/test:../../RubyInline/dev/lib:../../sexp_processor/dev/lib:lib bin/ruby_parse -q -g unit/*.rb 2>&1 | tee #{f}"
+  ruby "-w #{Hoe::RUBY_FLAGS} bin/ruby_parse -q -g #{files} 2>&1 | tee #{f}"
 end
 
 
