@@ -132,6 +132,8 @@ def run_and_log cmd, prefix
   f = "#{p}.#{n}.#{x}"
 
   sh "#{cmd} #{Hoe::RUBY_FLAGS} bin/ruby_parse -q -g #{files} &> #{f}"
+
+  puts File.read(f)
 end
 
 desc "Benchmark against all normal files in unit dir"
@@ -142,6 +144,11 @@ end
 desc "Profile against all normal files in unit dir"
 task :profile do
   run_and_log "zenprofile", "profile"
+end
+
+desc "what was that command again?"
+task :huh? do
+  puts "ruby #{Hoe::RUBY_FLAGS} bin/ruby_parse -q -g ..."
 end
 
 # vim: syntax=Ruby
