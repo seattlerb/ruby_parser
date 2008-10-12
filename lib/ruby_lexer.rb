@@ -90,6 +90,8 @@ class RubyLexer
     r = yylex
     self.token = r
 
+    raise "yylex returned nil" unless r
+
     return r != RubyLexer::EOF
   end
 
@@ -431,7 +433,7 @@ class RubyLexer
 
     self.yacc_value = token_buffer.join
 
-    # @@stats[[:def_parse_string_content, token_buffer.join]] += 1 if SPY
+    # @@stats[:def_parse_string_content] += 1 if SPY
 
     return :tSTRING_CONTENT
   end
@@ -737,7 +739,6 @@ class RubyLexer
     last_state = lex_state
 
     loop do # START OF CASE
-      handled = true
       if src.scan(/\ |\t|\r|\f|\13/) then # white spaces, 13 = '\v
         # @@stats[:case1] += 1 if SPY
         space_seen = true
@@ -901,9 +902,9 @@ class RubyLexer
             token_buffer << src.matched
           end
 
-          if src.scan(/\w/) then
+          if src.scan(/\w+/) then
             token_buffer << src.matched
-            # PASS THROUGH
+            return process_token_buffer(command_state)
           else
             self.yacc_value = "@"
             return '@'
@@ -1240,9 +1241,8 @@ class RubyLexer
               else
                 src.getch
               end
-          c[0] = (c[0].ord & 0xff).chr
           self.lex_state = :expr_end
-          self.yacc_value = c[0].ord
+          self.yacc_value = c[0].ord & 0xff
           return :tINTEGER
         elsif src.check(/\&/) then
           if src.scan(/\&\&\=/) then
@@ -1362,7 +1362,7 @@ class RubyLexer
             # @@stats[:case57] += 1 if SPY
             self.lex_state = :expr_end
             token_buffer << src.matched
-            # PASS THROUGH
+            return process_token_buffer(command_state)
           elsif src.scan(/\$_/) then
             # @@stats[:case58] += 1 if SPY
             self.lex_state = :expr_end
@@ -1402,17 +1402,17 @@ class RubyLexer
             # @@stats[:case62] += 1 if SPY
             self.lex_state = :expr_end
             token_buffer << src.matched
-            # PASS THROUGH
+            return process_token_buffer(command_state)
           elsif src.scan(/\$\W|\$\z/) then # TODO: remove?
             # @@stats[:case63] += 1 if SPY
             self.lex_state = :expr_end
             self.yacc_value = "$"
             return '$'
-          elsif src.scan(/\$\w/)
+          elsif src.scan(/\$\w+/)
             # @@stats[:case64] += 1 if SPY
             self.lex_state = :expr_end
             token_buffer << src.matched
-            # PASS THROUGH
+            return process_token_buffer(command_state)
           end
         elsif src.scan(/\_/) then
           # @@stats[:case65] += 1 if SPY
@@ -1421,143 +1421,128 @@ class RubyLexer
             self.lineno = nil
             return RubyLexer::EOF
           else
-            # PASS THROUGH
+            return process_token_buffer(command_state)
           end
-        else
-          handled = false
         end
-      else
-        handled = false
       end # END OF CASE
 
-      unless handled then
-        if src.scan(/\004|\032|\000/) || src.eos? then # ^D, ^Z, EOF
-          # @@stats[:case66] += 1 if SPY
-          return RubyLexer::EOF
-        else # alpha check
-          # @@stats[:case67] += 1 if SPY
-          if src.scan(/\W/) then
-            rb_compile_error "Invalid char #{src.matched.inspect} in expression"
-          end
+      if src.scan(/\004|\032|\000/) || src.eos? then # ^D, ^Z, EOF
+        # @@stats[:case66] += 1 if SPY
+        return RubyLexer::EOF
+      else # alpha check
+        # @@stats[:case67] += 1 if SPY
+        if src.scan(/\W/) then
+          rb_compile_error "Invalid char #{src.matched.inspect} in expression"
         end
       end
 
-      if src.scan(/\w*/) then
-        if false then
-          token_buffer.push(*src.matched.split(//)) # TODO: that split is tarded.
-        else
-          token_buffer << src.matched
-        end
-      end
+      return process_token_buffer(command_state)
+    end
+  end
 
-      token = self.token_buffer.join
-      self.token_buffer = [token] # TODO: remove
+  def process_token_buffer(command_state)
+    token_buffer << src.matched if self.src.scan(/\w+/)
 
-      if token =~ /^\w/ && src.scan(/[\!\?](?!=)/) then
-        token << src.matched
-      end
+    token = self.token_buffer.join
+    token << src.matched if token =~ /^\w/ && src.scan(/[\!\?](?!=)/)
 
-      result = nil
-      last_state = lex_state
+    result = nil
+    last_state = lex_state
 
-      case token
-      when /^\$/ then
-        self.lex_state = :expr_end
-        result = :tGVAR
-      when /^@@/ then
-        self.lex_state = :expr_end
-        result = :tCVAR
-      when /^@/ then
-        self.lex_state = :expr_end
-        result = :tIVAR
+    case token
+    when /^\$/ then
+      self.lex_state = :expr_end
+      result = :tGVAR
+    when /^@@/ then
+      self.lex_state = :expr_end
+      result = :tCVAR
+    when /^@/ then
+      self.lex_state = :expr_end
+      result = :tIVAR
+    else
+      if token =~ /[!?]$/ then
+        result = :tFID
       else
-        if token =~ /[!?]$/ then
-          result = :tFID
-        else
-          if lex_state == :expr_fname then
-            # ident=, not =~ => == or followed by =>
-            if src.scan(/=(?:(?![~>=])|(?==>))/) then
-              result = :tIDENTIFIER
-              token << src.matched
-            end
-          end
-
-          if result.nil? && token =~ /^[A-Z]/ then
-            result = :tCONSTANT
-          else
+        if lex_state == :expr_fname then
+          # ident=, not =~ => == or followed by =>
+          # TODO test lexing of a=>b vs a==>b
+          if src.scan(/=(?:(?![~>=])|(?==>))/) then
             result = :tIDENTIFIER
+            token << src.matched
           end
         end
 
-        unless lex_state == :expr_dot then
-          # See if it is a reserved word.
-          keyword = Keyword.keyword(token, token.length)
-
-          unless keyword.nil? then
-            state = lex_state
-            self.lex_state = keyword.state
-
-            self.yacc_value = if state == :expr_fname then
-                                keyword.name
-                              else
-                                token
-                              end
-
-            if keyword.id0 == :kDO then
-              self.command_start = true
-              if cond.is_in_state then
-                return :kDO_COND
-              end
-              if cmdarg.is_in_state && state != :expr_cmdarg then
-                return :kDO_BLOCK
-              end
-              if state == :expr_endarg then
-                return :kDO_BLOCK
-              end
-              return :kDO
-            end
-
-            if state == :expr_beg then
-              return keyword.id0
-            end
-
-            if keyword.id0 != keyword.id1 then
-              self.lex_state = :expr_beg
-            end
-
-            return keyword.id1
-          end
-        end # lex_state == :expr_dot
-
-        if (lex_state == :expr_beg ||
-            lex_state == :expr_mid ||
-            lex_state == :expr_dot ||
-            lex_state == :expr_arg ||
-            lex_state == :expr_cmdarg) then
-          if command_state then
-            self.lex_state = :expr_cmdarg
-          else
-            self.lex_state = :expr_arg
-          end
+        if ! result && token =~ /^[A-Z]/ then
+          result = :tCONSTANT
         else
-          self.lex_state = :expr_end
+          result = :tIDENTIFIER
         end
       end
 
-      self.yacc_value = token
-
-      # @@stats[[:yylex_yacc_value, token]] += 1 if SPY
-      # @@stats[[:yylex_return, token]] += 1 if SPY
-
-      if last_state != :expr_dot then
-        var = self.parser.env[token.to_sym]
-        if var == :lvar then # HACK: partial port
-          # ((dyna_in_block()&&rb_dvar_defined(yylval.id))||local_id(yylval.id)))
-          self.lex_state = :expr_end
-        end
+      unless lex_state == :expr_dot then
+        keyword = lex_keywords token
+        return keyword if keyword
       end
 
-      return result
+      if (lex_state == :expr_beg ||
+          lex_state == :expr_mid ||
+          lex_state == :expr_dot ||
+          lex_state == :expr_arg ||
+          lex_state == :expr_cmdarg) then
+        if command_state then
+          self.lex_state = :expr_cmdarg
+        else
+          self.lex_state = :expr_arg
+        end
+      else
+        self.lex_state = :expr_end
+      end
+    end
+
+    self.yacc_value = token
+
+    # @@stats[[:yylex_yacc_value, token]] += 1 if SPY
+    # @@stats[[:yylex_return, token]] += 1 if SPY
+
+    self.lex_state = :expr_end if
+      last_state != :expr_dot && self.parser.env[token.to_sym] == :lvar
+
+    return result
+  end
+
+  def lex_keywords token
+    # See if it is a reserved word.
+    keyword = Keyword.keyword token
+
+    if keyword then
+      state = lex_state
+      self.lex_state = keyword.state
+
+      self.yacc_value = if state == :expr_fname then
+                          keyword.name
+                        else
+                          token
+                        end
+
+      if keyword.id0 == :kDO then
+        self.command_start = true
+        if cond.is_in_state then
+          return :kDO_COND
+        end
+        if cmdarg.is_in_state && state != :expr_cmdarg then
+          return :kDO_BLOCK
+        end
+        if state == :expr_endarg then
+          return :kDO_BLOCK
+        end
+        return :kDO
+      end
+
+      return keyword.id0 if state == :expr_beg
+
+      self.lex_state = :expr_beg if keyword.id0 != keyword.id1
+
+      return keyword.id1
     end
   end
 

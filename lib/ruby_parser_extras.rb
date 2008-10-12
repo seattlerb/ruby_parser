@@ -12,11 +12,12 @@ class Regexp
   ENC_UTF8 = /x/u.options
 end
 
+# I hate ruby 1.9 string changes
 class Fixnum
   def ord
-    self # I hate ruby 1.9 string changes
+    self
   end
-end
+end unless "a"[0] == "a"
 
 class RPStringScanner < StringScanner
 #   if ENV['TALLY'] then
@@ -572,19 +573,11 @@ end
 
 class Keyword
   class KWtable
-    attr_accessor :name, :id, :state
+    attr_accessor :name, :state, :id0, :id1
     def initialize(name, id=[], state=nil)
-      @name = name
-      @id = id
+      @name  = name
+      @id0, @id1 = id
       @state = state
-    end
-
-    def id0
-      self.id.first
-    end
-
-    def id1
-      self.id.last
     end
   end
 
@@ -681,27 +674,18 @@ class Keyword
               ["alias",    [:kALIAS,    :kALIAS      ], :expr_fname ],
              ].map { |args| KWtable.new(*args) }
 
-  def self.hash_keyword(str, len)
-    hval = len
+  def self.keyword(str)
+    len = str.size
 
-    case hval
-    when 2, 1 then
-      hval += ASSO_VALUES[str[0].ord]
-    else
-      hval += ASSO_VALUES[str[2].ord]
-      hval += ASSO_VALUES[str[0].ord]
-    end
+    if MIN_WORD_LENGTH <= len && len <= MAX_WORD_LENGTH then
+      key = str.size
+      key += ASSO_VALUES[str[ 2].ord] if key > 2
+      key += ASSO_VALUES[str[ 0].ord] + ASSO_VALUES[str[-1].ord]
 
-    hval += ASSO_VALUES[str[len - 1].ord]
-    return hval
-  end
-
-  def self.keyword(str, len = str.size)
-    if len <= MAX_WORD_LENGTH && len >= MIN_WORD_LENGTH then
-      key = hash_keyword(str, len)
-      if key <= MAX_HASH_VALUE && key >= 0 then
-        s = WORDLIST[key].name
-        return WORDLIST[key] if str == s
+      if key <= MAX_HASH_VALUE then
+        key = WORDLIST[key]
+        s = key.name
+        return key if str == s
       end
     end
 
