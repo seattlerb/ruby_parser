@@ -54,16 +54,6 @@ def next_num(glob)
   num = Dir[glob].max[/\d+/].to_i + 1
 end
 
-def profile(type)
-  num = next_num("profile_#{type}*.txt")
-  sh "zenprofile -w -Ilib:ext:bin:test -rtest/unit test/test_ruby_#{type}.rb &> profile_#{type}_%03d.txt" % num
-end
-
-task :profile do
-  profile 'lexer'
-  profile 'parser'
-end
-
 begin
   require 'rcov/rcovtask'
   Rcov::RcovTask.new do |t|
@@ -135,15 +125,23 @@ task :validate do
   sh "./cmp.rb unit/*.rb"
 end
 
-desc "Benchmark against all normal files in unit dir"
-task :benchmark do
+def run_and_log cmd, prefix
   files = ENV['FILES'] || 'unit/*.rb'
-  p, x = "profile", "txt"
+  p, x = prefix, "txt"
   n = Dir["#{p}.*.#{x}"].map { |s| s[/\d+/].to_i }.max + 1 rescue 1
   f = "#{p}.#{n}.#{x}"
 
-  ruby "-w #{Hoe::RUBY_FLAGS} bin/ruby_parse -q -g #{files} 2>&1 | tee #{f}"
+  sh "#{cmd} #{Hoe::RUBY_FLAGS} bin/ruby_parse -q -g #{files} &> #{f}"
 end
 
+desc "Benchmark against all normal files in unit dir"
+task :benchmark do
+  run_and_log "ruby", "benchmark"
+end
+
+desc "Profile against all normal files in unit dir"
+task :profile do
+  run_and_log "zenprofile", "profile"
+end
 
 # vim: syntax=Ruby
