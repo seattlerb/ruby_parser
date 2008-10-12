@@ -125,10 +125,6 @@ class TestRubyLexer < Test::Unit::TestCase
     util_lex_token "=>", :tASSOC, "=>"
   end
 
-  def test_yylex_at
-    util_lex_token " @ ", "@", "@"
-  end
-
   def test_yylex_back_ref
     util_lex_token("[$&, $`, $', $+]",
                    :tLBRACK,   "[",
@@ -877,9 +873,7 @@ class TestRubyLexer < Test::Unit::TestCase
   end
 
   def test_yylex_ivar_bad
-    assert_raises SyntaxError do
-      util_lex_token "@1"
-    end
+    util_bad_token "@1"
   end
 
   def test_yylex_keyword_expr

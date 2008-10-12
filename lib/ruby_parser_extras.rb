@@ -49,7 +49,11 @@ class RPStringScanner < StringScanner
     string[pos, 0] = str
   end
 
-  def was_begin_of_line
+  def begin_of_line?
+    pos == 0 or string[pos-1] == ?\n
+  end
+
+  def was_begin_of_line # TODO: kill me
     pos <= 2 or string[pos-2] == ?\n
   end
 
@@ -581,42 +585,6 @@ class Keyword
     end
   end
 
-  TOTAL_KEYWORDS  = 40
-  MIN_WORD_LENGTH =  2
-  MAX_WORD_LENGTH =  8
-  MIN_HASH_VALUE  =  6
-  MAX_HASH_VALUE  = 55
-  # maximum key range = 50, duplicates = 0
-
-  ASSO_VALUES = [
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 11, 56, 56, 36, 56,  1, 37,
-                 31,  1, 56, 56, 56, 56, 29, 56,  1, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56,  1, 56, 32,  1,  2,
-                 1,   1,  4, 23, 56, 17, 56, 20,  9,  2,
-                 9,  26, 14, 56,  5,  1,  1, 16, 56, 21,
-                 20,  9, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                 56, 56, 56, 56, 56, 56
-                ]
-
   ##
   # :expr_beg    = ignore newline, +/- is a sign.
   # :expr_end    = newline significant, +/- is a operator.
@@ -628,8 +596,7 @@ class Keyword
   # :expr_dot    = right after . or ::, no reserved words.
   # :expr_class  = immediate after class, no here document.
 
-  WORDLIST = [
-              [""], [""], [""], [""], [""], [""],
+  wordlist = [
               ["end",      [:kEND,      :kEND        ], :expr_end   ],
               ["else",     [:kELSE,     :kELSE       ], :expr_beg   ],
               ["case",     [:kCASE,     :kCASE       ], :expr_beg   ],
@@ -669,27 +636,13 @@ class Keyword
               ["END",      [:klEND,     :klEND       ], :expr_end   ],
               ["BEGIN",    [:klBEGIN,   :klBEGIN     ], :expr_end   ],
               ["while",    [:kWHILE,    :kWHILE_MOD  ], :expr_beg   ],
-              [""], [""], [""], [""], [""], [""], [""], [""], [""],
-              [""],
               ["alias",    [:kALIAS,    :kALIAS      ], :expr_fname ],
              ].map { |args| KWtable.new(*args) }
 
-  def self.keyword(str)
-    len = str.size
+  WORDLIST = Hash[*wordlist.map { |o| [o.name, o] }.flatten]
 
-    if MIN_WORD_LENGTH <= len && len <= MAX_WORD_LENGTH then
-      key = str.size
-      key += ASSO_VALUES[str[ 2].ord] if key > 2
-      key += ASSO_VALUES[str[ 0].ord] + ASSO_VALUES[str[-1].ord]
-
-      if key <= MAX_HASH_VALUE then
-        key = WORDLIST[key]
-        s = key.name
-        return key if str == s
-      end
-    end
-
-    return nil
+  def self.keyword str
+    WORDLIST[str]
   end
 end
 
