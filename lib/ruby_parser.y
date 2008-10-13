@@ -56,35 +56,12 @@ rule
 
         bodystmt: compstmt opt_rescue opt_else opt_ensure
                     {
-                      result = val[0]
-
-                      if val[1] then
-                        result = s(:rescue)
-                        result << val[0] if val[0]
-
-                        resbody = val[1]
-
-                        while resbody do
-                          result << resbody
-                          resbody = resbody.resbody(true)
-                        end
-
-                        result << val[2] if val[2]
-
-                        result.line = (val[0] || val[1]).line
-                      elsif not val[2].nil? then
-                        warning("else without rescue is useless")
-                        result = block_append(result, val[2])
-                      end
-
-                      result = s(:ensure, result, val[3]).compact if val[3]
-                      # result.minimize_line if result
+                      result = new_body val
                     }
 
         compstmt: stmts opt_terms
                     {
-                      result = void_stmts(val[0])
-                      result = remove_begin(result) if result
+                      result = new_compstmt val
                     }
 
            stmts: none
@@ -125,52 +102,19 @@ rule
                     }
                 | stmt kIF_MOD expr_value
                     {
-                      val[2] = cond val[2]
-                      if val[2][0] == :not then
-                        result = s(:if, val[2].last, nil, val[0])
-                      else
-                        result = s(:if, val[2],      val[0], nil)
-                      end
+                      result = new_if val[2], val[0], nil
                     }
                 | stmt kUNLESS_MOD expr_value
                     {
-                      val[2] = cond val[2]
-                      if val[2][0] == :not then
-                        result = s(:if, val[2].last, val[0], nil)
-                      else
-                        result = s(:if, val[2],      nil, val[0])
-                      end
+                      result = new_if val[2], nil, val[0]
                     }
                 | stmt kWHILE_MOD expr_value
                     {
-                      block, expr, pre = val[0], val[2], true
-                      line = block.line
-
-                      block, pre = block.last, false if block[0] == :begin
-
-                      expr = cond expr
-                      if expr.first == :not then
-                        result = s(:until, expr.last, block, pre)
-                      else
-                        result = s(:while, expr, block, pre)
-                      end
-
-                      result.line = line
+                      result = new_while val[0], val[2], true
                     }
-                | stmt kUNTIL_MOD expr_value  # REFACTOR
+                | stmt kUNTIL_MOD expr_value
                     {
-                      block, expr, pre = val[0], val[2], true
-                      line = block.line
-
-                      block, pre = block.last, false if block[0] == :begin
-
-                      expr = cond expr
-                      if expr[0] == :not then
-                        result = s(:while, expr.last, block, pre)
-                      else
-                        result = s(:until, expr, block, pre)
-                      end
-                      result.line = line
+                      result = new_until val[0], val[2], true
                     }
                 | stmt kRESCUE_MOD stmt
                     {
@@ -1111,23 +1055,11 @@ rule
                     }
                 | kIF expr_value then compstmt if_tail kEND
                     {
-                      val[1] = cond val[1]
-                      if val[1][0] == :not then
-                        result = s(:if, val[1].last, val[4], val[3])
-                      else
-                        result = s(:if, val[1], val[3], val[4])
-                      end
-                      # result.minimize_line
+                      result = new_if val[1], val[3], val[4]
                     }
                 | kUNLESS expr_value then compstmt opt_else kEND
                     {
-                      val[1] = cond val[1]
-                      if val[1][0] == :not then
-                        result = s(:if, val[1].last, val[3], val[4])
-                      else
-                        result = s(:if, val[1], val[4], val[3])
-                      end
-                      # result.minimize_line
+                      result = new_if val[1], val[4], val[3]
                     }
                 | kWHILE
                     {
@@ -1139,76 +1071,31 @@ rule
                     }
                     compstmt kEND
                     {
-                      block = val[5]
-                      cond = self.cond val[2]
-                      if cond[0] == :not then
-                        result = s(:until, cond.last, block, true)
-                      else
-                        result = s(:while, cond, block, true)
-                      end
-                      # result.minimize_line
+                      result = new_while val[5], val[2], true
                     }
                 | kUNTIL
                     {
                       lexer.cond.push true
-                    } 
+                    }
                     expr_value do
                     {
                       lexer.cond.pop
                     }
                     compstmt kEND
                     {
-                      block = val[5]
-                      val[2] = cond val[2]
-                      if val[2][0] == :not then
-                        result = s(:while, val[2].last, block, true) # .line(val[0].line)
-                      else
-                        result = s(:until, val[2], block, true) # .line(val[0].line)
-                      end
-                      # result.minimize_line
+                      result = new_until val[5], val[2], true
                     }
-             | kCASE expr_value opt_terms case_body kEND
-                 {
-                   expr, body = val[1], val[3]
-                   result = s(:case, expr);
-
-                   while body and body.node_type == :when
-                     result << body
-                     body = body.delete_at 3
-                   end
-
-                   els = body
-
-                   if els and els != s(:block) then
-                     result << els
-                   else
-                     result << nil
-                   end
-                   # result.minimize_line
-                 }
-                | kCASE opt_terms case_body kEND
+                | kCASE expr_value opt_terms case_body kEND
                     {
-                      line, body = val[1], val[2]
-                      result = s(:case, nil) # REFACTOR
-
-                      while body and body.first == :when
-                        result << body
-                        body = body.delete_at 3
-                      end
-
-                      els = body
-
-                      if els and els != s(:block) then
-                        result << els
-                      else
-                        result << nil
-                      end
-                      result.minimize_line
+                      result = new_case val[1], val[3]
+                    }
+                | kCASE            opt_terms case_body kEND
+                    {
+                      result = new_case nil, val[2]
                     }
                 | kCASE opt_terms kELSE compstmt kEND # TODO: need a test
                     {
-                      result = s(:case, nil, val[3])
-                      # result.minimize_line
+                      result = new_case nil, val[3]
                     }
                 | kFOR block_var kIN
                     {
@@ -1216,7 +1103,7 @@ rule
                     }
                     expr_value do
                     {
-                      lexer.cond.pop;
+                      lexer.cond.pop
                     }
                     compstmt kEND
                     {
@@ -1428,13 +1315,11 @@ rule
                     }
                 | block_call tDOT operation2 opt_paren_args
                     {
-                      result = new_call val[0], val[2]
-                      result << val[3] || s(:arglist)
+                      result = new_call val[0], val[2], val[3]
                     }
                 | block_call tCOLON2 operation2 opt_paren_args
                     {
-                      result = new_call val[0], val[2]
-                      result << val[3] || s(:arglist)
+                      result = new_call val[0], val[2], val[3]
                     }
 
      method_call: operation
@@ -1444,7 +1329,6 @@ rule
                     paren_args
                     {
                       result = new_call nil, val[0].to_sym, val[2]
-                      result.line = val[1]
                     }
                 | primary_value tDOT operation2 opt_paren_args
                     {
@@ -1457,7 +1341,6 @@ rule
                 | primary_value tCOLON2 operation3
                     {
                       result = new_call val[0], val[2].to_sym
-                      result.minimize_line
                     }
                 | kSUPER paren_args
                     {
@@ -1613,48 +1496,7 @@ rule
 
           regexp: tREGEXP_BEG xstring_contents tREGEXP_END
                     {
-                      node = val[1] || s(:str, '')
-                      options = val[2]
-
-                      o, k = 0, nil
-                      options.split(//).each do |c| # FIX: this has a better home
-                        v = {
-                          'x' => Regexp::EXTENDED,
-                          'i' => Regexp::IGNORECASE,
-                          'm' => Regexp::MULTILINE,
-                          'o' => Regexp::ONCE,
-                          'n' => Regexp::ENC_NONE,
-                          'e' => Regexp::ENC_EUC,
-                          's' => Regexp::ENC_SJIS,
-                          'u' => Regexp::ENC_UTF8,
-                        }[c]
-                        raise "unknown regexp option: #{c}" unless v
-                        o += v
-                        k = c if c =~ /[esu]/
-                      end
-
-                      case node[0]
-                      when :str then
-                        node[0] = :lit
-                        node[1] = if k then
-                                    Regexp.new(node[1], o, k)
-                                  else
-                                    Regexp.new(node[1], o)
-                                  end
-                      when :dstr then
-                        if options =~ /o/ then
-                          node[0] = :dregx_once
-                        else
-                          node[0] = :dregx
-                        end
-                        node << o if o and o != 0
-                      else
-                        node = s(:dregx, '', node);
-                        node[0] = :dregx_once if options =~ /o/
-                        node << o if o and o != 0
-                      end
-
-                      result = node
+                      result = new_regexp val
                     }
 
            words: tWORDS_BEG ' ' tSTRING_END

@@ -419,6 +419,33 @@ class RubyParser < Racc::Parser
     return s(type, left, right)
   end
 
+  def new_body val
+    result = val[0]
+
+    if val[1] then
+      result = s(:rescue)
+      result << val[0] if val[0]
+
+      resbody = val[1]
+
+      while resbody do
+        result << resbody
+        resbody = resbody.resbody(true)
+      end
+
+      result << val[2] if val[2]
+
+      result.line = (val[0] || val[1]).line
+    elsif not val[2].nil? then
+      warning("else without rescue is useless")
+      result = block_append(result, val[2])
+    end
+
+    result = s(:ensure, result, val[3]).compact if val[3]
+    # result.minimize_line if result
+    return result
+  end
+
   def new_call recv, meth, args = nil
     if args && args[0] == :block_pass then
       new_args = args.array(true) || args.argscat(true) || args.splat(true) # FIX: fragile
@@ -437,7 +464,36 @@ class RubyParser < Racc::Parser
     args ||= s(:arglist)
     args[0] = :arglist if args[0] == :array # TODO: remove
     result << args
+    result.minimize_line
     result
+  end
+
+  def new_case expr, body
+    result = s(:case, expr)
+
+    while body and body.node_type == :when
+      result << body
+      body = body.delete_at 3
+    end
+
+    # else
+    body = nil if body == s(:block)
+    result << body
+
+    result.minimize_line
+    result
+  end
+
+  def new_compstmt val
+    result = void_stmts(val[0])
+    result = remove_begin(result) if result
+    result
+  end
+
+  def new_if c, t, f
+    c = cond c
+    c, t, f = c.last, f, t if c[0] == :not
+    s(:if, c, t, f)
   end
 
   def new_iter call, args, body
@@ -449,6 +505,51 @@ class RubyParser < Racc::Parser
     result
   end
 
+  def new_regexp val
+    node = val[1] || s(:str, '')
+    options = val[2]
+
+    o, k = 0, nil
+    options.split(//).each do |c| # FIX: this has a better home
+      v = {
+        'x' => Regexp::EXTENDED,
+        'i' => Regexp::IGNORECASE,
+        'm' => Regexp::MULTILINE,
+        'o' => Regexp::ONCE,
+        'n' => Regexp::ENC_NONE,
+        'e' => Regexp::ENC_EUC,
+        's' => Regexp::ENC_SJIS,
+        'u' => Regexp::ENC_UTF8,
+      }[c]
+      raise "unknown regexp option: #{c}" unless v
+      o += v
+      k = c if c =~ /[esu]/
+    end
+
+    case node[0]
+    when :str then
+      node[0] = :lit
+      node[1] = if k then
+                  Regexp.new(node[1], o, k)
+                else
+                  Regexp.new(node[1], o)
+                end
+    when :dstr then
+      if options =~ /o/ then
+        node[0] = :dregx_once
+      else
+        node[0] = :dregx
+      end
+      node << o if o and o != 0
+    else
+      node = s(:dregx, '', node);
+      node[0] = :dregx_once if options =~ /o/
+      node << o if o and o != 0
+    end
+
+    node
+  end
+
   def new_super args
     if args && args.node_type == :block_pass then
       t, body, bp = args
@@ -458,6 +559,27 @@ class RubyParser < Racc::Parser
       result = s(:super)
       result << args if args and args != s(:array)
     end
+    result
+  end
+
+  def new_until block, expr, pre
+    expr = expr.first == :not ? expr.last : s(:not, expr)
+    new_while block, expr, pre
+  end
+
+  def new_while block, expr, pre
+    line = block.line if block
+    block, pre = block.last, false if block && block[0] == :begin
+
+    expr = cond expr
+    result = if expr.first == :not then
+               s(:until, expr.last, block, pre)
+             else
+               s(:while, expr, block, pre)
+             end
+
+    result.line = line if line
+    result.minimize_line
     result
   end
 
