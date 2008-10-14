@@ -127,7 +127,7 @@ class RubyParser < Racc::Parser
     head
   end
 
-  def arg_add(node1, node2)
+  def arg_add(node1, node2) # TODO: nuke
     return s(:arglist, node2) unless node1
 
     node1[0] = :arglist if node1[0] == :array
@@ -278,7 +278,7 @@ class RubyParser < Racc::Parser
     _racc_do_parse_rb(_racc_setup, false)
   end if ENV['PURE_RUBY']
 
-  def get_match_node lhs, rhs
+  def get_match_node lhs, rhs # TODO: rename to new_match
     if lhs then
       case lhs[0]
       when :dregx, :dregx_once then
@@ -421,6 +421,17 @@ class RubyParser < Racc::Parser
     return s(type, left, right)
   end
 
+  def new_aref val
+    val[2] ||= s(:arglist)
+    val[2][0] = :arglist if val[2][0] == :array # REFACTOR
+    if val[0].node_type == :self then
+      result = new_call nil, :"[]", val[2]
+    else
+      result = new_call val[0], :"[]", val[2]
+    end
+    result
+  end
+
   def new_body val
     result = val[0]
 
@@ -490,6 +501,19 @@ class RubyParser < Racc::Parser
     result
   end
 
+  def new_defn val
+    line, name, args, body = val[2], val[1], val[3], val[4]
+    body ||= s(:nil)
+
+    body ||= s(:block)
+    body = s(:block, body) unless body.first == :block
+
+    result = s(:defn, name.to_sym, args, s(:scope, body))
+    result.line = line
+    result.comments = self.comments.pop
+    result
+  end
+
   def new_defs val
     recv, name, args, body = val[1], val[4], val[6], val[7]
 
@@ -520,6 +544,46 @@ class RubyParser < Racc::Parser
     result << call if call
     result << args
     result << body if body
+    result
+  end
+
+  def new_masgn lhs, rhs, wrap = false
+    rhs = value_expr(rhs)
+    rhs = lhs[1] ? s(:to_ary, rhs) : s(:array, rhs) if wrap
+
+    lhs.delete_at 1 if lhs[1].nil?
+    lhs << rhs
+
+    lhs
+  end
+
+  def new_module val
+    line, path, body = val[1], val[2], val[4]
+    body = s(:scope, body).compact
+    result = s(:module, path, body)
+    result.line = line
+    result.comments = self.comments.pop
+    result
+  end
+
+  def new_op_asgn val
+    lhs, asgn_op, arg = val[0], val[1].to_sym, val[2]
+    name = lhs.value
+    arg = remove_begin(arg)
+    result = case asgn_op # REFACTOR
+             when :"||" then
+               lhs << arg
+               s(:op_asgn_or, self.gettable(name), lhs)
+             when :"&&" then
+               lhs << arg
+               s(:op_asgn_and, self.gettable(name), lhs)
+             else
+               # TODO: why [2] ?
+               lhs[2] = new_call(self.gettable(name), asgn_op,
+                                 s(:arglist, arg))
+               lhs
+             end
+    result.line = lhs.line
     result
   end
 
@@ -615,6 +679,22 @@ class RubyParser < Racc::Parser
     result
   end
 
+  def new_xstring str
+    if str then
+      case str[0]
+      when :str
+        str[0] = :xstr
+      when :dstr
+        str[0] = :dxstr
+      else
+        str = s(:dxstr, '', str)
+      end
+      str
+    else
+      s(:xstr, '')
+    end
+  end
+
   def new_yield args = nil
     raise SyntaxError, "Block argument should not be given." if
       args && args.node_type == :block_pass
@@ -633,7 +713,7 @@ class RubyParser < Racc::Parser
     end
   end
 
-  def node_assign(lhs, rhs)
+  def node_assign(lhs, rhs) # TODO: rename new_assign
     return nil unless lhs
 
     rhs = value_expr rhs

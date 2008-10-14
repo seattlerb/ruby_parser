@@ -45,8 +45,7 @@ preclow
 
 rule
 
-         program:
-                    {
+         program:   {
                       self.lexer.lex_state = :expr_beg
                     }
                     compstmt
@@ -145,33 +144,11 @@ rule
                     }
                 | mlhs '=' command_call
                     {
-                      val[2] = value_expr(val[2])
-                      result = val[0] << if val[0][1] then
-                                           s(:to_ary, val[2])
-                                         else
-                                           val[0].delete_at 1 # remove the nil
-                                           s(:array, val[2])
-                                         end
+                      result = new_masgn val[0], val[2], :wrap
                     }
                 | var_lhs tOP_ASGN command_call
                     {
-                      name = val[0].last
-                      asgn_op = val[1].to_sym
-                      val[2] = value_expr(val[2])
-
-                      case asgn_op
-                      when :"||" then
-                        val[0][2] = (val[2]);
-                        result = s(:op_asgn_or,  self.gettable(name), val[0])
-                      when :"&&" then
-                        val[0][2] = (val[2]);
-                        result = s(:op_asgn_and, self.gettable(name), val[0])
-                      else
-                        result = val[0]
-                        result << new_call(self.gettable(name), asgn_op,
-                        s(:arglist, val[2]))
-                      end
-                      # result.line = val[0].line
+                      result = new_op_asgn val
                     }
                 | primary_value '[' aref_args tRBRACK tOP_ASGN command_call
                     {
@@ -199,20 +176,13 @@ rule
                     }
                 | mlhs '=' arg_value
                     {
-                      result = val[0] << if val[0][1] then
-                                           s(:to_ary, val[2])
-                                         else
-                                           val[0].delete_at 1 if val[0][1].nil?
-                                           s(:array, val[2])
-                                         end
+                      result = new_masgn val[0], val[2], :wrap
                     }
                 | mlhs '=' mrhs
                     {
-                      val[0].delete_at 1 if val[0][1].nil?
-                      result = val[0] << val[2]
+                      result = new_masgn val[0], val[2]
                     }
                 | expr
-
 
             expr: command_call
                 | expr kAND expr
@@ -275,7 +245,6 @@ rule
                     compstmt tRCURLY
                     {
                       result = new_iter nil, val[2], val[4]
-                      result.line = val[1]
                       self.env.unextend
                     }
 
@@ -536,23 +505,7 @@ rule
                     }
                 | var_lhs tOP_ASGN arg
                     {
-                      lhs, asgn_op, arg = val[0], val[1].to_sym, val[2]
-                      name = lhs.value
-                      arg = remove_begin(arg)
-                      result = case asgn_op # REFACTOR
-                               when :"||" then
-                                  lhs << arg
-                                  s(:op_asgn_or, self.gettable(name), lhs)
-                               when :"&&" then
-                                  lhs << arg
-                                  s(:op_asgn_and, self.gettable(name), lhs)
-                               else
-                                 # TODO: why [2] ?
-                                 lhs[2] = new_call(self.gettable(name), asgn_op,
-                                   s(:arglist, arg))
-                                 lhs
-                               end
-                      result.line = lhs.line
+                      result = new_op_asgn val
                     }
                 | primary_value '[' aref_args tRBRACK tOP_ASGN arg
                     {
@@ -999,13 +952,7 @@ rule
                     }
                 | primary_value '[' aref_args tRBRACK
                     {
-                      val[2] ||= s(:arglist)
-                      val[2][0] = :arglist if val[2][0] == :array # REFACTOR
-                      if val[0].node_type == :self then
-                        result = new_call nil, :"[]", val[2]
-                      else
-                        result = new_call val[0], :"[]", val[2]
-                      end
+                      result = new_aref val
                     }
                 | tLBRACK aref_args tRBRACK
                     {
@@ -1037,8 +984,7 @@ rule
                     }
                 | operation brace_block
                     {
-                      oper = val[0]
-                      iter = val[1]
+                      oper, iter = val[0], val[1]
                       call = new_call(nil, oper.to_sym)
                       iter.insert 1, call
                       result = iter
@@ -1047,8 +993,7 @@ rule
                 | method_call
                 | method_call brace_block
                     {
-                      call = val[0]
-                      iter = val[1]
+                      call, iter = val[0], val[1]
                       iter.insert 1, call
                       result = iter
                     }
@@ -1153,17 +1098,13 @@ rule
                     {
                       self.comments.push self.lexer.comments
                       yyerror("module definition in method body") if
-                      self.in_def or self.in_single > 0
+                        self.in_def or self.in_single > 0
 
                       self.env.extend;
                     }
                     bodystmt kEND
                     {
-                      line, path, body = val[1], val[2], val[4]
-                      body = s(:scope, body).compact
-                      result = s(:module, path, body)
-                      result.line = line
-                      result.comments = self.comments.pop
+                      result = new_module val
                       self.env.unextend;
                     }
                 | kDEF fname
@@ -1173,18 +1114,9 @@ rule
                       self.env.extend
                       result = self.lexer.lineno
                     }
-                    f_arglist bodystmt kEND # TODO: refactor
+                    f_arglist bodystmt kEND
                     {
-                      line, name, args, body = val[2], val[1], val[3], val[4]
-                      body ||= s(:nil)
-
-                      body ||= s(:block)
-                      body = s(:block, body) unless body.first == :block
-
-                      result = s(:defn, name.to_sym, args, s(:scope, body))
-                      result.line = line
-                      result.comments = self.comments.pop
-
+                      result = new_defn val
                       self.env.unextend
                       self.in_def = false
                     }
@@ -1456,22 +1388,7 @@ rule
 
          xstring: tXSTRING_BEG xstring_contents tSTRING_END
                     {
-                      node = val[1]
-
-                      unless node then
-                        node = s(:xstr, '')
-                      else
-                        case node[0]
-                        when :str
-                          node[0] = :xstr
-                        when :dstr
-                          node[0] = :dxstr
-                        else
-                          node = s(:dxstr, '', node)
-                        end
-                      end
-
-                      result = node
+                      result = new_xstring val[1]
                     }
 
           regexp: tREGEXP_BEG xstring_contents tREGEXP_END
@@ -1513,7 +1430,7 @@ rule
                       result = val[1]
                     }
 
-      qword_list:
+      qword_list: none
                     {
                       result = s(:array)
                     }
@@ -1809,10 +1726,9 @@ xstring_contents: none
                     }
                     expr opt_nl tRPAREN
                     {
-                      if (val[2].instanceof ILiteralNode) then
-                        yyerror("Can't define single method for literals.");
-                      end
-                      result = val[2];
+                      result = val[2]
+                      yyerror("Can't define single method for literals.") if
+                        result[0] == :lit
                     }
 
       assoc_list: none # [!nil]
