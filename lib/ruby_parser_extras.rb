@@ -224,6 +224,8 @@ class RubyParser < Racc::Parser
       return tail
     end
 
+    line = [head.line, tail.line].compact.min
+
     head = remove_begin(head)
     head = s(:block, head) unless head[0] == :block
 
@@ -232,6 +234,9 @@ class RubyParser < Racc::Parser
     else
       head << tail
     end
+
+    head.line = line
+    head
   end
 
   def cond node
@@ -470,16 +475,44 @@ class RubyParser < Racc::Parser
     result
   end
 
+  def new_class val
+    line, path, superclass, body = val[1], val[2], val[3], val[5]
+    scope = s(:scope, body).compact
+    result = s(:class, path, superclass, scope)
+    result.line = line
+    result.comments = self.comments.pop
+    result
+  end
+
   def new_compstmt val
     result = void_stmts(val[0])
     result = remove_begin(result) if result
     result
   end
 
+  def new_defs val
+    recv, name, args, body = val[1], val[4], val[6], val[7]
+
+    body ||= s(:block)
+    body = s(:block, body) unless body.first == :block
+
+    result = s(:defs, recv, name.to_sym, args, s(:scope, body))
+    result.line = recv.line
+    result.comments = self.comments.pop
+    result
+  end
+
+  def new_for expr, var, body
+    result = s(:for, expr, var).line(var.line)
+    result << body if body
+    result
+  end
+
   def new_if c, t, f
+    l = [c.line, t && t.line, f && f.line].compact.min
     c = cond c
     c, t, f = c.last, f, t if c[0] == :not
-    s(:if, c, t, f)
+    s(:if, c, t, f).line(l)
   end
 
   def new_iter call, args, body
@@ -535,6 +568,16 @@ class RubyParser < Racc::Parser
     node
   end
 
+  def new_sclass val
+    recv, in_def, in_single, body = val[3], val[4], val[6], val[7]
+    scope = s(:scope, body).compact
+    result = s(:sclass, recv, scope)
+    result.line = val[2]
+    self.in_def = in_def
+    self.in_single = in_single
+    result
+  end
+
   def new_super args
     if args && args.node_type == :block_pass then
       s(:super, args)
@@ -544,8 +587,16 @@ class RubyParser < Racc::Parser
     end
   end
 
+  def new_undef n, m = nil
+    if m then
+      block_append(n, s(:undef, m))
+    else
+      s(:undef, n)
+    end
+  end
+
   def new_until block, expr, pre
-    expr = expr.first == :not ? expr.last : s(:not, expr)
+    expr = (expr.first == :not ? expr.last : s(:not, expr)).line(expr.line)
     new_while block, expr, pre
   end
 
@@ -649,8 +700,6 @@ class RubyParser < Racc::Parser
 
   def s(*args)
     result = Sexp.new(*args)
-    subsexp = result.grep(Sexp)
-    result.line = subsexp.first.line unless subsexp.empty? # grab if possible
     result.line ||= lexer.lineno if lexer.src          # otherwise...
     result.file = self.file
     result

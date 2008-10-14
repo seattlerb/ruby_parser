@@ -498,7 +498,7 @@ rule
 
       undef_list: fitem
                     {
-                      result = s(:undef, val[0])
+                      result = new_undef val[0]
                     }
                 |
                     undef_list ','
@@ -507,7 +507,7 @@ rule
                     }
                     fitem
                     {
-                      result = self.block_append(val[0], s(:undef, val[3]))
+                      result = new_undef val[0], val[3]
                     }
 
               op: tPIPE    | tCARET     | tAMPER2 | tCMP   | tEQ     | tEQQ
@@ -1106,8 +1106,7 @@ rule
                     }
                     compstmt kEND
                     {
-                      result = s(:for, val[4], val[1]) # .line(val[0].line)
-                      result << val[7] if val[7]
+                      result = new_for val[4], val[1], val[7]
                     }
                 | kCLASS
                     {
@@ -1123,11 +1122,7 @@ rule
                     }
                     bodystmt kEND
                     {
-                      line, path, superclass, body = val[1], val[2], val[3], val[5]
-                      scope = s(:scope, body).compact
-                      result = s(:class, path, superclass, scope)
-                      result.line = line
-                      result.comments = self.comments.pop
+                      result = new_class val
                       self.env.unextend
                     }
                 | kCLASS tLSHFT
@@ -1147,13 +1142,8 @@ rule
                     }
                     bodystmt kEND
                     {
-                      recv, in_def, in_single, body = val[3], val[4], val[6], val[7]
-                      scope = s(:scope, body).compact
-                      result = s(:sclass, recv, scope)
-                      result.line = val[2]
+                      result = new_sclass val
                       self.env.unextend
-                      self.in_def = in_def
-                      self.in_single = in_single
                     }
                 | kMODULE
                     {
@@ -1211,15 +1201,7 @@ rule
                     }
                     f_arglist bodystmt kEND
                     {
-                      recv, name, args, body = val[1], val[4], val[6], val[7]
-                      # recv, name, args, body = val[2], val[5], val[7], val[8]
-
-                      body ||= s(:block)
-                      body = s(:block, body) unless body.first == :block
-
-                      result = s(:defs, recv, name.to_sym, args, s(:scope, body))
-                      # result.line = val[1]
-                      result.comments = self.comments.pop
+                      result = new_defs val
 
                       self.env.unextend;
                       self.in_single -= 1
