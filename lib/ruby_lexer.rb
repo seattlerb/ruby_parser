@@ -92,7 +92,7 @@ class RubyLexer
 
     raise "yylex returned nil" unless r
 
-    return r != RubyLexer::EOF
+    return RubyLexer::EOF != r
   end
 
   def arg_ambiguous
@@ -435,29 +435,29 @@ class RubyLexer
   def read_escape # 51 lines
     # @@stats[:def_read_escape] += 1 if SPY
     case
-    when src.scan(/\\/) then                   # Backslash
+    when src.scan(/\\/) then                  # Backslash
       '\\'
-    when src.scan(/n/) then                    # newline
+    when src.scan(/n/) then                   # newline
       "\n"
-    when src.scan(/t/) then                    # horizontal tab
+    when src.scan(/t/) then                   # horizontal tab
       "\t"
-    when src.scan(/r/) then                    # carriage-return
+    when src.scan(/r/) then                   # carriage-return
       "\r"
-    when src.scan(/f/) then                    # form-feed
+    when src.scan(/f/) then                   # form-feed
       "\f"
-    when src.scan(/v/) then                    # vertical tab
+    when src.scan(/v/) then                   # vertical tab
       "\13"
-    when src.scan(/a/) then                    # alarm(bell)
+    when src.scan(/a/) then                   # alarm(bell)
       "\007"
-    when src.scan(/e/) then                    # escape
+    when src.scan(/e/) then                   # escape
       "\033"
-    when src.scan(/b/) then                    # backspace
+    when src.scan(/b/) then                   # backspace
       "\010"
-    when src.scan(/s/) then                    # space
+    when src.scan(/s/) then                   # space
       " "
-    when src.scan(/[0-7]{1,3}/) then           # octal constant
+    when src.scan(/[0-7]{1,3}/) then          # octal constant
       src.matched.to_i(8).chr
-    when src.scan(/x([0-9a-fA-F]{1,2})/) then    # hex constant
+    when src.scan(/x([0-9a-fA-F]{1,2})/) then # hex constant
       src[1].to_i(16).chr
     when src.scan(/M-\\/) then
       c = self.read_escape
@@ -514,7 +514,7 @@ class RubyLexer
   def src= src
     # @@stats[:def_src] += 1 if SPY
     raise "bad src: #{src.inspect}" unless String === src
-    @src = RPStringScanner.new(src) # HACK $src
+    @src = RPStringScanner.new(src)
   end
 
   def tokadd_escape term # 20 lines
@@ -841,7 +841,7 @@ class RubyLexer
               return '='
             end
           end
-        elsif src.scan(/\"(#{ESC_RE}|#(#{ESC_RE}|[^\{\#\@\$\"\\])|[^\"\\\#])*\"/) then
+        elsif src.scan(/\"(#{ESC_RE}|#(#{ESC_RE}|[^\{\#\@\$\"\\])|[^\"\\\#])*\"/o) then
           # @@stats[:case15_2] += 1 if SPY
           self.yacc_value = src.matched[1..-2].gsub(ESC_RE) { unescape $1 }
           self.lex_state = :expr_end
@@ -873,6 +873,10 @@ class RubyLexer
           self.lex_state = :expr_dot
           self.yacc_value = "::"
           return :tCOLON2
+        elsif lex_state != :expr_end && lex_state != :expr_endarg && src.scan(/:([a-zA-Z_]\w*(?:[?!]|=(?!>))?)/) then
+          self.yacc_value = src[1]
+          self.lex_state = :expr_end
+          return :tSYMBOL
         elsif src.scan(/\:/) then
           # @@stats[:case18] += 1 if SPY
           # ?: / then / when
@@ -1402,16 +1406,36 @@ class RubyLexer
           end
         end
 
-        result = if token =~ /^[A-Z]/ then
-                   :tCONSTANT
-                 else
-                   :tIDENTIFIER
-                 end unless result
+        result ||= if token =~ /^[A-Z]/ then
+                     :tCONSTANT
+                   else
+                     :tIDENTIFIER
+                   end
       end
 
       unless lex_state == :expr_dot then
-        keyword = lex_keywords token
-        return keyword if keyword
+        # See if it is a reserved word.
+        keyword = Keyword.keyword token
+
+        if keyword then
+          state           = lex_state
+          self.lex_state  = keyword.state
+          self.yacc_value = token
+
+          if keyword.id0 == :kDO then
+            self.command_start = true
+            return :kDO_COND  if cond.is_in_state
+            return :kDO_BLOCK if cmdarg.is_in_state && state != :expr_cmdarg
+            return :kDO_BLOCK if state == :expr_endarg
+            return :kDO
+          end
+
+          return keyword.id0 if state == :expr_beg
+
+          self.lex_state = :expr_beg if keyword.id0 != keyword.id1
+
+          return keyword.id1
+        end
       end
 
       if (lex_state == :expr_beg || lex_state == :expr_mid ||
@@ -1436,31 +1460,6 @@ class RubyLexer
       last_state != :expr_dot && self.parser.env[token.to_sym] == :lvar
 
     return result
-  end
-
-  def lex_keywords token
-    # See if it is a reserved word.
-    keyword = Keyword.keyword token
-
-    if keyword then
-      state           = lex_state
-      self.lex_state  = keyword.state
-      self.yacc_value = token
-
-      if keyword.id0 == :kDO then
-        self.command_start = true
-        return :kDO_COND  if cond.is_in_state
-        return :kDO_BLOCK if cmdarg.is_in_state && state != :expr_cmdarg
-        return :kDO_BLOCK if state == :expr_endarg
-        return :kDO
-      end
-
-      return keyword.id0 if state == :expr_beg
-
-      self.lex_state = :expr_beg if keyword.id0 != keyword.id1
-
-      return keyword.id1
-    end
   end
 
   def yylex_string # 23 lines

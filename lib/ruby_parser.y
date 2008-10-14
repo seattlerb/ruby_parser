@@ -16,7 +16,7 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tTILDE tPERCENT tDIVIDE tPLUS tMINUS tLT tGT tPIPE tBANG tCARET
       tLCURLY tRCURLY tBACK_REF2 tSYMBEG tSTRING_BEG tXSTRING_BEG tREGEXP_BEG
       tWORDS_BEG tAWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END tSTRING
-      tLAST_TOKEN
+      tSYMBOL tLAST_TOKEN
 
 prechigh
   right    tBANG tTILDE tUPLUS
@@ -119,7 +119,6 @@ rule
                 | stmt kRESCUE_MOD stmt
                     {
                       result = s(:rescue, val[0], s(:resbody, s(:array), val[2]))
-                      result.minimize_line
                     }
                 | klBEGIN
                     {
@@ -1308,7 +1307,7 @@ rule
       block_call: command do_block
                     {
                       raise SyntaxError, "Both block arg and actual block given." if
-                      val[0] && val[0][0] == :blockpass
+                        val[0] && val[0][0] == :blockpass
 
                       result = val[1]
                       result.insert 1, val[0]
@@ -1345,7 +1344,6 @@ rule
                 | kSUPER paren_args
                     {
                       result = new_super val[1]
-                      result.minimize_line
                     }
                 | kSUPER
                     {
@@ -1614,6 +1612,10 @@ xstring_contents: none
                     {
                       lexer.lex_state = :expr_end
                       result = val[1].to_sym
+                    }
+                | tSYMBOL
+                    {
+                      result = val[0].to_sym
                     }
 
              sym: fname | tIVAR | tGVAR | tCVAR

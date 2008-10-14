@@ -403,7 +403,10 @@ class TestRubyParser < RubyParserTestCase
     "defn_args_none"                      => 2,
     "defn_zarray"                         => 2,
     "structure_unused_literal_wwtt"       => 3, # yes, 3... odd test
-    "super"                               => 2,
+    "super_0"                             => 2,
+    "super_1"                             => 2,
+    "super_1_array"                       => 2,
+    "super_n"                             => 2,
     "super_multi"                         => 2,
     "undef_block_1"                       => 2,
     "undef_block_2"                       => 2,

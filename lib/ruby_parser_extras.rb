@@ -124,7 +124,6 @@ class RubyParser < Racc::Parser
 
     head = s(:block, head) unless head.node_type == :block
     head << tail
-    head.minimize_line
     head
   end
 
@@ -134,20 +133,19 @@ class RubyParser < Racc::Parser
     node1[0] = :arglist if node1[0] == :array
     return node1 << node2 if node1[0] == :arglist
 
-    return s(:argspush, node1, node2)
+    return s(:arglist, node1, node2)
   end
 
   def arg_blk_pass node1, node2 # TODO: nuke
-    if node2 then
-      node2.insert 1, node1
-      return node2
-    else
-      node1
-    end
+    node1 = s(:arglist, node1) unless [:arglist, :array].include? node1.first
+    node1 << node2 if node2
+    node1
   end
 
-  def arg_concat node1, node2
-    return node2.nil? ? node1 : s(:argscat, node1, node2)
+  def arg_concat node1, node2 # TODO: nuke
+    raise "huh" unless node2
+    node1 << s(:splat, node2).compact
+    node1
   end
 
   def args arg, optarg, rest_arg, block_arg
@@ -228,7 +226,6 @@ class RubyParser < Racc::Parser
 
     head = remove_begin(head)
     head = s(:block, head) unless head[0] == :block
-    head.minimize_line
 
     if strip_tail_block and Sexp === tail and tail[0] == :block then
       head.push(*tail.values)
@@ -442,34 +439,23 @@ class RubyParser < Racc::Parser
     end
 
     result = s(:ensure, result, val[3]).compact if val[3]
-    # result.minimize_line if result
     return result
   end
 
   def new_call recv, meth, args = nil
-    if args && args[0] == :block_pass then
-      new_args = args.array(true) || args.argscat(true) || args.splat(true) # FIX: fragile
-      new_args ||= s(:arglist)
-      new_args[0] = :arglist if new_args[0] == :array # TODO: remove
-
-      call = s(:call, recv, meth)
-      call.line(recv.line) if recv
-      call << new_args if new_args
-      args << call
-
-      return args
-    end
     result = s(:call, recv, meth)
-    result.line(recv.line) if recv
+    result.line = recv.line if recv
+
     args ||= s(:arglist)
-    args[0] = :arglist if args[0] == :array # TODO: remove
+    args[0] = :arglist if args.first == :array
+    args = s(:arglist, args) unless args.first == :arglist
     result << args
-    result.minimize_line
     result
   end
 
   def new_case expr, body
     result = s(:case, expr)
+    line = (expr || body).line
 
     while body and body.node_type == :when
       result << body
@@ -480,7 +466,7 @@ class RubyParser < Racc::Parser
     body = nil if body == s(:block)
     result << body
 
-    result.minimize_line
+    result.line = line
     result
   end
 
@@ -501,7 +487,6 @@ class RubyParser < Racc::Parser
     result << call if call
     result << args
     result << body if body
-    result.minimize_line
     result
   end
 
@@ -552,14 +537,11 @@ class RubyParser < Racc::Parser
 
   def new_super args
     if args && args.node_type == :block_pass then
-      t, body, bp = args
-      body, bp = bp, body unless bp
-      result = s(t, bp, s(:super, body).compact)
+      s(:super, args)
     else
-      result = s(:super)
-      result << args if args and args != s(:array)
+      args ||= s(:arglist)
+      s(:super, *args[1..-1])
     end
-    result
   end
 
   def new_until block, expr, pre
@@ -568,7 +550,7 @@ class RubyParser < Racc::Parser
   end
 
   def new_while block, expr, pre
-    line = block.line if block
+    line = [block && block.line, expr.line].compact.min
     block, pre = block.last, false if block && block[0] == :begin
 
     expr = cond expr
@@ -578,21 +560,18 @@ class RubyParser < Racc::Parser
                s(:while, expr, block, pre)
              end
 
-    result.line = line if line
-    result.minimize_line
+    result.line = line
     result
   end
 
-  def new_yield(node = nil)
-    if node then
-      raise SyntaxError, "Block argument should not be given." if
-        node.node_type == :block_pass
+  def new_yield args = nil
+    raise SyntaxError, "Block argument should not be given." if
+      args && args.node_type == :block_pass
 
-      node[0] = :arglist if node[0] == :array
-      node = node.last if node.node_type == :array and node.size == 2
-    end
+    args ||= s(:arglist)
+    args = s(:arglist, args) unless [:arglist, :array].include? args.first
 
-    return s(:yield, node).compact
+    return s(:yield, *args[1..-1])
   end
 
   def next_token
@@ -639,7 +618,7 @@ class RubyParser < Racc::Parser
 
   def remove_begin node
     oldnode = node
-    if node and node[0] == :begin and node.size == 2 then
+    if node and :begin == node[0] and node.size == 2 then
       node = node[-1]
       node.line = oldnode.line
     end
@@ -694,6 +673,12 @@ class RubyParser < Racc::Parser
 
   def warning s
     # do nothing for now
+  end
+
+  alias :old_yyerror :yyerror
+  def yyerror msg
+    # for now do nothing with the msg
+    old_yyerror
   end
 end
 
@@ -870,7 +855,6 @@ class StackState
   end
 
   def push val
-    raise if val != true and val != false
     @stack.push val
   end
 end
@@ -900,11 +884,6 @@ class Sexp
 
   def line= n
     @line = n
-  end
-
-  def minimize_line
-    linenos = self.grep(Sexp).map { |s| s.line } << self.line
-    @line = linenos.compact.min
   end
 
   def node_type

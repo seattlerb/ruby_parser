@@ -699,8 +699,7 @@ class TestRubyLexer < Test::Unit::TestCase
   def test_yylex_identifier_equals_arrow
     @lex.lex_state = :expr_fname
     util_lex_token(":blah==>",
-                   :tSYMBEG, ":",
-                   :tIDENTIFIER, "blah=",
+                   :tSYMBOL, "blah=",
                    :tASSOC, "=>")
   end
 
@@ -1576,8 +1575,7 @@ class TestRubyLexer < Test::Unit::TestCase
 
   def test_yylex_symbol
     util_lex_token(":symbol",
-                   :tSYMBEG, ":",
-                   :tIDENTIFIER, "symbol")
+                   :tSYMBOL, "symbol")
   end
 
   def test_yylex_symbol_bad_zero
