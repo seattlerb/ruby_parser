@@ -317,19 +317,19 @@ rule
                     }
                 | mlhs_head tSTAR mlhs_node
                     {
-                      result = s(:masgn, val[0], val[2]);
+                      result = s(:masgn, val[0] << s(:splat, val[2]));
                     }
                 | mlhs_head tSTAR
                     {
-                      result = s(:masgn, val[0], s(:splat))
+                      result = s(:masgn, val[0] << s(:splat))
                     }
                 | tSTAR mlhs_node
                     {
-                      result = s(:masgn, nil, val[1]);
+                      result = s(:masgn, s(:array, s(:splat, val[1])))
                     }
                 | tSTAR
                     {
-                      result = s(:masgn, nil, s(:splat))
+                      result = s(:masgn, s(:array, s(:splat)))
                     }
 
        mlhs_item: mlhs_node
