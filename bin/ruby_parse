@@ -5,7 +5,6 @@ $g ||= false
 
 require 'rubygems'
 require 'ruby_parser'
-require 'timeout'
 require 'pp'
 
 good = bad = 0

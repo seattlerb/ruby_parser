@@ -384,7 +384,7 @@ class RubyLexer
       if awords then
         quote[1] = nil
         # @@stats[:def_parse_string_return_awords] += 1 if SPY
-        return ' '
+        return :tSPACE
       elsif regexp then
         self.yacc_value = self.regx_options
         self.lineno = nil
@@ -399,7 +399,7 @@ class RubyLexer
 
     if space then
         # @@stats[:def_parse_string_return_space] += 1 if SPY
-      return ' '
+      return :tSPACE
     end
 
     self.string_buffer = []
@@ -745,7 +745,7 @@ class RubyLexer
 
           self.command_start = true
           self.lex_state = :expr_beg
-          return "\n"
+          return :tNL
         elsif src.scan(/[\]\)\}]/) then
           # @@stats[:case3] += 1 if SPY
           cond.lexpop
@@ -782,7 +782,7 @@ class RubyLexer
           # @@stats[:case8] += 1 if SPY
           self.lex_state = :expr_beg
           self.yacc_value = ","
-          return src.matched
+          return :tCOMMA
         elsif src.scan(/\(/) then
           # @@stats[:case9] += 1 if SPY
           result = :tLPAREN2
@@ -838,7 +838,7 @@ class RubyLexer
             else
               self.fix_arg_lex_state
               self.yacc_value = '='
-              return '='
+              return :tEQL
             end
           end
         elsif src.scan(/\"(#{ESC_RE}|#(#{ESC_RE}|[^\{\#\@\$\"\\])|[^\"\\\#])*\"/o) then
@@ -884,7 +884,7 @@ class RubyLexer
               src.check(/\s/)) then
             self.lex_state = :expr_beg
             self.yacc_value = ":"
-            return ':'
+            return :tCOLON
           end
 
           case
@@ -1144,7 +1144,7 @@ class RubyLexer
           if lex_state == :expr_end || lex_state == :expr_endarg then
             self.lex_state = :expr_beg
             self.yacc_value = "?"
-            return '?'
+            return :tEH
           end
 
           if src.eos? then
@@ -1168,11 +1168,11 @@ class RubyLexer
             # ternary
             self.lex_state = :expr_beg
             self.yacc_value = "?"
-            return '?'
+            return :tEH
           elsif src.check(/\w(?=\w)/) then # ternary, also
             self.lex_state = :expr_beg
             self.yacc_value = "?"
-            return '?'
+            return :tEH
           end
 
           c = if src.scan(/\\/) then
@@ -1257,7 +1257,7 @@ class RubyLexer
           self.command_start = true
           self.lex_state = :expr_beg
           self.yacc_value = ";"
-          return src.matched
+          return :tSEMI
         elsif src.scan(/\~/) then
           # @@stats[:case54] += 1 if SPY
           if lex_state == :expr_fname || lex_state == :expr_dot then
@@ -1343,7 +1343,7 @@ class RubyLexer
             # @@stats[:case63] += 1 if SPY
             self.lex_state = :expr_end
             self.yacc_value = "$"
-            return '$'
+            return "$"
           elsif src.scan(/\$\w+/)
             # @@stats[:case64] += 1 if SPY
             self.lex_state = :expr_end
