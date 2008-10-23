@@ -1,4 +1,4 @@
-== 2.0.0 / 2008-10-22
+=== 2.0.0 / 2008-10-22
 
 * 1 major enhancement
 
@@ -106,7 +106,7 @@
   * Fixed: omg this is stupid. '()' was returning bare nil
   * Fixed: remove_begin now goes to the end, not sure why it didn't before.
 
-== 1.0.0 / 2007-12-20
+=== 1.0.0 / 2007-12-20
 
 * 1 major enhancement
   * Birthday!
