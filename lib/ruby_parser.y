@@ -716,7 +716,7 @@ rule
                     }
                 | tSTAR arg opt_nl
                     {
-                      result = s(:splat, val[1])
+                      result = s(:array, s(:splat, val[1]))
                       result.paren = true
                     }
 
