@@ -13,8 +13,8 @@ require './lib/ruby_parser_extras.rb'
 hoe = Hoe.new('ruby_parser', RubyParser::VERSION) do |parser|
   parser.rubyforge_name = 'parsetree'
   parser.developer('Ryan Davis', 'ryand-ruby@zenspider.com')
-  parser.extra_deps << 'ParseTree'
 
+  parser.extra_dev_deps << 'ParseTree'
   parser.extra_deps << ['sexp_processor', '>= 3.0.0']
 end
 
