@@ -1,6 +1,6 @@
-ruby_parser
-    by Ryan Davis
-    http://parsetree.rubyforge.org/
+= ruby_parser
+
+* http://parsetree.rubyforge.org/
 
 == DESCRIPTION:
 
@@ -9,6 +9,27 @@ racc--which does by default use a C extension). RP's output is
 the same as ParseTree's output: s-expressions using ruby's arrays and
 base types.
 
+As an example:
+
+  def conditional1(arg1)
+    if arg1 == 0 then
+      return 1
+    end
+    return 0
+  end
+
+becomes:
+
+  s(:defn, :conditional1,
+   s(:args, :arg1),
+   s(:scope,
+    s(:block,
+     s(:if,
+      s(:call, s(:lvar, :arg1), :==, s(:arglist, s(:lit, 0))),
+      s(:return, s(:lit, 1)),
+      nil),
+     s(:return, s(:lit, 0)))))
+
 == FEATURES/PROBLEMS:
 
 * Pure ruby, no compiles.
@@ -16,11 +37,12 @@ base types.
 * Incredibly simple interface.
 * Output is 100% equivalent to ParseTree.
   * Can utilize PT's SexpProcessor and UnifiedRuby for language processing.
-* Known Issue: Speed sucks currently. 5500 tests currently run in 21 min.
-* Known Issue: Code is waaay ugly. Port of a port. Not my fault. Will fix RSN.
-* Known Issue: I don't currently support newline nodes.
+* Known Issue: Speed is now pretty good, but can always improve:
+  * RP parses a corpus of 3702 files in 125s (avg 108 Kb/s)
+  * MRI+PT parsed the same in 67.38s (avg 200.89 Kb/s)
+* Known Issue: Code is much better, but still has a long way to go.
 * Known Issue: Totally awesome.
-* Known Issue: dasgn_curr decls can be out of order from ParseTree's.
+* Known Issue: line number values can be slightly off. Parsing LR sucks.
 
 == SYNOPSIS:
 
@@ -30,9 +52,9 @@ base types.
 == REQUIREMENTS:
 
 * ruby. woot.
-* ParseTree is needed for Sexp class... crap. I might break that out.
+* sexp_processor for Sexp and SexpProcessor classes.
 * ParseTree for testing.
-* racc full package for parser development.
+* racc full package for parser development (compiling .y to .rb).
 
 == INSTALL:
 
@@ -42,7 +64,7 @@ base types.
 
 (The MIT License)
 
-Copyright (c) 2007 Ryan Davis
+Copyright (c) 2007-2008 Ryan Davis
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
