@@ -85,5 +85,4 @@ puts format % [total_time,
                total_kbytes / total_time,
                total_kbytes,
                total_loc,
-               "TOTAL"]
-
+               "TOTAL"] unless total_time == 0
