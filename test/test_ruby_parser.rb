@@ -374,6 +374,13 @@ class TestRubyParser < RubyParserTestCase
     assert_equal pt, @processor.parse(rb)
   end
 
+#   def test_str_pct_nested_nested
+#     rb = "%{ { #\{ \"#\{1}\" } } }"
+#     pt = s(:dstr, " { ", s(:evstr, s(:lit, 1)), s(:str, " } "))
+
+#     assert_equal pt, @processor.parse(rb)
+#   end
+
   def test_str_str
     rb = "\"a #\{'b'}\""
     pt = s(:str, "a b")
@@ -389,30 +396,21 @@ class TestRubyParser < RubyParserTestCase
   end
 
   STARTING_LINE = {
-    "begin_def"                           => 2,
-    "block_stmt_after"                    => 2,
-    "block_stmt_after_mri_verbose_flag"   => 2,
-    "block_stmt_before"                   => 2,
-    "block_stmt_before_mri_verbose_flag"  => 2,
-    "block_stmt_both"                     => 2,
-    "block_stmt_both_mri_verbose_flag"    => 2,
-    "case_nested_inner_no_expr"           => 2,
-    "case_no_expr"                        => 2,
-    "case_splat"                          => 2,
-    "cvasgn"                              => 2,
-    "defn_args_none"                      => 2,
-    "defn_zarray"                         => 2,
-    "structure_unused_literal_wwtt"       => 3, # yes, 3... odd test
-    "super_0"                             => 2,
-    "super_1"                             => 2,
-    "super_1_array"                       => 2,
-    "super_n"                             => 2,
-    "super_multi"                         => 2,
-    "undef_block_1"                       => 2,
-    "undef_block_2"                       => 2,
-    "undef_block_3"                       => 2,
-    "undef_block_wtf"                     => 2,
-    "zsuper"                              => 2,
+    "case_nested_inner_no_expr"          => 2,
+    "case_no_expr"                       => 2,
+    "case_splat"                         => 2,
+    "dstr_heredoc_expand"                => 2,
+    "dstr_heredoc_windoze_sucks"         => 2,
+    "dstr_heredoc_yet_again"             => 2,
+    "str_heredoc"                        => 2,
+    "str_heredoc_call"                   => 2,
+    "str_heredoc_empty"                  => 2,
+    "str_heredoc_indent"                 => 2,
+    "structure_unused_literal_wwtt"      => 3, # yes, 3... odd test
+    "undef_block_1"                      => 2,
+    "undef_block_2"                      => 2,
+    "undef_block_3"                      => 2,
+    "undef_block_wtf"                    => 2,
   }
 
   def after_process_hook klass, node, data, input_name, output_name

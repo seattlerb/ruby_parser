@@ -113,7 +113,7 @@ class RPStringScanner < StringScanner
 end
 
 class RubyParser < Racc::Parser
-  VERSION = '2.0.1'
+  VERSION = '2.0.2'
 
   attr_accessor :lexer, :in_def, :in_single, :file
   attr_reader :env, :comments
@@ -502,7 +502,7 @@ class RubyParser < Racc::Parser
   end
 
   def new_defn val
-    line, name, args, body = val[2], val[1], val[3], val[4]
+    (line, bol), name, args, body = val[2], val[1], val[3], val[4]
     body ||= s(:nil)
 
     body ||= s(:block)
@@ -510,6 +510,7 @@ class RubyParser < Racc::Parser
 
     result = s(:defn, name.to_sym, args, s(:scope, body))
     result.line = line
+    result.line -= 1 if bol
     result.comments = self.comments.pop
     result
   end
@@ -1004,25 +1005,6 @@ end
 
 class Sexp
   attr_writer :paren
-  attr_accessor :comments
-  attr_accessor :file
-
-  def line(n=nil)
-    if n then
-      @line = n
-      self
-    else
-      @line ||= nil
-    end
-  end
-
-  def line= n
-    @line = n
-  end
-
-  def node_type
-    first
-  end
 
   def paren
     @paren ||= false
@@ -1037,19 +1019,8 @@ class Sexp
     self.value.to_sym
   end
 
-  def values
-    self[1..-1]
-  end
-
-  alias :real_inspect :inspect
-  def inspect # :nodoc:
-    sexp_str = self.map {|x|x.inspect}.join(', ')
-    if line && ENV['VERBOSE'] then
-      "s(#{sexp_str}).line(#{line})"
-    else
-      "s(#{sexp_str})"
-    end
-  end
+  alias :node_type :sexp_type
+  alias :values :sexp_body # TODO: retire
 end
 
 # END HACK

@@ -188,7 +188,8 @@ class RubyLexer
     if src.check(/.*\n/) then
       # TODO: think about storing off the char range instead
       line = src.string[src.pos, src.matched_size]
-      src.string[src.pos, src.matched_size] = ''
+      src.string[src.pos, src.matched_size] = "\n"
+      src.pos += 1
     else
       line = nil
     end
@@ -651,7 +652,6 @@ class RubyLexer
             if src.eos? then
               return RubyLexer::EOF
             end
-          else
           end
 
           # Replace a string of newlines with a single one
@@ -661,7 +661,6 @@ class RubyLexer
               :expr_dot, :expr_class].include? lex_state then
             next
           end
-
 
           self.command_start = true
           self.lex_state = :expr_beg

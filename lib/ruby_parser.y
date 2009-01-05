@@ -1110,7 +1110,7 @@ rule
                       self.comments.push self.lexer.comments
                       self.in_def = true
                       self.env.extend
-                      result = self.lexer.lineno
+                      result = lexer.lineno, lexer.src.beginning_of_line?
                     }
                     f_arglist bodystmt kEND
                     {
