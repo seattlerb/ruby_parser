@@ -828,6 +828,8 @@ class Keyword
   end
 
   ##
+  # :stopdoc:
+  #
   # :expr_beg    = ignore newline, +/- is a sign.
   # :expr_end    = newline significant, +/- is a operator.
   # :expr_arg    = newline significant, +/- is a operator.
@@ -880,6 +882,8 @@ class Keyword
               ["while",    [:kWHILE,    :kWHILE_MOD  ], :expr_beg   ],
               ["alias",    [:kALIAS,    :kALIAS      ], :expr_fname ],
              ].map { |args| KWtable.new(*args) }
+
+  # :startdoc:
 
   WORDLIST = Hash[*wordlist.map { |o| [o.name, o] }.flatten]
 
