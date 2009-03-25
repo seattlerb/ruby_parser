@@ -1,6 +1,9 @@
 # -*- ruby -*-
 
 require 'rubygems'
+
+# because hoe requires flay which requires ruby_parser
+$:.unshift 'lib'
 require 'hoe'
 
 Hoe.add_include_dirs("../../ParseTree/dev/lib",

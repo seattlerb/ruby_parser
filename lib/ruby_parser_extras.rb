@@ -5,11 +5,13 @@ require 'strscan'
 
 # WHY do I have to do this?!?
 class Regexp
-  ONCE     = 0 # 16 # ?
-  ENC_NONE = /x/n.options
-  ENC_EUC  = /x/e.options
-  ENC_SJIS = /x/s.options
-  ENC_UTF8 = /x/u.options
+  unless defined? ONCE then
+    ONCE     = 0 # 16 # ?
+    ENC_NONE = /x/n.options
+    ENC_EUC  = /x/e.options
+    ENC_SJIS = /x/s.options
+    ENC_UTF8 = /x/u.options
+  end
 end
 
 # I hate ruby 1.9 string changes
@@ -113,7 +115,7 @@ class RPStringScanner < StringScanner
 end
 
 class RubyParser < Racc::Parser
-  VERSION = '2.0.2'
+  VERSION = '2.0.2' unless constants.include? "VERSION" # SIGH
 
   attr_accessor :lexer, :in_def, :in_single, :file
   attr_reader :env, :comments
@@ -885,7 +887,8 @@ class Keyword
 
   # :startdoc:
 
-  WORDLIST = Hash[*wordlist.map { |o| [o.name, o] }.flatten]
+  WORDLIST = Hash[*wordlist.map { |o| [o.name, o] }.flatten] unless
+    defined? WORDLIST
 
   def self.keyword str
     WORDLIST[str]
