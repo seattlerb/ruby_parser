@@ -1,14 +1,15 @@
 # -*- ruby -*-
 
 require 'autotest/restart'
+require 'autotest/rcov'
 
 Autotest.add_hook :initialize do |at|
   at.extra_files << "../../ParseTree/dev/test/pt_testcase.rb"
   at.libs << ":../../ParseTree/dev/lib:../../ParseTree/dev/test:../../sexp_processor/dev/lib"
   at.add_exception 'unit'
   at.add_exception 'coverage'
-  at.add_exception '.diff'
   at.add_exception 'coverage.info'
+  at.add_exception '.diff'
 
   at.unit_diff = "unit_diff -u -b"
 
@@ -38,7 +39,3 @@ class Autotest
     File.expand_path "~/.multiruby/install/1.9.0-0/bin/ruby"
   end
 end if ENV['ONENINE']
-
-# require 'autotest/rcov'
-# Autotest::RCov.command = 'rcov_info'
-# Autotest::RCov.pattern = 'test/test_ruby_lexer.rb'

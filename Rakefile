@@ -4,6 +4,9 @@ require 'rubygems'
 
 # because hoe requires flay which requires ruby_parser
 $:.unshift 'lib'
+
+$:.unshift "../../hoe/dev/lib"
+
 require 'hoe'
 
 Hoe.add_include_dirs("../../ParseTree/dev/lib",
@@ -57,20 +60,6 @@ def next_num(glob)
   num = Dir[glob].max[/\d+/].to_i + 1
 end
 
-begin
-  require 'rcov/rcovtask'
-  Rcov::RcovTask.new do |t|
-    pattern = ENV['PATTERN'] || 'test/test_ruby_*.rb'
-
-    t.test_files = FileList[pattern]
-    t.verbose = true
-    t.rcov_opts << "--threshold 80"
-    t.rcov_opts << "--no-color"
-  end
-rescue LoadError
-  # skip
-end
-
 desc "Compares PT to RP and deletes all files that match"
 task :compare do
   files = Dir["unit/**/*.rb"]
@@ -95,19 +84,6 @@ end
 task :sort do
   sh 'grepsort "^ +def" lib/ruby_lexer.rb'
   sh 'grepsort "^ +def (test|util)" test/test_ruby_lexer.rb'
-end
-
-task :rcov_info => :parser do
-  pattern = ENV['PATTERN'] || "test/test_*.rb"
-  ruby "-Ilib -S rcov --text-report --save coverage.info #{pattern}"
-end
-
-task :rcov_overlay do
-  rcov, eol = Marshal.load(File.read("coverage.info")).last[ENV["FILE"]], 1
-  puts rcov[:lines].zip(rcov[:coverage]).map { |line, coverage|
-    bol, eol = eol, eol + line.length
-    [bol, eol, "#ffcccc"] unless coverage
-  }.compact.inspect
 end
 
 task :loc do
