@@ -246,10 +246,6 @@ class RubyParser < Racc::Parser
     node = value_expr node
 
     case node.first
-    when :dregex then
-      return s(:match2, node, s(:gvar, "$_".to_sym))
-    when :regex then
-      return s(:match, node)
     when :lit then
       if Regexp === node.last then
         return s(:match, node)
@@ -908,7 +904,7 @@ class Environment
   end
 
   def all
-    idx = @dyn.index false
+    idx = @dyn.index(false) || 0
     @env[0..idx].reverse.inject { |env, scope| env.merge scope }
   end
 
@@ -929,7 +925,7 @@ class Environment
     @dyn.unshift dyn
     @env.unshift({})
     @use.unshift({})
-   end
+  end
 
   def initialize dyn = false
     @dyn = []
