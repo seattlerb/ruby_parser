@@ -1,27 +1,21 @@
 # -*- ruby -*-
 
 require 'rubygems'
-
-# because hoe requires flay which requires ruby_parser
-$:.unshift 'lib'
-
-$:.unshift "../../hoe/dev/lib"
-
 require 'hoe'
 
-Hoe.add_include_dirs("../../ParseTree/dev/lib",
-                     "../../ParseTree/dev/test",
+Hoe.plugin :seattlerb
+
+Hoe.add_include_dirs("../../ParseTree/dev/test",
                      "../../RubyInline/dev/lib",
                      "../../sexp_processor/dev/lib")
 
-require './lib/ruby_parser_extras.rb'
+hoe = Hoe.spec 'ruby_parser' do
+  developer 'Ryan Davis', 'ryand-ruby@zenspider.com'
 
-hoe = Hoe.new('ruby_parser', RubyParser::VERSION) do |parser|
-  parser.rubyforge_name = 'parsetree'
-  parser.developer('Ryan Davis', 'ryand-ruby@zenspider.com')
+  self.rubyforge_name = 'parsetree'
 
-  parser.extra_dev_deps << 'ParseTree'
-  parser.extra_deps << ['sexp_processor', '>= 3.0.1']
+  extra_dev_deps << 'ParseTree'
+  extra_deps     << ['sexp_processor', '>= 3.0.1']
 end
 
 hoe.spec.files += ['lib/ruby_parser.rb'] # jim.... cmon man
