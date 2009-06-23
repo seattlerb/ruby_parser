@@ -24,7 +24,7 @@ hoe.spec.files += ['lib/ruby_parser.rb'] # jim.... cmon man
   task t => :parser
 end
 
-path = "pkg/ruby_parser-#{RubyParser::VERSION}"
+path = "pkg/ruby_parser-#{hoe.version}"
 task path => :parser do
   Dir.chdir path do
     sh "rake parser"
