@@ -1,12 +1,10 @@
 #!/usr/local/bin/ruby
 
-require "test/unit"
+require "minitest/autorun"
 require "ruby_lexer"
 
-class TestRubyLexer < Test::Unit::TestCase
-  def deny cond, msg = nil
-    assert ! cond, msg
-  end
+class TestRubyLexer < MiniTest::Unit::TestCase
+  alias :deny :refute
 
   def setup
     p = RubyParser.new

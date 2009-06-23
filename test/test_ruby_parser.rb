@@ -1,9 +1,8 @@
 #!/usr/local/bin/ruby
 
-require 'test/unit'
+require 'minitest/autorun'
 require 'ruby_parser'
 
-$: << File.expand_path('~/Work/p4/zss/src/ParseTree/dev/lib')
 $: << File.expand_path('~/Work/p4/zss/src/ParseTree/dev/test')
 
 require 'pt_testcase'
@@ -30,8 +29,6 @@ class RubyParserTestCase < ParseTreeTestCase
 end
 
 class TestRubyParser < RubyParserTestCase
-  alias :refute_nil :assert_not_nil unless defined? Mini
-
   def setup
     super
 

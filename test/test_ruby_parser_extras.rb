@@ -1,7 +1,7 @@
-require 'test/unit'
+require 'minitest/autorun'
 require 'ruby_parser_extras'
 
-class TestStackState < Test::Unit::TestCase
+class TestStackState < MiniTest::Unit::TestCase
   def test_stack_state
     s = StackState.new :test
     s.push true
@@ -49,7 +49,7 @@ class TestStackState < Test::Unit::TestCase
   end
 end
 
-class TestEnvironment < Test::Unit::TestCase
+class TestEnvironment < MiniTest::Unit::TestCase
   def deny t
     assert ! t
   end
