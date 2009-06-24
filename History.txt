@@ -1,3 +1,19 @@
+=== 2.0.3 / 2009-06-23
+
+* 4 minor enhancements:
+
+  * Removed dead code handling d/regex match node cruft.
+  * Switched to minitest
+  * Updated .autotest and rakefile wrt rcov for new hoe capabilities
+  * Updated hoe for new capabilities
+
+* 4 bug fixes:
+
+  * Environment#all now deals with strange edge cases in RAD.
+  * Fixed packaging/compilation issue.
+  * Minor 1.9 fixes
+  * hoe -> flay -> rubyparser rakefile circularity fixed
+
 === 2.0.2 / 2009-01-20
 
 * 2 minor enhancements:
