@@ -1783,6 +1783,7 @@ end
 ---- inner
 
 require "ruby_lexer"
+require "ruby_parser_extras"
 
 # Local Variables: **
 # racc-token-length-max:14 **

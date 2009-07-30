@@ -1,3 +1,4 @@
+require 'rubygems'
 require 'minitest/autorun'
 require 'ruby_parser_extras'
 

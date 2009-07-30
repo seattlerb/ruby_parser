@@ -1,7 +1,3 @@
-$: << File.expand_path("~/Work/p4/zss/src/ParseTree/dev/lib") # for me, not you.
-require 'sexp'
-require 'ruby_parser_extras'
-
 class RubyLexer
   attr_accessor :command_start
   attr_accessor :cmdarg

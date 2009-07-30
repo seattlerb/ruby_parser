@@ -1,7 +1,9 @@
 #!/usr/local/bin/ruby
 
-require "minitest/autorun"
-require "ruby_lexer"
+require 'rubygems'
+require 'minitest/autorun'
+require 'ruby_lexer'
+require 'ruby_parser'
 
 class TestRubyLexer < MiniTest::Unit::TestCase
   alias :deny :refute
