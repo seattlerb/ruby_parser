@@ -14,8 +14,8 @@ hoe = Hoe.spec 'ruby_parser' do
 
   self.rubyforge_name = 'parsetree'
 
-  extra_dev_deps << 'ParseTree'
-  extra_deps     << ['sexp_processor', '>= 3.0.1']
+  extra_dev_deps << ['ParseTree',      '~> 3.0']
+  extra_deps     << ['sexp_processor', '~> 3.0']
 end
 
 hoe.spec.files += ['lib/ruby_parser.rb'] # jim.... cmon man
