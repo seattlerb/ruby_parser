@@ -1,3 +1,16 @@
+=== 2.0.4 / 2009-08-18
+
+* 1 minor enhancement:
+
+  * Changed requires around to be more accurate.
+
+* 4 bug fixes:
+
+  * Fixed .autotest for minitest
+  * Fixed emacs escape lexing bug: "\C-\\" (maglev/gemstone)
+  * Fixed octal lexing edgecases. (maglev/gemstone)
+  * Fixed regexp lexing edgecases. (maglev/gemstone)
+
 === 2.0.3 / 2009-06-23
 
 * 4 minor enhancements:
