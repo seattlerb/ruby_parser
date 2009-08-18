@@ -1282,15 +1282,15 @@ class TestRubyLexer < MiniTest::Unit::TestCase
                    :tREGEXP_END,     "")
   end
 
+  def test_yylex_regexp_escape_hex_bad
+    util_bad_token '/regex\\xzxp/', :tREGEXP_BEG, "/"
+  end
+
   def test_yylex_regexp_escape_hex_one
     util_lex_token('/^[\\xd\\xa]{2}/on',
                    :tREGEXP_BEG,     '/',
                    :tSTRING_CONTENT, '^[\\xd\\xa]{2}',
                    :tREGEXP_END,     'on')
-  end
-
-  def test_yylex_regexp_escape_hex_bad
-    util_bad_token '/regex\\xzxp/', :tREGEXP_BEG, "/"
   end
 
   def test_yylex_regexp_escape_oct1
@@ -1423,25 +1423,6 @@ class TestRubyLexer < MiniTest::Unit::TestCase
                    :tSTRING, "string")
   end
 
-  def test_yylex_string_double_escape_M
-    util_lex_token('"\\M-a"',
-                   :tSTRING, "\341")
-  end
-
-  def test_yylex_string_double_escape_M_backslash
-    util_lex_token('"\\M-\\\\"',
-                   :tSTRING_BEG, "\"",
-                   :tSTRING_CONTENT, "\334",
-                   :tSTRING_END, "\"")
-  end
-
-  def test_yylex_string_double_escape_M_escape
-    util_lex_token('"\\M-\\C-a"',
-                   :tSTRING_BEG, "\"",
-                   :tSTRING_CONTENT, "\201",
-                   :tSTRING_END, "\"")
-  end
-
   def test_yylex_string_double_escape_C
     util_lex_token('"\\C-a"',
                    :tSTRING, "\001")
@@ -1464,6 +1445,35 @@ class TestRubyLexer < MiniTest::Unit::TestCase
   def test_yylex_string_double_escape_C_question
     util_lex_token('"\\C-?"',
                    :tSTRING, "\177")
+  end
+
+  def test_yylex_string_double_escape_M
+    util_lex_token('"\\M-a"',
+                   :tSTRING, "\341")
+  end
+
+  def test_yylex_string_double_escape_M_backslash
+    util_lex_token('"\\M-\\\\"',
+                   :tSTRING_BEG, "\"",
+                   :tSTRING_CONTENT, "\334",
+                   :tSTRING_END, "\"")
+  end
+
+  def test_yylex_string_double_escape_M_escape
+    util_lex_token('"\\M-\\C-a"',
+                   :tSTRING_BEG, "\"",
+                   :tSTRING_CONTENT, "\201",
+                   :tSTRING_END, "\"")
+  end
+
+  def test_yylex_string_double_escape_bs1
+    util_lex_token('"a\\a\\a"',
+                   :tSTRING, "a\a\a")
+  end
+
+  def test_yylex_string_double_escape_bs2
+    util_lex_token('"a\\\\a"',
+                   :tSTRING, "a\\a")
   end
 
   def test_yylex_string_double_escape_c
@@ -1490,11 +1500,6 @@ class TestRubyLexer < MiniTest::Unit::TestCase
                    :tSTRING, "\177")
   end
 
-  def test_yylex_string_escape_x_single
-    util_lex_token('"\\x0"',
-                   :tSTRING, "\000")
-  end
-
   def test_yylex_string_double_escape_chars
     util_lex_token('"s\\tri\\ng"',
                    :tSTRING, "s\tri\ng")
@@ -1503,16 +1508,6 @@ class TestRubyLexer < MiniTest::Unit::TestCase
   def test_yylex_string_double_escape_hex
     util_lex_token('"n = \\x61\\x62\\x63"',
                    :tSTRING, "n = abc")
-  end
-
-  def test_yylex_string_double_escape_bs1
-    util_lex_token('"a\\a\\a"',
-                   :tSTRING, "a\a\a")
-  end
-
-  def test_yylex_string_double_escape_bs2
-    util_lex_token('"a\\\\a"',
-                   :tSTRING, "a\\a")
   end
 
   def test_yylex_string_double_escape_octal
@@ -1546,6 +1541,11 @@ class TestRubyLexer < MiniTest::Unit::TestCase
 
     util_lex_token("\"blah # blah\"",                           # pound not first
                    :tSTRING, "blah # blah")
+  end
+
+  def test_yylex_string_escape_x_single
+    util_lex_token('"\\x0"',
+                   :tSTRING, "\000")
   end
 
   def test_yylex_string_pct_Q
