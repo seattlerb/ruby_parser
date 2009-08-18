@@ -4,7 +4,7 @@ class RubyLexer
   attr_accessor :cond
   attr_accessor :nest
 
-  ESC_RE = /\\([0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-.|(C-|c)\?|(C-|c).|[^0-7xMCc])/
+  ESC_RE = /\\([0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc])/
 
   # Additional context surrounding tokens that both the lexer and
   # grammar use.
@@ -407,7 +407,8 @@ class RubyLexer
       src.matched.to_i(8).chr
     when src.scan(/x([0-9a-fA-F]{1,2})/) then # hex constant
       src[1].to_i(16).chr
-    when src.scan(/M-\\/) then
+    when src.check(/M-\\[\\MCc]/) then
+      src.scan(/M-\\/) # eat it
       c = self.read_escape
       c[0] = (c[0].ord | 0x80).chr
       c
@@ -415,12 +416,13 @@ class RubyLexer
       c = src[1]
       c[0] = (c[0].ord | 0x80).chr
       c
-    when src.scan(/C-\\|c\\/) then
+    when src.check(/(C-|c)\\[\\MCc]/) then
+      src.scan(/(C-|c)\\/) # eat it
       c = self.read_escape
       c[0] = (c[0].ord & 0x9f).chr
       c
     when src.scan(/C-\?|c\?/) then
-      0177.chr
+      127.chr
     when src.scan(/(C-|c)(.)/) then
       c = src[2]
       c[0] = (c[0].ord & 0x9f).chr
@@ -582,8 +584,8 @@ class RubyLexer
       "v"    => "\13",
       "\\"   => '\\',
       "\n"   => "",
-      "C-\?" => 0177.chr,
-      "c\?"  => 0177.chr,
+      "C-\?" => 127.chr,
+      "c\?"  => 127.chr,
     }[s]
 
     return r if r

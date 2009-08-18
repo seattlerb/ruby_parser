@@ -1424,8 +1424,70 @@ class TestRubyLexer < MiniTest::Unit::TestCase
   end
 
   def test_yylex_string_double_escape_M
-    util_lex_token('"\\M-g"',
-                   :tSTRING, "\347")
+    util_lex_token('"\\M-a"',
+                   :tSTRING, "\341")
+  end
+
+  def test_yylex_string_double_escape_M_backslash
+    util_lex_token('"\\M-\\\\"',
+                   :tSTRING_BEG, "\"",
+                   :tSTRING_CONTENT, "\334",
+                   :tSTRING_END, "\"")
+  end
+
+  def test_yylex_string_double_escape_M_escape
+    util_lex_token('"\\M-\\C-a"',
+                   :tSTRING_BEG, "\"",
+                   :tSTRING_CONTENT, "\201",
+                   :tSTRING_END, "\"")
+  end
+
+  def test_yylex_string_double_escape_C
+    util_lex_token('"\\C-a"',
+                   :tSTRING, "\001")
+  end
+
+  def test_yylex_string_double_escape_C_backslash
+    util_lex_token('"\\C-\\\\"',
+                   :tSTRING_BEG, "\"",
+                   :tSTRING_CONTENT, "\034",
+                   :tSTRING_END, "\"")
+  end
+
+  def test_yylex_string_double_escape_C_escape
+    util_lex_token('"\\C-\\M-a"',
+                   :tSTRING_BEG, "\"",
+                   :tSTRING_CONTENT, "\201",
+                   :tSTRING_END, "\"")
+  end
+
+  def test_yylex_string_double_escape_C_question
+    util_lex_token('"\\C-?"',
+                   :tSTRING, "\177")
+  end
+
+  def test_yylex_string_double_escape_c
+    util_lex_token('"\\ca"',
+                   :tSTRING, "\001")
+  end
+
+  def test_yylex_string_double_escape_c_backslash
+    util_lex_token('"\\c\\"',
+                   :tSTRING_BEG, "\"",
+                   :tSTRING_CONTENT, "\034",
+                   :tSTRING_END, "\"")
+  end
+
+  def test_yylex_string_double_escape_c_escape
+    util_lex_token('"\\c\\M-a"',
+                   :tSTRING_BEG, "\"",
+                   :tSTRING_CONTENT, "\201",
+                   :tSTRING_END, "\"")
+  end
+
+  def test_yylex_string_double_escape_c_question
+    util_lex_token('"\\c?"',
+                   :tSTRING, "\177")
   end
 
   def test_yylex_string_escape_x_single
