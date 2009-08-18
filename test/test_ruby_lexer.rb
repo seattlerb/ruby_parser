@@ -832,6 +832,22 @@ class TestRubyLexer < MiniTest::Unit::TestCase
     util_bad_token "01__23"
   end
 
+  def test_yylex_integer_oct_O
+    util_lex_token "0O52", :tINTEGER, 42
+  end
+
+  def test_yylex_integer_oct_O_bad_range
+    util_bad_token "0O8"
+  end
+
+  def test_yylex_integer_oct_O_bad_underscores
+    util_bad_token "0O1__23"
+  end
+
+  def test_yylex_integer_oct_O_not_bad_none
+    util_lex_token "0O ", :tINTEGER, 0
+  end
+
   def test_yylex_integer_oct_o
     util_lex_token "0o52", :tINTEGER, 42
   end
@@ -1616,6 +1632,14 @@ class TestRubyLexer < MiniTest::Unit::TestCase
                    :tSTRING_CONTENT, "s 1",
                    :tSPACE,              nil,
                    :tSTRING_CONTENT, "s 2",
+                   :tSPACE,              nil,
+                   :tSTRING_END,     nil)
+  end
+
+  def test_yylex_string_pct_w_tab
+    util_lex_token("%w[abc\tdef]",
+                   :tAWORDS_BEG,      "%w[",
+                   :tSTRING_CONTENT, "abc\tdef",
                    :tSPACE,              nil,
                    :tSTRING_END,     nil)
   end

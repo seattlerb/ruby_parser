@@ -365,6 +365,22 @@ class TestRubyParser < RubyParserTestCase
     assert_equal pt, @processor.parse(rb)
   end
 
+  def test_regexp
+    regexps = {
+      "/wtf/" => /wtf/,
+      "/wtf/n" => /wtf/n,
+      "/wtf/m" => /wtf/m,
+      "/wtf/nm" => /wtf/nm,
+      "/wtf/nmnmnmnm" => /wtf/nm,
+    }
+
+    regexps.each do |rb, lit|
+      assert_equal s(:lit, lit), @processor.parse(rb)
+    end
+
+    # TODO: add more including interpolation etc
+  end
+
   def test_str_pct_Q_nested
     rb = "%Q[before [#\{nest}] after]"
     pt = s(:dstr, "before [", s(:evstr, s(:call, nil, :nest, s(:arglist))), s(:str, "] after"))

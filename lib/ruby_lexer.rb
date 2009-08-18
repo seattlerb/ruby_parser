@@ -244,9 +244,9 @@ class RubyLexer
       int_with_base(2)
     when src.scan(/[+-]?0d[0-9_]+/) then
       int_with_base(10)
-    when src.scan(/[+-]?0o?[0-7_]*[89]/) then
+    when src.scan(/[+-]?0[Oo]?[0-7_]*[89]/) then
       rb_compile_error "Illegal octal digit."
-    when src.scan(/[+-]?0o?[0-7_]+|0o/) then
+    when src.scan(/[+-]?0[Oo]?[0-7_]+|0[Oo]/) then
       int_with_base(8)
     when src.scan(/[+-]?[\d_]+_(e|\.)/) then
       rb_compile_error "Trailing '_' in number."

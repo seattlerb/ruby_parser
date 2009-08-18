@@ -591,7 +591,7 @@ class RubyParser < Racc::Parser
     options = val[2]
 
     o, k = 0, nil
-    options.split(//).each do |c| # FIX: this has a better home
+    options.split(//).uniq.each do |c| # FIX: this has a better home
       v = {
         'x' => Regexp::EXTENDED,
         'i' => Regexp::IGNORECASE,
