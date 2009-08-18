@@ -1,16 +1,18 @@
 # -*- ruby -*-
 
 require 'autotest/restart'
-require 'autotest/rcov'
+require 'autotest/rcov' if ENV['RCOV']
 
 Autotest.add_hook :initialize do |at|
   at.extra_files << "../../ParseTree/dev/test/pt_testcase.rb"
-  at.libs << ":../../ParseTree/dev/lib:../../ParseTree/dev/test:../../sexp_processor/dev/lib"
+  at.libs << ":../../ParseTree/dev/test:../../sexp_processor/dev/lib"
   at.add_exception 'unit'
   at.add_exception 'coverage'
   at.add_exception 'coverage.info'
   at.add_exception '.diff'
 
+  at.libs << ':../../minitest/dev/lib'
+  at.testlib = "minitest/autorun"
   at.unit_diff = "unit_diff -u -b"
 
   at.add_mapping(/^lib\/.*\.y$/) do |f, _|
