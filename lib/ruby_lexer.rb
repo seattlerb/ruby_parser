@@ -46,6 +46,20 @@ class RubyLexer
   STR_SSYM   = STR_FUNC_SYMBOL
   STR_DSYM   = STR_FUNC_SYMBOL | STR_FUNC_EXPAND
 
+  TOKENS = {
+    "!"   => :tBANG,
+    "!="  => :tNEQ,
+    "!~"  => :tNMATCH,
+    ","   => :tCOMMA,
+    ".."  => :tDOT2,
+    "..." => :tDOT3,
+    "="   => :tEQL,
+    "=="  => :tEQ,
+    "===" => :tEQQ,
+    "=>"  => :tASSOC,
+    "=~"  => :tMATCH,
+  }
+
   # How the parser advances to the next token.
   #
   # @return true if not at end of file (EOF).
@@ -633,7 +647,7 @@ class RubyLexer
     last_state = lex_state
 
     loop do # START OF CASE
-      if src.scan(/\ |\t|\r|\f|\13/) then # white spaces, 13 = '\v
+      if src.scan(/[\ \t\r\f\v]/) then # \s - \n + \v
         space_seen = true
         next
       elsif src.check(/[^a-zA-Z]/) then
@@ -674,29 +688,22 @@ class RubyLexer
             "}" => :tRCURLY
           }[src.matched]
           return result
+        elsif src.scan(/\.\.\.?|,|![=~]?/) then
+          self.lex_state = :expr_beg
+          tok = self.yacc_value = src.matched
+          return TOKENS[tok]
         elsif src.check(/\./) then
-          if src.scan(/\.\.\./) then
-            self.lex_state = :expr_beg
-            self.yacc_value = "..."
-            return :tDOT3
-          elsif src.scan(/\.\./) then
-            self.lex_state = :expr_beg
-            self.yacc_value = ".."
-            return :tDOT2
-          elsif src.scan(/\.\d/) then
+          if src.scan(/\.\d/) then
             rb_compile_error "no .<digit> floating literal anymore put 0 before dot"
           elsif src.scan(/\./) then
             self.lex_state = :expr_dot
             self.yacc_value = "."
             return :tDOT
           end
-        elsif src.scan(/\,/) then
-          self.lex_state = :expr_beg
-          self.yacc_value = ","
-          return :tCOMMA
         elsif src.scan(/\(/) then
           result = :tLPAREN2
           self.command_start = true
+
           if lex_state == :expr_beg || lex_state == :expr_mid then
             result = :tLPAREN
           elsif space_seen then
@@ -712,39 +719,24 @@ class RubyLexer
 
           return result
         elsif src.check(/\=/) then
-          if src.scan(/\=\=\=/) then
+          if src.scan(/\=\=\=|\=\=|\=~|\=>|\=(?!begin\b)/) then
             self.fix_arg_lex_state
-            self.yacc_value = "==="
-            return :tEQQ
-          elsif src.scan(/\=\=/) then
-            self.fix_arg_lex_state
-            self.yacc_value = "=="
-            return :tEQ
-          elsif src.scan(/\=~/) then
-            self.fix_arg_lex_state
-            self.yacc_value = "=~"
-            return :tMATCH
-          elsif src.scan(/\=>/) then
-            self.fix_arg_lex_state
-            self.yacc_value = "=>"
-            return :tASSOC
-          elsif src.scan(/\=/) then
-            if src.was_begin_of_line and src.scan(/begin(?=\s)/) then
-              @comments << '=' << src.matched
+            tok = self.yacc_value = src.matched
+            return TOKENS[tok]
+          elsif src.was_begin_of_line and src.scan(/\=begin(?=\s)/) then
+            # @comments << '=' << src.matched
+            @comments << src.matched
 
-              unless src.scan(/.*?\n=end\s*(\n|\z)/m) then
-                @comments.clear
-                rb_compile_error("embedded document meets end of file")
-              end
-
-              @comments << src.matched
-
-              next
-            else
-              self.fix_arg_lex_state
-              self.yacc_value = '='
-              return :tEQL
+            unless src.scan(/.*?\n=end\s*(\n|\z)/m) then
+              @comments.clear
+              rb_compile_error("embedded document meets end of file")
             end
+
+            @comments << src.matched
+
+            next
+          else
+            raise "you shouldn't be able to get here"
           end
         elsif src.scan(/\"(#{ESC_RE}|#(#{ESC_RE}|[^\{\#\@\$\"\\])|[^\"\\\#])*\"/o) then
           self.yacc_value = src.matched[1..-2].gsub(ESC_RE) { unescape $1 }
@@ -931,20 +923,6 @@ class RubyLexer
             self.fix_arg_lex_state
 
             return result
-          end
-        elsif src.check(/\!/) then
-          if src.scan(/\!\=/) then
-            self.lex_state = :expr_beg
-            self.yacc_value = "!="
-            return :tNEQ
-          elsif src.scan(/\!~/) then
-            self.lex_state = :expr_beg
-            self.yacc_value = "!~"
-            return :tNMATCH
-          elsif src.scan(/\!/) then
-            self.lex_state = :expr_beg
-            self.yacc_value = "!"
-            return :tBANG
           end
         elsif src.check(/\</) then
           if src.scan(/\<\=\>/) then
