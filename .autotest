@@ -23,7 +23,7 @@ Autotest.add_hook :initialize do |at|
     at.files_matching(/test_.*rb$/)
   end
 
-  %w(TestEnvironment TestStackState).each do |klass|
+  %w(TestRPEnvironment TestStackState).each do |klass|
     at.extra_class_map[klass] = "test/test_ruby_parser_extras.rb"
   end
 

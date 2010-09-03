@@ -339,7 +339,7 @@ class RubyParser < Racc::Parser
     super
     self.lexer = RubyLexer.new
     self.lexer.parser = self
-    @env = Environment.new
+    @env = RPEnvironment.new
     @comments = []
 
     self.reset
@@ -891,7 +891,7 @@ class Keyword
   end
 end
 
-class Environment
+class RPEnvironment
   attr_reader :env, :dyn
 
   def [] k

@@ -50,13 +50,13 @@ class TestStackState < MiniTest::Unit::TestCase
   end
 end
 
-class TestEnvironment < MiniTest::Unit::TestCase
+class TestRPEnvironment < MiniTest::Unit::TestCase
   def deny t
     assert ! t
   end
 
   def setup
-    @env = Environment.new
+    @env = RPEnvironment.new
     @env[:blah] = 42
     assert_equal 42, @env[:blah]
   end
