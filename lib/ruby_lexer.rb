@@ -231,7 +231,7 @@ class RubyLexer
   end
 
   def lex_state= o
-    raise "wtf?" unless Symbol === o
+    raise "wtf\?" unless Symbol === o
     @lex_state = o
   end
 
@@ -655,7 +655,7 @@ class RubyLexer
           self.lineno = nil
           c = src.matched
           if c == '#' then
-            src.unread c # ok
+            src.pos -= 1
 
             while src.scan(/\s*#.*(\n+|\z)/) do
               @comments << src.matched.gsub(/^ +#/, '#').gsub(/^ +$/, '')
@@ -723,7 +723,7 @@ class RubyLexer
             self.fix_arg_lex_state
             tok = self.yacc_value = src.matched
             return TOKENS[tok]
-          elsif src.was_begin_of_line and src.scan(/\=begin(?=\s)/) then
+          elsif src.scan(/\=begin(?=\s)/) then
             # @comments << '=' << src.matched
             @comments << src.matched
 

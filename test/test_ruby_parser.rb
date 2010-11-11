@@ -175,6 +175,15 @@ class TestRubyParser < RubyParserTestCase
     assert_equal pt, @processor.parse(rb)
   end
 
+  def test_bug_comment_eq_begin
+    rb = "\n\n#\n=begin\nblah\n=end\n\n"
+    pt = nil
+    exp = rb[2..-1]
+
+    assert_equal pt, @processor.parse(rb)
+    assert_equal exp, @processor.lexer.comments
+  end
+
   def test_dstr_evstr
     rb = "\"#\{'a'}#\{b}\""
     pt = s(:dstr, "a", s(:evstr, s(:call, nil, :b, s(:arglist))))
