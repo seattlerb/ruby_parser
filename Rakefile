@@ -4,12 +4,13 @@ require 'rubygems'
 require 'hoe'
 
 Hoe.plugin :seattlerb
+Hoe.plugin :racc
 
 Hoe.add_include_dirs("../../ParseTree/dev/test",
                      "../../RubyInline/dev/lib",
                      "../../sexp_processor/dev/lib")
 
-hoe = Hoe.spec 'ruby_parser' do
+Hoe.spec 'ruby_parser' do
   developer 'Ryan Davis', 'ryand-ruby@zenspider.com'
 
   self.rubyforge_name = 'parsetree'
@@ -18,35 +19,11 @@ hoe = Hoe.spec 'ruby_parser' do
   extra_deps     << ['sexp_processor', '~> 3.0']
 end
 
-hoe.spec.files += ['lib/ruby_parser.rb'] # jim.... cmon man
-
-[:default, :multi, :test].each do |t|
-  task t => :parser
-end
-
-path = "pkg/ruby_parser-#{hoe.version}"
-task path => :parser do
-  Dir.chdir path do
-    sh "rake parser"
-  end
-end
-
-desc "build the parser"
-task :parser => ["lib/ruby_parser.rb"]
-
-rule '.rb' => '.y' do |t|
-  # -v = verbose
-  # -t = debugging parser ~4% reduction in speed -- keep for now
-  # -l = no-line-convert
-  sh "racc -v -t -l -o #{t.name} #{t.source}"
-end
-
 task :clean do
   rm_rf(Dir["**/*~"] +
         Dir["**/*.diff"] +
         Dir["coverage.info"] +
         Dir["coverage"] +
-        Dir["lib/ruby_parser.rb"] +
         Dir["lib/*.output"])
 end
 
