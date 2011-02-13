@@ -422,13 +422,13 @@ class TestRubyParser < RubyParserTestCase
     "case_nested_inner_no_expr"          => 2,
     "case_no_expr"                       => 2,
     "case_splat"                         => 2,
-    "dstr_heredoc_expand"                => 2,
-    "dstr_heredoc_windoze_sucks"         => 2,
-    "dstr_heredoc_yet_again"             => 2,
-    "str_heredoc"                        => 2,
-    "str_heredoc_call"                   => 2,
-    "str_heredoc_empty"                  => 2,
-    "str_heredoc_indent"                 => 2,
+    "dstr_heredoc_expand"                => 1,
+    "dstr_heredoc_windoze_sucks"         => 1,
+    "dstr_heredoc_yet_again"             => 1,
+    "str_heredoc"                        => 1,
+    "str_heredoc_call"                   => 1,
+    "str_heredoc_empty"                  => 1,
+    "str_heredoc_indent"                 => 1,
     "structure_unused_literal_wwtt"      => 3, # yes, 3... odd test
     "undef_block_1"                      => 2,
     "undef_block_2"                      => 2,
@@ -486,4 +486,15 @@ class TestRubyParser < RubyParserTestCase
     assert_equal 3, body.lasgn.line,  "lasgn should have line number"
     assert_equal 4, body.return.line, "return should have line number"
   end
+  def test_line_number_after_heredoc
+    rb = <<-CODE
+      string = <<-HEREDOC.size
+        very long string
+      HEREDOC
+      puts 'some code'
+    CODE
+    result = @processor.parse(rb)
+    assert_equal 4, result[2].line
+  end
+
 end
