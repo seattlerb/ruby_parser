@@ -1,3 +1,13 @@
+=== 2.0.6 / 2011-02-18
+
+* 1 minor enhancement:
+
+  * Switched to hoe's racc plugin to clean up rakefile and builds
+
+* 1 bug fix:
+
+  * Fixed empty =begin/end.
+
 === 2.0.5 / 2010-09-01
 
 * 1 minor enhancement:
