@@ -17,6 +17,8 @@ Hoe.spec 'ruby_parser' do
 
   extra_dev_deps << ['ParseTree',      '~> 3.0']
   extra_deps     << ['sexp_processor', '~> 3.0']
+
+  self.perforce_ignore << "lib/ruby_parser.rb" if plugin? :perforce
 end
 
 task :clean do
