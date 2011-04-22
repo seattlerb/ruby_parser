@@ -815,7 +815,7 @@ class RubyParser < Racc::Parser
   end
 end
 
-class Keyword
+class RPKeyword
   class KWtable
     attr_accessor :name, :state, :id0, :id1
     def initialize(name, id=[], state=nil)

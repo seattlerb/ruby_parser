@@ -1244,7 +1244,7 @@ class RubyLexer
 
       unless lex_state == :expr_dot then
         # See if it is a reserved word.
-        keyword = Keyword.keyword token
+        keyword = RPKeyword.keyword token
 
         if keyword then
           state           = lex_state
