@@ -335,12 +335,29 @@ class RubyParser < Racc::Parser
     raise "identifier #{id.inspect} is not valid"
   end
 
-  def initialize
-    super
+  # @param [Hash] options
+  #     Configuration options for the parser,
+  # @option options [Boolean] :canonical_not_conditions
+  #     Should be true (the default) if the parser should emulate MRI's
+  #     handling of 'not' conditions in if, while and until statements. In the
+  #     case of ifs, this means the 'not' is stripped and the 'true' and
+  #     'false' blocks are switched. In the case of while and until, the 'not'
+  #     is also stripped and while and until replace each-other.
+  #     When this option is set to false, conditions will more closely resemble
+  #     what was entered by the programmer, which can be useful if this parser
+  #     is used for instrumentation purposes and the condition is presented to
+  #     the programmer at a later point in time.
+  #
+  def initialize(options = {})
+    super()
     self.lexer = RubyLexer.new
     self.lexer.parser = self
     @env = Environment.new
     @comments = []
+
+    # Handle the options
+    @canonical_not_conditions = options[:canonical_not_conditions]
+    @canonical_not_conditions = true if @canonical_not_conditions.nil?
 
     self.reset
   end
@@ -534,7 +551,7 @@ class RubyParser < Racc::Parser
   def new_if c, t, f
     l = [c.line, t && t.line, f && f.line].compact.min
     c = cond c
-    c, t, f = c.last, f, t if c[0] == :not
+    c, t, f = c.last, f, t if (c[0] == :not and @canonical_not_conditions)
     s(:if, c, t, f).line(l)
   end
 
@@ -659,8 +676,14 @@ class RubyParser < Racc::Parser
   end
 
   def new_until block, expr, pre
-    expr = (expr.first == :not ? expr.last : s(:not, expr)).line(expr.line)
-    new_while block, expr, pre
+    if @canonical_not_conditions
+      expr = (expr.first == :not ? expr.last : s(:not, expr)).line(expr.line)
+      new_while block, expr, pre
+    else
+      line = [block && block.line, expr.line].compact.min
+      block, pre = block.last, false if block && block[0] == :begin
+      s(:until, expr.last, block, pre).line(line)
+    end
   end
 
   def new_while block, expr, pre
@@ -668,7 +691,7 @@ class RubyParser < Racc::Parser
     block, pre = block.last, false if block && block[0] == :begin
 
     expr = cond expr
-    result = if expr.first == :not then
+    result = if (expr.first == :not and @canonical_not_conditions) then
                s(:until, expr.last, block, pre)
              else
                s(:while, expr, block, pre)
