@@ -682,7 +682,7 @@ class RubyParser < Racc::Parser
     else
       line = [block && block.line, expr.line].compact.min
       block, pre = block.last, false if block && block[0] == :begin
-      s(:until, expr.last, block, pre).line(line)
+      s(:until, expr, block, pre).line(line)
     end
   end
 
