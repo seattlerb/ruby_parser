@@ -1,6 +1,7 @@
 = ruby_parser
 
-* http://parsetree.rubyforge.org/
+home :: https://github.com/seattlerb/ruby_parser
+rdoc :: http://parsetree.rubyforge.org/ruby_parser
 
 == DESCRIPTION:
 
