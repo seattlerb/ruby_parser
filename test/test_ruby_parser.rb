@@ -36,6 +36,8 @@ class TestRubyParser < RubyParserTestCase
     # puts self.name
 
     @processor = RubyParser.new
+    @non_canonical_processor =
+        RubyParser.new({:canonical_not_conditions => false})
   end
 
   def test_attrasgn_array_lhs
@@ -485,5 +487,64 @@ class TestRubyParser < RubyParserTestCase
     assert_equal 2, body.call.line,   "call should have line number"
     assert_equal 3, body.lasgn.line,  "lasgn should have line number"
     assert_equal 4, body.return.line, "return should have line number"
+  end
+
+  def test_canonical_not_conditions_in_if
+    rb = "if not var.nil? then 'foo' else 'bar'\nend"
+    # Without passing options to the RubyParser
+    pt = s(:if,
+           s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist)),
+           s(:str, "bar"),
+           s(:str, "foo"))
+
+    assert_equal pt, @processor.parse(rb)
+
+    # With explicitly passing the option to not use the 'canonical' not
+    # conditions
+    pt = s(:if,
+           s(:not,
+             s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist))),
+           s(:str, "foo"),
+           s(:str, "bar"))
+
+    assert_equal pt, @non_canonical_processor.parse(rb)
+  end
+
+  def test_canonical_not_conditions_in_while
+    rb = "while not var.nil?\n  'foo'\nend"
+    # Without passing options to the RubyParser
+    pt = s(:until,
+           s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist)),
+           s(:str, "foo"), true)
+
+    assert_equal pt, @processor.parse(rb)
+
+    # With explicitly passing the option to not use the 'canonical' not
+    # conditions
+    pt = s(:while,
+           s(:not,
+             s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist))),
+           s(:str, "foo"), true)
+
+    assert_equal pt, @non_canonical_processor.parse(rb)
+  end
+
+  def test_canonical_not_conditions_in_until
+    rb = "until not var.nil?\n  'foo'\nend"
+    # Without passing options to the RubyParser
+    pt = s(:while,
+           s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist)),
+           s(:str, "foo"), true)
+
+    assert_equal pt, @processor.parse(rb)
+
+    # With explicitly passing the option to not use the 'canonical' not
+    # conditions
+    pt = s(:until,
+           s(:not,
+             s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist))),
+           s(:str, "foo"), true)
+
+    assert_equal pt, @non_canonical_processor.parse(rb)
   end
 end
