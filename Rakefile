@@ -5,18 +5,16 @@ require 'hoe'
 
 Hoe.plugin :seattlerb
 Hoe.plugin :racc
+Hoe.plugin :isolate
 
-Hoe.add_include_dirs("../../ParseTree/dev/test",
-                     "../../RubyInline/dev/lib",
-                     "../../sexp_processor/dev/lib")
+Hoe.add_include_dirs "../../sexp_processor/dev/lib"
 
 Hoe.spec 'ruby_parser' do
   developer 'Ryan Davis', 'ryand-ruby@zenspider.com'
 
   self.rubyforge_name = 'parsetree'
 
-  extra_dev_deps << ['ParseTree',      '~> 3.0']
-  extra_deps     << ['sexp_processor', '~> 3.0']
+  dependency 'sexp_processor', '~> 3.0'
 
   self.perforce_ignore << "lib/ruby_parser.rb" if plugin? :perforce
 end

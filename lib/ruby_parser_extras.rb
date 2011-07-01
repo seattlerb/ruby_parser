@@ -335,19 +335,17 @@ class RubyParser < Racc::Parser
     raise "identifier #{id.inspect} is not valid"
   end
 
-  # @param [Hash] options
-  #     Configuration options for the parser,
-  # @option options [Boolean] :canonical_not_conditions
-  #     Should be true (the default) if the parser should emulate MRI's
-  #     handling of 'not' conditions in if, while and until statements. In the
-  #     case of ifs, this means the 'not' is stripped and the 'true' and
-  #     'false' blocks are switched. In the case of while and until, the 'not'
-  #     is also stripped and while and until replace each-other.
-  #     When this option is set to false, conditions will more closely resemble
-  #     what was entered by the programmer, which can be useful if this parser
-  #     is used for instrumentation purposes and the condition is presented to
-  #     the programmer at a later point in time.
+  ##
+  # Canonicalize conditionals. Eg:
   #
+  #   not x ? a : b
+  #
+  # becomes:
+  #
+  #   x ? b : a
+
+  attr_accessor :canonicalize_conditions
+
   def initialize(options = {})
     super()
     self.lexer = RubyLexer.new
@@ -355,9 +353,7 @@ class RubyParser < Racc::Parser
     @env = Environment.new
     @comments = []
 
-    # Handle the options
-    @canonical_not_conditions = options[:canonical_not_conditions]
-    @canonical_not_conditions = true if @canonical_not_conditions.nil?
+    @canonicalize_conditions = true
 
     self.reset
   end
@@ -551,7 +547,7 @@ class RubyParser < Racc::Parser
   def new_if c, t, f
     l = [c.line, t && t.line, f && f.line].compact.min
     c = cond c
-    c, t, f = c.last, f, t if (c[0] == :not and @canonical_not_conditions)
+    c, t, f = c.last, f, t if c[0] == :not and canonicalize_conditions
     s(:if, c, t, f).line(l)
   end
 
@@ -675,30 +671,29 @@ class RubyParser < Racc::Parser
     end
   end
 
-  def new_until block, expr, pre
-    if @canonical_not_conditions
-      expr = (expr.first == :not ? expr.last : s(:not, expr)).line(expr.line)
-      new_while block, expr, pre
-    else
-      line = [block && block.line, expr.line].compact.min
-      block, pre = block.last, false if block && block[0] == :begin
-      s(:until, expr, block, pre).line(line)
-    end
-  end
-
-  def new_while block, expr, pre
+  def new_until_or_while type, block, expr, pre
+    other = type == :until ? :while : :until
     line = [block && block.line, expr.line].compact.min
     block, pre = block.last, false if block && block[0] == :begin
 
     expr = cond expr
-    result = if (expr.first == :not and @canonical_not_conditions) then
-               s(:until, expr.last, block, pre)
+
+    result = unless expr.first == :not and canonicalize_conditions then
+               s(type,  expr,      block, pre)
              else
-               s(:while, expr, block, pre)
+               s(other, expr.last, block, pre)
              end
 
     result.line = line
     result
+  end
+
+  def new_until block, expr, pre
+    new_until_or_while :until, block, expr, pre
+  end
+
+  def new_while block, expr, pre
+    new_until_or_while :while, block, expr, pre
   end
 
   def new_xstring str
