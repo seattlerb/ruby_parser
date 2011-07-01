@@ -33,8 +33,6 @@ class TestRubyParser < RubyParserTestCase
   def setup
     super
 
-    # puts self.name
-
     @processor = RubyParser.new
   end
 
@@ -485,5 +483,72 @@ class TestRubyParser < RubyParserTestCase
     assert_equal 2, body.call.line,   "call should have line number"
     assert_equal 3, body.lasgn.line,  "lasgn should have line number"
     assert_equal 4, body.return.line, "return should have line number"
+  end
+
+
+  def test_parse_if_not_canonical
+    rb = "if not var.nil? then 'foo' else 'bar'\nend"
+    pt = s(:if,
+           s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist)),
+           s(:str, "bar"),
+           s(:str, "foo"))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_parse_if_not_noncanonical
+    rb = "if not var.nil? then 'foo' else 'bar'\nend"
+    pt = s(:if,
+           s(:not,
+             s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist))),
+           s(:str, "foo"),
+           s(:str, "bar"))
+
+    @processor.canonicalize_conditions = false
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_parse_while_not_canonical
+    rb = "while not var.nil?\n  'foo'\nend"
+    pt = s(:until,
+           s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist)),
+           s(:str, "foo"), true)
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_parse_while_not_noncanonical
+    rb = "while not var.nil?\n  'foo'\nend"
+    pt = s(:while,
+           s(:not,
+             s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist))),
+           s(:str, "foo"), true)
+
+    @processor.canonicalize_conditions = false
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_parse_while_not_canonical
+    rb = "until not var.nil?\n  'foo'\nend"
+
+    pt = s(:while,
+           s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist)),
+           s(:str, "foo"), true)
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_parse_while_not_noncanonical
+    rb = "until not var.nil?\n  'foo'\nend"
+    pt = s(:until,
+           s(:not,
+             s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist))),
+           s(:str, "foo"), true)
+
+    @processor.canonicalize_conditions = false
+
+    assert_equal pt, @processor.parse(rb)
   end
 end
