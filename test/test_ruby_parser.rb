@@ -439,7 +439,7 @@ class TestRubyParser < RubyParserTestCase
     assert_equal expected, @result.line, "should have proper line number"
   end
 
-  def test_position_info
+  def test_position_info_block
     rb = "a = 42\np a"
     pt = s(:block,
            s(:lasgn, :a, s(:lit, 42)),
@@ -463,7 +463,7 @@ class TestRubyParser < RubyParserTestCase
     assert_same result.file, result.call.file
   end
 
-  def test_position_info2
+  def test_position_info_defn
     rb = "def x(y)\n  p(y)\n  y *= 2\n  return y;\nend" # TODO: remove () & ;
     pt = s(:defn, :x, s(:args, :y),
            s(:scope,
@@ -485,6 +485,18 @@ class TestRubyParser < RubyParserTestCase
     assert_equal 4, body.return.line, "return should have line number"
   end
 
+  def test_position_info_heredoc
+    rb = <<-CODE
+      string = <<-HEREDOC
+        very long string
+      HEREDOC
+      puts string
+    CODE
+
+    result = @processor.parse rb
+    assert_equal 1, result.lasgn.line
+    assert_equal 4, result.call.line
+  end
 
   def test_parse_if_not_canonical
     rb = "if not var.nil? then 'foo' else 'bar'\nend"
@@ -550,18 +562,5 @@ class TestRubyParser < RubyParserTestCase
     @processor.canonicalize_conditions = false
 
     assert_equal pt, @processor.parse(rb)
-  end
-
-  def test_line_number_after_heredoc
-    rb = <<-CODE
-      string = <<-HEREDOC
-        very long string
-      HEREDOC
-      puts string
-    CODE
-
-    result = @processor.parse rb
-    assert_equal 1, result.lasgn.line
-    assert_equal 4, result.call.line
   end
 end
