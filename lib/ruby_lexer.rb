@@ -199,6 +199,7 @@ class RubyLexer
       # TODO: think about storing off the char range instead
       line = src.string[src.pos, src.matched_size]
       src.string[src.pos, src.matched_size] = "\n"
+      src.extra_lines_added += 1
       src.pos += 1
     else
       line = nil
