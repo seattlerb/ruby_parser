@@ -530,7 +530,7 @@ class TestRubyParser < RubyParserTestCase
     assert_equal pt, @processor.parse(rb)
   end
 
-  def test_parse_while_not_canonical
+  def test_parse_until_not_canonical
     rb = "until not var.nil?\n  'foo'\nend"
 
     pt = s(:while,
@@ -540,7 +540,7 @@ class TestRubyParser < RubyParserTestCase
     assert_equal pt, @processor.parse(rb)
   end
 
-  def test_parse_while_not_noncanonical
+  def test_parse_until_not_noncanonical
     rb = "until not var.nil?\n  'foo'\nend"
     pt = s(:until,
            s(:not,
