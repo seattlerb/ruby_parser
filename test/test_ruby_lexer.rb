@@ -255,6 +255,11 @@ class TestRubyLexer < MiniTest::Unit::TestCase
     assert_equal "=begin blah\nblah\n=end\n", @lex.comments
   end
 
+  def test_yylex_comment_end_space_and_text
+    util_lex_token("=begin blah\nblah\n=end blab\n")
+    assert_equal "=begin blah\nblah\n=end blab\n", @lex.comments
+  end
+
   def test_yylex_comment_eos
     util_lex_token("# comment")
   end

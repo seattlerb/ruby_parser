@@ -176,7 +176,7 @@ class TestRubyParser < RubyParserTestCase
   def test_bug_comment_eq_begin
     rb = "\n\n#\n=begin\nblah\n=end\n\n"
     pt = nil
-    exp = rb[2..-1]
+    exp = rb.strip + "\n"
 
     assert_equal pt, @processor.parse(rb)
     assert_equal exp, @processor.lexer.comments
