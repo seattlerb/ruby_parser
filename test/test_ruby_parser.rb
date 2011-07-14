@@ -176,7 +176,7 @@ class TestRubyParser < RubyParserTestCase
   def test_bug_comment_eq_begin
     rb = "\n\n#\n=begin\nblah\n=end\n\n"
     pt = nil
-    exp = rb[2..-1]
+    exp = rb.strip + "\n"
 
     assert_equal pt, @processor.parse(rb)
     assert_equal exp, @processor.lexer.comments
@@ -420,13 +420,13 @@ class TestRubyParser < RubyParserTestCase
     "case_nested_inner_no_expr"          => 2,
     "case_no_expr"                       => 2,
     "case_splat"                         => 2,
-    "dstr_heredoc_expand"                => 2,
-    "dstr_heredoc_windoze_sucks"         => 2,
-    "dstr_heredoc_yet_again"             => 2,
-    "str_heredoc"                        => 2,
-    "str_heredoc_call"                   => 2,
-    "str_heredoc_empty"                  => 2,
-    "str_heredoc_indent"                 => 2,
+    "dstr_heredoc_expand"                => 1,
+    "dstr_heredoc_windoze_sucks"         => 1,
+    "dstr_heredoc_yet_again"             => 1,
+    "str_heredoc"                        => 1,
+    "str_heredoc_call"                   => 1,
+    "str_heredoc_empty"                  => 1,
+    "str_heredoc_indent"                 => 1,
     "structure_unused_literal_wwtt"      => 3, # yes, 3... odd test
     "undef_block_1"                      => 2,
     "undef_block_2"                      => 2,
@@ -439,7 +439,7 @@ class TestRubyParser < RubyParserTestCase
     assert_equal expected, @result.line, "should have proper line number"
   end
 
-  def test_position_info
+  def test_position_info_block
     rb = "a = 42\np a"
     pt = s(:block,
            s(:lasgn, :a, s(:lit, 42)),
@@ -463,7 +463,7 @@ class TestRubyParser < RubyParserTestCase
     assert_same result.file, result.call.file
   end
 
-  def test_position_info2
+  def test_position_info_defn
     rb = "def x(y)\n  p(y)\n  y *= 2\n  return y;\nend" # TODO: remove () & ;
     pt = s(:defn, :x, s(:args, :y),
            s(:scope,
@@ -485,6 +485,18 @@ class TestRubyParser < RubyParserTestCase
     assert_equal 4, body.return.line, "return should have line number"
   end
 
+  def test_position_info_heredoc
+    rb = <<-CODE
+      string = <<-HEREDOC
+        very long string
+      HEREDOC
+      puts string
+    CODE
+
+    result = @processor.parse rb
+    assert_equal 1, result.lasgn.line
+    assert_equal 4, result.call.line
+  end
 
   def test_parse_if_not_canonical
     rb = "if not var.nil? then 'foo' else 'bar'\nend"
@@ -530,7 +542,7 @@ class TestRubyParser < RubyParserTestCase
     assert_equal pt, @processor.parse(rb)
   end
 
-  def test_parse_while_not_canonical
+  def test_parse_until_not_canonical
     rb = "until not var.nil?\n  'foo'\nend"
 
     pt = s(:while,
@@ -540,7 +552,7 @@ class TestRubyParser < RubyParserTestCase
     assert_equal pt, @processor.parse(rb)
   end
 
-  def test_parse_while_not_noncanonical
+  def test_parse_until_not_noncanonical
     rb = "until not var.nil?\n  'foo'\nend"
     pt = s(:until,
            s(:not,

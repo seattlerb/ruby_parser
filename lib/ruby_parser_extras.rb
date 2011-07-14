@@ -29,13 +29,20 @@ class RPStringScanner < StringScanner
 #       old_getch
 #     end
 #   end
-
   def current_line # HAHA fuck you (HACK)
     string[0..pos][/\A.*__LINE__/m].split(/\n/).size
   end
 
+  def extra_lines_added
+    @extra_lines_added ||= 0
+  end
+
+  def extra_lines_added= val
+    @extra_lines_added = val
+  end
+
   def lineno
-    string[0...pos].count("\n") + 1
+    string[0...pos].count("\n") + 1 - extra_lines_added
   end
 
   # TODO: once we get rid of these, we can make things like
@@ -48,6 +55,7 @@ class RPStringScanner < StringScanner
 
   def unread_many str # TODO: remove this entirely - we should not need it
     warn({:unread_many => caller[0]}.inspect) if ENV['TALLY']
+    self.extra_lines_added += str.count("\n")
     string[pos, 0] = str
   end
 

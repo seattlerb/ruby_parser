@@ -199,6 +199,7 @@ class RubyLexer
       # TODO: think about storing off the char range instead
       line = src.string[src.pos, src.matched_size]
       src.string[src.pos, src.matched_size] = "\n"
+      src.extra_lines_added += 1
       src.pos += 1
     else
       line = nil
@@ -727,7 +728,7 @@ class RubyLexer
             # @comments << '=' << src.matched
             @comments << src.matched
 
-            unless src.scan(/.*?\n=end\s*(\n|\z)/m) then
+            unless src.scan(/.*?\n=end( |\t|\f)*[^(\n|\z)]*(\n|\z)/m) then
               @comments.clear
               rb_compile_error("embedded document meets end of file")
             end
