@@ -128,15 +128,6 @@ class RubyParser < Racc::Parser
   attr_accessor :lexer, :in_def, :in_single, :file
   attr_reader :env, :comments
 
-  def append_to_block head, tail # FIX: wtf is this?!? switch to block_append
-    return head if tail.nil?
-    return tail if head.nil?
-
-    head = s(:block, head) unless head.node_type == :block
-    head << tail
-    head
-  end
-
   def arg_add(node1, node2) # TODO: nuke
     return s(:arglist, node2) unless node1
 
@@ -225,9 +216,9 @@ class RubyParser < Racc::Parser
     return result
   end
 
-  def block_append(head, tail, strip_tail_block=false)
-    return head unless tail
-    return tail unless head
+  def block_append(head, tail)
+    return head if tail.nil?
+    return tail if head.nil?
 
     case head[0]
     when :lit, :str then
@@ -237,13 +228,9 @@ class RubyParser < Racc::Parser
     line = [head.line, tail.line].compact.min
 
     head = remove_begin(head)
-    head = s(:block, head) unless head[0] == :block
+    head = s(:block, head) unless head.node_type == :block
 
-    if strip_tail_block and Sexp === tail and tail[0] == :block then
-      head.push(*tail.values)
-    else
-      head << tail
-    end
+    head << tail
 
     head.line = line
     head
