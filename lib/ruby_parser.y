@@ -1679,7 +1679,7 @@ xstring_contents: none
                     }
                 | f_optarg tCOMMA f_opt
                     {
-                      result = self.append_to_block val[0], val[2]
+                      result = self.block_append val[0], val[2]
                     }
 
     restarg_mark: tSTAR2 | tSTAR

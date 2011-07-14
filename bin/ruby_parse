@@ -1,6 +1,6 @@
-#!/usr/bin/env ruby
+#!/usr/bin/ruby -s
 
-$q ||= true
+$q ||= false
 $g ||= false
 
 require 'rubygems'
