@@ -1,3 +1,15 @@
+=== 2.1.0 / 2011-08-15
+
+* 2 minor enhancements:
+
+  * Added new accessor canonicalize_conditions to toggle conditional canonicalization (on by default). (confused)
+  * Awesome cleanup: Replaced call to append_block by block_append. (Confusion)
+
+* 2 bug fixes:
+
+  * Fixed handling last line of =begin/=end. (raybaxter)
+  * Fixed source line numbers after heredocs. (jbarreneche)
+
 === 2.0.6 / 2011-02-18
 
 * 1 minor enhancement:

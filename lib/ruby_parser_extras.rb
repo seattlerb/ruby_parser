@@ -123,7 +123,7 @@ class RPStringScanner < StringScanner
 end
 
 class RubyParser < Racc::Parser
-  VERSION = '2.0.6' unless constants.include? "VERSION" # SIGH
+  VERSION = '2.1.0' unless constants.include? "VERSION" # SIGH
 
   attr_accessor :lexer, :in_def, :in_single, :file
   attr_reader :env, :comments
