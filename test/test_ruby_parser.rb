@@ -372,19 +372,12 @@ class TestRubyParser < RubyParserTestCase
     assert_equal pt, @processor.parse(rb)
   end
 
-  def test_alias_symbol
-    rb = 'alias :<< :>>'
-    pt = s(:alias, s(:lit, :<<), s(:lit, :>>))
+  def test_dsym_to_sym
+    assert_equal(s(:alias, s(:lit, :<<), s(:lit, :>>)),
+                 @processor.parse('alias :<< :>>'))
 
-    assert_equal pt, @processor.parse(rb)
-  end
-
-  def test_alias_symbol_str
-    rb = 'alias :"<<" :">>"'
-
-    pt = s(:alias, s(:lit, :<<), s(:lit, :>>))
-
-    assert_equal pt, @processor.parse(rb)
+    assert_equal(s(:alias, s(:lit, :<<), s(:lit, :>>)),
+                 @processor.parse('alias :"<<" :">>"'))
   end
 
   def test_regexp

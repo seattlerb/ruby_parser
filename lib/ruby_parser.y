@@ -461,9 +461,10 @@ rule
                       result = val[0]
                     }
 
-                    # TODO: cruby has fsym and dsym
-           fitem: fname  { result = s(:lit, val[0].to_sym) }
-                | symbol { result = s(:lit, val[0]) }
+            fsym: fname | symbol
+
+           fitem: fsym { result = s(:lit, val[0].to_sym) }
+                | dsym
 
       undef_list: fitem
                     {
@@ -1506,11 +1507,6 @@ xstring_contents: none
 
 
           symbol: tSYMBEG sym
-                    {
-                      lexer.lex_state = :expr_end
-                      result = val[1].to_sym
-                    }
-                | tSYMBEG tSTRING_CONTENT tSTRING_END
                     {
                       lexer.lex_state = :expr_end
                       result = val[1].to_sym
