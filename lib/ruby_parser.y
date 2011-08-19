@@ -1510,6 +1510,11 @@ xstring_contents: none
                       lexer.lex_state = :expr_end
                       result = val[1].to_sym
                     }
+                | tSYMBEG tSTRING_CONTENT tSTRING_END
+                    {
+                      lexer.lex_state = :expr_end
+                      result = val[1].to_sym
+                    }
                 | tSYMBOL
                     {
                       result = val[0].to_sym

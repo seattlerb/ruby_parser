@@ -372,6 +372,21 @@ class TestRubyParser < RubyParserTestCase
     assert_equal pt, @processor.parse(rb)
   end
 
+  def test_alias_symbol
+    rb = 'alias :<< :>>'
+    pt = s(:alias, s(:lit, :<<), s(:lit, :>>))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
+  def test_alias_symbol_str
+    rb = 'alias :"<<" :">>"'
+
+    pt = s(:alias, s(:lit, :<<), s(:lit, :>>))
+
+    assert_equal pt, @processor.parse(rb)
+  end
+
   def test_regexp
     regexps = {
       "/wtf/" => /wtf/,

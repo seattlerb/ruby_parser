@@ -387,7 +387,6 @@ class RubyLexer
 
     self.yacc_value = string_buffer.join
 
-
     return :tSTRING_CONTENT
   end
 
