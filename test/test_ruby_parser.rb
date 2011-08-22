@@ -1,5 +1,7 @@
 #!/usr/local/bin/ruby
 
+ENV['VERBOSE'] = "1"
+
 require 'rubygems'
 require 'minitest/autorun'
 require 'ruby_parser'
@@ -469,6 +471,61 @@ class TestRubyParser < RubyParserTestCase
 
     assert_same result.file, result.lasgn.file
     assert_same result.file, result.call.file
+  end
+
+  def test_position_info_call_no_args
+    rb = "f do |x, y|\n  x + y\nend"
+
+    pt = s(:iter,
+           s(:call, nil, :f, s(:arglist)),
+           s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
+           s(:call, s(:lvar, :x), :+, s(:arglist, s(:lvar, :y))))
+
+    result = @processor.parse(rb)
+
+    assert_equal pt, result
+
+    assert_equal 1, result[1].line,   "call should have line number"
+    assert_equal 1, result.line,      "iter should have line number"
+    assert_equal 1, result[2].line,   "masgn should have line number"
+    assert_equal 2, result[3].line,   "call should have line number"
+  end
+
+  def test_position_info_call_parens
+    rb = "f(a) do |x, y|\n  x + y\nend"
+
+    pt = s(:iter,
+           s(:call, nil, :f, s(:arglist, s(:call, nil, :a, s(:arglist)))),
+           s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
+           s(:call, s(:lvar, :x), :+, s(:arglist, s(:lvar, :y))))
+
+    result = @processor.parse(rb)
+
+    assert_equal pt, result
+
+    assert_equal 1, result[1].line,   "call should have line number"
+    assert_equal 1, result.line,      "iter should have line number"
+    assert_equal 1, result[2].line,   "masgn should have line number"
+    assert_equal 2, result[3].line,   "call should have line number"
+    # flunk "not yet"
+  end
+
+  def test_position_info_call_no_parens
+    rb = "f a do |x, y|\n  x + y\nend"
+
+    pt = s(:iter,
+           s(:call, nil, :f, s(:arglist, s(:call, nil, :a, s(:arglist)))),
+           s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
+           s(:call, s(:lvar, :x), :+, s(:arglist, s(:lvar, :y))))
+
+    result = @processor.parse(rb)
+
+    assert_equal pt, result
+
+    assert_equal 1, result.line,      "iter should have line number"
+    assert_equal 1, result[1].line,   "call should have line number"
+    assert_equal 1, result[2].line,   "masgn should have line number"
+    assert_equal 2, result[3].line,   "call should have line number"
   end
 
   def test_position_info_defn
