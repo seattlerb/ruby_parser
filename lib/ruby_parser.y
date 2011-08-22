@@ -987,7 +987,7 @@ rule
                       call = new_call(nil, oper.to_sym)
                       iter.insert 1, call
                       result = iter
-                      call.line ||= iter.line
+                      call.line = iter.line
                     }
                 | method_call
                 | method_call brace_block
@@ -1203,6 +1203,7 @@ rule
         do_block: kDO_BLOCK
                     {
                       self.env.extend :dynamic
+                      result = self.lexer.lineno
                     }
                     opt_block_var
                     {
@@ -1213,6 +1214,7 @@ rule
                       vars   = val[2]
                       body   = val[4]
                       result = new_iter nil, vars, body
+                      result.line = val[1]
 
                       self.env.unextend
                     }
