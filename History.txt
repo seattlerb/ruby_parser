@@ -1,3 +1,16 @@
+=== 2.2.0 / 2011-08-23
+
+* 2 minor enhancements:
+
+  * Moved Keyword, Environment, and StackState inside of RubyParser
+  * Added proper dsym and dsym->sym support.
+
+* 3 bug fixes:
+
+  * Added extra (failing) tests for call/iter line number checking (quix)
+  * Fixed line numbers for certain call/iter edge cases
+  * Fixed parsing of: alias :"<<" :">>".
+
 === 2.1.0 / 2011-08-15
 
 * 2 minor enhancements:
