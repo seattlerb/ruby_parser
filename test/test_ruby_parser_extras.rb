@@ -3,8 +3,13 @@ require 'minitest/autorun'
 require 'ruby_parser_extras'
 
 class TestStackState < MiniTest::Unit::TestCase
+  attr_reader :s
+
+  def setup
+    @s = RubyParser::StackState.new :test
+  end
+
   def test_stack_state
-    s = StackState.new :test
     s.push true
     s.push false
     s.lexpop
@@ -12,7 +17,6 @@ class TestStackState < MiniTest::Unit::TestCase
   end
 
   def test_is_in_state
-    s = StackState.new :test
     assert_equal false, s.is_in_state
     s.push false
     assert_equal false, s.is_in_state
@@ -23,7 +27,6 @@ class TestStackState < MiniTest::Unit::TestCase
   end
 
   def test_lexpop
-    s = StackState.new :test
     assert_equal [false], s.stack
     s.push true
     s.push false
@@ -33,7 +36,6 @@ class TestStackState < MiniTest::Unit::TestCase
   end
 
   def test_pop
-    s = StackState.new :test
     assert_equal [false], s.stack
     s.push true
     assert_equal [false, true], s.stack
@@ -42,7 +44,6 @@ class TestStackState < MiniTest::Unit::TestCase
   end
 
   def test_push
-    s = StackState.new :test
     assert_equal [false], s.stack
     s.push true
     s.push false
@@ -56,7 +57,7 @@ class TestEnvironment < MiniTest::Unit::TestCase
   end
 
   def setup
-    @env = Environment.new
+    @env = RubyParser::Environment.new
     @env[:blah] = 42
     assert_equal 42, @env[:blah]
   end

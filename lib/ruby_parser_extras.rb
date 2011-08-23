@@ -824,187 +824,187 @@ class RubyParser < Racc::Parser
     # for now do nothing with the msg
     old_yyerror
   end
-end
 
-class Keyword
-  class KWtable
-    attr_accessor :name, :state, :id0, :id1
-    def initialize(name, id=[], state=nil)
-      @name  = name
-      @id0, @id1 = id
-      @state = state
-    end
-  end
-
-  ##
-  # :stopdoc:
-  #
-  # :expr_beg    = ignore newline, +/- is a sign.
-  # :expr_end    = newline significant, +/- is a operator.
-  # :expr_arg    = newline significant, +/- is a operator.
-  # :expr_cmdarg = newline significant, +/- is a operator.
-  # :expr_endarg = newline significant, +/- is a operator.
-  # :expr_mid    = newline significant, +/- is a operator.
-  # :expr_fname  = ignore newline, no reserved words.
-  # :expr_dot    = right after . or ::, no reserved words.
-  # :expr_class  = immediate after class, no here document.
-
-  wordlist = [
-              ["end",      [:kEND,      :kEND        ], :expr_end   ],
-              ["else",     [:kELSE,     :kELSE       ], :expr_beg   ],
-              ["case",     [:kCASE,     :kCASE       ], :expr_beg   ],
-              ["ensure",   [:kENSURE,   :kENSURE     ], :expr_beg   ],
-              ["module",   [:kMODULE,   :kMODULE     ], :expr_beg   ],
-              ["elsif",    [:kELSIF,    :kELSIF      ], :expr_beg   ],
-              ["def",      [:kDEF,      :kDEF        ], :expr_fname ],
-              ["rescue",   [:kRESCUE,   :kRESCUE_MOD ], :expr_mid   ],
-              ["not",      [:kNOT,      :kNOT        ], :expr_beg   ],
-              ["then",     [:kTHEN,     :kTHEN       ], :expr_beg   ],
-              ["yield",    [:kYIELD,    :kYIELD      ], :expr_arg   ],
-              ["for",      [:kFOR,      :kFOR        ], :expr_beg   ],
-              ["self",     [:kSELF,     :kSELF       ], :expr_end   ],
-              ["false",    [:kFALSE,    :kFALSE      ], :expr_end   ],
-              ["retry",    [:kRETRY,    :kRETRY      ], :expr_end   ],
-              ["return",   [:kRETURN,   :kRETURN     ], :expr_mid   ],
-              ["true",     [:kTRUE,     :kTRUE       ], :expr_end   ],
-              ["if",       [:kIF,       :kIF_MOD     ], :expr_beg   ],
-              ["defined?", [:kDEFINED,  :kDEFINED    ], :expr_arg   ],
-              ["super",    [:kSUPER,    :kSUPER      ], :expr_arg   ],
-              ["undef",    [:kUNDEF,    :kUNDEF      ], :expr_fname ],
-              ["break",    [:kBREAK,    :kBREAK      ], :expr_mid   ],
-              ["in",       [:kIN,       :kIN         ], :expr_beg   ],
-              ["do",       [:kDO,       :kDO         ], :expr_beg   ],
-              ["nil",      [:kNIL,      :kNIL        ], :expr_end   ],
-              ["until",    [:kUNTIL,    :kUNTIL_MOD  ], :expr_beg   ],
-              ["unless",   [:kUNLESS,   :kUNLESS_MOD ], :expr_beg   ],
-              ["or",       [:kOR,       :kOR         ], :expr_beg   ],
-              ["next",     [:kNEXT,     :kNEXT       ], :expr_mid   ],
-              ["when",     [:kWHEN,     :kWHEN       ], :expr_beg   ],
-              ["redo",     [:kREDO,     :kREDO       ], :expr_end   ],
-              ["and",      [:kAND,      :kAND        ], :expr_beg   ],
-              ["begin",    [:kBEGIN,    :kBEGIN      ], :expr_beg   ],
-              ["__LINE__", [:k__LINE__, :k__LINE__   ], :expr_end   ],
-              ["class",    [:kCLASS,    :kCLASS      ], :expr_class ],
-              ["__FILE__", [:k__FILE__, :k__FILE__   ], :expr_end   ],
-              ["END",      [:klEND,     :klEND       ], :expr_end   ],
-              ["BEGIN",    [:klBEGIN,   :klBEGIN     ], :expr_end   ],
-              ["while",    [:kWHILE,    :kWHILE_MOD  ], :expr_beg   ],
-              ["alias",    [:kALIAS,    :kALIAS      ], :expr_fname ],
-             ].map { |args| KWtable.new(*args) }
-
-  # :startdoc:
-
-  WORDLIST = Hash[*wordlist.map { |o| [o.name, o] }.flatten] unless
-    defined? WORDLIST
-
-  def self.keyword str
-    WORDLIST[str]
-  end
-end
-
-class Environment
-  attr_reader :env, :dyn
-
-  def [] k
-    self.all[k]
-  end
-
-  def []= k, v
-    raise "no" if v == true
-    self.current[k] = v
-  end
-
-  def all
-    idx = @dyn.index(false) || 0
-    @env[0..idx].reverse.inject { |env, scope| env.merge scope }
-  end
-
-  def current
-    @env.first
-  end
-
-  def dynamic
-    idx = @dyn.index false
-    @env[0...idx].reverse.inject { |env, scope| env.merge scope } || {}
-  end
-
-  def dynamic?
-    @dyn[0] != false
-  end
-
-  def extend dyn = false
-    @dyn.unshift dyn
-    @env.unshift({})
-    @use.unshift({})
-  end
-
-  def initialize dyn = false
-    @dyn = []
-    @env = []
-    @use = []
-    self.reset
-  end
-
-  def reset
-    @dyn.clear
-    @env.clear
-    @use.clear
-    self.extend
-  end
-
-  def unextend
-    @dyn.shift
-    @env.shift
-    @use.shift
-    raise "You went too far unextending env" if @env.empty?
-  end
-
-  def use id
-    @env.each_with_index do |env, i|
-      if env[id] then
-        @use[i][id] = true
+  class Keyword
+    class KWtable
+      attr_accessor :name, :state, :id0, :id1
+      def initialize(name, id=[], state=nil)
+        @name  = name
+        @id0, @id1 = id
+        @state = state
       end
     end
+
+    ##
+    # :stopdoc:
+    #
+    # :expr_beg    = ignore newline, +/- is a sign.
+    # :expr_end    = newline significant, +/- is a operator.
+    # :expr_arg    = newline significant, +/- is a operator.
+    # :expr_cmdarg = newline significant, +/- is a operator.
+    # :expr_endarg = newline significant, +/- is a operator.
+    # :expr_mid    = newline significant, +/- is a operator.
+    # :expr_fname  = ignore newline, no reserved words.
+    # :expr_dot    = right after . or ::, no reserved words.
+    # :expr_class  = immediate after class, no here document.
+
+    wordlist = [
+                ["end",      [:kEND,      :kEND        ], :expr_end   ],
+                ["else",     [:kELSE,     :kELSE       ], :expr_beg   ],
+                ["case",     [:kCASE,     :kCASE       ], :expr_beg   ],
+                ["ensure",   [:kENSURE,   :kENSURE     ], :expr_beg   ],
+                ["module",   [:kMODULE,   :kMODULE     ], :expr_beg   ],
+                ["elsif",    [:kELSIF,    :kELSIF      ], :expr_beg   ],
+                ["def",      [:kDEF,      :kDEF        ], :expr_fname ],
+                ["rescue",   [:kRESCUE,   :kRESCUE_MOD ], :expr_mid   ],
+                ["not",      [:kNOT,      :kNOT        ], :expr_beg   ],
+                ["then",     [:kTHEN,     :kTHEN       ], :expr_beg   ],
+                ["yield",    [:kYIELD,    :kYIELD      ], :expr_arg   ],
+                ["for",      [:kFOR,      :kFOR        ], :expr_beg   ],
+                ["self",     [:kSELF,     :kSELF       ], :expr_end   ],
+                ["false",    [:kFALSE,    :kFALSE      ], :expr_end   ],
+                ["retry",    [:kRETRY,    :kRETRY      ], :expr_end   ],
+                ["return",   [:kRETURN,   :kRETURN     ], :expr_mid   ],
+                ["true",     [:kTRUE,     :kTRUE       ], :expr_end   ],
+                ["if",       [:kIF,       :kIF_MOD     ], :expr_beg   ],
+                ["defined?", [:kDEFINED,  :kDEFINED    ], :expr_arg   ],
+                ["super",    [:kSUPER,    :kSUPER      ], :expr_arg   ],
+                ["undef",    [:kUNDEF,    :kUNDEF      ], :expr_fname ],
+                ["break",    [:kBREAK,    :kBREAK      ], :expr_mid   ],
+                ["in",       [:kIN,       :kIN         ], :expr_beg   ],
+                ["do",       [:kDO,       :kDO         ], :expr_beg   ],
+                ["nil",      [:kNIL,      :kNIL        ], :expr_end   ],
+                ["until",    [:kUNTIL,    :kUNTIL_MOD  ], :expr_beg   ],
+                ["unless",   [:kUNLESS,   :kUNLESS_MOD ], :expr_beg   ],
+                ["or",       [:kOR,       :kOR         ], :expr_beg   ],
+                ["next",     [:kNEXT,     :kNEXT       ], :expr_mid   ],
+                ["when",     [:kWHEN,     :kWHEN       ], :expr_beg   ],
+                ["redo",     [:kREDO,     :kREDO       ], :expr_end   ],
+                ["and",      [:kAND,      :kAND        ], :expr_beg   ],
+                ["begin",    [:kBEGIN,    :kBEGIN      ], :expr_beg   ],
+                ["__LINE__", [:k__LINE__, :k__LINE__   ], :expr_end   ],
+                ["class",    [:kCLASS,    :kCLASS      ], :expr_class ],
+                ["__FILE__", [:k__FILE__, :k__FILE__   ], :expr_end   ],
+                ["END",      [:klEND,     :klEND       ], :expr_end   ],
+                ["BEGIN",    [:klBEGIN,   :klBEGIN     ], :expr_end   ],
+                ["while",    [:kWHILE,    :kWHILE_MOD  ], :expr_beg   ],
+                ["alias",    [:kALIAS,    :kALIAS      ], :expr_fname ],
+               ].map { |args| KWtable.new(*args) }
+
+    # :startdoc:
+
+    WORDLIST = Hash[*wordlist.map { |o| [o.name, o] }.flatten] unless
+      defined? WORDLIST
+
+    def self.keyword str
+      WORDLIST[str]
+    end
   end
 
-  def used? id
-    idx = @dyn.index false # REFACTOR
-    u = @use[0...idx].reverse.inject { |env, scope| env.merge scope } || {}
-    u[id]
+  class Environment
+    attr_reader :env, :dyn
+
+    def [] k
+      self.all[k]
+    end
+
+    def []= k, v
+      raise "no" if v == true
+      self.current[k] = v
+    end
+
+    def all
+      idx = @dyn.index(false) || 0
+      @env[0..idx].reverse.inject { |env, scope| env.merge scope }
+    end
+
+    def current
+      @env.first
+    end
+
+    def dynamic
+      idx = @dyn.index false
+      @env[0...idx].reverse.inject { |env, scope| env.merge scope } || {}
+    end
+
+    def dynamic?
+      @dyn[0] != false
+    end
+
+    def extend dyn = false
+      @dyn.unshift dyn
+      @env.unshift({})
+      @use.unshift({})
+    end
+
+    def initialize dyn = false
+      @dyn = []
+      @env = []
+      @use = []
+      self.reset
+    end
+
+    def reset
+      @dyn.clear
+      @env.clear
+      @use.clear
+      self.extend
+    end
+
+    def unextend
+      @dyn.shift
+      @env.shift
+      @use.shift
+      raise "You went too far unextending env" if @env.empty?
+    end
+
+    def use id
+      @env.each_with_index do |env, i|
+        if env[id] then
+          @use[i][id] = true
+        end
+      end
+    end
+
+    def used? id
+      idx = @dyn.index false # REFACTOR
+      u = @use[0...idx].reverse.inject { |env, scope| env.merge scope } || {}
+      u[id]
+    end
   end
-end
 
-class StackState
-  attr_reader :stack
+  class StackState
+    attr_reader :stack
 
-  def initialize(name)
-    @name = name
-    @stack = [false]
-  end
+    def initialize(name)
+      @name = name
+      @stack = [false]
+    end
 
-  def inspect
-    "StackState(#{@name}, #{@stack.inspect})"
-  end
+    def inspect
+      "StackState(#{@name}, #{@stack.inspect})"
+    end
 
-  def is_in_state
-    @stack.last
-  end
+    def is_in_state
+      @stack.last
+    end
 
-  def lexpop
-    raise if @stack.size == 0
-    a = @stack.pop
-    b = @stack.pop
-    @stack.push(a || b)
-  end
+    def lexpop
+      raise if @stack.size == 0
+      a = @stack.pop
+      b = @stack.pop
+      @stack.push(a || b)
+    end
 
-  def pop
-    r = @stack.pop
-    @stack.push false if @stack.size == 0
-    r
-  end
+    def pop
+      r = @stack.pop
+      @stack.push false if @stack.size == 0
+      r
+    end
 
-  def push val
-    @stack.push val
+    def push val
+      @stack.push val
+    end
   end
 end
 
