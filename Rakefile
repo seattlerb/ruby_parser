@@ -101,4 +101,8 @@ task :huh? do
   puts "ruby #{Hoe::RUBY_FLAGS} bin/ruby_parse -q -g ..."
 end
 
+task :irb do
+  sh "GEM_HOME=#{Gem.path.first} irb -rubygems -Ilib;"
+end
+
 # vim: syntax=Ruby
