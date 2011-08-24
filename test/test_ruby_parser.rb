@@ -32,10 +32,22 @@ class RubyParserTestCase < ParseTreeTestCase
 end
 
 class TestRubyParser < RubyParserTestCase
+  attr_accessor :result, :processor
+
   def setup
     super
 
-    @processor = RubyParser.new
+    self.processor = RubyParser.new
+  end
+
+  def assert_parse rb, pt
+    self.result = processor.parse rb
+    assert_equal pt, result
+  end
+
+  def assert_parse_line rb, pt, line
+    assert_parse rb, pt
+    assert_equal line, result.line,   "call should have line number"
   end
 
   def test_attrasgn_array_lhs
@@ -49,44 +61,42 @@ class TestRubyParser < RubyParserTestCase
                s(:call, nil, :to, s(:arglist))),
              s(:array, s(:str, "a"), s(:str, "b"), s(:str, "c"))))
 
-    result = @processor.parse(rb)
-
-    assert_equal pt, result
+    assert_parse rb, pt
   end
 
   def test_block_append
     head = s(:args)
     tail = s(:zsuper)
     expected = s(:block, s(:args), s(:zsuper))
-    assert_equal expected, @processor.block_append(head, tail)
+    assert_equal expected, processor.block_append(head, tail)
   end
 
   def test_block_append_begin_begin
     head = s(:begin, s(:args))
     tail = s(:begin, s(:args))
     expected = s(:block, s(:args), s(:begin, s(:args)))
-    assert_equal expected, @processor.block_append(head, tail)
+    assert_equal expected, processor.block_append(head, tail)
   end
 
   def test_block_append_block
     head = s(:block, s(:args))
     tail = s(:zsuper)
     expected = s(:block, s(:args), s(:zsuper))
-    assert_equal expected, @processor.block_append(head, tail)
+    assert_equal expected, processor.block_append(head, tail)
   end
 
   def test_block_append_nil_head
     head = nil
     tail = s(:zsuper)
     expected = s(:zsuper)
-    assert_equal expected, @processor.block_append(head, tail)
+    assert_equal expected, processor.block_append(head, tail)
   end
 
   def test_block_append_nil_tail
     head = s(:args)
     tail = nil
     expected = s(:args)
-    assert_equal expected, @processor.block_append(head, tail)
+    assert_equal expected, processor.block_append(head, tail)
   end
 
   def test_block_append_tail_block
@@ -95,14 +105,15 @@ class TestRubyParser < RubyParserTestCase
     expected = s(:block,
                  s(:call, nil, :f1, s(:arglist)),
                  s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y))))
-    assert_equal expected, @processor.block_append(head, tail)
+    assert_equal expected, processor.block_append(head, tail)
   end
 
   def test_call_env
-    @processor.env[:a] = :lvar
-    expected = s(:call, s(:lvar, :a), :happy, s(:arglist))
+    processor.env[:a] = :lvar
+    rb = "a.happy"
+    pt = s(:call, s(:lvar, :a), :happy, s(:arglist))
 
-    assert_equal expected, @processor.parse('a.happy')
+    assert_parse rb, pt
   end
 
   def test_dasgn_icky2
@@ -118,7 +129,7 @@ class TestRubyParser < RubyParserTestCase
                  s(:array, s(:const, :Exception), s(:lasgn, :v, s(:gvar, :$!))),
                  s(:break)))))
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_class_comments
@@ -127,11 +138,10 @@ class TestRubyParser < RubyParserTestCase
            s(:scope,
              s(:defn, :blah, s(:args), s(:scope, s(:block, s(:nil))))))
 
-    actual = @processor.parse(rb)
-    assert_equal pt, actual
+    assert_parse rb, pt
 
-    assert_equal "# blah 1\n# blah 2\n\n", actual.comments
-    assert_equal "# blah 3\n", actual.scope.defn.comments
+    assert_equal "# blah 1\n# blah 2\n\n", result.comments
+    assert_equal "# blah 3\n", result.scope.defn.comments
   end
 
   def test_module_comments
@@ -140,28 +150,25 @@ class TestRubyParser < RubyParserTestCase
            s(:scope,
              s(:defn, :blah, s(:args), s(:scope, s(:block, s(:nil))))))
 
-    actual = @processor.parse(rb)
-    assert_equal pt, actual
-    assert_equal "# blah 1\n\n# blah 2\n\n", actual.comments
-    assert_equal "# blah 3\n", actual.scope.defn.comments
+    assert_parse rb, pt
+    assert_equal "# blah 1\n\n# blah 2\n\n", result.comments
+    assert_equal "# blah 3\n", result.scope.defn.comments
   end
 
   def test_defn_comments
     rb = "# blah 1\n# blah 2\n\ndef blah\nend"
     pt = s(:defn, :blah, s(:args), s(:scope, s(:block, s(:nil))))
 
-    actual = @processor.parse(rb)
-    assert_equal pt, actual
-    assert_equal "# blah 1\n# blah 2\n\n", actual.comments
+    assert_parse rb, pt
+    assert_equal "# blah 1\n# blah 2\n\n", result.comments
   end
 
   def test_defs_comments
     rb = "# blah 1\n# blah 2\n\ndef self.blah\nend"
     pt = s(:defs, s(:self), :blah, s(:args), s(:scope, s(:block)))
 
-    actual = @processor.parse(rb)
-    assert_equal pt, actual
-    assert_equal "# blah 1\n# blah 2\n\n", actual.comments
+    assert_parse rb, pt
+    assert_equal "# blah 1\n# blah 2\n\n", result.comments
   end
 
   def test_do_bug # TODO: rename
@@ -172,7 +179,7 @@ class TestRubyParser < RubyParserTestCase
              s(:call, s(:call, nil, :a, s(:arglist)), :b, s(:arglist)),
              s(:lasgn, :c)))
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_bug_comment_eq_begin
@@ -180,43 +187,43 @@ class TestRubyParser < RubyParserTestCase
     pt = nil
     exp = rb.strip + "\n"
 
-    assert_equal pt, @processor.parse(rb)
-    assert_equal exp, @processor.lexer.comments
+    assert_parse rb, pt
+    assert_equal exp, processor.lexer.comments
   end
 
   def test_dstr_evstr
     rb = "\"#\{'a'}#\{b}\""
     pt = s(:dstr, "a", s(:evstr, s(:call, nil, :b, s(:arglist))))
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_dstr_str
     rb = "\"#\{'a'} b\""
     pt = s(:str, "a b")
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_empty
     rb = ""
     pt = nil
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_evstr_evstr
     rb = "\"#\{a}#\{b}\""
     pt = s(:dstr, "", s(:evstr, s(:call, nil, :a, s(:arglist))), s(:evstr, s(:call, nil, :b, s(:arglist))))
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_evstr_str
     rb = "\"#\{a} b\""
     pt = s(:dstr, "", s(:evstr, s(:call, nil, :a, s(:arglist))), s(:str, " b"))
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_lasgn_env
@@ -224,8 +231,8 @@ class TestRubyParser < RubyParserTestCase
     pt = s(:lasgn, :a, s(:lit, 42))
     expected_env = { :a => :lvar }
 
-    assert_equal pt, @processor.parse(rb)
-    assert_equal expected_env, @processor.env.all
+    assert_parse rb, pt
+    assert_equal expected_env, processor.env.all
   end
 
   def test_list_append
@@ -233,22 +240,22 @@ class TestRubyParser < RubyParserTestCase
     b = s(:lit, 2)
     c = s(:lit, 3)
 
-    result = @processor.list_append(s(:array, b.dup), c.dup)
+    result = processor.list_append(s(:array, b.dup), c.dup)
 
     assert_equal s(:array, b, c), result
 
-    result = @processor.list_append(b.dup, c.dup)
+    result = processor.list_append(b.dup, c.dup)
 
     assert_equal s(:array, b, c), result
 
-    result = @processor.list_append(result, a.dup)
+    result = processor.list_append(result, a.dup)
 
     assert_equal s(:array, b, c, a), result
 
     lhs, rhs = s(:array, s(:lit, :iter)), s(:when, s(:const, :BRANCHING), nil)
     expected = s(:array, s(:lit, :iter), s(:when, s(:const, :BRANCHING), nil))
 
-    assert_equal expected, @processor.list_append(lhs, rhs)
+    assert_equal expected, processor.list_append(lhs, rhs)
   end
 
   def test_list_prepend
@@ -256,15 +263,15 @@ class TestRubyParser < RubyParserTestCase
     b = s(:lit, 2)
     c = s(:lit, 3)
 
-    result = @processor.list_prepend(b.dup, s(:array, c.dup))
+    result = processor.list_prepend(b.dup, s(:array, c.dup))
 
     assert_equal s(:array, b, c), result
 
-    result = @processor.list_prepend(b.dup, c.dup)
+    result = processor.list_prepend(b.dup, c.dup)
 
     assert_equal s(:array, b, c), result
 
-    result = @processor.list_prepend(a.dup, result)
+    result = processor.list_prepend(a.dup, result)
 
     assert_equal s(:array, a, b, c), result
   end
@@ -285,27 +292,27 @@ class TestRubyParser < RubyParserTestCase
                  s(:str, "\t"),
                  s(:evstr, s(:call, s(:ivar, :@fetch_error), :message)))
 
-    assert_equal expected, @processor.literal_concat(lhs, rhs)
+    assert_equal expected, processor.literal_concat(lhs, rhs)
   end
 
   def test_literal_concat_dstr_evstr
     lhs, rhs = s(:dstr, "a"), s(:evstr, s(:call, nil, :b, s(:arglist)))
     expected = s(:dstr, "a", s(:evstr, s(:call, nil, :b, s(:arglist))))
 
-    assert_equal expected, @processor.literal_concat(lhs, rhs)
+    assert_equal expected, processor.literal_concat(lhs, rhs)
   end
 
   def test_literal_concat_evstr_evstr
     lhs, rhs = s(:evstr, s(:lit, 1)), s(:evstr, s(:lit, 2))
     expected = s(:dstr, "", s(:evstr, s(:lit, 1)), s(:evstr, s(:lit, 2)))
 
-    assert_equal expected, @processor.literal_concat(lhs, rhs)
+    assert_equal expected, processor.literal_concat(lhs, rhs)
   end
 
   def test_literal_concat_str_evstr
     lhs, rhs = s(:str, ""), s(:evstr, s(:str, "blah"))
 
-    assert_equal s(:str, "blah"), @processor.literal_concat(lhs, rhs)
+    assert_equal s(:str, "blah"), processor.literal_concat(lhs, rhs)
   end
 
   def test_logop_12
@@ -313,7 +320,7 @@ class TestRubyParser < RubyParserTestCase
     rhs = s(:lit, 2)
     exp = s(:and, s(:lit, 1), s(:lit, 2))
 
-    assert_equal exp, @processor.logop(:and, lhs, rhs)
+    assert_equal exp, processor.logop(:and, lhs, rhs)
   end
 
   def test_logop_1234_5
@@ -329,7 +336,7 @@ class TestRubyParser < RubyParserTestCase
                   s(:lit, 4),
                   s(:lit, 5)))))
 
-    assert_equal exp, @processor.logop(:and, lhs, rhs)
+    assert_equal exp, processor.logop(:and, lhs, rhs)
   end
 
   def test_logop_123_4
@@ -343,7 +350,7 @@ class TestRubyParser < RubyParserTestCase
                 s(:lit, 3),
                 s(:lit, 4))))
 
-    assert_equal exp, @processor.logop(:and, lhs, rhs)
+    assert_equal exp, processor.logop(:and, lhs, rhs)
   end
 
   def test_logop_12_3
@@ -351,7 +358,7 @@ class TestRubyParser < RubyParserTestCase
     rhs = s(:lit, 3)
     exp = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:lit, 3)))
 
-    assert_equal exp, @processor.logop(:and, lhs, rhs)
+    assert_equal exp, processor.logop(:and, lhs, rhs)
   end
 
   def test_logop_nested_mix
@@ -364,22 +371,24 @@ class TestRubyParser < RubyParserTestCase
     lhs.paren = true
     rhs.paren = true
 
-    assert_equal exp, @processor.logop(:or, lhs, rhs)
+    assert_equal exp, processor.logop(:or, lhs, rhs)
   end
 
   def test_str_evstr
     rb = "\"a #\{b}\""
     pt = s(:dstr, "a ", s(:evstr, s(:call, nil, :b, s(:arglist))))
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_dsym_to_sym
-    assert_equal(s(:alias, s(:lit, :<<), s(:lit, :>>)),
-                 @processor.parse('alias :<< :>>'))
+    pt = s(:alias, s(:lit, :<<), s(:lit, :>>))
 
-    assert_equal(s(:alias, s(:lit, :<<), s(:lit, :>>)),
-                 @processor.parse('alias :"<<" :">>"'))
+    rb = 'alias :<< :>>'
+    assert_parse rb, pt
+
+    rb = 'alias :"<<" :">>"'
+    assert_parse rb, pt
   end
 
   def test_regexp
@@ -392,7 +401,7 @@ class TestRubyParser < RubyParserTestCase
     }
 
     regexps.each do |rb, lit|
-      assert_equal s(:lit, lit), @processor.parse(rb)
+      assert_parse rb, s(:lit, lit)
     end
 
     # TODO: add more including interpolation etc
@@ -402,28 +411,29 @@ class TestRubyParser < RubyParserTestCase
     rb = "%Q[before [#\{nest}] after]"
     pt = s(:dstr, "before [", s(:evstr, s(:call, nil, :nest, s(:arglist))), s(:str, "] after"))
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
-#   def test_str_pct_nested_nested
-#     rb = "%{ { #\{ \"#\{1}\" } } }"
-#     pt = s(:dstr, " { ", s(:evstr, s(:lit, 1)), s(:str, " } "))
-
-#     assert_equal pt, @processor.parse(rb)
-#   end
+  # def test_str_pct_nested_nested
+  #   rb = "%{ { #\{ \"#\{1}\" } } }"
+  #   assert_equal " { 1 } ", eval(rb)
+  #   pt = s(:dstr, " { ", s(:evstr, s(:lit, 1)), s(:str, " } "))
+  #
+  #   assert_parse rb, pt
+  # end
 
   def test_str_str
     rb = "\"a #\{'b'}\""
     pt = s(:str, "a b")
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_str_str_str
     rb = "\"a #\{'b'} c\""
     pt = s(:str, "a b c")
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   STARTING_LINE = {
@@ -449,22 +459,17 @@ class TestRubyParser < RubyParserTestCase
     assert_equal expected, @result.line, "should have proper line number"
   end
 
-  def test_position_info_block
+  def test_parse_line_block
     rb = "a = 42\np a"
     pt = s(:block,
            s(:lasgn, :a, s(:lit, 42)),
            s(:call, nil, :p, s(:arglist, s(:lvar, :a))))
 
-    result = @processor.parse(rb, "blah.rb")
-
-    assert_equal pt, result
-
-    assert_equal 1, result.line,       "block should have line number"
+    assert_parse_line rb, pt, 1
     assert_equal 1, result.lasgn.line, "lasgn should have line number"
     assert_equal 2, result.call.line,  "call should have line number"
 
-    expected = "blah.rb"
-
+    expected = "(string)"
     assert_equal expected, result.file
     assert_equal expected, result.lasgn.file
     assert_equal expected, result.call.file
@@ -473,7 +478,7 @@ class TestRubyParser < RubyParserTestCase
     assert_same result.file, result.call.file
   end
 
-  def test_position_info_call_no_args
+  def test_parse_line_call_no_args
     rb = "f do |x, y|\n  x + y\nend"
 
     pt = s(:iter,
@@ -481,54 +486,23 @@ class TestRubyParser < RubyParserTestCase
            s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
            s(:call, s(:lvar, :x), :+, s(:arglist, s(:lvar, :y))))
 
-    result = @processor.parse(rb)
-
-    assert_equal pt, result
-
-    assert_equal 1, result[1].line,   "call should have line number"
-    assert_equal 1, result.line,      "iter should have line number"
-    assert_equal 1, result[2].line,   "masgn should have line number"
-    assert_equal 2, result[3].line,   "call should have line number"
-  end
-
-  def test_position_info_call_parens
-    rb = "f(a) do |x, y|\n  x + y\nend"
-
-    pt = s(:iter,
-           s(:call, nil, :f, s(:arglist, s(:call, nil, :a, s(:arglist)))),
-           s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
-           s(:call, s(:lvar, :x), :+, s(:arglist, s(:lvar, :y))))
-
-    result = @processor.parse(rb)
-
-    assert_equal pt, result
-
-    assert_equal 1, result[1].line,   "call should have line number"
-    assert_equal 1, result.line,      "iter should have line number"
-    assert_equal 1, result[2].line,   "masgn should have line number"
-    assert_equal 2, result[3].line,   "call should have line number"
-    # flunk "not yet"
-  end
-
-  def test_position_info_call_no_parens
-    rb = "f a do |x, y|\n  x + y\nend"
-
-    pt = s(:iter,
-           s(:call, nil, :f, s(:arglist, s(:call, nil, :a, s(:arglist)))),
-           s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
-           s(:call, s(:lvar, :x), :+, s(:arglist, s(:lvar, :y))))
-
-    result = @processor.parse(rb)
-
-    assert_equal pt, result
-
-    assert_equal 1, result.line,      "iter should have line number"
+    assert_parse_line rb, pt, 1
     assert_equal 1, result[1].line,   "call should have line number"
     assert_equal 1, result[2].line,   "masgn should have line number"
     assert_equal 2, result[3].line,   "call should have line number"
   end
 
-  def test_position_info_defn
+  def test_parse_line_defn_no_parens
+    pt = s(:defn, :f, s(:args), s(:scope, s(:block, s(:nil))))
+
+    rb = "def f\nend"
+    assert_parse_line rb, pt, 1
+
+    rb = "def f\n\nend"
+    assert_parse_line rb, pt, 1
+  end
+
+  def test_parse_line_defn_complex
     rb = "def x(y)\n  p(y)\n  y *= 2\n  return y;\nend" # TODO: remove () & ;
     pt = s(:defn, :x, s(:args, :y),
            s(:scope,
@@ -538,19 +512,45 @@ class TestRubyParser < RubyParserTestCase
                  s(:call, s(:lvar, :y), :*, s(:arglist, s(:lit, 2)))),
                s(:return, s(:lvar, :y)))))
 
-    result = @processor.parse(rb)
-
-    assert_equal pt, result
+    assert_parse_line rb, pt, 1
 
     body = result.scope.block
-
-    assert_equal 1, result.line,      "defn should have line number"
     assert_equal 2, body.call.line,   "call should have line number"
     assert_equal 3, body.lasgn.line,  "lasgn should have line number"
     assert_equal 4, body.return.line, "return should have line number"
   end
 
-  def test_position_info_heredoc
+  def test_parse_line_iter_call_parens
+    rb = "f(a) do |x, y|\n  x + y\nend"
+
+    pt = s(:iter,
+           s(:call, nil, :f, s(:arglist, s(:call, nil, :a, s(:arglist)))),
+           s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
+           s(:call, s(:lvar, :x), :+, s(:arglist, s(:lvar, :y))))
+
+    assert_parse_line rb, pt, 1
+
+    assert_equal 1, result[1].line,   "call should have line number"
+    assert_equal 1, result[2].line,   "masgn should have line number"
+    assert_equal 2, result[3].line,   "call should have line number"
+  end
+
+  def test_parse_line_iter_call_no_parens
+    rb = "f a do |x, y|\n  x + y\nend"
+
+    pt = s(:iter,
+           s(:call, nil, :f, s(:arglist, s(:call, nil, :a, s(:arglist)))),
+           s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
+           s(:call, s(:lvar, :x), :+, s(:arglist, s(:lvar, :y))))
+
+    assert_parse_line rb, pt, 1
+
+    assert_equal 1, result[1].line,   "call should have line number"
+    assert_equal 1, result[2].line,   "masgn should have line number"
+    assert_equal 2, result[3].line,   "call should have line number"
+  end
+
+  def test_parse_line_heredoc
     rb = <<-CODE
       string = <<-HEREDOC
         very long string
@@ -558,7 +558,7 @@ class TestRubyParser < RubyParserTestCase
       puts string
     CODE
 
-    result = @processor.parse rb
+    result = processor.parse rb
     assert_equal 1, result.lasgn.line
     assert_equal 4, result.call.line
   end
@@ -570,7 +570,7 @@ class TestRubyParser < RubyParserTestCase
            s(:str, "bar"),
            s(:str, "foo"))
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_parse_if_not_noncanonical
@@ -581,9 +581,9 @@ class TestRubyParser < RubyParserTestCase
            s(:str, "foo"),
            s(:str, "bar"))
 
-    @processor.canonicalize_conditions = false
+    processor.canonicalize_conditions = false
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_parse_while_not_canonical
@@ -592,7 +592,7 @@ class TestRubyParser < RubyParserTestCase
            s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist)),
            s(:str, "foo"), true)
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_parse_while_not_noncanonical
@@ -602,9 +602,9 @@ class TestRubyParser < RubyParserTestCase
              s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist))),
            s(:str, "foo"), true)
 
-    @processor.canonicalize_conditions = false
+    processor.canonicalize_conditions = false
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_parse_until_not_canonical
@@ -614,7 +614,7 @@ class TestRubyParser < RubyParserTestCase
            s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist)),
            s(:str, "foo"), true)
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 
   def test_parse_until_not_noncanonical
@@ -624,8 +624,8 @@ class TestRubyParser < RubyParserTestCase
              s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist))),
            s(:str, "foo"), true)
 
-    @processor.canonicalize_conditions = false
+    processor.canonicalize_conditions = false
 
-    assert_equal pt, @processor.parse(rb)
+    assert_parse rb, pt
   end
 end

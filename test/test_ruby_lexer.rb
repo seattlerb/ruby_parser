@@ -1820,7 +1820,7 @@ class TestRubyLexer < MiniTest::Unit::TestCase
       token = args.shift
       value = args.shift
       assert @lex.advance, "no more tokens"
-      assert_equal [token, value], [@lex.token, @lex.yacc_value]
+      assert_equal [token, value], [@lex.token, [@lex.yacc_value].flatten.first]
     end
 
     deny @lex.advance, "must be empty, but had #{[@lex.token, @lex.yacc_value].inspect}"
