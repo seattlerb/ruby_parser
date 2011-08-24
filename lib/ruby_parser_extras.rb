@@ -506,7 +506,7 @@ class RubyParser < Racc::Parser
   end
 
   def new_defn val
-    (line, bol), name, args, body = val[2], val[1], val[3], val[4]
+    (_, line), name, args, body = val[0], val[1], val[3], val[4]
     body ||= s(:nil)
 
     body ||= s(:block)
@@ -514,7 +514,6 @@ class RubyParser < Racc::Parser
 
     result = s(:defn, name.to_sym, args, s(:scope, body))
     result.line = line
-    result.line -= 1 if bol
     result.comments = self.comments.pop
     result
   end
