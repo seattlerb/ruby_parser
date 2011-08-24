@@ -1249,7 +1249,7 @@ class RubyLexer
         if keyword then
           state           = lex_state
           self.lex_state  = keyword.state
-          self.yacc_value = token
+          self.yacc_value = [token, src.lineno]
 
           if keyword.id0 == :kDO then
             self.command_start = true
