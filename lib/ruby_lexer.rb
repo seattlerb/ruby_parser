@@ -847,6 +847,7 @@ class RubyLexer
                    end
 
           self.expr_beg_push "{"
+          self.command_start = true unless result == :tLBRACE
 
           return result
         elsif src.scan(/[+-]/) then
@@ -1251,6 +1252,11 @@ class RubyLexer
           self.lex_state  = keyword.state
           self.yacc_value = [token, src.lineno]
 
+          if state == :expr_fname then
+            self.yacc_value = keyword.name
+            return keyword.id0
+          end
+
           if keyword.id0 == :kDO then
             self.command_start = true
             return :kDO_COND  if cond.is_in_state
@@ -1259,7 +1265,7 @@ class RubyLexer
             return :kDO
           end
 
-          return keyword.id0 if state == :expr_beg
+          return keyword.id0 if state == :expr_beg or state == :expr_value
 
           self.lex_state = :expr_beg if keyword.id0 != keyword.id1
 

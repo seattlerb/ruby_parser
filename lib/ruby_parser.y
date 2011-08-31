@@ -1190,14 +1190,17 @@ rule
                 | tPIPE tPIPE
                     {
                       result = 0
+                      self.lexer.command_start = true
                     }
                 | tOROP
                     {
                       result = 0
+                      self.lexer.command_start = true
                     }
                 | tPIPE block_var tPIPE
                     {
                       result = val[1]
+                      self.lexer.command_start = true
                     }
 
         do_block: kDO_BLOCK
@@ -1596,6 +1599,7 @@ xstring_contents: none
                     {
                       result = val[1]
                       lexer.lex_state = :expr_beg
+                      self.lexer.command_start = true
                     }
                 | f_args term
                     {

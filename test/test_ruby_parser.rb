@@ -191,6 +191,36 @@ class TestRubyParser < RubyParserTestCase
     assert_equal exp, processor.lexer.comments
   end
 
+  def test_bug_call_arglist_parens
+    rb = 'g ( 1), 2'
+    pt = s(:call, nil, :g, s(:arglist, s(:lit, 1), s(:lit, 2)))
+
+    assert_parse rb, pt
+
+    rb = <<-CODE
+      def f
+        g ( 1), 2
+      end
+    CODE
+
+    pt = s(:defn, :f, s(:args),
+           s(:scope,
+             s(:block,
+               s(:call, nil, :g,
+                 s(:arglist,
+                   s(:lit, 1), s(:lit, 2))))))
+
+    assert_parse rb, pt
+
+    rb = <<-CODE
+      def f()
+        g (1), 2
+      end
+    CODE
+
+    assert_parse rb, pt
+  end
+
   def test_dstr_evstr
     rb = "\"#\{'a'}#\{b}\""
     pt = s(:dstr, "a", s(:evstr, s(:call, nil, :b, s(:arglist))))
