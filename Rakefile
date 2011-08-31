@@ -17,6 +17,8 @@ Hoe.spec 'ruby_parser' do
   dependency 'sexp_processor', '~> 3.0'
 
   self.perforce_ignore << "lib/ruby_parser.rb" if plugin? :perforce
+
+  self.racc_flags << " -g" if plugin?(:racc) && ENV["DEBUG"]
 end
 
 task :clean do
@@ -102,7 +104,7 @@ task :huh? do
 end
 
 task :irb do
-  sh "GEM_HOME=#{Gem.path.first} irb -rubygems -Ilib;"
+  sh "GEM_HOME=#{Gem.path.first} irb -rubygems -Ilib -rruby_parser;"
 end
 
 # vim: syntax=Ruby
