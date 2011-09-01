@@ -212,15 +212,18 @@ rule
                 | block_command
                 | kRETURN call_args
                     {
-                      result = s(:return, ret_args(val[1]))
+                      line = val[0].last
+                      result = s(:return, ret_args(val[1])).line(line)
                     }
                 | kBREAK call_args
                     {
-                      result = s(:break, ret_args(val[1]))
+                      line = val[0].last
+                      result = s(:break, ret_args(val[1])).line(line)
                     }
                 | kNEXT call_args
                     {
-                      result = s(:next, ret_args(val[1]))
+                      line = val[0].last
+                      result = s(:next, ret_args(val[1])).line(line)
                     }
 
    block_command: block_call

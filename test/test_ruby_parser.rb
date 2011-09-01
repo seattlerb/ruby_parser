@@ -593,6 +593,29 @@ class TestRubyParser < RubyParserTestCase
     assert_equal 4, result.call.line
   end
 
+  def test_parse_line_return
+    rb = <<-RUBY
+      def blah
+        if true then
+          return 42
+        end
+      end
+    RUBY
+
+    pt = s(:defn, :blah, s(:args),
+           s(:scope,
+             s(:block,
+               s(:if,
+                 s(:true),
+                 s(:return, s(:lit, 42)),
+                 nil))))
+
+    assert_parse_line rb, pt, 1
+
+    assert_equal 3, result.scope.block.if.return.line
+    assert_equal 3, result.scope.block.if.return.lit.line
+  end
+
   def test_parse_if_not_canonical
     rb = "if not var.nil? then 'foo' else 'bar'\nend"
     pt = s(:if,
