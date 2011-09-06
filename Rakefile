@@ -103,7 +103,7 @@ task :huh? do
   puts "ruby #{Hoe::RUBY_FLAGS} bin/ruby_parse -q -g ..."
 end
 
-task :irb do
+task :irb => [:isolate] do
   sh "GEM_HOME=#{Gem.path.first} irb -rubygems -Ilib -rruby_parser;"
 end
 
