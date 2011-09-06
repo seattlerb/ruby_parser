@@ -1,3 +1,16 @@
+=== 2.3.0 / 2011-09-06
+
+* 2 minor enhancements:
+
+  * Add -g flag to parser compile if DEBUG
+  * Lexer now embeds line number in yacc_value for keywords, helping fix up line numbers
+
+* 3 bug fixes:
+
+  * Fix method line numbers when no args and no parens (quix)
+  * Fixed line numbers on return/break/next w/ result expr. (pjnz)
+  * Fixed some lexing state in order to parse: 'f (1), 2' as 'f(1, 2)'. (invernizzi)
+
 === 2.2.0 / 2011-08-23
 
 * 2 minor enhancements:
