@@ -292,16 +292,7 @@ class RubyParser < Racc::Parser
   end
 
   def gettable(id)
-    raise "no: #{id.inspect}" if Sexp === id
-    id = id.to_sym if Sexp   === id # HACK
-    id = id.to_sym if String === id # HACK
-
-    return s(:self)                  if id == :self
-    return s(:nil)                   if id == :nil
-    return s(:true)                  if id == :true
-    return s(:false)                 if id == :false
-    return s(:str, self.file)        if id == :"__FILE__"
-    return s(:lit, lexer.src.current_line) if id == :"__LINE__"
+    id = id.to_sym if String === id
 
     result = case id.to_s
              when /^@@/ then
@@ -323,9 +314,9 @@ class RubyParser < Racc::Parser
                end
              end
 
-    return result if result
+    raise "identifier #{id.inspect} is not valid" unless result
 
-    raise "identifier #{id.inspect} is not valid"
+    result
   end
 
   ##

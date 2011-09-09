@@ -1560,16 +1560,17 @@ xstring_contents: none
                 | tGVAR
                 | tCONSTANT
                 | tCVAR
-                | kNIL      { result = :nil      }
-                | kSELF     { result = :self     }
-                | kTRUE     { result = :true     }
-                | kFALSE    { result = :false    }
-                | k__FILE__ { result = :__FILE__ }
-                | k__LINE__ { result = :__LINE__ }
+                | kNIL      { result = s(:nil)   }
+                | kSELF     { result = s(:self)  }
+                | kTRUE     { result = s(:true)  }
+                | kFALSE    { result = s(:false) }
+                | k__FILE__ { result = s(:str, self.file) }
+                | k__LINE__ { result = s(:lit, lexer.src.current_line) }
 
          var_ref: variable
                     {
-                      result = self.gettable val[0]
+                      var = val[0]
+                      result = Sexp === var ? var : self.gettable(var)
                     }
 
          var_lhs: variable

@@ -593,6 +593,13 @@ class TestRubyParser < RubyParserTestCase
     assert_equal 4, result.call.line
   end
 
+  def test_parse_line_newlines
+    rb = "true\n\n"
+    pt = s(:true)
+
+    assert_parse_line rb, pt, 1
+  end
+
   def test_parse_line_return
     rb = <<-RUBY
       def blah
