@@ -5,8 +5,9 @@ require 'strscan'
 
 # WHY do I have to do this?!?
 class Regexp
-  unless defined? ONCE then
-    ONCE     = 0 # 16 # ?
+  ONCE = 0 unless defined? ONCE # FIX: remove this - it makes no sense
+
+  unless defined? ENC_NONE then
     ENC_NONE = /x/n.options
     ENC_EUC  = /x/e.options
     ENC_SJIS = /x/s.options
