@@ -1,3 +1,10 @@
+=== 2.3.1 / 2011-09-21
+
+* 2 bug fixes:
+
+  * Fixed line numbers at end of special var+whitespace (larsch)
+  * Holy crap I was smokin' something good... Fixed 1.9.3 warning
+
 === 2.3.0 / 2011-09-06
 
 * 2 minor enhancements:
