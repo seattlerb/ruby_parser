@@ -810,7 +810,7 @@ class TestRubyLexer < MiniTest::Unit::TestCase
   end
 
   def test_yylex_question_eh_escape_M_escape_C
-    util_lex_token '?\M-\C-a', :tSTRING, "\M-C-a"
+    util_lex_token '?\M-\C-a', :tSTRING, "\M-\C-a"
   end
 
   def test_yylex_integer_hex
