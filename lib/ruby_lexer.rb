@@ -58,6 +58,7 @@ class RubyLexer
     "===" => :tEQQ,
     "=>"  => :tASSOC,
     "=~"  => :tMATCH,
+    "->"  => :tLAMBDA,
   }
 
   # How the parser advances to the next token.
@@ -838,6 +839,15 @@ class RubyLexer
             return :tPIPE
           end
         elsif src.scan(/\{/) then
+          if defined?(@hack_expects_lambda) && @hack_expects_lambda # (lpar_beg && lpar_beg == paren_nest)
+            self.lex_state = :expr_beg
+            # lpar_beg = 0;
+            # --paren_nest;
+            # COND_PUSH(0);
+            # CMDARG_PUSH(0);
+            return :tLAMBEG
+          end
+
           result = if lex_state.is_argument || lex_state == :expr_end then
                      :tLCURLY      #  block (primary)
                    elsif lex_state == :expr_endarg then
@@ -850,6 +860,9 @@ class RubyLexer
           self.command_start = true unless result == :tLBRACE
 
           return result
+        elsif src.scan(/->/) then
+          @hack_expects_lambda = true
+          return :tLAMBDA
         elsif src.scan(/[+-]/) then
           sign = src.matched
           utype, type = if sign == "+" then
