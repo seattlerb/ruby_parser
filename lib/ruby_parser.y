@@ -644,9 +644,7 @@ rule
                     }
                 | arg tNEQ arg
                     {
-                      val[0] = value_expr val[0] # TODO: port call_op and clean these
-                      val[2] = value_expr val[2]
-                      result = s(:not, new_call(val[0], :"==", s(:arglist, val[2])))
+                      result = new_call val[0], :"!=", s(:arglist, val[2])
                     }
                 | arg tMATCH arg
                     {
