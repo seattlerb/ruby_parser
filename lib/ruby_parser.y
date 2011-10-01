@@ -1278,7 +1278,7 @@ rule
                       call = s(:call, nil, :lambda, s(:arglist))
                       result = s(:iter, call, nil, val[0])
                     }
-                | lambda_args lambda_body
+                | f_arglist lambda_body
                     {
                       case val[0].size
                       when 1
@@ -1292,11 +1292,6 @@ rule
 
                       call = s(:call, nil, :lambda, s(:arglist))
                       result = s(:iter, call, args, val[1])
-                    }
-
-     lambda_args: f_arglist
-                    {
-                      result = val[0]
                     }
 
      lambda_body: tLAMBEG compstmt tRCURLY

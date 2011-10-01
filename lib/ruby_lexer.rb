@@ -840,6 +840,7 @@ class RubyLexer
           end
         elsif src.scan(/\{/) then
           if defined?(@hack_expects_lambda) && @hack_expects_lambda
+            @hack_expects_lambda = false
             self.lex_state = :expr_beg
             return :tLAMBEG
           end
