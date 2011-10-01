@@ -839,12 +839,8 @@ class RubyLexer
             return :tPIPE
           end
         elsif src.scan(/\{/) then
-          if defined?(@hack_expects_lambda) && @hack_expects_lambda # (lpar_beg && lpar_beg == paren_nest)
+          if defined?(@hack_expects_lambda) && @hack_expects_lambda
             self.lex_state = :expr_beg
-            # lpar_beg = 0;
-            # --paren_nest;
-            # COND_PUSH(0);
-            # CMDARG_PUSH(0);
             return :tLAMBEG
           end
 
@@ -862,6 +858,7 @@ class RubyLexer
           return result
         elsif src.scan(/->/) then
           @hack_expects_lambda = true
+          self.lex_state = :expr_arg
           return :tLAMBDA
         elsif src.scan(/[+-]/) then
           sign = src.matched

@@ -1280,15 +1280,21 @@ rule
                     }
                 | lambda_args lambda_body
                     {
+                      case val[0].size
+                      when 1
+                        args = 0
+                      when 2
+                        args = s(:lasgn, val[0][1])
+                      else
+                        vars = val[0][1..-1].map{|name| s(:lasgn, name)}
+                        args = s(:masgn, s(:array, *vars))
+                      end
+
                       call = s(:call, nil, :lambda, s(:arglist))
-
-                      size = val[0].size - 1
-                      size = 0 if val[0] == s(:array, s(:nil))
-
-                      result = s(:iter, call, size, val[1])
+                      result = s(:iter, call, args, val[1])
                     }
 
-     lambda_args: open_args
+     lambda_args: f_arglist
                     {
                       result = val[0]
                     }
