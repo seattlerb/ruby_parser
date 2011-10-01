@@ -805,12 +805,12 @@ class TestRubyLexer < MiniTest::Unit::TestCase
     util_bad_token "0d42__24"
   end
 
-  def test_yylex_integer_eh_a
-    util_lex_token '?a', :tINTEGER, 97
+  def test_yylex_question_eh_a
+    util_lex_token '?a', :tSTRING, "a"
   end
 
-  def test_yylex_integer_eh_escape_M_escape_C
-    util_lex_token '?\M-\C-a', :tINTEGER, 129
+  def test_yylex_question_eh_escape_M_escape_C
+    util_lex_token '?\M-\C-a', :tSTRING, "\M-C-a"
   end
 
   def test_yylex_integer_hex
@@ -1090,7 +1090,7 @@ class TestRubyLexer < MiniTest::Unit::TestCase
   end
 
   def test_yylex_question
-    util_lex_token "?*", :tINTEGER, 42
+    util_lex_token "?*", :tSTRING, "*"
   end
 
   def test_yylex_question_bad_eos
@@ -1108,17 +1108,17 @@ class TestRubyLexer < MiniTest::Unit::TestCase
 
   def test_yylex_question_ws_backslashed
     @lex.lex_state = :expr_beg
-    util_lex_token "?\\ ", :tINTEGER, 32
+    util_lex_token "?\\ ", :tSTRING, " "
     @lex.lex_state = :expr_beg
-    util_lex_token "?\\n", :tINTEGER, 10
+    util_lex_token "?\\n", :tSTRING, "\n"
     @lex.lex_state = :expr_beg
-    util_lex_token "?\\t", :tINTEGER, 9
+    util_lex_token "?\\t", :tSTRING, "\t"
     @lex.lex_state = :expr_beg
-    util_lex_token "?\\v", :tINTEGER, 11
+    util_lex_token "?\\v", :tSTRING, "\v"
     @lex.lex_state = :expr_beg
-    util_lex_token "?\\r", :tINTEGER, 13
+    util_lex_token "?\\r", :tSTRING, "\r"
     @lex.lex_state = :expr_beg
-    util_lex_token "?\\f", :tINTEGER, 12
+    util_lex_token "?\\f", :tSTRING, "\f"
   end
 
   def test_yylex_rbracket
