@@ -1801,6 +1801,10 @@ xstring_contents: none
                     {
                       result = s(:array, val[0], val[2])
                     }
+                | variable tCOLON arg_value
+                    {
+                      result = s(:array, s(:lit, val[0].to_sym), val[2])
+                    }
 
        operation: tIDENTIFIER | tCONSTANT | tFID
       operation2: tIDENTIFIER | tCONSTANT | tFID | op

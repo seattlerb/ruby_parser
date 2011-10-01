@@ -1046,8 +1046,8 @@ class RubyLexer
                 src.getch
               end
           self.lex_state = :expr_end
-          self.yacc_value = c[0].ord & 0xff
-          return :tINTEGER
+          self.yacc_value = c
+          return :tSTRING
         elsif src.check(/\&/) then
           if src.scan(/\&\&\=/) then
             self.yacc_value = "&&"
