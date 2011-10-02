@@ -4,7 +4,7 @@ class RubyParser
 
 token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       kTHEN kELSIF kELSE kCASE kWHEN kWHILE kUNTIL kFOR kBREAK kNEXT
-      kREDO kRETRY kIN kDO kDO_COND kDO_BLOCK kRETURN kYIELD kSUPER
+      kREDO kRETRY kIN kDO kDO_COND kDO_BLOCK kDO_LAMBDA kRETURN kYIELD kSUPER
       kSELF kNIL kTRUE kFALSE kAND kOR kNOT kIF_MOD kUNLESS_MOD kWHILE_MOD
       kUNTIL_MOD kRESCUE_MOD kALIAS kDEFINED klBEGIN klEND k__LINE__
       k__FILE__ tIDENTIFIER tFID tGVAR tIVAR tCONSTANT tCVAR tNTH_REF
@@ -16,7 +16,7 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tTILDE tPERCENT tDIVIDE tPLUS tMINUS tLT tGT tPIPE tBANG tCARET
       tLCURLY tRCURLY tBACK_REF2 tSYMBEG tSTRING_BEG tXSTRING_BEG tREGEXP_BEG
       tWORDS_BEG tAWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END tSTRING
-      tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAST_TOKEN
+      tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAST_TOKEN tLAMBDA tLAMBEG
 
 prechigh
   right    tBANG tTILDE tUPLUS
@@ -997,6 +997,10 @@ rule
                       iter.insert 1, call
                       result = iter
                     }
+                | tLAMBDA lambda
+                    {
+                      result = val[1]
+                    }
                 | kIF expr_value then compstmt if_tail kEND
                     {
                       result = new_if val[1], val[3], val[4]
@@ -1267,6 +1271,36 @@ rule
                 | kSUPER
                     {
                       result = s(:zsuper)
+                    }
+
+          lambda: lambda_body
+                    {
+                      call = s(:call, nil, :lambda, s(:arglist))
+                      result = s(:iter, call, nil, val[0])
+                    }
+                | f_arglist lambda_body
+                    {
+                      case val[0].size
+                      when 1
+                        args = 0
+                      when 2
+                        args = s(:lasgn, val[0][1])
+                      else
+                        vars = val[0][1..-1].map{|name| s(:lasgn, name)}
+                        args = s(:masgn, s(:array, *vars))
+                      end
+
+                      call = s(:call, nil, :lambda, s(:arglist))
+                      result = s(:iter, call, args, val[1])
+                    }
+
+     lambda_body: tLAMBEG compstmt tRCURLY
+                    {
+                      result = val[1]
+                    }
+                | kDO_LAMBDA compstmt kEND
+                    {
+                      result = val[1]
                     }
 
      brace_block: tLCURLY
