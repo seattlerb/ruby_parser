@@ -1273,7 +1273,10 @@ class RubyLexer
             return :kDO_COND  if cond.is_in_state
             return :kDO_BLOCK if cmdarg.is_in_state && state != :expr_cmdarg
             return :kDO_BLOCK if state == :expr_endarg
-            return :kDO_LAMBDA if @hack_expects_lambda
+            if defined?(@hack_expects_lambda) && @hack_expects_lambda
+              @hack_expects_lambda = false
+              return :kDO_LAMBDA
+            end
             return :kDO
           end
 
