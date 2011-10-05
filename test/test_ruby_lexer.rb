@@ -127,6 +127,17 @@ class TestRubyLexer < MiniTest::Unit::TestCase
     util_lex_token "=>", :tASSOC, "=>"
   end
 
+  def test_yylex_label
+    util_lex_token "{a:", :tLBRACE, "{", :tLABEL, "a"
+  end
+
+  def test_yylex_label_in_params
+    util_lex_token "foo(a:",
+      :tIDENTIFIER, "foo",
+      :tLPAREN2, "(",
+      :tLABEL, "a"
+  end
+
   def test_yylex_back_ref
     util_lex_token("[$&, $`, $', $+]",
                    :tLBRACK,   "[",
