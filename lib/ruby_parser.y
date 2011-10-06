@@ -1654,6 +1654,14 @@ xstring_contents: none
                     {
                       result = args val[0],    nil, val[2], val[3]
                     }
+                | f_arg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = val[0]
+                      result << val[2]
+                      result << val[4].last
+                      result << :"&#{val[5].last}" if val[5]
+                      result
+                    }
                 | f_arg                             opt_f_block_arg
                     {
                       result = args val[0],    nil,    nil, val[1]
