@@ -1678,6 +1678,14 @@ xstring_contents: none
                     {
                       result = args    nil,    nil, val[0], val[1]
                     }
+                | f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = s(:args)
+                      result << val[0]
+                      result << val[2].last
+                      result << :"&#{val[3].last}" if val[3]
+                      result
+                    }
                 |                                       f_block_arg
                     {
                       result = args    nil,    nil,    nil, val[0]
