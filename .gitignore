@@ -1,0 +1,4 @@
+tmp
+*.output
+lib/ruby18_parser.rb
+lib/ruby_parser.rb
