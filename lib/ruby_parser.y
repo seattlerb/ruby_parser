@@ -1646,6 +1646,18 @@ xstring_contents: none
                     {
                       result = args val[0], val[2], val[4], val[5]
                     }
+                | f_arg tCOMMA f_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = val[0]
+                      val[2][1..-1].each do |lasgn| # FIX clean sexp iter
+                        raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
+                        result << lasgn[1]
+                      end
+                      result << val[4]
+                      result << val[6].last
+                      result << val[2]
+                      result
+                    }
                 | f_arg tCOMMA f_optarg                opt_f_block_arg
                     {
                       result = args val[0], val[2],    nil, val[3]
