@@ -1,11 +1,8 @@
 # encoding: utf-8
 
-$:.unshift File.expand_path('../lib', __FILE__)
-require 'ruby_parser'
-
 Gem::Specification.new do |s|
   s.name         = "ruby_parser"
-  s.version      = RubyParser::VERSION
+  s.version      = "3.0.0"
   s.authors      = ["Bryan Helmkamp"]
   s.email        = "bryan@brynary.com"
   s.homepage     = "https://github.com/brynary/ruby_parser"
