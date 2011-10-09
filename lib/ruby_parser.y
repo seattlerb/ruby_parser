@@ -1673,6 +1673,14 @@ xstring_contents: none
                     {
                       result = args val[0],    nil,    nil, val[1]
                     }
+                | f_arg tCOMMA f_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = args val[0], val[2], val[4], val[7], val[6]
+                    }
+                | f_arg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = args val[0],    nil, val[2], val[5], val[4]
+                    }
                 |           f_optarg tCOMMA f_rest_arg opt_f_block_arg
                     {
                       result = args    nil, val[0], val[2], val[3]
@@ -1684,6 +1692,10 @@ xstring_contents: none
                 |                        f_rest_arg opt_f_block_arg
                     {
                       result = args    nil,    nil, val[0], val[1]
+                    }
+                |           f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = args    nil,    nil, val[0], val[3], val[2]
                     }
                 |                                       f_block_arg
                     {

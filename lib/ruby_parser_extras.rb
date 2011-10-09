@@ -150,7 +150,7 @@ class RubyParser < Racc::Parser
     node1
   end
 
-  def args arg, optarg, rest_arg, block_arg
+  def args arg, optarg, rest_arg, block_arg, post_arg = nil
     arg ||= s(:args)
 
     result = arg
@@ -164,6 +164,7 @@ class RubyParser < Racc::Parser
     result << rest_arg  if rest_arg
     result << :"&#{block_arg.last}" if block_arg
     result << optarg    if optarg # TODO? huh - processed above as well
+    post_arg[1..-1].each {|pa| result << pa } if post_arg
 
     result
   end
