@@ -757,6 +757,12 @@ rule
                       result = self.arg_concat val[0], val[3]
                       result = self.arg_blk_pass result, val[4]
                     }
+                | args tCOMMA tSTAR arg_value tCOMMA args opt_block_arg
+                    {
+                      result = self.arg_concat val[0], val[3]
+                      val[5][1..-1].each {|a| result << a }
+                      result = self.arg_blk_pass result, val[6]
+                    }
                 | assocs opt_block_arg
                     {
                       result = s(:array, s(:hash, *val[0].values))
