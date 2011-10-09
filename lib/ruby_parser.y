@@ -656,7 +656,7 @@ rule
                     }
                 | tBANG arg
                     {
-                      result = s(:not, val[1])
+                      result = s(:call, val[1], :"!@", s(:arglist))
                     }
                 | tTILDE arg
                     {
