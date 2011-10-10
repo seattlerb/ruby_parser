@@ -656,7 +656,7 @@ rule
                     }
                 | tBANG arg
                     {
-                      result = s(:not, val[1])
+                      result = s(:call, val[1], :"!@", s(:arglist))
                     }
                 | tTILDE arg
                     {
@@ -756,6 +756,12 @@ rule
                     {
                       result = self.arg_concat val[0], val[3]
                       result = self.arg_blk_pass result, val[4]
+                    }
+                | args tCOMMA tSTAR arg_value tCOMMA args opt_block_arg
+                    {
+                      result = self.arg_concat val[0], val[3]
+                      val[5][1..-1].each {|a| result << a }
+                      result = self.arg_blk_pass result, val[6]
                     }
                 | assocs opt_block_arg
                     {
@@ -1278,7 +1284,7 @@ rule
                       call = s(:call, nil, :lambda, s(:arglist))
                       result = s(:iter, call, nil, val[0])
                     }
-                | f_arglist lambda_body
+                | f_larglist lambda_body
                     {
                       case val[0].size
                       when 1
@@ -1292,6 +1298,15 @@ rule
 
                       call = s(:call, nil, :lambda, s(:arglist))
                       result = s(:iter, call, args, val[1])
+                    }
+
+     f_larglist: tLPAREN2 f_args opt_nl tRPAREN
+                    {
+                      result = val[1]
+                    }
+                | f_args
+                    {
+                      result = val[0]
                     }
 
      lambda_body: tLAMBEG compstmt tRCURLY
@@ -1658,6 +1673,14 @@ xstring_contents: none
                     {
                       result = args val[0],    nil,    nil, val[1]
                     }
+                | f_arg tCOMMA f_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = args val[0], val[2], val[4], val[7], val[6]
+                    }
+                | f_arg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = args val[0],    nil, val[2], val[5], val[4]
+                    }
                 |           f_optarg tCOMMA f_rest_arg opt_f_block_arg
                     {
                       result = args    nil, val[0], val[2], val[3]
@@ -1669,6 +1692,10 @@ xstring_contents: none
                 |                        f_rest_arg opt_f_block_arg
                     {
                       result = args    nil,    nil, val[0], val[1]
+                    }
+                |           f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = args    nil,    nil, val[0], val[3], val[2]
                     }
                 |                                       f_block_arg
                     {
