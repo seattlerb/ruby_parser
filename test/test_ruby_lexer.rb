@@ -1,15 +1,17 @@
 #!/usr/local/bin/ruby
 
 require 'rubygems'
+gem "minitest"
+
 require 'minitest/autorun'
 require 'ruby_lexer'
-require 'ruby_parser'
+require 'ruby18_parser'
 
 class TestRubyLexer < MiniTest::Unit::TestCase
   alias :deny :refute
 
   def setup
-    p = RubyParser.new
+    p = Ruby18Parser.new
     @lex = p.lexer
     @lex.src = "blah blah"
     @lex.lex_state = :expr_beg
@@ -805,11 +807,27 @@ class TestRubyLexer < MiniTest::Unit::TestCase
     util_bad_token "0d42__24"
   end
 
-  def test_yylex_question_eh_a
+  def test_yylex_question_eh_a__18
+    @lex = RubyLexer.new 18
+
+    util_lex_token "?a", :tINTEGER, 97
+  end
+
+  def test_yylex_question_eh_a__19
+    @lex = RubyLexer.new 19
+
     util_lex_token '?a', :tSTRING, "a"
   end
 
-  def test_yylex_question_eh_escape_M_escape_C
+  def test_yylex_question_eh_escape_M_escape_C__18
+    @lex = RubyLexer.new 18
+
+    util_lex_token '?\M-\C-a', :tINTEGER, 129
+  end
+
+  def test_yylex_question_eh_escape_M_escape_C__19
+    @lex = RubyLexer.new 19
+
     util_lex_token '?\M-\C-a', :tSTRING, "\M-\C-a"
   end
 
@@ -1089,7 +1107,15 @@ class TestRubyLexer < MiniTest::Unit::TestCase
                    :tINTEGER, 42)
   end
 
-  def test_yylex_question
+  def test_yylex_question__18
+    @lex = RubyLexer.new 18
+
+    util_lex_token "?*", :tINTEGER, 42
+  end
+
+  def test_yylex_question__19
+    @lex = RubyLexer.new 19
+
     util_lex_token "?*", :tSTRING, "*"
   end
 
@@ -1106,7 +1132,26 @@ class TestRubyLexer < MiniTest::Unit::TestCase
     util_lex_token "?\f", :tEH, "?"
   end
 
-  def test_yylex_question_ws_backslashed
+  def test_yylex_question_ws_backslashed__18
+    @lex = RubyLexer.new 18
+
+    @lex.lex_state = :expr_beg
+    util_lex_token "?\\ ", :tINTEGER, 32
+    @lex.lex_state = :expr_beg
+    util_lex_token "?\\n", :tINTEGER, 10
+    @lex.lex_state = :expr_beg
+    util_lex_token "?\\t", :tINTEGER, 9
+    @lex.lex_state = :expr_beg
+    util_lex_token "?\\v", :tINTEGER, 11
+    @lex.lex_state = :expr_beg
+    util_lex_token "?\\r", :tINTEGER, 13
+    @lex.lex_state = :expr_beg
+    util_lex_token "?\\f", :tINTEGER, 12
+  end
+
+  def test_yylex_question_ws_backslashed__19
+    @lex = RubyLexer.new 19
+
     @lex.lex_state = :expr_beg
     util_lex_token "?\\ ", :tSTRING, " "
     @lex.lex_state = :expr_beg

@@ -16,7 +16,10 @@ Hoe.spec 'ruby_parser' do
 
   dependency 'sexp_processor', '~> 3.0'
 
-  self.perforce_ignore << "lib/ruby_parser.rb" if plugin? :perforce
+  if plugin? :perforce then
+    self.perforce_ignore << "lib/ruby18_parser.rb"
+    self.perforce_ignore << "lib/ruby19_parser.rb"
+  end
 
   self.racc_flags << " -g" if plugin?(:racc) && ENV["DEBUG"]
 end

@@ -3,6 +3,7 @@
 ENV['VERBOSE'] = "1"
 
 require 'rubygems'
+gem "minitest"
 require 'minitest/autorun'
 require 'ruby_parser'
 
@@ -10,13 +11,21 @@ $: << File.expand_path('~/Work/p4/zss/src/ParseTree/dev/test')
 
 require 'pt_testcase'
 
-class RubyParser
+class Ruby18Parser # FIX
+  def process input
+    parse input
+  end
+end
+
+class Ruby19Parser
   def process input
     parse input
   end
 end
 
 class RubyParserTestCase < ParseTreeTestCase
+  attr_accessor :result, :processor
+
   def self.previous key
     "Ruby"
   end
@@ -29,16 +38,6 @@ class RubyParserTestCase < ParseTreeTestCase
 
     super
   end
-end
-
-class TestRubyParser < RubyParserTestCase
-  attr_accessor :result, :processor
-
-  def setup
-    super
-
-    self.processor = RubyParser.new
-  end
 
   def assert_parse rb, pt
     self.result = processor.parse rb
@@ -48,6 +47,30 @@ class TestRubyParser < RubyParserTestCase
   def assert_parse_line rb, pt, line
     assert_parse rb, pt
     assert_equal line, result.line,   "call should have line number"
+  end
+end
+
+class TestRuby18Parser < RubyParserTestCase
+  def setup
+    super
+
+    self.processor = Ruby18Parser.new
+  end
+end
+
+class TestRuby19Parser < RubyParserTestCase
+  def setup
+    super
+
+    self.processor = Ruby19Parser.new
+  end
+end
+
+class XTestRubyParser # < RubyParserTestCase
+  def setup
+    super
+
+    self.processor = RubyParser.new
   end
 
   def test_attrasgn_array_lhs

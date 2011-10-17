@@ -1,6 +1,6 @@
 # -*- racc -*-
 
-class RubyParser
+class Ruby19Parser
 
 token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       kTHEN kELSIF kELSE kCASE kWHEN kWHILE kUNTIL kFOR kBREAK kNEXT

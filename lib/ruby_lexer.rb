@@ -6,6 +6,12 @@ class RubyLexer
 
   ESC_RE = /\\([0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc])/
 
+  ##
+  # What version of ruby to parse. 18 and 19 are the only valid values
+  # currently supported.
+
+  attr_accessor :version
+
   # Additional context surrounding tokens that both the lexer and
   # grammar use.
   attr_reader :lex_state
@@ -217,7 +223,8 @@ class RubyLexer
     end
   end
 
-  def initialize
+  def initialize v = 18
+    self.version = v
     self.cond = RubyParser::StackState.new(:cond)
     self.cmdarg = RubyParser::StackState.new(:cmdarg)
     self.nest = 0
@@ -1044,8 +1051,14 @@ class RubyLexer
                 src.getch
               end
           self.lex_state = :expr_end
-          self.yacc_value = c
-          return :tSTRING
+
+          if version == 18 then
+            self.yacc_value = c[0].ord & 0xff
+            return :tINTEGER
+          else
+            self.yacc_value = c
+            return :tSTRING
+          end
         elsif src.check(/\&/) then
           if src.scan(/\&\&\=/) then
             self.yacc_value = "&&"

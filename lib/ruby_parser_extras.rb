@@ -123,7 +123,7 @@ class RPStringScanner < StringScanner
   # end
 end
 
-class RubyParser < Racc::Parser
+module RubyParserStuff
   VERSION = '2.3.1' unless constants.include? "VERSION" # SIGH
 
   attr_accessor :lexer, :in_def, :in_single, :file
@@ -334,7 +334,9 @@ class RubyParser < Racc::Parser
 
   def initialize(options = {})
     super()
-    self.lexer = RubyLexer.new
+
+    v = self.class.name[/1[89]/]
+    self.lexer = RubyLexer.new v && v.to_i
     self.lexer.parser = self
     @env = Environment.new
     @comments = []
@@ -745,7 +747,7 @@ class RubyParser < Racc::Parser
     raise "bad val: #{str.inspect}" unless String === str
 
     self.file = file
-    self.lexer.src = str
+    self.lexer.src = str.dup
 
     @yydebug = ENV.has_key? 'DEBUG'
 
@@ -811,10 +813,9 @@ class RubyParser < Racc::Parser
     # do nothing for now
   end
 
-  alias :old_yyerror :yyerror
   def yyerror msg
     # for now do nothing with the msg
-    old_yyerror
+    super
   end
 
   class Keyword
@@ -997,6 +998,22 @@ class RubyParser < Racc::Parser
     def push val
       @stack.push val
     end
+  end
+end
+
+class Ruby19Parser < Racc::Parser
+  include RubyParserStuff
+end
+
+class Ruby18Parser < Racc::Parser
+  include RubyParserStuff
+end
+
+class RubyParser < Ruby18Parser
+  def initialize
+    super
+    warn "WA\RNING: Deprecated: RubyParser. Use Ruby18Parser or Ruby19Parser"
+    warn "  from #{caller.first}"
   end
 end
 
