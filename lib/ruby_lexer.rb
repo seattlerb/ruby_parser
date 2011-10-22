@@ -137,7 +137,8 @@ class RubyLexer
         string_buffer << '#'
       end
 
-      until src.scan(eos_re) do
+      until src.check(eos_re) do
+        src.skip(eos_re)
         c = tokadd_string func, "\n", nil
 
         rb_compile_error err_msg if
@@ -153,9 +154,6 @@ class RubyLexer
         rb_compile_error err_msg if
           src.eos?
       end
-
-      # tack on a NL after the heredoc token - FIX NL should not be needed
-      src.unread_many(eos + "\n") # TODO: remove this... stupid stupid stupid
     else
       until src.check(eos_re) do
         string_buffer << src.scan(/.*(\n|\z)/)
