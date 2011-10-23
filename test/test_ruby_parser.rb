@@ -50,9 +50,7 @@ class RubyParserTestCase < ParseTreeTestCase
   end
 end
 
-
 module TestRubyParser
-
   def test_attrasgn_array_lhs
     rb = '[1, 2, 3, 4][from .. to] = ["a", "b", "c"]'
     pt = s(:attrasgn,
