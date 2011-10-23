@@ -612,7 +612,6 @@ class TestRubyLexer < MiniTest::Unit::TestCase
                    :tEQL,              "=",
                    :tSTRING_BEG,     "\"",
                    :tSTRING_CONTENT, "blah\nblah\n",
-                   :tSTRING_CONTENT, "",
                    :tSTRING_END,     "EOF",
                    :tNL,             nil)
   end
@@ -630,7 +629,6 @@ class TestRubyLexer < MiniTest::Unit::TestCase
                    :tEQL,              "=",
                    :tSTRING_BEG,     "\"",
                    :tSTRING_CONTENT, "blah\nblah\n",
-                   :tSTRING_CONTENT, "",
                    :tSTRING_END,     "EOF",
                    :tNL,             nil)
   end

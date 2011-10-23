@@ -48,24 +48,11 @@ class RPStringScanner < StringScanner
 
   # TODO: once we get rid of these, we can make things like
   # TODO: current_line and lineno much more accurate and easy to do
-  def unread c # TODO: remove this entirely - we should not need it
-    return if c.nil? # UGH
-    warn({:unread => caller[0]}.inspect) if ENV['TALLY']
-    string[pos, 0] = c
-  end
 
   def unread_many str # TODO: remove this entirely - we should not need it
     warn({:unread_many => caller[0]}.inspect) if ENV['TALLY']
     self.extra_lines_added += str.count("\n")
     string[pos, 0] = str
-  end
-
-  def begin_of_line?
-    pos == 0 or string[pos-1] == ?\n
-  end
-
-  def was_begin_of_line # TODO: kill me
-    pos <= 2 or string[pos-2] == ?\n
   end
 
   if ENV['DEBUG'] then
