@@ -50,28 +50,8 @@ class RubyParserTestCase < ParseTreeTestCase
   end
 end
 
-class TestRuby18Parser < RubyParserTestCase
-  def setup
-    super
 
-    self.processor = Ruby18Parser.new
-  end
-end
-
-class TestRuby19Parser < RubyParserTestCase
-  def setup
-    super
-
-    self.processor = Ruby19Parser.new
-  end
-end
-
-class XTestRubyParser # < RubyParserTestCase
-  def setup
-    super
-
-    self.processor = RubyParser.new
-  end
+module TestRubyParser
 
   def test_attrasgn_array_lhs
     rb = '[1, 2, 3, 4][from .. to] = ["a", "b", "c"]'
@@ -712,3 +692,24 @@ class XTestRubyParser # < RubyParserTestCase
     assert_parse rb, pt
   end
 end
+
+class TestRuby18Parser < RubyParserTestCase
+  include TestRubyParser
+
+  def setup
+    super
+
+    self.processor = Ruby18Parser.new
+  end
+end
+
+class TestRuby19Parser < RubyParserTestCase
+  include TestRubyParser
+
+  def setup
+    super
+
+    self.processor = Ruby19Parser.new
+  end
+end
+
