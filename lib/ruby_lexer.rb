@@ -1265,6 +1265,20 @@ class RubyLexer
                    end
       end
 
+      if lex_state == :expr_beg || lex_state == :expr_arg || lex_state == :expr_cmdarg
+        colon = src.scan(/:/)
+
+        if colon && src.peek(1) != ":"
+          src.unscan
+          self.lex_state == :expr_beg
+          src.scan(/:/)
+          self.yacc_value = [token, src.lineno]
+          return :tLABEL
+        end
+
+        src.unscan if colon
+      end
+
       unless lex_state == :expr_dot then
         # See if it is a reserved word.
         keyword = RubyParser::Keyword.keyword token
