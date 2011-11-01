@@ -1661,9 +1661,26 @@ xstring_contents: none
                     {
                       result = args val[0], val[2], val[4], val[5]
                     }
+                | f_arg tCOMMA f_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = val[0]
+                      val[2][1..-1].each do |lasgn| # FIX clean sexp iter
+                        raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
+                        result << lasgn[1]
+                      end
+                      result << val[4]
+                      result << val[6].last
+                      result << :"&#{val[7].last}" if val[7]
+                      result << val[2]
+                      result
+                    }
                 | f_arg tCOMMA f_optarg                opt_f_block_arg
                     {
                       result = args val[0], val[2],    nil, val[3]
+                    }
+                | f_arg tCOMMA f_optarg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = args val[0], val[2], val[4].last, val[5]
                     }
                 | f_arg tCOMMA              f_rest_arg opt_f_block_arg
                     {
@@ -1685,6 +1702,20 @@ xstring_contents: none
                     {
                       result = args    nil, val[0], val[2], val[3]
                     }
+                | f_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = s(:args)
+                      val[0][1..-1].each do |lasgn| # FIX clean sexp iter
+                        raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
+                        result << lasgn[1]
+                      end
+
+                      result << val[2]
+                      result << val[4].last
+                      result << :"&#{val[5].last}" if val[5]
+                      result << val[0]
+                      result
+                    }
                 |           f_optarg                opt_f_block_arg
                     {
                       result = args    nil, val[0],    nil, val[1]
@@ -1692,6 +1723,10 @@ xstring_contents: none
                 |                        f_rest_arg opt_f_block_arg
                     {
                       result = args    nil,    nil, val[0], val[1]
+                    }
+                | f_optarg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = args nil, val[0], val[2].last, val[3]
                     }
                 |           f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
