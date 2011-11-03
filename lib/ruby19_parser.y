@@ -1659,86 +1659,67 @@ xstring_contents: none
 
           f_args: f_arg tCOMMA f_optarg tCOMMA f_rest_arg opt_f_block_arg
                     {
-                      result = args val[0], val[2], val[4], val[5]
+                      result = args19 val
                     }
                 | f_arg tCOMMA f_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = val[0]
-                      val[2][1..-1].each do |lasgn| # FIX clean sexp iter
-                        raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
-                        result << lasgn[1]
-                      end
-                      result << val[4]
-                      result << val[6].last
-                      result << :"&#{val[7].last}" if val[7]
-                      result << val[2]
-                      result
+                      result = args19 val
                     }
-                | f_arg tCOMMA f_optarg                opt_f_block_arg
+                | f_arg tCOMMA f_optarg              opt_f_block_arg
                     {
-                      result = args val[0], val[2],    nil, val[3]
+                      result = args19 val
                     }
                 | f_arg tCOMMA f_optarg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = args val[0], val[2], val[4].last, val[5]
+                      result = args19 val
                     }
-                | f_arg tCOMMA              f_rest_arg opt_f_block_arg
+                | f_arg tCOMMA            f_rest_arg opt_f_block_arg
                     {
-                      result = args val[0],    nil, val[2], val[3]
+                      result = args19 val
                     }
                 | f_arg                             opt_f_block_arg
                     {
-                      result = args val[0],    nil,    nil, val[1]
+                      result = args19 val
                     }
                 | f_arg tCOMMA f_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = args val[0], val[2], val[4], val[7], val[6]
+                      result = args19 val
                     }
                 | f_arg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = args val[0],    nil, val[2], val[5], val[4]
+                      result = args19 val
                     }
                 |           f_optarg tCOMMA f_rest_arg opt_f_block_arg
                     {
-                      result = args    nil, val[0], val[2], val[3]
+                      result = args19 val
                     }
                 | f_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = s(:args)
-                      val[0][1..-1].each do |lasgn| # FIX clean sexp iter
-                        raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
-                        result << lasgn[1]
-                      end
-
-                      result << val[2]
-                      result << val[4].last
-                      result << :"&#{val[5].last}" if val[5]
-                      result << val[0]
-                      result
+                      result = args19 val
                     }
                 |           f_optarg                opt_f_block_arg
                     {
-                      result = args    nil, val[0],    nil, val[1]
+                      result = args19 val
                     }
                 |                        f_rest_arg opt_f_block_arg
                     {
-                      result = args    nil,    nil, val[0], val[1]
+                      result = args19 val
                     }
                 | f_optarg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = args nil, val[0], val[2].last, val[3]
+                      result = args19 val
                     }
                 |           f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = args    nil,    nil, val[0], val[3], val[2]
+                      result = args19 val
                     }
                 |                                       f_block_arg
                     {
-                      result = args    nil,    nil,    nil, val[0]
+                      result = args19 val
                     }
                 |
                     {
-                      result = args    nil,    nil,    nil,    nil
+                      result = args19 val
                     }
 
       f_norm_arg: tCONSTANT

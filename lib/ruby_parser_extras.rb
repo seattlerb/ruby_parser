@@ -149,9 +149,47 @@ module RubyParserStuff
     end
 
     result << rest_arg  if rest_arg
+
     result << :"&#{block_arg.last}" if block_arg
     result << optarg    if optarg # TODO? huh - processed above as well
     post_arg[1..-1].each {|pa| result << pa } if post_arg
+
+    result
+  end
+
+  def args19 vals # TODO: migrate to args once 1.8 tests pass as well
+    result = s(:args)
+    block  = nil
+
+    vals.each do |val|
+      case val
+      when Sexp then
+        case val.first
+        when :args then
+          val[1..-1].each do |name|
+            result << name
+          end
+        when :block_arg then
+          result << :"&#{val.last}"
+        when :block then
+         block = val
+          val[1..-1].each do |lasgn| # FIX clean sexp iter
+            raise "wtf? #{val.inspect}" unless lasgn[0] == :lasgn
+            result << lasgn[1]
+          end
+        else
+          raise "unhandled sexp: #{val.inspect}"
+        end
+      when Symbol then
+        result << val
+      when ",", nil then
+        # ignore
+      else
+        raise "unhandled val: #{val.inspect} in #{vals.inspect}"
+      end
+    end
+
+    result << block if block
 
     result
   end
