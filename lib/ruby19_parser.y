@@ -7,7 +7,7 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       kREDO kRETRY kIN kDO kDO_COND kDO_BLOCK kDO_LAMBDA kRETURN kYIELD kSUPER
       kSELF kNIL kTRUE kFALSE kAND kOR kNOT kIF_MOD kUNLESS_MOD kWHILE_MOD
       kUNTIL_MOD kRESCUE_MOD kALIAS kDEFINED klBEGIN klEND k__LINE__
-      k__FILE__ tIDENTIFIER tFID tGVAR tIVAR tCONSTANT tCVAR tNTH_REF
+      k__FILE__ tIDENTIFIER tFID tGVAR tIVAR tCONSTANT tLABEL tCVAR tNTH_REF
       tBACK_REF tSTRING_CONTENT tINTEGER tFLOAT tREGEXP_END tUPLUS
       tUMINUS tUMINUS_NUM tPOW tCMP tEQ tEQQ tNEQ tGEQ tLEQ tANDOP
       tOROP tMATCH tNMATCH tDOT tDOT2 tDOT3 tAREF tASET tLSHFT tRSHFT
@@ -1845,9 +1845,9 @@ xstring_contents: none
                     {
                       result = s(:array, val[0], val[2])
                     }
-                | variable tCOLON arg_value
+                | tLABEL arg_value
                     {
-                      result = s(:array, s(:lit, val[0].to_sym), val[2])
+                      result = s(:array, s(:lit, val[0][0].to_sym), val[1])
                     }
 
        operation: tIDENTIFIER | tCONSTANT | tFID
