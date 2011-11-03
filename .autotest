@@ -27,7 +27,7 @@ Autotest.add_hook :initialize do |at|
     at.extra_class_map[klass] = "test/test_ruby_parser_extras.rb"
   end
 
-  %w(TestRubyParser TestParseTree).each do |klass| # HACK
+  %w(TestRuby18Parser TestRuby19Parser TestParseTree).each do |klass| # HACK
     at.extra_class_map[klass] = "test/test_ruby_parser.rb"
   end
 end
