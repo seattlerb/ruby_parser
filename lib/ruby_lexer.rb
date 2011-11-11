@@ -138,7 +138,6 @@ class RubyLexer
       end
 
       until src.check(eos_re) do
-        src.skip(eos_re)
         c = tokadd_string func, "\n", nil
 
         rb_compile_error err_msg if
@@ -200,12 +199,10 @@ class RubyLexer
       return nil
     end
 
-    if src.check(/.*\n/) then
+    if src.scan(/.*\n/) then
       # TODO: think about storing off the char range instead
-      line = src.string[src.pos, src.matched_size]
-      src.string[src.pos, src.matched_size] = "\n"
+      line = src.matched
       src.extra_lines_added += 1
-      src.pos += 1
     else
       line = nil
     end
