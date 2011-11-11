@@ -1266,7 +1266,7 @@ class RubyLexer
 
         if colon && src.peek(1) != ":"
           src.unscan
-          self.lex_state == :expr_beg
+          self.lex_state = :expr_beg
           src.scan(/:/)
           self.yacc_value = [token, src.lineno]
           return :tLABEL
