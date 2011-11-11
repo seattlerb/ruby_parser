@@ -708,7 +708,6 @@ class RubyLexer
           end
         elsif src.scan(/\(/) then
           result = :tLPAREN2
-          self.command_start = true
 
           if lex_state == :expr_beg || lex_state == :expr_mid then
             result = :tLPAREN
@@ -1265,7 +1264,7 @@ class RubyLexer
                    end
       end
 
-      if lex_state == :expr_beg || lex_state == :expr_arg || lex_state == :expr_cmdarg
+      if (lex_state == :expr_beg && !command_state) || lex_state == :expr_arg || lex_state == :expr_cmdarg
         colon = src.scan(/:/)
 
         if colon && src.peek(1) != ":"
