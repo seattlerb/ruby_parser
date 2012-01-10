@@ -110,4 +110,13 @@ task :irb => [:isolate] do
   sh "GEM_HOME=#{Gem.path.first} irb -rubygems -Ilib -rruby_parser;"
 end
 
+def (task(:phony)).timestamp
+  Time.at 0
+end
+
+task :isolate => :phony
+
+file "lib/ruby18_parser.rb" => :isolate
+file "lib/ruby19_parser.rb" => :isolate
+
 # vim: syntax=Ruby
