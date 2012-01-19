@@ -119,6 +119,4 @@ task :isolate => :phony
 file "lib/ruby18_parser.rb" => :isolate
 file "lib/ruby19_parser.rb" => :isolate
 
-task(:release_to_gemcutter).clear
-
 # vim: syntax=Ruby
