@@ -111,7 +111,7 @@ class RPStringScanner < StringScanner
 end
 
 module RubyParserStuff
-  VERSION = '2.3.1' unless constants.include? "VERSION" # SIGH
+  VERSION = '3.0.0a1' unless constants.include? "VERSION" # SIGH
 
   attr_accessor :lexer, :in_def, :in_single, :file
   attr_reader :env, :comments
