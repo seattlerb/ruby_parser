@@ -691,6 +691,7 @@ rule
                     }
                 | arg tEH arg tCOLON arg
                     {
+                      lexer.tern.pop
                       result = s(:if, val[0], val[2], val[4])
                     }
                 | primary
