@@ -717,6 +717,10 @@ rule
                     {
                       result = s(:array, s(:hash, *val[0].values))
                     }
+                | args tCOMMA assocs trailer
+                    {
+                      result = val[0] << s(:hash, *val[2].values)
+                    }
                 | tSTAR arg opt_nl
                     {
                       result = s(:array, s(:splat, val[1]))
