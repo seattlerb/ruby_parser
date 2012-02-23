@@ -2,6 +2,7 @@ class RubyLexer
   attr_accessor :command_start
   attr_accessor :cmdarg
   attr_accessor :cond
+  attr_accessor :tern
   attr_accessor :nest
 
   ESC_RE = /\\([0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc])/
@@ -15,7 +16,7 @@ class RubyLexer
   # Additional context surrounding tokens that both the lexer and
   # grammar use.
   attr_reader :lex_state
-
+  
   attr_accessor :lex_strterm
 
   attr_accessor :parser # HACK for very end of lexer... *sigh*
@@ -222,6 +223,7 @@ class RubyLexer
     self.version = v
     self.cond = RubyParser::StackState.new(:cond)
     self.cmdarg = RubyParser::StackState.new(:cmdarg)
+    self.tern = RubyParser::StackState.new(:tern)
     self.nest = 0
     @comments = []
 
@@ -690,6 +692,7 @@ class RubyLexer
             "]" => :tRBRACK,
             "}" => :tRCURLY
           }[src.matched]
+          self.tern.lexpop if [:tRBRACK, :tRCURLY].include?(result)
           return result
         elsif src.scan(/\.\.\.?|,|![=~]?/) then
           self.lex_state = :expr_beg
@@ -705,16 +708,19 @@ class RubyLexer
           end
         elsif src.scan(/\(/) then
           result = :tLPAREN2
-
           if lex_state == :expr_beg || lex_state == :expr_mid then
             result = :tLPAREN
           elsif space_seen then
             if lex_state == :expr_cmdarg then
               result = :tLPAREN_ARG
             elsif lex_state == :expr_arg then
+              self.tern.push false
               warning("don't put space before argument parentheses")
+              
               result = :tLPAREN2
             end
+          else
+            self.tern.push false            
           end
 
           self.expr_beg_push "("
@@ -775,7 +781,7 @@ class RubyLexer
         elsif src.scan(/\:/) then
           # ?: / then / when
           if (lex_state == :expr_end || lex_state == :expr_endarg||
-              src.check(/\s/)) then
+              src.check(/\s/) || self.tern.is_in_state) then
             self.lex_state = :expr_beg
             self.yacc_value = ":"
             return :tCOLON
@@ -809,8 +815,10 @@ class RubyLexer
               rb_compile_error "unexpected '['"
             end
           elsif lex_state == :expr_beg || lex_state == :expr_mid then
+            self.tern.push false
             result = :tLBRACK
           elsif lex_state.is_argument && space_seen then
+            self.tern.push false
             result = :tLBRACK
           end
 
@@ -851,6 +859,7 @@ class RubyLexer
                    elsif lex_state == :expr_endarg then
                      :tLBRACE_ARG  #  block (expr)
                    else
+                     self.tern.push false
                      :tLBRACE      #  hash
                    end
 
@@ -1007,6 +1016,7 @@ class RubyLexer
         elsif src.scan(/\?/) then
           if lex_state == :expr_end || lex_state == :expr_endarg then
             self.lex_state = :expr_beg
+            self.tern.push true
             self.yacc_value = "?"
             return :tEH
           end
@@ -1031,10 +1041,12 @@ class RubyLexer
 
             # ternary
             self.lex_state = :expr_beg
+            self.tern.push true
             self.yacc_value = "?"
             return :tEH
           elsif src.check(/\w(?=\w)/) then # ternary, also
             self.lex_state = :expr_beg
+            self.tern.push true
             self.yacc_value = "?"
             return :tEH
           end
@@ -1261,20 +1273,22 @@ class RubyLexer
                    end
       end
 
-      if (lex_state == :expr_beg && !command_state) || lex_state == :expr_arg || lex_state == :expr_cmdarg
-        colon = src.scan(/:/)
+      if !self.tern.is_in_state
+        if (lex_state == :expr_beg && !command_state) || lex_state == :expr_arg || lex_state == :expr_cmdarg
+          colon = src.scan(/:/)
 
-        if colon && src.peek(1) != ":"
-          src.unscan
-          self.lex_state = :expr_beg
-          src.scan(/:/)
-          self.yacc_value = [token, src.lineno]
-          return :tLABEL
+          if colon && src.peek(1) != ":"
+            src.unscan
+            self.lex_state = :expr_beg
+            src.scan(/:/)
+            self.yacc_value = [token, src.lineno]
+            return :tLABEL
+          end
+
+          src.unscan if colon
         end
-
-        src.unscan if colon
       end
-
+      
       unless lex_state == :expr_dot then
         # See if it is a reserved word.
         keyword = RubyParser::Keyword.keyword token

@@ -689,6 +689,7 @@ rule
                     }
                 | arg tEH arg tCOLON arg
                     {
+                      lexer.tern.pop
                       result = s(:if, val[0], val[2], val[4])
                     }
                 | primary
@@ -715,6 +716,10 @@ rule
                 | assocs trailer
                     {
                       result = s(:array, s(:hash, *val[0].values))
+                    }
+                | args tCOMMA assocs trailer
+                    {
+                      result = val[0] << s(:hash, *val[2].values)
                     }
                 | tSTAR arg opt_nl
                     {
