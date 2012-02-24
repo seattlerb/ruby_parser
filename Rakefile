@@ -24,6 +24,9 @@ Hoe.spec 'ruby_parser' do
   self.racc_flags << " -g" if plugin?(:racc) && ENV["DEBUG"]
 end
 
+file "lib/ruby18_parser.rb" => "lib/ruby18_parser.y"
+file "lib/ruby19_parser.rb" => "lib/ruby19_parser.y"
+
 task :clean do
   rm_rf(Dir["**/*~"] +
         Dir["**/*.diff"] +
