@@ -17,6 +17,14 @@ times = {}
 locs = {}
 kbytes = {}
 
+class File
+  RUBY19 = "<3".respond_to? :encoding
+
+  class << self
+    alias :binread :read unless RUBY19
+  end
+end
+
 begin
   ARGV.each do |file|
     rp = RubyParser.new
@@ -37,7 +45,7 @@ begin
     begin
       begin
         rp.reset
-        r = rp.parse(File.read(file), file)
+        r = rp.parse(File.binread(file), file)
         pp r unless $q
         good += 1
       rescue SyntaxError => e
