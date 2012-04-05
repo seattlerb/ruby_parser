@@ -132,30 +132,35 @@ class TestRubyLexer < MiniTest::Unit::TestCase
   end
 
   def test_yylex_label__18
-    util_lex_token "{a:", :tLBRACE, "{", :tIDENTIFIER, "a", :tSYMBEG, ":"
+    util_lex_token("{a:",
+                   :tLBRACE,     "{",
+                   :tIDENTIFIER, "a",
+                   :tSYMBEG,     ":")
   end
 
   def test_yylex_label_in_params__18
-    util_lex_token "foo(a:",
-      :tIDENTIFIER, "foo",
-      :tLPAREN2, "(",
-      :tIDENTIFIER, "a",
-      :tSYMBEG, ":"
+    util_lex_token("foo(a:",
+                   :tIDENTIFIER, "foo",
+                   :tLPAREN2,    "(",
+                   :tIDENTIFIER, "a",
+                   :tSYMBEG,     ":")
   end
 
   def test_yylex_label__19
     setup_lexer Ruby19Parser
 
-    util_lex_token "{a:", :tLBRACE, "{", :tLABEL, "a"
+    util_lex_token("{a:",
+                   :tLBRACE, "{",
+                   :tLABEL,  "a")
   end
 
   def test_yylex_label_in_params__19
     setup_lexer Ruby19Parser
 
-    util_lex_token "foo(a:",
-      :tIDENTIFIER, "foo",
-      :tLPAREN2, "(",
-      :tLABEL, "a"
+    util_lex_token("foo(a:",
+                   :tIDENTIFIER, "foo",
+                   :tLPAREN2,    "(",
+                   :tLABEL,      "a")
   end
 
   def test_yylex_back_ref

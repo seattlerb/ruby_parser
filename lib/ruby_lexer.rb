@@ -16,7 +16,7 @@ class RubyLexer
   # Additional context surrounding tokens that both the lexer and
   # grammar use.
   attr_reader :lex_state
-  
+
   attr_accessor :lex_strterm
 
   attr_accessor :parser # HACK for very end of lexer... *sigh*
@@ -716,11 +716,11 @@ class RubyLexer
             elsif lex_state == :expr_arg then
               self.tern.push false
               warning("don't put space before argument parentheses")
-              
+
               result = :tLPAREN2
             end
           else
-            self.tern.push false            
+            self.tern.push false
           end
 
           self.expr_beg_push "("
@@ -1275,8 +1275,10 @@ class RubyLexer
 
       ruby18 = Ruby18Parser === parser
 
-      if !self.tern.is_in_state
-        if (lex_state == :expr_beg && !command_state) || lex_state == :expr_arg || lex_state == :expr_cmdarg
+      unless self.tern.is_in_state
+        if (lex_state == :expr_beg && !command_state) ||
+            lex_state == :expr_arg ||
+            lex_state == :expr_cmdarg then
           colon = src.scan(/:/)
 
           if colon && src.peek(1) != ":"
@@ -1290,7 +1292,7 @@ class RubyLexer
           src.unscan if colon
         end
       end unless ruby18
-      
+
       unless lex_state == :expr_dot then
         # See if it is a reserved word.
         keyword = RubyParser::Keyword.keyword token
