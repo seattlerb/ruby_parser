@@ -11,7 +11,11 @@ class TestRubyLexer < MiniTest::Unit::TestCase
   alias :deny :refute
 
   def setup
-    p = Ruby18Parser.new
+    setup_lexer Ruby18Parser
+  end
+
+  def setup_lexer parser_class
+    p = parser_class.new
     @lex = p.lexer
     @lex.src = "blah blah"
     @lex.lex_state = :expr_beg
@@ -127,11 +131,27 @@ class TestRubyLexer < MiniTest::Unit::TestCase
     util_lex_token "=>", :tASSOC, "=>"
   end
 
-  def test_yylex_label
+  def test_yylex_label__18
+    util_lex_token "{a:", :tLBRACE, "{", :tIDENTIFIER, "a", :tSYMBEG, ":"
+  end
+
+  def test_yylex_label_in_params__18
+    util_lex_token "foo(a:",
+      :tIDENTIFIER, "foo",
+      :tLPAREN2, "(",
+      :tIDENTIFIER, "a",
+      :tSYMBEG, ":"
+  end
+
+  def test_yylex_label__19
+    setup_lexer Ruby19Parser
+
     util_lex_token "{a:", :tLBRACE, "{", :tLABEL, "a"
   end
 
-  def test_yylex_label_in_params
+  def test_yylex_label_in_params__19
+    setup_lexer Ruby19Parser
+
     util_lex_token "foo(a:",
       :tIDENTIFIER, "foo",
       :tLPAREN2, "(",

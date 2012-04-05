@@ -1273,6 +1273,8 @@ class RubyLexer
                    end
       end
 
+      ruby18 = Ruby18Parser === parser
+
       if !self.tern.is_in_state
         if (lex_state == :expr_beg && !command_state) || lex_state == :expr_arg || lex_state == :expr_cmdarg
           colon = src.scan(/:/)
@@ -1287,7 +1289,7 @@ class RubyLexer
 
           src.unscan if colon
         end
-      end
+      end unless ruby18
       
       unless lex_state == :expr_dot then
         # See if it is a reserved word.
