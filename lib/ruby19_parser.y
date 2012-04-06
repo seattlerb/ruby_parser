@@ -734,6 +734,13 @@ rule
                     {
                       result = val[1]
                     }
+                | tLPAREN2 args tCOMMA tRPAREN
+                    {
+                      # TODO: this needs to be refactored against the
+                      # 1.9 parser... they're much cleaner in some
+                      # ways
+                      result = val[1]
+                    }
                 | tLPAREN2 block_call opt_nl tRPAREN
                     {
                       warning "parenthesize argument(s) for future version"
