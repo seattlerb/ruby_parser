@@ -478,6 +478,10 @@ class RubyLexer
     @lex_state = nil
   end
 
+  def ruby18
+    Ruby18Parser === parser
+  end
+
   def src= src
     raise "bad src: #{src.inspect}" unless String === src
     @src = RPStringScanner.new(src)
@@ -635,7 +639,6 @@ class RubyLexer
   # @return Description of the Returned Value
 
   def yylex # 826 lines
-
     c = ''
     space_seen = false
     command_state = false
@@ -708,6 +711,9 @@ class RubyLexer
           end
         elsif src.scan(/\(/) then
           result = :tLPAREN2
+
+          self.command_start = true if ruby18
+
           if lex_state == :expr_beg || lex_state == :expr_mid then
             result = :tLPAREN
           elsif space_seen then
@@ -1273,10 +1279,8 @@ class RubyLexer
                    end
       end
 
-      ruby18 = Ruby18Parser === parser
-
       unless self.tern.is_in_state
-        if (lex_state == :expr_beg && !command_state) ||
+        if (lex_state == :expr_beg && (ruby18 || !command_state)) ||
             lex_state == :expr_arg ||
             lex_state == :expr_cmdarg then
           colon = src.scan(/:/)
