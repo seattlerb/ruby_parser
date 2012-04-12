@@ -3,6 +3,10 @@ require 'racc/parser'
 require 'sexp'
 require 'strscan'
 
+def d o
+  $stderr.puts o.inspect
+end
+
 # WHY do I have to do this?!?
 class Regexp
   ONCE = 0 unless defined? ONCE # FIX: remove this - it makes no sense
@@ -66,7 +70,7 @@ class RPStringScanner < StringScanner
     alias :old_scan :scan
     def scan re
       s = old_scan re
-      p :scan => [s, caller.first] if s
+      d :scan => [s, caller.first] if s
       s
     end
   end
@@ -135,6 +139,31 @@ module RubyParserStuff
     raise "huh" unless node2
     node1 << s(:splat, node2).compact
     node1
+  end
+
+  def block_var ary, splat, block
+    ary ||= s(:array)
+
+    if splat then
+      if splat == s(:splat) then
+        ary << splat
+      else
+        ary << s(:splat, splat)
+      end
+    end
+
+    if block then
+      block[-1] = :"&#{block[-1]}"
+      ary << block
+    end
+
+    result = if ary.length > 2 or ary.splat then
+               s(:masgn, ary)
+             else
+               ary.last
+             end
+
+    result
   end
 
   def args arg, optarg, rest_arg, block_arg, post_arg = nil

@@ -15,7 +15,7 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tLBRACK tRBRACK tLBRACE tLBRACE_ARG tSTAR tSTAR2 tAMPER tAMPER2
       tTILDE tPERCENT tDIVIDE tPLUS tMINUS tLT tGT tPIPE tBANG tCARET
       tLCURLY tRCURLY tBACK_REF2 tSYMBEG tSTRING_BEG tXSTRING_BEG tREGEXP_BEG
-      tWORDS_BEG tAWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END tSTRING
+      tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END tSTRING
       tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAST_TOKEN tLAMBDA tLAMBEG
 
 prechigh
@@ -495,7 +495,7 @@ rule
                 | kFOR      | kIN         | kMODULE | kNEXT  | kNIL    | kNOT
                 | kOR       | kREDO       | kRESCUE | kRETRY | kRETURN | kSELF
                 | kSUPER    | kTHEN       | kTRUE   | kUNDEF | kWHEN   | kYIELD
-                | kIF_MOD   | kUNLESS_MOD | kWHILE_MOD | kUNTIL_MOD | kRESCUE_MOD
+                | kIF       | kUNLESS     | kWHILE  | kUNTIL
 
              arg: lhs tEQL arg
                     {
@@ -925,7 +925,7 @@ rule
                 | xstring
                 | regexp
                 | words
-                | awords
+                | qwords
                 | var_ref
                 | backref
                 | tFID
@@ -1063,7 +1063,7 @@ rule
                     {
                       result = new_case nil, val[3]
                     }
-                | kFOR block_var kIN
+                | kFOR for_var kIN
                     {
                       lexer.cond.push true
                     }
@@ -1203,11 +1203,70 @@ rule
                       result = val[1]
                     }
 
-       block_var: lhs
+         for_var: lhs
                 | mlhs
                     {
                       val[0].delete_at 1 if val[0][1].nil? # HACK
                     }
+
+       block_par: mlhs_item
+                    {
+                      result = s(:array, val[0])
+                    }
+                | block_par tCOMMA mlhs_item
+                    {
+                      result = self.list_append val[0], val[2]
+                    }
+
+       block_var: block_par
+                    {
+                      result = block_var val[0], nil, nil
+                    }
+                | block_par tCOMMA
+                    {
+                      result = block_var val[0], nil, nil
+                    }
+                | block_par tCOMMA tAMPER lhs
+                    {
+                      result = block_var val[0], nil, val[3]
+                    }
+                | block_par tCOMMA tSTAR lhs tCOMMA tAMPER lhs
+                    {
+                      result = block_var val[0], val[3], val[6]
+                    }
+                | block_par tCOMMA tSTAR tCOMMA tAMPER lhs
+                    {
+                      result = block_var val[0], s(:splat), val[5]
+                    }
+                | block_par tCOMMA tSTAR lhs
+                    {
+                      result = block_var val[0], val[3], nil
+                    }
+                | block_par tCOMMA tSTAR
+                    {
+                      result = block_var val[0], s(:splat), nil
+                    }
+                | tSTAR lhs tCOMMA tAMPER lhs
+                    {
+                      result = block_var nil, val[1], val[4]
+                    }
+                | tSTAR tCOMMA tAMPER lhs
+                    {
+                      result = block_var nil, s(:splat), val[3]
+                    }
+                | tSTAR lhs
+                    {
+                      result = block_var nil, val[1], nil
+                    }
+                | tSTAR
+                    {
+                      result = block_var nil, s(:splat), nil
+                    }
+                | tAMPER lhs
+                    {
+                      result = block_var nil, nil, val[1]
+                    }
+                ;
 
    opt_block_var: none
                 | tPIPE tPIPE
@@ -1299,7 +1358,7 @@ rule
           lambda: lambda_body
                     {
                       call = s(:call, nil, :lambda, s(:arglist))
-                      result = s(:iter, call, nil, val[0])
+                      result = s(:iter, call, 0, val[0])
                     }
                 | f_larglist lambda_body
                     {
@@ -1492,11 +1551,11 @@ rule
                       result = self.literal_concat val[0], val[1]
                     }
 
-          awords: tAWORDS_BEG tSPACE tSTRING_END
+          qwords: tQWORDS_BEG tSPACE tSTRING_END
                     {
                       result = s(:array)
                     }
-                | tAWORDS_BEG qword_list tSTRING_END
+                | tQWORDS_BEG qword_list tSTRING_END
                     {
                       result = val[1]
                     }

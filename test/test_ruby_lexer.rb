@@ -1693,7 +1693,7 @@ class TestRubyLexer < MiniTest::Unit::TestCase
 
   def test_yylex_string_pct_w
     util_bad_token("%w[s1 s2 ",
-                   :tAWORDS_BEG,     "%w[",
+                   :tQWORDS_BEG,     "%w[",
                    :tSTRING_CONTENT, "s1",
                    :tSPACE,              nil,
                    :tSTRING_CONTENT, "s2",
@@ -1702,7 +1702,7 @@ class TestRubyLexer < MiniTest::Unit::TestCase
 
   def test_yylex_string_pct_w_bs_nl
     util_lex_token("%w[s1 \\\ns2]",
-                   :tAWORDS_BEG,     "%w[",
+                   :tQWORDS_BEG,     "%w[",
                    :tSTRING_CONTENT, "s1",
                    :tSPACE,              nil,
                    :tSTRING_CONTENT, "\ns2",
@@ -1712,7 +1712,7 @@ class TestRubyLexer < MiniTest::Unit::TestCase
 
   def test_yylex_string_pct_w_bs_sp
     util_lex_token("%w[s\\ 1 s\\ 2]",
-                   :tAWORDS_BEG,     "%w[",
+                   :tQWORDS_BEG,     "%w[",
                    :tSTRING_CONTENT, "s 1",
                    :tSPACE,              nil,
                    :tSTRING_CONTENT, "s 2",
@@ -1722,7 +1722,7 @@ class TestRubyLexer < MiniTest::Unit::TestCase
 
   def test_yylex_string_pct_w_tab
     util_lex_token("%w[abc\tdef]",
-                   :tAWORDS_BEG,      "%w[",
+                   :tQWORDS_BEG,      "%w[",
                    :tSTRING_CONTENT, "abc\tdef",
                    :tSPACE,              nil,
                    :tSTRING_END,     nil)
@@ -1899,7 +1899,7 @@ class TestRubyLexer < MiniTest::Unit::TestCase
       token = args.shift
       value = args.shift
       assert @lex.advance, "no more tokens"
-      assert_equal [token, value], [@lex.token, [@lex.yacc_value].flatten.first]
+      assert_equal [token, value], [@lex.token, [@lex.yacc_value].flatten.first], input
     end
 
     deny @lex.advance, "must be empty, but had #{[@lex.token, @lex.yacc_value].inspect}"

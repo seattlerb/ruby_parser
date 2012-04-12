@@ -122,4 +122,20 @@ task :isolate => :phony
 file "lib/ruby18_parser.rb" => :isolate
 file "lib/ruby19_parser.rb" => :isolate
 
+task :compare18 do
+  sh "./yack.rb lib/ruby18_parser.output > racc18.txt"
+  sh "./yack.rb parse18.output > yacc18.txt"
+  sh "diff -du racc18.txt yacc18.txt || true"
+  puts
+  sh "diff -du racc18.txt yacc18.txt | wc -l"
+end
+
+task :compare19 do
+  sh "./yack.rb lib/ruby19_parser.output > racc19.txt"
+  sh "./yack.rb parse19.output > yacc19.txt"
+  sh "diff -du racc19.txt yacc19.txt || true"
+  puts
+  sh "diff -du racc19.txt yacc19.txt | wc -l"
+end
+
 # vim: syntax=Ruby

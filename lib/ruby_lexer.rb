@@ -42,7 +42,7 @@ class RubyLexer
   STR_FUNC_ESCAPE = 0x01 # TODO: remove and replace with REGEXP
   STR_FUNC_EXPAND = 0x02
   STR_FUNC_REGEXP = 0x04
-  STR_FUNC_AWORDS = 0x08
+  STR_FUNC_QWORDS = 0x08
   STR_FUNC_SYMBOL = 0x10
   STR_FUNC_INDENT = 0x20 # <<-HEREDOC
 
@@ -314,10 +314,10 @@ class RubyLexer
                                 [:tSTRING_BEG,   STR_SQUOTE]
                               when 'W' then
                                 src.scan(/\s*/)
-                                [:tWORDS_BEG,    STR_DQUOTE | STR_FUNC_AWORDS]
+                                [:tWORDS_BEG,    STR_DQUOTE | STR_FUNC_QWORDS]
                               when 'w' then
                                 src.scan(/\s*/)
-                                [:tAWORDS_BEG,   STR_SQUOTE | STR_FUNC_AWORDS]
+                                [:tQWORDS_BEG,   STR_SQUOTE | STR_FUNC_QWORDS]
                               when 'x' then
                                 [:tXSTRING_BEG,  STR_XQUOTE]
                               when 'r' then
@@ -343,7 +343,7 @@ class RubyLexer
     paren = open
     term_re = Regexp.escape term
 
-    awords = (func & STR_FUNC_AWORDS) != 0
+    qwords = (func & STR_FUNC_QWORDS) != 0
     regexp = (func & STR_FUNC_REGEXP) != 0
     expand = (func & STR_FUNC_EXPAND) != 0
 
@@ -352,10 +352,10 @@ class RubyLexer
       return :tSTRING_END
     end
 
-    space = true if awords and src.scan(/\s+/)
+    space = true if qwords and src.scan(/\s+/)
 
     if self.nest == 0 && src.scan(/#{term_re}/) then
-      if awords then
+      if qwords then
         quote[1] = nil
         return :tSPACE
       elsif regexp then
@@ -508,7 +508,7 @@ class RubyLexer
   end
 
   def tokadd_string(func, term, paren) # 105 lines
-    awords = (func & STR_FUNC_AWORDS) != 0
+    qwords = (func & STR_FUNC_QWORDS) != 0
     escape = (func & STR_FUNC_ESCAPE) != 0
     expand = (func & STR_FUNC_EXPAND) != 0
     regexp = (func & STR_FUNC_REGEXP) != 0
@@ -528,7 +528,7 @@ class RubyLexer
         self.nest += 1
       when src.scan(term_re) then
         self.nest -= 1
-      when awords && src.scan(/\s/) then
+      when qwords && src.scan(/\s/) then
         src.pos -= 1
         break
       when expand && src.scan(/#(?=[\$\@\{])/) then
@@ -538,10 +538,10 @@ class RubyLexer
         # do nothing
       when src.check(/\\/) then
         case
-        when awords && src.scan(/\\\n/) then
+        when qwords && src.scan(/\\\n/) then
           string_buffer << "\n"
           next
-        when awords && src.scan(/\\\s/) then
+        when qwords && src.scan(/\\\s/) then
           c = ' '
         when expand && src.scan(/\\\n/) then
           next
@@ -570,7 +570,7 @@ class RubyLexer
 
         t = Regexp.escape term
         x = Regexp.escape(paren) if paren && paren != "\000"
-        re = if awords then
+        re = if qwords then
                /[^#{t}#{x}\#\0\\\n\ ]+|./ # |. to pick up whatever
              else
                /[^#{t}#{x}\#\0\\]+|./
@@ -710,24 +710,11 @@ class RubyLexer
             return :tDOT
           end
         elsif src.scan(/\(/) then
-          result = :tLPAREN2
-
-          self.command_start = true if ruby18
-
-          if lex_state == :expr_beg || lex_state == :expr_mid then
-            result = :tLPAREN
-          elsif space_seen then
-            if lex_state == :expr_cmdarg then
-              result = :tLPAREN_ARG
-            elsif lex_state == :expr_arg then
-              self.tern.push false
-              warning("don't put space before argument parentheses")
-
-              result = :tLPAREN2
-            end
-          else
-            self.tern.push false
-          end
+          result = if ruby18 then
+                     yylex_paren18 space_seen
+                   else
+                     yylex_paren19 space_seen
+                   end
 
           self.expr_beg_push "("
 
@@ -1244,13 +1231,59 @@ class RubyLexer
     end
   end
 
+  def yylex_paren18 space_seen
+    self.command_start = true
+    result = :tLPAREN2
+
+    if lex_state == :expr_beg || lex_state == :expr_mid then
+      result = :tLPAREN
+    elsif space_seen then
+      if lex_state == :expr_cmdarg then
+        result = :tLPAREN_ARG
+      elsif lex_state == :expr_arg then
+        self.tern.push false
+        warning "don't put space before argument parentheses"
+      end
+    else
+      self.tern.push false
+    end
+
+    result
+  end
+
+  def yylex_paren19 space_seen
+    if (lex_state == :expr_beg || lex_state == :expr_mid ||
+        lex_state == :expr_value || lex_state == :expr_class) then
+      result = :tLPAREN
+    elsif ((lex_state == :expr_arg || lex_state == :expr_cmdarg) and
+           space_seen) then
+      result = :tLPAREN_ARG
+    else
+      self.tern.push false
+      result = :tLPAREN2
+    end
+    # HACK paren_nest++;
+
+    # HACK: this is a mess, but it makes the tests pass, so suck it
+    # (stolen from the 1.8 side)
+    if lex_state == :expr_beg || lex_state == :expr_mid then
+      # do nothing
+    elsif space_seen then
+      if lex_state == :expr_arg then
+        self.tern.push false
+      end
+    else
+      self.tern.push false
+    end
+    result
+  end
+
   def process_token(command_state)
 
     token << src.matched if token =~ /^\w/ && src.scan(/[\!\?](?!=)/)
 
     result = nil
     last_state = lex_state
-
 
     case token
     when /^\$/ then
