@@ -4,6 +4,7 @@ Manifest.txt
 README.txt
 Rakefile
 bin/ruby_parse
+bin/ruby_parse_extract_error
 lib/gauntlet_rubyparser.rb
 lib/ruby18_parser.rb
 lib/ruby18_parser.y

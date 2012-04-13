@@ -1,0 +1,62 @@
+#!/usr/bin/ruby -ws
+
+require 'rubygems'
+require 'ruby_parser'
+
+ARGV.push "-" if ARGV.empty?
+
+parser = Ruby18Parser.new
+
+class Racc::Parser
+  def extract_defs
+    ss = lexer.src
+    src = ss.string
+    pre_error = src[0...ss.pos]
+
+    defs = pre_error.grep(/^ *def/)
+
+    last_def_indent = defs.last[/^ */]
+
+    post_error = src[ss.pos..-1]
+    idx = post_error =~ /^#{last_def_indent}end.*/
+
+    raise "can't figure out where the bad code ends" unless idx
+
+    src = pre_error + post_error[0..idx+$&.length]
+
+    src.scan(/^(( *)def .*?^\2end)/m)
+  end
+
+  def retest_for_errors defs
+    d :retest => defs.size
+
+    parser = self.class.new
+
+    parser.process(defs.join("\n\n")) rescue nil
+  end
+end
+
+ARGV.each do |file|
+  ruby = file == "-" ? $stdin.read : File.read(file)
+
+  begin
+    parser.process(ruby, file)
+  rescue Racc::ParseError => e
+    defs = parser.extract_defs
+
+    abort "Can't reproduce error with just methods, punting..." if
+      parser.retest_for_errors defs
+
+    mandatory = defs.pop
+
+    (1..defs.size).each do |perm_size|
+      defs.combination(perm_size).each do |trial|
+        trial << mandatory
+        unless parser.retest_for_errors trial then
+          puts trial.join "\n"
+          abort "reduced repro found!"
+        end
+      end
+    end
+  end
+end
