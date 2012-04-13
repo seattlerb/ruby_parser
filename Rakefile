@@ -138,4 +138,32 @@ task :compare19 do
   sh "diff -du racc19.txt yacc19.txt | wc -l"
 end
 
+task :debug => :isolate do
+  ENV["DEBUG"] ||= "18"
+  Rake.application[:parser].invoke # this way we can have DEBUG set
+
+  $: << "lib"
+  require 'ruby_parser'
+
+  parser = if ENV["DEBUG"] == "18" then
+             Ruby18Parser.new
+           else
+             Ruby19Parser.new
+           end
+
+  file = ENV["F"] || ENV["FILE"]
+
+  ruby = File.read(file)
+
+  begin
+    parser.process(ruby, file)
+  rescue Racc::ParseError => e
+    p e
+    ss = parser.lexer.src
+    src = ss.string
+    lines = src[0..ss.pos].split(/\n/)
+    abort "on #{file}:#{lines.size}"
+  end
+end
+
 # vim: syntax=Ruby
