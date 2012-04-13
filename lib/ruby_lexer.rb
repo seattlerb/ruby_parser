@@ -774,7 +774,7 @@ class RubyLexer
         elsif src.scan(/\:/) then
           # ?: / then / when
           if (lex_state == :expr_end || lex_state == :expr_endarg||
-              src.check(/\s/) || self.tern.is_in_state) then
+              src.check(/\s/)) then
             self.lex_state = :expr_beg
             self.yacc_value = ":"
             return :tCOLON
