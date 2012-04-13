@@ -36,12 +36,25 @@ class Racc::Parser
   end
 end
 
+ARGV.replace ARGV.map { |path|
+  if File.directory? path then
+    Dir.glob File.join path, "**/*.rb"
+  else
+    path
+  end
+}.flatten
+
 ARGV.each do |file|
   ruby = file == "-" ? $stdin.read : File.read(file)
 
   begin
+    $stderr.print "Validating #{file}: "
     parser.process(ruby, file)
+    $stderr.puts "good"
   rescue Racc::ParseError => e
+    $stderr.puts "error: #{e.description}"
+    $stderr.puts
+
     defs = parser.extract_defs
 
     abort "Can't reproduce error with just methods, punting..." if
