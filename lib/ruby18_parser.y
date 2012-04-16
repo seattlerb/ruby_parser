@@ -67,7 +67,7 @@ rule
                 | stmt
                 | stmts terms stmt
                     {
-                      result = self.block_append val[0], val[2]
+                      result = block_append val[0], val[2]
                     }
                 | error stmt
                     {
@@ -121,7 +121,7 @@ rule
                     }
                 | klBEGIN
                     {
-                      if (self.in_def || self.in_single > 0) then
+                      if (in_def || in_single > 0) then
                         yyerror "BEGIN in method"
                       end
                       self.env.extend
@@ -133,14 +133,14 @@ rule
                     }
                 | klEND tLCURLY compstmt tRCURLY
                     {
-                      if (self.in_def || self.in_single > 0) then
+                      if (in_def || in_single > 0) then
                         yyerror "END in method; use at_exit"
                       end
                       result = new_iter s(:postexe), nil, val[2]
                     }
                 | lhs tEQL command_call
                     {
-                      result = self.node_assign val[0], val[2]
+                      result = node_assign val[0], val[2]
                     }
                 | mlhs tEQL command_call
                     {
@@ -168,11 +168,11 @@ rule
                     }
                 | backref tOP_ASGN command_call
                     {
-                      self.backref_assign_error val[0]
+                      backref_assign_error val[0]
                     }
                 | lhs tEQL mrhs
                     {
-                      result = self.node_assign val[0], s(:svalue, val[2])
+                      result = node_assign val[0], s(:svalue, val[2])
                     }
                 | mlhs tEQL arg_value
                     {
@@ -352,27 +352,27 @@ rule
 
        mlhs_node: variable
                     {
-                      result = self.assignable val[0]
+                      result = assignable val[0]
                     }
                 | primary_value "[" aref_args tRBRACK
                     {
-                      result = self.aryset val[0], val[2]
+                      result = aryset val[0], val[2]
                     }
                 | primary_value tDOT tIDENTIFIER
                     {
-                      result = s(:attrasgn, val[0], :"#{val[2]}=", s(:arglist))
+                      result = s(:attrasgn, val[0], :"#{val[2]}=")
                     }
                 | primary_value tCOLON2 tIDENTIFIER
                     {
-                      result = s(:attrasgn, val[0], :"#{val[2]}=", s(:arglist))
+                      result = s(:attrasgn, val[0], :"#{val[2]}=")
                     }
                 | primary_value tDOT tCONSTANT
                     {
-                      result = s(:attrasgn, val[0], :"#{val[2]}=", s(:arglist))
+                      result = s(:attrasgn, val[0], :"#{val[2]}=")
                     }
                 | primary_value tCOLON2 tCONSTANT
                     {
-                      if (self.in_def || self.in_single > 0) then
+                      if (in_def || in_single > 0) then
                         yyerror "dynamic constant assignment"
                       end
 
@@ -380,7 +380,7 @@ rule
                     }
                 | tCOLON3 tCONSTANT
                     {
-                      if (self.in_def || self.in_single > 0) then
+                      if (in_def || in_single > 0) then
                         yyerror "dynamic constant assignment"
                       end
 
@@ -388,16 +388,16 @@ rule
                     }
                 | backref
                     {
-                      self.backref_assign_error val[0]
+                      backref_assign_error val[0]
                     }
 
              lhs: variable
                     {
-                      result = self.assignable val[0]
+                      result = assignable val[0]
                     }
                 | primary_value "[" aref_args tRBRACK
                     {
-                      result = self.aryset val[0], val[2]
+                      result = aryset val[0], val[2]
                     }
                 | primary_value tDOT tIDENTIFIER
                     {
@@ -413,7 +413,7 @@ rule
                     }
                 | primary_value tCOLON2 tCONSTANT
                     {
-                      if (self.in_def || self.in_single > 0) then
+                      if (in_def || in_single > 0) then
                         yyerror "dynamic constant assignment"
                       end
 
@@ -421,7 +421,7 @@ rule
                     }
                 | tCOLON3 tCONSTANT
                     {
-                      if (self.in_def || self.in_single > 0) then
+                      if (in_def || in_single > 0) then
                         yyerror "dynamic constant assignment"
                       end
 
@@ -429,7 +429,7 @@ rule
                     }
                 | backref
                     {
-                      self.backref_assign_error val[0]
+                      backref_assign_error val[0]
                     }
 
            cname: tIDENTIFIER
@@ -499,11 +499,11 @@ rule
 
              arg: lhs tEQL arg
                     {
-                      result = self.node_assign val[0], val[2]
+                      result = node_assign val[0], val[2]
                     }
                 | lhs tEQL arg kRESCUE_MOD arg
                     {
-                      result = self.node_assign val[0], s(:rescue, val[2], s(:resbody, s(:array), val[4]))
+                      result = node_assign val[0], s(:rescue, val[2], s(:resbody, s(:array), val[4]))
                       # result.line = val[0].line
                     }
                 | var_lhs tOP_ASGN arg
@@ -538,7 +538,7 @@ rule
                     }
                 | backref tOP_ASGN arg
                     {
-                      self.backref_assign_error val[0]
+                      backref_assign_error val[0]
                     }
                 | arg tDOT2 arg
                     {
@@ -560,101 +560,101 @@ rule
                     }
                 | arg tPLUS arg
                     {
-                      result = new_call val[0], :+, s(:arglist, val[2])
+                      result = new_call val[0], :+, val[2]
                     }
                 | arg tMINUS arg
                     {
-                      result = new_call val[0], :-, s(:arglist, val[2])
+                      result = new_call val[0], :-, val[2]
                     }
                 | arg tSTAR2 arg
                     {
-                      result = new_call val[0], :*, s(:arglist, val[2])
+                      result = new_call val[0], :*, val[2]
                     }
                 | arg tDIVIDE arg
                     {
-                      result = new_call val[0], :"/", s(:arglist, val[2])
+                      result = new_call val[0], :"/", val[2]
                     }
                 | arg tPERCENT arg
                     {
-                      result = new_call val[0], :%, s(:arglist, val[2])
+                      result = new_call val[0], :"%", val[2]
                     }
                 | arg tPOW arg
                     {
-                      result = new_call val[0], :**, s(:arglist, val[2])
+                      result = new_call val[0], :**, val[2]
                     }
                 | tUMINUS_NUM tINTEGER tPOW arg
                     {
-                      result = new_call(new_call(s(:lit, val[1]), :"**", s(:arglist, val[3])), :"-@", s(:arglist))
+                      result = new_call(new_call(s(:lit, val[1]), :"**", val[3]), :"-@")
                     }
                 | tUMINUS_NUM tFLOAT tPOW arg
                     {
-                      result = new_call(new_call(s(:lit, val[1]), :"**", s(:arglist, val[3])), :"-@", s(:arglist))
+                      result = new_call(new_call(s(:lit, val[1]), :"**", val[3]), :"-@")
                     }
                 | tUPLUS arg
                     {
                       if val[1][0] == :lit then
                         result = val[1]
                       else
-                        result = new_call val[1], :"+@", s(:arglist)
+                        result = new_call val[1], :"+@"
                       end
                     }
                 | tUMINUS arg
                     {
-                      result = new_call val[1], :"-@", s(:arglist)
+                      result = new_call val[1], :"-@"
                     }
                 | arg tPIPE arg
                     {
-                      result = new_call val[0], :"|", s(:arglist, val[2])
+                      result = new_call val[0], :"|", val[2]
                     }
                 | arg tCARET arg
                     {
-                      result = new_call val[0], :"^", s(:arglist, val[2])
+                      result = new_call val[0], :"^", val[2]
                     }
                 | arg tAMPER2 arg
                     {
-                      result = new_call val[0], :"&", s(:arglist, val[2])
+                      result = new_call val[0], :"&", val[2]
                     }
                 | arg tCMP arg
                     {
-                      result = new_call val[0], :"<=>", s(:arglist, val[2])
+                      result = new_call val[0], :"<=>", val[2]
                     }
                 | arg tGT arg
                     {
-                      result = new_call val[0], :">", s(:arglist, val[2])
+                      result = new_call val[0], :">", val[2]
                     }
                 | arg tGEQ arg
                     {
-                      result = new_call val[0], :">=", s(:arglist, val[2])
+                      result = new_call val[0], :">=", val[2]
                     }
                 | arg tLT arg
                     {
-                      result = new_call val[0], :"<", s(:arglist, val[2])
+                      result = new_call val[0], :"<", val[2]
                     }
                 | arg tLEQ arg
                     {
-                      result = new_call val[0], :"<=", s(:arglist, val[2])
+                      result = new_call val[0], :"<=", val[2]
                     }
                 | arg tEQ arg
                     {
-                      result = new_call val[0], :"==", s(:arglist, val[2])
+                      result = new_call val[0], :"==", val[2]
                     }
                 | arg tEQQ arg
                     {
-                      result = new_call val[0], :"===", s(:arglist, val[2])
+                      result = new_call val[0], :"===", val[2]
                     }
                 | arg tNEQ arg
                     {
                       val[0] = value_expr val[0] # TODO: port call_op and clean these
                       val[2] = value_expr val[2]
-                      result = s(:not, new_call(val[0], :"==", s(:arglist, val[2])))
+                      result = s(:not, new_call(val[0], :"==", val[2]))
                     }
                 | arg tMATCH arg
                     {
-                      result = self.get_match_node val[0], val[2]
+                      result = get_match_node val[0], val[2]
                     }
                 | arg tNMATCH arg
                     {
-                      result = s(:not, self.get_match_node(val[0], val[2]))
+                      result = s(:not, get_match_node(val[0], val[2]))
                     }
                 | tBANG arg
                     {
@@ -663,19 +663,19 @@ rule
                 | tTILDE arg
                     {
                       val[2] = value_expr val[2]
-                      result = new_call val[1], :"~", s(:arglist)
+                      result = new_call val[1], :"~"
                     }
                 | arg tLSHFT arg
                     {
                       val[0] = value_expr val[0]
                       val[2] = value_expr val[2]
-                      result = new_call val[0], :"\<\<", s(:arglist, val[2])
+                      result = new_call val[0], :"\<\<", val[2]
                     }
                 | arg tRSHFT arg
                     {
                       val[0] = value_expr val[0]
                       val[2] = value_expr val[2]
-                      result = new_call val[0], :">>", s(:arglist, val[2])
+                      result = new_call val[0], :">>", val[2]
                     }
                 | arg tANDOP arg
                     {
@@ -713,7 +713,7 @@ rule
                     }
                 | args tCOMMA tSTAR arg opt_nl
                     {
-                      result = self.arg_concat val[0], val[3]
+                      result = arg_concat val[0], val[3]
                     }
                 | assocs trailer
                     {
@@ -753,92 +753,92 @@ rule
                     }
                 | args opt_block_arg
                     {
-                      result = self.arg_blk_pass val[0], val[1]
+                      result = arg_blk_pass val[0], val[1]
                     }
                 | args tCOMMA tSTAR arg_value opt_block_arg
                     {
-                      result = self.arg_concat val[0], val[3]
-                      result = self.arg_blk_pass result, val[4]
+                      result = arg_concat val[0], val[3]
+                      result = arg_blk_pass result, val[4]
                     }
                 | assocs opt_block_arg
                     {
                       result = s(:array, s(:hash, *val[0].values))
-                      result = self.arg_blk_pass result, val[1]
+                      result = arg_blk_pass result, val[1]
                     }
                 | assocs tCOMMA tSTAR arg_value opt_block_arg
                     {
-                      result = self.arg_concat s(:array, s(:hash, *val[0].values)), val[3]
-                      result = self.arg_blk_pass result, val[4]
+                      result = arg_concat s(:array, s(:hash, *val[0].values)), val[3]
+                      result = arg_blk_pass result, val[4]
                     }
                 | args tCOMMA assocs opt_block_arg
                     {
                       result = val[0] << s(:hash, *val[2].values)
-                      result = self.arg_blk_pass result, val[3]
+                      result = arg_blk_pass result, val[3]
                     }
                 | args tCOMMA assocs tCOMMA tSTAR arg opt_block_arg
                     {
                       val[0] << s(:hash, *val[2].values)
-                      result = self.arg_concat val[0], val[5]
-                      result = self.arg_blk_pass result, val[6]
+                      result = arg_concat val[0], val[5]
+                      result = arg_blk_pass result, val[6]
                     }
                 | tSTAR arg_value opt_block_arg
                     {
-                      result = self.arg_blk_pass s(:splat, val[1]), val[2]
+                      result = arg_blk_pass s(:splat, val[1]), val[2]
                     }
                 | block_arg
 
       call_args2: arg_value tCOMMA args opt_block_arg
                     {
-                      args = self.list_prepend val[0], val[2]
-                      result = self.arg_blk_pass args, val[3]
+                      args = list_prepend val[0], val[2]
+                      result = arg_blk_pass args, val[3]
                     }
                 | arg_value tCOMMA block_arg
                     {
-                      result = self.arg_blk_pass val[0], val[2]
+                      result = arg_blk_pass val[0], val[2]
                     }
                 | arg_value tCOMMA tSTAR arg_value opt_block_arg
                     {
-                      result = self.arg_concat s(:array, val[0]), val[3]
-                      result = self.arg_blk_pass result, val[4]
+                      result = arg_concat s(:array, val[0]), val[3]
+                      result = arg_blk_pass result, val[4]
                     }
                 | arg_value tCOMMA args tCOMMA tSTAR arg_value opt_block_arg
                     {
-                      result = self.arg_concat s(:array, val[0], s(:hash, *val[2].values)), val[5]
-                      result = self.arg_blk_pass result, val[6]
+                      result = arg_concat s(:array, val[0], s(:hash, *val[2].values)), val[5]
+                      result = arg_blk_pass result, val[6]
                     }
                 | assocs opt_block_arg
                     {
                       result = s(:array, s(:hash, *val[0].values))
-                      result = self.arg_blk_pass result, val[1]
+                      result = arg_blk_pass result, val[1]
                     }
                 | assocs tCOMMA tSTAR arg_value opt_block_arg
                     {
                       result = s(:array, s(:hash, *val[0].values), val[3])
-                      result = self.arg_blk_pass result, val[4]
+                      result = arg_blk_pass result, val[4]
                     }
                 | arg_value tCOMMA assocs opt_block_arg
                     {
                       result = s(:array, val[0], s(:hash, *val[2].values))
-                      result = self.arg_blk_pass result, val[3]
+                      result = arg_blk_pass result, val[3]
                     }
                 | arg_value tCOMMA args tCOMMA assocs opt_block_arg
                     {
                       result = s(:array, val[0]).add_all(val[2]).add(s(:hash, *val[4].values))
-                      result = self.arg_blk_pass result, val[5]
+                      result = arg_blk_pass result, val[5]
                     }
                 | arg_value tCOMMA assocs tCOMMA tSTAR arg_value opt_block_arg
                     {
-                      result = self.arg_concat s(:array, val[0]).add(s(:hash, *val[2].values)), val[5]
-                      result = self.arg_blk_pass result, val[6]
+                      result = arg_concat s(:array, val[0]).add(s(:hash, *val[2].values)), val[5]
+                      result = arg_blk_pass result, val[6]
                     }
                 | arg_value tCOMMA args tCOMMA assocs tCOMMA tSTAR arg_value opt_block_arg
                     {
-                      result = self.arg_concat s(:array, val[0]).add_all(val[2]).add(s(:hash, *val[4].values)), val[7]
-                      result = self.arg_blk_pass result, val[8]
+                      result = arg_concat s(:array, val[0]).add_all(val[2]).add(s(:hash, *val[4].values)), val[7]
+                      result = arg_blk_pass result, val[8]
                     }
                 | tSTAR arg_value opt_block_arg
                     {
-                      result = self.arg_blk_pass s(:splat, val[1]), val[2]
+                      result = arg_blk_pass s(:splat, val[1]), val[2]
                     }
                 | block_arg
 
@@ -889,7 +889,7 @@ rule
                     }
                 | args tCOMMA arg_value
                     {
-                      result = self.list_append val[0], val[2]
+                      result = list_append val[0], val[2]
                     }
 
             mrhs: args tCOMMA arg_value
@@ -898,7 +898,7 @@ rule
                     }
                 | args tCOMMA tSTAR arg_value
                     {
-                      result = self.arg_concat val[0], val[3]
+                      result = arg_concat val[0], val[3]
                     }
                 | tSTAR arg_value
                     {
@@ -1063,7 +1063,7 @@ rule
                     cpath superclass
                     {
                       self.comments.push self.lexer.comments
-                      if (self.in_def || self.in_single > 0) then
+                      if (in_def || in_single > 0) then
                         yyerror "class definition in method body"
                       end
                       self.env.extend
@@ -1079,12 +1079,12 @@ rule
                     }
                     expr
                     {
-                      result = self.in_def
+                      result = in_def
                       self.in_def = false
                     }
                     term
                     {
-                      result = self.in_single
+                      result = in_single
                       self.in_single = 0
                       self.env.extend
                     }
@@ -1101,7 +1101,7 @@ rule
                     {
                       self.comments.push self.lexer.comments
                       yyerror "module definition in method body" if
-                        self.in_def or self.in_single > 0
+                        in_def or in_single > 0
 
                       self.env.extend
                     }
@@ -1196,7 +1196,7 @@ rule
                     }
                 | block_par tCOMMA mlhs_item
                     {
-                      result = self.list_append val[0], val[2]
+                      result = list_append val[0], val[2]
                     }
 
        block_var: block_par
@@ -1381,7 +1381,7 @@ rule
        when_args: args
                 | args tCOMMA tSTAR arg_value
                     {
-                      result = self.list_append val[0], s(:when, val[3], nil)
+                      result = list_append val[0], s(:when, val[3], nil)
                     }
                 | tSTAR arg_value
                     {
@@ -1441,7 +1441,7 @@ rule
           string: string1
                 | string string1
                     {
-                      result = self.literal_concat val[0], val[1]
+                      result = literal_concat val[0], val[1]
                     }
 
          string1: tSTRING_BEG string_contents tSTRING_END
@@ -1485,7 +1485,7 @@ rule
             word: string_content
                 | word string_content
                     {
-                      result = self.literal_concat val[0], val[1]
+                      result = literal_concat val[0], val[1]
                     }
 
           qwords: tQWORDS_BEG tSPACE tSTRING_END
@@ -1635,7 +1635,7 @@ xstring_contents: none
 
          var_lhs: variable
                     {
-                      result = self.assignable val[0]
+                      result = assignable val[0]
                     }
 
          backref: tNTH_REF  { result = s(:nth_ref,  val[0]) }
@@ -1744,7 +1744,7 @@ xstring_contents: none
 
            f_opt: tIDENTIFIER tEQL arg_value
                     {
-                      result = self.assignable val[0], val[2]
+                      result = assignable val[0], val[2]
                       # TODO: detect duplicate names
                     }
 
@@ -1754,7 +1754,7 @@ xstring_contents: none
                     }
                 | f_optarg tCOMMA f_opt
                     {
-                      result = self.block_append val[0], val[2]
+                      result = block_append val[0], val[2]
                     }
 
     restarg_mark: tSTAR2 | tSTAR
@@ -1763,7 +1763,7 @@ xstring_contents: none
                     {
                       # TODO: differs from parse.y - needs tests
                       name = val[1].to_sym
-                      self.assignable name
+                      assignable name
                       result = :"*#{name}"
                     }
                 | restarg_mark

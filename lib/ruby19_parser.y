@@ -140,7 +140,7 @@ rule
                     }
                 | lhs tEQL command_call
                     {
-                      result = self.node_assign val[0], val[2]
+                      result = node_assign val[0], val[2]
                     }
                 | mlhs tEQL command_call
                     {
@@ -360,15 +360,15 @@ rule
                     }
                 | primary_value tDOT tIDENTIFIER
                     {
-                      result = s(:attrasgn, val[0], :"#{val[2]}=", s(:arglist))
+                      result = s(:attrasgn, val[0], :"#{val[2]}=")
                     }
                 | primary_value tCOLON2 tIDENTIFIER
                     {
-                      result = s(:attrasgn, val[0], :"#{val[2]}=", s(:arglist))
+                      result = s(:attrasgn, val[0], :"#{val[2]}=")
                     }
                 | primary_value tDOT tCONSTANT
                     {
-                      result = s(:attrasgn, val[0], :"#{val[2]}=", s(:arglist))
+                      result = s(:attrasgn, val[0], :"#{val[2]}=")
                     }
                 | primary_value tCOLON2 tCONSTANT
                     {
@@ -560,91 +560,91 @@ rule
                     }
                 | arg tPLUS arg
                     {
-                      result = new_call val[0], :+, s(:arglist, val[2])
+                      result = new_call val[0], :+, val[2]
                     }
                 | arg tMINUS arg
                     {
-                      result = new_call val[0], :-, s(:arglist, val[2])
+                      result = new_call val[0], :-, val[2]
                     }
                 | arg tSTAR2 arg
                     {
-                      result = new_call val[0], :*, s(:arglist, val[2])
+                      result = new_call val[0], :*, val[2]
                     }
                 | arg tDIVIDE arg
                     {
-                      result = new_call val[0], :"/", s(:arglist, val[2])
+                      result = new_call val[0], :"/", val[2]
                     }
                 | arg tPERCENT arg
                     {
-                      result = new_call val[0], :%, s(:arglist, val[2])
+                      result = new_call val[0], :"%", val[2]
                     }
                 | arg tPOW arg
                     {
-                      result = new_call val[0], :**, s(:arglist, val[2])
+                      result = new_call val[0], :"**", val[2]
                     }
                 | tUMINUS_NUM tINTEGER tPOW arg
                     {
-                      result = new_call(new_call(s(:lit, val[1]), :"**", s(:arglist, val[3])), :"-@", s(:arglist))
+              result = new_call(new_call(s(:lit, val[1]), :"**", val[3]), :"-@")
                     }
                 | tUMINUS_NUM tFLOAT tPOW arg
                     {
-                      result = new_call(new_call(s(:lit, val[1]), :"**", s(:arglist, val[3])), :"-@", s(:arglist))
+              result = new_call(new_call(s(:lit, val[1]), :"**", val[3]), :"-@")
                     }
                 | tUPLUS arg
                     {
                       if val[1][0] == :lit then
                         result = val[1]
                       else
-                        result = new_call val[1], :"+@", s(:arglist)
+                        result = new_call val[1], :"+@"
                       end
                     }
                 | tUMINUS arg
                     {
-                      result = new_call val[1], :"-@", s(:arglist)
+                      result = new_call val[1], :"-@"
                     }
                 | arg tPIPE arg
                     {
-                      result = new_call val[0], :"|", s(:arglist, val[2])
+                      result = new_call val[0], :"|", val[2]
                     }
                 | arg tCARET arg
                     {
-                      result = new_call val[0], :"^", s(:arglist, val[2])
+                      result = new_call val[0], :"^", val[2]
                     }
                 | arg tAMPER2 arg
                     {
-                      result = new_call val[0], :"&", s(:arglist, val[2])
+                      result = new_call val[0], :"&", val[2]
                     }
                 | arg tCMP arg
                     {
-                      result = new_call val[0], :"<=>", s(:arglist, val[2])
+                      result = new_call val[0], :"<=>", val[2]
                     }
                 | arg tGT arg
                     {
-                      result = new_call val[0], :">", s(:arglist, val[2])
+                      result = new_call val[0], :">", val[2]
                     }
                 | arg tGEQ arg
                     {
-                      result = new_call val[0], :">=", s(:arglist, val[2])
+                      result = new_call val[0], :">=", val[2]
                     }
                 | arg tLT arg
                     {
-                      result = new_call val[0], :"<", s(:arglist, val[2])
+                      result = new_call val[0], :"<", val[2]
                     }
                 | arg tLEQ arg
                     {
-                      result = new_call val[0], :"<=", s(:arglist, val[2])
+                      result = new_call val[0], :"<=", val[2]
                     }
                 | arg tEQ arg
                     {
-                      result = new_call val[0], :"==", s(:arglist, val[2])
+                      result = new_call val[0], :"==", val[2]
                     }
                 | arg tEQQ arg
                     {
-                      result = new_call val[0], :"===", s(:arglist, val[2])
+                      result = new_call val[0], :"===", val[2]
                     }
                 | arg tNEQ arg
                     {
-                      result = new_call val[0], :"!=", s(:arglist, val[2])
+                      result = new_call val[0], :"!=", val[2]
                     }
                 | arg tMATCH arg
                     {
@@ -656,24 +656,24 @@ rule
                     }
                 | tBANG arg
                     {
-                      result = s(:call, val[1], :"!@", s(:arglist))
+                      result = s(:call, val[1], :"!@")
                     }
                 | tTILDE arg
                     {
                       val[2] = value_expr val[2]
-                      result = new_call val[1], :"~", s(:arglist)
+                      result = new_call val[1], :"~"
                     }
                 | arg tLSHFT arg
                     {
                       val[0] = value_expr val[0]
                       val[2] = value_expr val[2]
-                      result = new_call val[0], :"\<\<", s(:arglist, val[2])
+                      result = new_call val[0], :"\<\<", val[2]
                     }
                 | arg tRSHFT arg
                     {
                       val[0] = value_expr val[0]
                       val[2] = value_expr val[2]
-                      result = new_call val[0], :">>", s(:arglist, val[2])
+                      result = new_call val[0], :">>", val[2]
                     }
                 | arg tANDOP arg
                     {
@@ -1357,7 +1357,7 @@ rule
 
           lambda: lambda_body
                     {
-                      call = s(:call, nil, :lambda, s(:arglist))
+                      call = s(:call, nil, :lambda)
                       result = s(:iter, call, 0, val[0])
                     }
                 | f_larglist lambda_body
@@ -1372,7 +1372,7 @@ rule
                         args = s(:masgn, s(:array, *vars))
                       end
 
-                      call = s(:call, nil, :lambda, s(:arglist))
+                      call = s(:call, nil, :lambda)
                       result = s(:iter, call, args, val[1])
                     }
 

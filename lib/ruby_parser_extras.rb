@@ -224,8 +224,7 @@ module RubyParserStuff
   end
 
   def aryset receiver, index
-    index[0] = :arglist if index[0] == :array
-    s(:attrasgn, receiver, :"[]=", index)
+    s(:attrasgn, receiver, :"[]=", *index[1..-1])
   end
 
   def assignable(lhs, value = nil)
@@ -344,7 +343,7 @@ module RubyParserStuff
       end
     end
 
-    return s(:call, lhs, :"=~", s(:arglist, rhs)).line(lhs.line)
+    return s(:call, lhs, :"=~", rhs).line(lhs.line)
   end
 
   def gettable(id)
@@ -366,7 +365,7 @@ module RubyParserStuff
                elsif env.dynamic? and :dvar == env[id] then
                  s(:lvar, id)
                else
-                 s(:call, nil, id, s(:arglist))
+                 s(:call, nil, id)
                end
              end
 
@@ -518,7 +517,10 @@ module RubyParserStuff
     args ||= s(:arglist)
     args[0] = :arglist if args.first == :array
     args = s(:arglist, args) unless args.first == :arglist
-    result << args
+
+    # HACK quick hack to make this work quickly... easy to clean up above
+    result.concat args[1..-1]
+
     result
   end
 
@@ -632,8 +634,7 @@ module RubyParserStuff
                s(:op_asgn_and, self.gettable(name), lhs)
              else
                # TODO: why [2] ?
-               lhs[2] = new_call(self.gettable(name), asgn_op,
-                                 s(:arglist, arg))
+               lhs[2] = new_call(self.gettable(name), asgn_op, arg)
                lhs
              end
     result.line = lhs.line
@@ -786,7 +787,7 @@ module RubyParserStuff
       lhs << rhs
     when :attrasgn, :call then
       args = lhs.pop unless Symbol === lhs.last
-      lhs << arg_add(args, rhs)
+      lhs.concat arg_add(args, rhs)[1..-1]
     when :const then
       lhs[0] = :cdecl
       lhs << rhs

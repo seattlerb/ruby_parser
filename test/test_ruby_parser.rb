@@ -56,11 +56,10 @@ module TestRubyParser
     pt = s(:attrasgn,
            s(:array, s(:lit, 1), s(:lit, 2), s(:lit, 3), s(:lit, 4)),
            :[]=,
-           s(:arglist,
-             s(:dot2,
-               s(:call, nil, :from, s(:arglist)),
-               s(:call, nil, :to, s(:arglist))),
-             s(:array, s(:str, "a"), s(:str, "b"), s(:str, "c"))))
+           s(:dot2,
+             s(:call, nil, :from),
+             s(:call, nil, :to)),
+           s(:array, s(:str, "a"), s(:str, "b"), s(:str, "c")))
 
     assert_parse rb, pt
   end
@@ -101,10 +100,10 @@ module TestRubyParser
   end
 
   def test_block_append_tail_block
-    head = s(:call, nil, :f1, s(:arglist))
+    head = s(:call, nil, :f1)
     tail = s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y)))
     expected = s(:block,
-                 s(:call, nil, :f1, s(:arglist)),
+                 s(:call, nil, :f1),
                  s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y))))
     assert_equal expected, processor.block_append(head, tail)
   end
@@ -112,7 +111,7 @@ module TestRubyParser
   def test_call_env
     processor.env[:a] = :lvar
     rb = "a.happy"
-    pt = s(:call, s(:lvar, :a), :happy, s(:arglist))
+    pt = s(:call, s(:lvar, :a), :happy)
 
     assert_parse rb, pt
   end
@@ -120,7 +119,7 @@ module TestRubyParser
   def test_dasgn_icky2
     rb = "a do\n  v = nil\n  begin\n    yield\n  rescue Exception => v\n    break\n  end\nend"
     pt = s(:iter,
-           s(:call, nil, :a, s(:arglist)),
+           s(:call, nil, :a),
            nil,
            s(:block,
              s(:lasgn, :v, s(:nil)),
@@ -175,9 +174,9 @@ module TestRubyParser
   def test_do_bug # TODO: rename
     rb = "a 1\na.b do |c|\n  # do nothing\nend"
     pt = s(:block,
-           s(:call, nil, :a, s(:arglist, s(:lit, 1))),
+           s(:call, nil, :a, s(:lit, 1)),
            s(:iter,
-             s(:call, s(:call, nil, :a, s(:arglist)), :b, s(:arglist)),
+             s(:call, s(:call, nil, :a), :b),
              s(:lasgn, :c)))
 
     assert_parse rb, pt
@@ -194,7 +193,7 @@ module TestRubyParser
 
   def test_bug_call_arglist_parens
     rb = 'g ( 1), 2'
-    pt = s(:call, nil, :g, s(:arglist, s(:lit, 1), s(:lit, 2)))
+    pt = s(:call, nil, :g, s(:lit, 1), s(:lit, 2))
 
     assert_parse rb, pt
 
@@ -207,9 +206,7 @@ module TestRubyParser
     pt = s(:defn, :f, s(:args),
            s(:scope,
              s(:block,
-               s(:call, nil, :g,
-                 s(:arglist,
-                   s(:lit, 1), s(:lit, 2))))))
+               s(:call, nil, :g, s(:lit, 1), s(:lit, 2)))))
 
     assert_parse rb, pt
 
@@ -224,7 +221,7 @@ module TestRubyParser
 
   def test_dstr_evstr
     rb = "\"#\{'a'}#\{b}\""
-    pt = s(:dstr, "a", s(:evstr, s(:call, nil, :b, s(:arglist))))
+    pt = s(:dstr, "a", s(:evstr, s(:call, nil, :b)))
 
     assert_parse rb, pt
   end
@@ -245,14 +242,14 @@ module TestRubyParser
 
   def test_evstr_evstr
     rb = "\"#\{a}#\{b}\""
-    pt = s(:dstr, "", s(:evstr, s(:call, nil, :a, s(:arglist))), s(:evstr, s(:call, nil, :b, s(:arglist))))
+    pt = s(:dstr, "", s(:evstr, s(:call, nil, :a)), s(:evstr, s(:call, nil, :b)))
 
     assert_parse rb, pt
   end
 
   def test_evstr_str
     rb = "\"#\{a} b\""
-    pt = s(:dstr, "", s(:evstr, s(:call, nil, :a, s(:arglist))), s(:str, " b"))
+    pt = s(:dstr, "", s(:evstr, s(:call, nil, :a)), s(:str, " b"))
 
     assert_parse rb, pt
   end
@@ -309,16 +306,16 @@ module TestRubyParser
 
   def test_literal_concat_dstr_dstr
     lhs      = s(:dstr, "Failed to download spec ",
-                 s(:evstr, s(:call, nil, :spec_name, s(:arglist))),
+                 s(:evstr, s(:call, nil, :spec_name)),
                  s(:str, " from "),
-                 s(:evstr, s(:call, nil, :source_uri, s(:arglist))),
+                 s(:evstr, s(:call, nil, :source_uri)),
                  s(:str, ":\n"))
     rhs      = s(:dstr, "\t",
                  s(:evstr, s(:call, s(:ivar, :@fetch_error), :message)))
     expected = s(:dstr, "Failed to download spec ",
-                 s(:evstr, s(:call, nil, :spec_name, s(:arglist))),
+                 s(:evstr, s(:call, nil, :spec_name)),
                  s(:str, " from "),
-                 s(:evstr, s(:call, nil, :source_uri, s(:arglist))),
+                 s(:evstr, s(:call, nil, :source_uri)),
                  s(:str, ":\n"),
                  s(:str, "\t"),
                  s(:evstr, s(:call, s(:ivar, :@fetch_error), :message)))
@@ -327,8 +324,8 @@ module TestRubyParser
   end
 
   def test_literal_concat_dstr_evstr
-    lhs, rhs = s(:dstr, "a"), s(:evstr, s(:call, nil, :b, s(:arglist)))
-    expected = s(:dstr, "a", s(:evstr, s(:call, nil, :b, s(:arglist))))
+    lhs, rhs = s(:dstr, "a"), s(:evstr, s(:call, nil, :b))
+    expected = s(:dstr, "a", s(:evstr, s(:call, nil, :b)))
 
     assert_equal expected, processor.literal_concat(lhs, rhs)
   end
@@ -393,11 +390,11 @@ module TestRubyParser
   end
 
   def test_logop_nested_mix
-    lhs = s(:or, s(:call, nil, :a, s(:arglist)), s(:call, nil, :b, s(:arglist)))
-    rhs = s(:and, s(:call, nil, :c, s(:arglist)), s(:call, nil, :d, s(:arglist)))
+    lhs = s(:or, s(:call, nil, :a), s(:call, nil, :b))
+    rhs = s(:and, s(:call, nil, :c), s(:call, nil, :d))
     exp = s(:or,
-            s(:or, s(:call, nil, :a, s(:arglist)), s(:call, nil, :b, s(:arglist))),
-            s(:and, s(:call, nil, :c, s(:arglist)), s(:call, nil, :d, s(:arglist))))
+            s(:or, s(:call, nil, :a), s(:call, nil, :b)),
+            s(:and, s(:call, nil, :c), s(:call, nil, :d)))
 
     lhs.paren = true
     rhs.paren = true
@@ -407,7 +404,7 @@ module TestRubyParser
 
   def test_str_evstr
     rb = "\"a #\{b}\""
-    pt = s(:dstr, "a ", s(:evstr, s(:call, nil, :b, s(:arglist))))
+    pt = s(:dstr, "a ", s(:evstr, s(:call, nil, :b)))
 
     assert_parse rb, pt
   end
@@ -440,7 +437,7 @@ module TestRubyParser
 
   def test_str_pct_Q_nested
     rb = "%Q[before [#\{nest}] after]"
-    pt = s(:dstr, "before [", s(:evstr, s(:call, nil, :nest, s(:arglist))), s(:str, "] after"))
+    pt = s(:dstr, "before [", s(:evstr, s(:call, nil, :nest)), s(:str, "] after"))
 
     assert_parse rb, pt
   end
@@ -494,7 +491,7 @@ module TestRubyParser
     rb = "a = 42\np a"
     pt = s(:block,
            s(:lasgn, :a, s(:lit, 42)),
-           s(:call, nil, :p, s(:arglist, s(:lvar, :a))))
+           s(:call, nil, :p, s(:lvar, :a)))
 
     assert_parse_line rb, pt, 1
     assert_equal 1, result.lasgn.line, "lasgn should have line number"
@@ -513,9 +510,9 @@ module TestRubyParser
     rb = "f do |x, y|\n  x + y\nend"
 
     pt = s(:iter,
-           s(:call, nil, :f, s(:arglist)),
+           s(:call, nil, :f),
            s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
-           s(:call, s(:lvar, :x), :+, s(:arglist, s(:lvar, :y))))
+           s(:call, s(:lvar, :x), :+, s(:lvar, :y)))
 
     assert_parse_line rb, pt, 1
     assert_equal 1, result[1].line,   "call should have line number"
@@ -538,9 +535,9 @@ module TestRubyParser
     pt = s(:defn, :x, s(:args, :y),
            s(:scope,
              s(:block,
-               s(:call, nil, :p, s(:arglist, s(:lvar, :y))),
+               s(:call, nil, :p, s(:lvar, :y)),
                s(:lasgn, :y,
-                 s(:call, s(:lvar, :y), :*, s(:arglist, s(:lit, 2)))),
+                 s(:call, s(:lvar, :y), :*, s(:lit, 2))),
                s(:return, s(:lvar, :y)))))
 
     assert_parse_line rb, pt, 1
@@ -555,9 +552,9 @@ module TestRubyParser
     rb = "f(a) do |x, y|\n  x + y\nend"
 
     pt = s(:iter,
-           s(:call, nil, :f, s(:arglist, s(:call, nil, :a, s(:arglist)))),
+           s(:call, nil, :f, s(:call, nil, :a)),
            s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
-           s(:call, s(:lvar, :x), :+, s(:arglist, s(:lvar, :y))))
+           s(:call, s(:lvar, :x), :+, s(:lvar, :y)))
 
     assert_parse_line rb, pt, 1
 
@@ -570,9 +567,9 @@ module TestRubyParser
     rb = "f a do |x, y|\n  x + y\nend"
 
     pt = s(:iter,
-           s(:call, nil, :f, s(:arglist, s(:call, nil, :a, s(:arglist)))),
+           s(:call, nil, :f, s(:call, nil, :a)),
            s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
-           s(:call, s(:lvar, :x), :+, s(:arglist, s(:lvar, :y))))
+           s(:call, s(:lvar, :x), :+, s(:lvar, :y)))
 
     assert_parse_line rb, pt, 1
 
@@ -627,7 +624,7 @@ module TestRubyParser
   def test_parse_if_not_canonical
     rb = "if not var.nil? then 'foo' else 'bar'\nend"
     pt = s(:if,
-           s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist)),
+           s(:call, s(:call, nil, :var), :nil?),
            s(:str, "bar"),
            s(:str, "foo"))
 
@@ -638,7 +635,7 @@ module TestRubyParser
     rb = "if not var.nil? then 'foo' else 'bar'\nend"
     pt = s(:if,
            s(:not,
-             s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist))),
+             s(:call, s(:call, nil, :var), :nil?)),
            s(:str, "foo"),
            s(:str, "bar"))
 
@@ -650,7 +647,7 @@ module TestRubyParser
   def test_parse_while_not_canonical
     rb = "while not var.nil?\n  'foo'\nend"
     pt = s(:until,
-           s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist)),
+           s(:call, s(:call, nil, :var), :nil?),
            s(:str, "foo"), true)
 
     assert_parse rb, pt
@@ -660,7 +657,7 @@ module TestRubyParser
     rb = "while not var.nil?\n  'foo'\nend"
     pt = s(:while,
            s(:not,
-             s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist))),
+             s(:call, s(:call, nil, :var), :nil?)),
            s(:str, "foo"), true)
 
     processor.canonicalize_conditions = false
@@ -672,7 +669,7 @@ module TestRubyParser
     rb = "until not var.nil?\n  'foo'\nend"
 
     pt = s(:while,
-           s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist)),
+           s(:call, s(:call, nil, :var), :nil?),
            s(:str, "foo"), true)
 
     assert_parse rb, pt
@@ -682,7 +679,7 @@ module TestRubyParser
     rb = "until not var.nil?\n  'foo'\nend"
     pt = s(:until,
            s(:not,
-             s(:call, s(:call, nil, :var, s(:arglist)), :nil?, s(:arglist))),
+             s(:call, s(:call, nil, :var), :nil?)),
            s(:str, "foo"), true)
 
     processor.canonicalize_conditions = false
