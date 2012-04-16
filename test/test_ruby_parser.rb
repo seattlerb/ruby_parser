@@ -135,29 +135,27 @@ module TestRubyParser
   def test_class_comments
     rb = "# blah 1\n# blah 2\n\nclass X\n  # blah 3\n  def blah\n    # blah 4\n  end\nend"
     pt = s(:class, :X, nil,
-           s(:scope,
-             s(:defn, :blah, s(:args), s(:scope, s(:block, s(:nil))))))
+           s(:defn, :blah, s(:args), s(:nil)))
 
     assert_parse rb, pt
 
     assert_equal "# blah 1\n# blah 2\n\n", result.comments
-    assert_equal "# blah 3\n", result.scope.defn.comments
+    assert_equal "# blah 3\n", result.defn.comments
   end
 
   def test_module_comments
     rb = "# blah 1\n  \n  # blah 2\n\nmodule X\n  # blah 3\n  def blah\n    # blah 4\n  end\nend"
     pt = s(:module, :X,
-           s(:scope,
-             s(:defn, :blah, s(:args), s(:scope, s(:block, s(:nil))))))
+           s(:defn, :blah, s(:args), s(:nil)))
 
     assert_parse rb, pt
     assert_equal "# blah 1\n\n# blah 2\n\n", result.comments
-    assert_equal "# blah 3\n", result.scope.defn.comments
+    assert_equal "# blah 3\n", result.defn.comments
   end
 
   def test_defn_comments
     rb = "# blah 1\n# blah 2\n\ndef blah\nend"
-    pt = s(:defn, :blah, s(:args), s(:scope, s(:block, s(:nil))))
+    pt = s(:defn, :blah, s(:args), s(:nil))
 
     assert_parse rb, pt
     assert_equal "# blah 1\n# blah 2\n\n", result.comments
@@ -165,7 +163,7 @@ module TestRubyParser
 
   def test_defs_comments
     rb = "# blah 1\n# blah 2\n\ndef self.blah\nend"
-    pt = s(:defs, s(:self), :blah, s(:args), s(:scope, s(:block)))
+    pt = s(:defs, s(:self), :blah, s(:args))
 
     assert_parse rb, pt
     assert_equal "# blah 1\n# blah 2\n\n", result.comments
@@ -204,9 +202,7 @@ module TestRubyParser
     CODE
 
     pt = s(:defn, :f, s(:args),
-           s(:scope,
-             s(:block,
-               s(:call, nil, :g, s(:lit, 1), s(:lit, 2)))))
+           s(:call, nil, :g, s(:lit, 1), s(:lit, 2)))
 
     assert_parse rb, pt
 
@@ -521,7 +517,7 @@ module TestRubyParser
   end
 
   def test_parse_line_defn_no_parens
-    pt = s(:defn, :f, s(:args), s(:scope, s(:block, s(:nil))))
+    pt = s(:defn, :f, s(:args), s(:nil))
 
     rb = "def f\nend"
     assert_parse_line rb, pt, 1
@@ -533,16 +529,13 @@ module TestRubyParser
   def test_parse_line_defn_complex
     rb = "def x(y)\n  p(y)\n  y *= 2\n  return y;\nend" # TODO: remove () & ;
     pt = s(:defn, :x, s(:args, :y),
-           s(:scope,
-             s(:block,
-               s(:call, nil, :p, s(:lvar, :y)),
-               s(:lasgn, :y,
-                 s(:call, s(:lvar, :y), :*, s(:lit, 2))),
-               s(:return, s(:lvar, :y)))))
+           s(:call, nil, :p, s(:lvar, :y)),
+           s(:lasgn, :y, s(:call, s(:lvar, :y), :*, s(:lit, 2))),
+           s(:return, s(:lvar, :y)))
 
     assert_parse_line rb, pt, 1
 
-    body = result.scope.block
+    body = result
     assert_equal 2, body.call.line,   "call should have line number"
     assert_equal 3, body.lasgn.line,  "lasgn should have line number"
     assert_equal 4, body.return.line, "return should have line number"
@@ -608,17 +601,14 @@ module TestRubyParser
     RUBY
 
     pt = s(:defn, :blah, s(:args),
-           s(:scope,
-             s(:block,
-               s(:if,
-                 s(:true),
-                 s(:return, s(:lit, 42)),
-                 nil))))
+           s(:if, s(:true),
+             s(:return, s(:lit, 42)),
+             nil))
 
     assert_parse_line rb, pt, 1
 
-    assert_equal 3, result.scope.block.if.return.line
-    assert_equal 3, result.scope.block.if.return.lit.line
+    assert_equal 3, result.if.return.line
+    assert_equal 3, result.if.return.lit.line
   end
 
   def test_parse_if_not_canonical

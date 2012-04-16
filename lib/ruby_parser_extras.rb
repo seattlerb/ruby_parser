@@ -543,8 +543,17 @@ module RubyParserStuff
 
   def new_class val
     line, path, superclass, body = val[1], val[2], val[3], val[5]
-    scope = s(:scope, body).compact
-    result = s(:class, path, superclass, scope)
+
+    result = s(:class, path, superclass)
+
+    if body then
+      if body.first == :block then
+        result.push(*body[1..-1])
+      else
+        result.push body
+      end
+    end
+
     result.line = line
     result.comments = self.comments.pop
     result
@@ -560,10 +569,16 @@ module RubyParserStuff
     (_, line), name, args, body = val[0], val[1], val[3], val[4]
     body ||= s(:nil)
 
-    body ||= s(:block)
-    body = s(:block, body) unless body.first == :block
+    result = s(:defn, name.to_sym, args)
 
-    result = s(:defn, name.to_sym, args, s(:scope, body))
+    if body then
+      if body.first == :block then
+        result.push(*body[1..-1])
+      else
+        result.push body
+      end
+    end
+
     result.line = line
     result.comments = self.comments.pop
     result
@@ -572,10 +587,16 @@ module RubyParserStuff
   def new_defs val
     recv, name, args, body = val[1], val[4], val[6], val[7]
 
-    body ||= s(:block)
-    body = s(:block, body) unless body.first == :block
+    result = s(:defs, recv, name.to_sym, args)
 
-    result = s(:defs, recv, name.to_sym, args, s(:scope, body))
+    if body then
+      if body.first == :block then
+        result.push(*body[1..-1])
+      else
+        result.push body
+      end
+    end
+
     result.line = recv.line
     result.comments = self.comments.pop
     result
@@ -615,7 +636,7 @@ module RubyParserStuff
   def new_module val
     line, path, body = val[1], val[2], val[4]
     body = s(:scope, body).compact
-    result = s(:module, path, body)
+    result = s(:module, path, *body[1..-1])
     result.line = line
     result.comments = self.comments.pop
     result
@@ -688,8 +709,17 @@ module RubyParserStuff
 
   def new_sclass val
     recv, in_def, in_single, body = val[3], val[4], val[6], val[7]
-    scope = s(:scope, body).compact
-    result = s(:sclass, recv, scope)
+
+    result = s(:sclass, recv)
+
+    if body then
+      if body.first == :block then
+        result.push(*body[1..-1])
+      else
+        result.push body
+      end
+    end
+
     result.line = val[2]
     self.in_def = in_def
     self.in_single = in_single
