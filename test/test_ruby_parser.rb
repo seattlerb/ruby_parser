@@ -108,6 +108,13 @@ module TestRubyParser
     assert_equal expected, processor.block_append(head, tail)
   end
 
+  def test_call_array_arg
+    rb = "1 == [:b, :c]"
+    pt = s(:call, s(:lit, 1), :==, s(:array, s(:lit, :b), s(:lit, :c)))
+
+    assert_parse rb, pt
+  end
+
   def test_call_env
     processor.env[:a] = :lvar
     rb = "a.happy"

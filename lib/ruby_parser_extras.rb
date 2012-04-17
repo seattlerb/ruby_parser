@@ -343,7 +343,7 @@ module RubyParserStuff
       end
     end
 
-    return s(:call, lhs, :"=~", rhs).line(lhs.line)
+    return new_call(lhs, :"=~", argl(rhs)).line(lhs.line)
   end
 
   def gettable(id)
@@ -365,7 +365,7 @@ module RubyParserStuff
                elsif env.dynamic? and :dvar == env[id] then
                  s(:lvar, id)
                else
-                 s(:call, nil, id)
+                 new_call(nil, id)
                end
              end
 
@@ -508,6 +508,11 @@ module RubyParserStuff
 
     result = s(:ensure, result, val[3]).compact if val[3]
     return result
+  end
+
+  def argl x
+    x = s(:arglist, x) if x and x[0] != :arglist
+    x
   end
 
   def new_call recv, meth, args = nil
@@ -655,7 +660,7 @@ module RubyParserStuff
                s(:op_asgn_and, self.gettable(name), lhs)
              else
                # TODO: why [2] ?
-               lhs[2] = new_call(self.gettable(name), asgn_op, arg)
+               lhs[2] = new_call(self.gettable(name), asgn_op, argl(arg))
                lhs
              end
     result.line = lhs.line

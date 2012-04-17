@@ -560,35 +560,35 @@ rule
                     }
                 | arg tPLUS arg
                     {
-                      result = new_call val[0], :+, val[2]
+                      result = new_call val[0], :+, argl(val[2])
                     }
                 | arg tMINUS arg
                     {
-                      result = new_call val[0], :-, val[2]
+                      result = new_call val[0], :-, argl(val[2])
                     }
                 | arg tSTAR2 arg
                     {
-                      result = new_call val[0], :*, val[2]
+                      result = new_call val[0], :*, argl(val[2])
                     }
                 | arg tDIVIDE arg
                     {
-                      result = new_call val[0], :"/", val[2]
+                      result = new_call val[0], :"/", argl(val[2])
                     }
                 | arg tPERCENT arg
                     {
-                      result = new_call val[0], :"%", val[2]
+                      result = new_call val[0], :"%", argl(val[2])
                     }
                 | arg tPOW arg
                     {
-                      result = new_call val[0], :**, val[2]
+                      result = new_call val[0], :**, argl(val[2])
                     }
                 | tUMINUS_NUM tINTEGER tPOW arg
                     {
-                      result = new_call(new_call(s(:lit, val[1]), :"**", val[3]), :"-@")
+                      result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
                     }
                 | tUMINUS_NUM tFLOAT tPOW arg
                     {
-                      result = new_call(new_call(s(:lit, val[1]), :"**", val[3]), :"-@")
+                      result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
                     }
                 | tUPLUS arg
                     {
@@ -604,49 +604,49 @@ rule
                     }
                 | arg tPIPE arg
                     {
-                      result = new_call val[0], :"|", val[2]
+                      result = new_call val[0], :"|", argl(val[2])
                     }
                 | arg tCARET arg
                     {
-                      result = new_call val[0], :"^", val[2]
+                      result = new_call val[0], :"^", argl(val[2])
                     }
                 | arg tAMPER2 arg
                     {
-                      result = new_call val[0], :"&", val[2]
+                      result = new_call val[0], :"&", argl(val[2])
                     }
                 | arg tCMP arg
                     {
-                      result = new_call val[0], :"<=>", val[2]
+                      result = new_call val[0], :"<=>", argl(val[2])
                     }
                 | arg tGT arg
                     {
-                      result = new_call val[0], :">", val[2]
+                      result = new_call val[0], :">", argl(val[2])
                     }
                 | arg tGEQ arg
                     {
-                      result = new_call val[0], :">=", val[2]
+                      result = new_call val[0], :">=", argl(val[2])
                     }
                 | arg tLT arg
                     {
-                      result = new_call val[0], :"<", val[2]
+                      result = new_call val[0], :"<", argl(val[2])
                     }
                 | arg tLEQ arg
                     {
-                      result = new_call val[0], :"<=", val[2]
+                      result = new_call val[0], :"<=", argl(val[2])
                     }
                 | arg tEQ arg
                     {
-                      result = new_call val[0], :"==", val[2]
+                      result = new_call val[0], :"==", argl(val[2])
                     }
                 | arg tEQQ arg
                     {
-                      result = new_call val[0], :"===", val[2]
+                      result = new_call val[0], :"===", argl(val[2])
                     }
                 | arg tNEQ arg
                     {
                       val[0] = value_expr val[0] # TODO: port call_op and clean these
                       val[2] = value_expr val[2]
-                      result = s(:not, new_call(val[0], :"==", val[2]))
+                      result = s(:not, new_call(val[0], :"==", argl(val[2])))
                     }
                 | arg tMATCH arg
                     {
@@ -669,13 +669,13 @@ rule
                     {
                       val[0] = value_expr val[0]
                       val[2] = value_expr val[2]
-                      result = new_call val[0], :"\<\<", val[2]
+                      result = new_call val[0], :"\<\<", argl(val[2])
                     }
                 | arg tRSHFT arg
                     {
                       val[0] = value_expr val[0]
                       val[2] = value_expr val[2]
-                      result = new_call val[0], :">>", val[2]
+                      result = new_call val[0], :">>", argl(val[2])
                     }
                 | arg tANDOP arg
                     {

@@ -140,7 +140,7 @@ rule
                     }
                 | lhs tEQL command_call
                     {
-                      result = node_assign val[0], val[2]
+                      result = self.node_assign val[0], val[2]
                     }
                 | mlhs tEQL command_call
                     {
@@ -512,8 +512,8 @@ rule
                     }
                 | primary_value "[" aref_args tRBRACK tOP_ASGN arg
                     {
-                      result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
                       val[2][0] = :arglist
+                      result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
                     }
                 | primary_value tDOT tIDENTIFIER tOP_ASGN arg
                     {
@@ -560,35 +560,35 @@ rule
                     }
                 | arg tPLUS arg
                     {
-                      result = new_call val[0], :+, val[2]
+                      result = new_call val[0], :+, argl(val[2])
                     }
                 | arg tMINUS arg
                     {
-                      result = new_call val[0], :-, val[2]
+                      result = new_call val[0], :-, argl(val[2])
                     }
                 | arg tSTAR2 arg
                     {
-                      result = new_call val[0], :*, val[2]
+                      result = new_call val[0], :*, argl(val[2])
                     }
                 | arg tDIVIDE arg
                     {
-                      result = new_call val[0], :"/", val[2]
+                      result = new_call val[0], :"/", argl(val[2])
                     }
                 | arg tPERCENT arg
                     {
-                      result = new_call val[0], :"%", val[2]
+                      result = new_call val[0], :"%", argl(val[2])
                     }
                 | arg tPOW arg
                     {
-                      result = new_call val[0], :"**", val[2]
+                      result = new_call val[0], :**, argl(val[2])
                     }
                 | tUMINUS_NUM tINTEGER tPOW arg
                     {
-              result = new_call(new_call(s(:lit, val[1]), :"**", val[3]), :"-@")
+                      result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
                     }
                 | tUMINUS_NUM tFLOAT tPOW arg
                     {
-              result = new_call(new_call(s(:lit, val[1]), :"**", val[3]), :"-@")
+                      result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
                     }
                 | tUPLUS arg
                     {
@@ -604,47 +604,47 @@ rule
                     }
                 | arg tPIPE arg
                     {
-                      result = new_call val[0], :"|", val[2]
+                      result = new_call val[0], :"|", argl(val[2])
                     }
                 | arg tCARET arg
                     {
-                      result = new_call val[0], :"^", val[2]
+                      result = new_call val[0], :"^", argl(val[2])
                     }
                 | arg tAMPER2 arg
                     {
-                      result = new_call val[0], :"&", val[2]
+                      result = new_call val[0], :"&", argl(val[2])
                     }
                 | arg tCMP arg
                     {
-                      result = new_call val[0], :"<=>", val[2]
+                      result = new_call val[0], :"<=>", argl(val[2])
                     }
                 | arg tGT arg
                     {
-                      result = new_call val[0], :">", val[2]
+                      result = new_call val[0], :">", argl(val[2])
                     }
                 | arg tGEQ arg
                     {
-                      result = new_call val[0], :">=", val[2]
+                      result = new_call val[0], :">=", argl(val[2])
                     }
                 | arg tLT arg
                     {
-                      result = new_call val[0], :"<", val[2]
+                      result = new_call val[0], :"<", argl(val[2])
                     }
                 | arg tLEQ arg
                     {
-                      result = new_call val[0], :"<=", val[2]
+                      result = new_call val[0], :"<=", argl(val[2])
                     }
                 | arg tEQ arg
                     {
-                      result = new_call val[0], :"==", val[2]
+                      result = new_call val[0], :"==", argl(val[2])
                     }
                 | arg tEQQ arg
                     {
-                      result = new_call val[0], :"===", val[2]
+                      result = new_call val[0], :"===", argl(val[2])
                     }
                 | arg tNEQ arg
                     {
-                      result = new_call val[0], :"!=", val[2]
+                      result = new_call val[0], :"!=", argl(val[2])
                     }
                 | arg tMATCH arg
                     {
@@ -656,7 +656,7 @@ rule
                     }
                 | tBANG arg
                     {
-                      result = s(:call, val[1], :"!@")
+                      result = new_call val[1], :"!@"
                     }
                 | tTILDE arg
                     {
@@ -667,13 +667,13 @@ rule
                     {
                       val[0] = value_expr val[0]
                       val[2] = value_expr val[2]
-                      result = new_call val[0], :"\<\<", val[2]
+                      result = new_call val[0], :"\<\<", argl(val[2])
                     }
                 | arg tRSHFT arg
                     {
                       val[0] = value_expr val[0]
                       val[2] = value_expr val[2]
-                      result = new_call val[0], :">>", val[2]
+                      result = new_call val[0], :">>", argl(val[2])
                     }
                 | arg tANDOP arg
                     {
@@ -1003,7 +1003,7 @@ rule
                 | operation brace_block
                     {
                       oper, iter = val[0], val[1]
-                      call = new_call(nil, oper.to_sym)
+                      call = new_call nil, oper.to_sym
                       iter.insert 1, call
                       result = iter
                       call.line = iter.line
@@ -1357,7 +1357,7 @@ rule
 
           lambda: lambda_body
                     {
-                      call = s(:call, nil, :lambda)
+                      call = new_call nil, :lambda
                       result = s(:iter, call, 0, val[0])
                     }
                 | f_larglist lambda_body
@@ -1368,11 +1368,11 @@ rule
                       when 2
                         args = s(:lasgn, val[0][1])
                       else
-                        vars = val[0][1..-1].map{|name| s(:lasgn, name)}
+                        vars = val[0][1..-1].map { |name| s(:lasgn, name) }
                         args = s(:masgn, s(:array, *vars))
                       end
 
-                      call = s(:call, nil, :lambda)
+                      call = new_call nil, :lambda
                       result = s(:iter, call, args, val[1])
                     }
 
