@@ -139,13 +139,13 @@ task :compare19 do
 end
 
 task :debug => :isolate do
-  ENV["DEBUG"] ||= "18"
+  ENV["V"] ||= "18"
   Rake.application[:parser].invoke # this way we can have DEBUG set
 
   $: << "lib"
   require 'ruby_parser'
 
-  parser = if ENV["DEBUG"] == "18" then
+  parser = if ENV["V"] == "18" then
              Ruby18Parser.new
            else
              Ruby19Parser.new
@@ -153,7 +153,12 @@ task :debug => :isolate do
 
   file = ENV["F"] || ENV["FILE"]
 
-  ruby = File.read(file)
+  ruby = if file then
+           File.read(file)
+         else
+           file = "env"
+           ENV["R"] || ENV["RUBY"]
+         end
 
   begin
     parser.process(ruby, file)
