@@ -1373,7 +1373,7 @@ rule
                     }
                     when_args then compstmt cases
                     {
-                      result = s(:when, val[2], val[4])
+                      result = new_when(val[2], val[4])
                       result.line = val[1]
                       result << val[5] if val[5]
                     }
@@ -1381,11 +1381,11 @@ rule
        when_args: args
                 | args tCOMMA tSTAR arg_value
                     {
-                      result = list_append val[0], s(:when, val[3], nil)
+                      result = list_append val[0], new_when(val[3], nil)
                     }
                 | tSTAR arg_value
                     {
-                      result = s(:array, s(:when, val[1], nil))
+                      result = s(:array, new_when(val[1], nil))
                     }
 
            cases: opt_else | case_body

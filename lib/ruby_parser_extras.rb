@@ -484,15 +484,6 @@ module RubyParserStuff
     result
   end
 
-  def new_resbody cond, body
-    if body && body.first == :block then
-      body.shift # remove block and splat it in directly
-    else
-      body = [body]
-    end
-    s(:resbody, cond, *body)
-  end
-
   def new_body val
     result = val[0]
 
@@ -721,6 +712,15 @@ module RubyParserStuff
     node
   end
 
+  def new_resbody cond, body
+    if body && body.first == :block then
+      body.shift # remove block and splat it in directly
+    else
+      body = [body]
+    end
+    s(:resbody, cond, *body)
+  end
+
   def new_sclass val
     recv, in_def, in_single, body = val[3], val[4], val[6], val[7]
 
@@ -757,6 +757,10 @@ module RubyParserStuff
     end
   end
 
+  def new_until block, expr, pre
+    new_until_or_while :until, block, expr, pre
+  end
+
   def new_until_or_while type, block, expr, pre
     other = type == :until ? :while : :until
     line = [block && block.line, expr.line].compact.min
@@ -774,8 +778,8 @@ module RubyParserStuff
     result
   end
 
-  def new_until block, expr, pre
-    new_until_or_while :until, block, expr, pre
+  def new_when cond, body
+    s(:when, cond, body)
   end
 
   def new_while block, expr, pre
