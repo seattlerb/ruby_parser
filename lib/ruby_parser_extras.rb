@@ -538,6 +538,11 @@ module RubyParserStuff
       body = body.delete_at 3
     end
 
+    result[2..-1].each do |node|
+      block = node.block(:delete)
+      node.concat block[1..-1] if block
+    end
+
     # else
     body = nil if body == s(:block)
     result << body
