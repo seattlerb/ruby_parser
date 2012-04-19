@@ -65,7 +65,7 @@ becomes:
 
 (The MIT License)
 
-Copyright (c) 2007-2008 Ryan Davis
+Copyright (c) Ryan Davis, seattle.rb
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

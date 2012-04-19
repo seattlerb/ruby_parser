@@ -117,7 +117,7 @@ rule
                     }
                 | stmt kRESCUE_MOD stmt
                     {
-                      result = s(:rescue, val[0], s(:resbody, s(:array), val[2]))
+                      result = s(:rescue, val[0], new_resbody(s(:array), val[2]))
                     }
                 | klBEGIN
                     {
@@ -503,7 +503,7 @@ rule
                     }
                 | lhs tEQL arg kRESCUE_MOD arg
                     {
-                      result = self.node_assign val[0], s(:rescue, val[2], s(:resbody, s(:array), val[4]))
+                      result = self.node_assign val[0], s(:rescue, val[2], new_resbody(s(:array), val[4]))
                       # result.line = val[0].line
                     }
                 | var_lhs tOP_ASGN arg
@@ -1460,7 +1460,7 @@ rule
                       klasses ||= s(:array)
                       klasses << node_assign(var, s(:gvar, :"$!")) if var
 
-                      result = s(:resbody, klasses, body)
+                      result = new_resbody(klasses, body)
                       result << rest if rest # UGH, rewritten above
                     }
                 |

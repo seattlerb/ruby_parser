@@ -484,6 +484,15 @@ module RubyParserStuff
     result
   end
 
+  def new_resbody cond, body
+    if body && body.first == :block then
+      body.shift # remove block and splat it in directly
+    else
+      body = [body]
+    end
+    s(:resbody, cond, *body)
+  end
+
   def new_body val
     result = val[0]
 
