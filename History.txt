@@ -1,3 +1,72 @@
+=== 3.0.0a1 / 2012-05-22
+
+This is the first alpha release of the 3.0.0 series. It is probably
+woefully incomplete, bug ridden, and hasn't showered in several days.
+Please please please beat the crap out of it and send
+bugs/patches/complaints/suggestions.
+
+* 5 major enhancements:
+
+  * 1.9 parsing! Thanks to EVERYONE for submitting patches for this!
+  * Removed :arglist from everything but :op_asgn1
+  * Removed :block from resbody
+  * Removed :block from when
+  * Removed :block nodes inside of scope nodes (defn/defs/class/sclass).
+  * Removed :scope nodes in defn/defs/class/sclass nodes.
+  * (probably more sexp cleanup to come before 3.0.0 final)
+
+* 25 minor enhancements:
+
+  * 1.9: Fix \!a. (wanabe)
+  * 1.9: Method calling with postargs. (wanabe)
+  * 1.9: Method definition with postargs. (wanabe)
+  * 1.9: Support lambda args without parentheses. (wanabe)
+  * Added R arg to `rake debug` to debug ruby straight up
+  * Added RubyParser, subclassing Ruby18Parser but warning on instantiation.
+  * Added backref_assign_error (needs tests)
+  * Added bin/ruby_parse_extract_error to help with error submissions
+  * Added debug task to help quickly get into a bug
+  * Added more 18 vs 19 lexing tests for ?c.
+  * Added ruby_parser.rb that pulls everything together in proper order.
+  * Added tLABEL. (brynary)
+  * Branched ruby_parser.y to ruby18_parser.y
+  * Fix to pass test_lambda_args_block__19 test. (mrmargolis)
+  * Got rid of one instance of unread_many. (Confusion)
+  * Moved everything from RubyParser to RubyParserStuff and included module in both.
+  * Refactored 1.9 args handling
+  * Refactored and added new_resbody to ruby_parser_extras.
+  * Refactored and added new_when
+  * Refactored tests infrastructure and added both 1.8 and 1.9 test branches.
+  * Removed unused methods: unread, begin_of_line? was_begin_of_line. (YAY!) (Confusion)
+  * Renamed ruby_parser.y to ruby19_parser.y
+  * RubyLexer now takes a version specifier.
+  * Started doing comparative refactoring between MRI's 1.9 parser and RP's. Shouldn't differ functionally except where we missed stuff in RP.
+  * `rake debug` prints the output if it succeeds.
+
+* 21 bug fixes:
+
+  * Added missing gvar arg error. (1.8)
+  * Attach parser files to isolate to ensure they can build
+  * Conditionalize handling of tLABEL to ruby19+. Fixes issue #33.
+  * DOH. I deactivated some tests and never reactivated them. (Confusion ftw)
+  * Duplicate the input so that heredoc processing doesn't morph original. (banister)
+  * Entirely reworked block arg handling. (1.8)
+  * Fix ?x char literal. (nobu)
+  * Fixed 4/5 of literal lambda tests (jamie)
+  * Fixed deps for parser
+  * Fixed lexing of ?c for ruby 1.8 and 1.9.
+  * Fixed more Ruby 1.9 args tests (brynary)
+  * Fixed reswords to match MRI (1.8, 1.9)
+  * Fixed symbols with no spaces in method calls (e.g. foo:bar) (YAY! brynary)
+  * Fixed ternary_nil_no_space and other ternary edge cases for 1.9. (lastobelus)
+  * Fixed test_call_not_equal__19. First bug bounty! (albus522)
+  * Made lambda w/o arg list zero out the arg slot.
+  * Renamed awords to qwords to match stupid MRI naming. (1.8, 1.9) :(
+  * Rolled out brynary's symbols-no-spaces (foo:bar) changes when parsing 1.8 code
+  * Split 1.8 from 1.9 open paren lexer. Gawd that's ugly code.
+  * Split block_var from for_var. (1.8, 1.9)
+  * Use binread (and emulate in ruby 1.8) to avoid encoding issues
+
 === 2.3.1 / 2011-09-21
 
 * 2 bug fixes:

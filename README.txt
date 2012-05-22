@@ -1,6 +1,7 @@
 = ruby_parser
 
 home :: https://github.com/seattlerb/ruby_parser
+bugs :: https://github.com/seattlerb/ruby_parser/issues
 rdoc :: http://docs.seattlerb.org/ruby_parser
 
 == DESCRIPTION:
@@ -47,14 +48,13 @@ becomes:
 
 == SYNOPSIS:
 
-  RubyParser.new.parse "1+1"
-  # => s(:call, s(:lit, 1), :+, s(:array, s(:lit, 1)))
+  Ruby19Parser.new.parse "1+1"
+  # => s(:call, s(:lit, 1), :+, s(:lit, 1))
 
 == REQUIREMENTS:
 
 * ruby. woot.
-* sexp_processor for Sexp and SexpProcessor classes.
-* ParseTree for testing.
+* sexp_processor for Sexp and SexpProcessor classes, and testing.
 * racc full package for parser development (compiling .y to .rb).
 
 == INSTALL:
