@@ -362,8 +362,6 @@ module RubyParserStuff
                type = env[id]
                if type then
                  s(type, id)
-               elsif env.dynamic? and :dvar == env[id] then
-                 s(:lvar, id)
                else
                  new_call(nil, id)
                end
@@ -515,9 +513,24 @@ module RubyParserStuff
     x
   end
 
+  def backref_assign_error ref
+    # TODO: need a test for this... obviously
+    case ref.first
+    when :nth_ref then
+      raise SyntaxError, "Can't set variable %p" % ref.last
+    when :back_ref then
+      raise SyntaxError, "Can't set back reference %p" % ref.last
+    else
+      raise "Unknown backref type: #{ref.inspect}"
+    end
+  end
+
   def new_call recv, meth, args = nil
     result = s(:call, recv, meth)
     result.line = recv.line if recv
+
+    # TODO: need a test with f(&b) to produce block_pass
+    # TODO: need a test with f(&b) { } to produce warning
 
     args ||= s(:arglist)
     args[0] = :arglist if args.first == :array
@@ -835,8 +848,7 @@ module RubyParserStuff
     rhs = value_expr rhs
 
     case lhs[0]
-    when :gasgn, :iasgn, :lasgn, :dasgn, :dasgn_curr,
-      :masgn, :cdecl, :cvdecl, :cvasgn then
+    when :gasgn, :iasgn, :lasgn, :masgn, :cdecl, :cvdecl, :cvasgn then
       lhs << rhs
     when :attrasgn, :call then
       args = lhs.pop unless Symbol === lhs.last
@@ -1148,6 +1160,14 @@ class Sexp
 
   def to_sym
     self.value.to_sym
+  end
+
+  def add x
+    raise "no" # TODO: need a test to trigger this
+  end
+
+  def add_all x
+    raise "no" # TODO: need a test to trigger this
   end
 
   alias :node_type :sexp_type

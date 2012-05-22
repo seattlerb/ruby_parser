@@ -813,6 +813,8 @@ class RubyLexer
           elsif lex_state.is_argument && space_seen then
             self.tern.push false
             result = :tLBRACK
+          else
+            result = :tLBRACK2
           end
 
           self.expr_beg_push "["

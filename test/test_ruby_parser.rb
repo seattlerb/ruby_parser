@@ -693,6 +693,22 @@ class TestRuby18Parser < RubyParserTestCase
 
     self.processor = Ruby18Parser.new
   end
+
+  def test_flip2_env_lvar
+    rb = "if a..b then end"
+    pt = s(:if, s(:flip2, s(:call, nil, :a), s(:call, nil, :b)), nil, nil)
+
+    assert_parse rb, pt
+
+    top_env = processor.env.env.first
+
+    assert_kind_of Hash, top_env
+
+    flip = top_env.find { |k,v| k =~ /^flip/ }
+
+    assert flip
+    assert_equal :lvar, flip.last
+  end
 end
 
 class TestRuby19Parser < RubyParserTestCase
@@ -703,5 +719,27 @@ class TestRuby19Parser < RubyParserTestCase
 
     self.processor = Ruby19Parser.new
   end
+
+  # HACK: need to figure out the desired structure and get this working
+  # def test_wtf
+  #   # lambda -> f_larglist lambda_body
+  #   # f_larglist -> f_args opt_bv_decl
+  #   # opt_bv_decl
+  #   # bv_decls
+  #   # bvar
+  #
+  #   rb = "->(a, b=nil) { p [a, b] }"
+  #   pt = s(:iter,
+  #          s(:call, nil, :lambda),
+  #          s(:args, :a, :b,
+  #            s(:block, s(:lasgn, :b, s(nil)))),
+  #          s(:call, nil, :p, s(:array, s(:lvar, :a), s(:lvar, :b))))
+  #
+  #   assert_parse rb, pt
+  #
+  #   rb = "->(a; b) { p [a, b] }"
+  #
+  #   assert_parse rb, pt
+  # end
 end
 

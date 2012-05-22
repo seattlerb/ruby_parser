@@ -12,7 +12,7 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tUMINUS tUMINUS_NUM tPOW tCMP tEQ tEQQ tNEQ tGEQ tLEQ tANDOP
       tOROP tMATCH tNMATCH tDOT tDOT2 tDOT3 tAREF tASET tLSHFT tRSHFT
       tCOLON2 tCOLON3 tOP_ASGN tASSOC tLPAREN tLPAREN2 tRPAREN tLPAREN_ARG
-      tLBRACK tRBRACK tLBRACE tLBRACE_ARG tSTAR tSTAR2 tAMPER tAMPER2
+      tLBRACK tLBRACK2 tRBRACK tLBRACE tLBRACE_ARG tSTAR tSTAR2 tAMPER tAMPER2
       tTILDE tPERCENT tDIVIDE tPLUS tMINUS tLT tGT tPIPE tBANG tCARET
       tLCURLY tRCURLY tBACK_REF2 tSYMBEG tSTRING_BEG tXSTRING_BEG tREGEXP_BEG
       tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END tSTRING
@@ -150,7 +150,7 @@ rule
                     {
                       result = new_op_asgn val
                     }
-                | primary_value "[" aref_args tRBRACK tOP_ASGN command_call
+                | primary_value tLBRACK2 aref_args tRBRACK tOP_ASGN command_call
                     {
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
                     }
@@ -354,7 +354,7 @@ rule
                     {
                       result = assignable val[0]
                     }
-                | primary_value "[" aref_args tRBRACK
+                | primary_value tLBRACK2 aref_args tRBRACK
                     {
                       result = aryset val[0], val[2]
                     }
@@ -395,7 +395,7 @@ rule
                     {
                       result = assignable val[0]
                     }
-                | primary_value "[" aref_args tRBRACK
+                | primary_value tLBRACK2 aref_args tRBRACK
                     {
                       result = aryset val[0], val[2]
                     }
@@ -510,7 +510,7 @@ rule
                     {
                       result = new_op_asgn val
                     }
-                | primary_value "[" aref_args tRBRACK tOP_ASGN arg
+                | primary_value tLBRACK2 aref_args tRBRACK tOP_ASGN arg
                     {
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
                       val[2][0] = :arglist
@@ -953,7 +953,7 @@ rule
                     {
                       result = s(:colon3, val[1].to_sym)
                     }
-                | primary_value "[" aref_args tRBRACK
+                | primary_value tLBRACK2 aref_args tRBRACK
                     {
                       result = new_aref val
                     }

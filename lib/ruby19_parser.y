@@ -12,7 +12,7 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tUMINUS tUMINUS_NUM tPOW tCMP tEQ tEQQ tNEQ tGEQ tLEQ tANDOP
       tOROP tMATCH tNMATCH tDOT tDOT2 tDOT3 tAREF tASET tLSHFT tRSHFT
       tCOLON2 tCOLON3 tOP_ASGN tASSOC tLPAREN tLPAREN2 tRPAREN tLPAREN_ARG
-      tLBRACK tRBRACK tLBRACE tLBRACE_ARG tSTAR tSTAR2 tAMPER tAMPER2
+      tLBRACK tLBRACK2 tRBRACK tLBRACE tLBRACE_ARG tSTAR tSTAR2 tAMPER tAMPER2
       tTILDE tPERCENT tDIVIDE tPLUS tMINUS tLT tGT tPIPE tBANG tCARET
       tLCURLY tRCURLY tBACK_REF2 tSYMBEG tSTRING_BEG tXSTRING_BEG tREGEXP_BEG
       tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END tSTRING
@@ -150,7 +150,7 @@ rule
                     {
                       result = new_op_asgn val
                     }
-                | primary_value "[" aref_args tRBRACK tOP_ASGN command_call
+                | primary_value tLBRACK2 aref_args tRBRACK tOP_ASGN command_call
                     {
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
                     }
@@ -299,13 +299,13 @@ rule
                     }
 
             mlhs: mlhs_basic
-                | tLPAREN mlhs_entry tRPAREN
+                | tLPAREN mlhs_entry rparen
                     {
                       result = val[1]
                     }
 
       mlhs_entry: mlhs_basic
-                | tLPAREN mlhs_entry tRPAREN
+                | tLPAREN mlhs_entry rparen
                     {
                       result = s(:masgn, s(:array, val[1]))
                     }
@@ -336,7 +336,7 @@ rule
                     }
 
        mlhs_item: mlhs_node
-                | tLPAREN mlhs_entry tRPAREN
+                | tLPAREN mlhs_entry rparen
                     {
                       result = val[1]
                     }
@@ -350,11 +350,15 @@ rule
                       result = val[0] << val[1].compact
                     }
 
-       mlhs_node: variable
+       mlhs_node: user_variable
                     {
                       result = self.assignable val[0]
                     }
-                | primary_value "[" aref_args tRBRACK
+                | keyword_variable
+                    {
+                      result = self.assignable val[0]
+                    }
+                | primary_value tLBRACK2 aref_args tRBRACK
                     {
                       result = self.aryset val[0], val[2]
                     }
@@ -391,11 +395,15 @@ rule
                       self.backref_assign_error val[0]
                     }
 
-             lhs: variable
+             lhs: user_variable
                     {
                       result = self.assignable val[0]
                     }
-                | primary_value "[" aref_args tRBRACK
+                | keyword_variable
+                    {
+                      result = self.assignable val[0]
+                    }
+                | primary_value tLBRACK2 aref_args tRBRACK
                     {
                       result = self.aryset val[0], val[2]
                     }
@@ -510,7 +518,7 @@ rule
                     {
                       result = new_op_asgn val
                     }
-                | primary_value "[" aref_args tRBRACK tOP_ASGN arg
+                | primary_value tLBRACK2 aref_args tRBRACK tOP_ASGN arg
                     {
                       val[2][0] = :arglist
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
@@ -726,30 +734,32 @@ rule
                       result = s(:array, s(:splat, val[1]))
                     }
 
-      paren_args: tLPAREN2 none tRPAREN
+      paren_args: tLPAREN2 opt_call_args rparen
                     {
                       result = val[1]
                     }
-                | tLPAREN2 call_args opt_nl tRPAREN
+
+   opt_call_args: none
                     {
-                      result = val[1]
+                      result = val[0]
                     }
-                | tLPAREN2 args tCOMMA tRPAREN
+                | call_args
                     {
-                      # TODO: this needs to be refactored against the
-                      # 1.9 parser... they're much cleaner in some
-                      # ways
-                      result = val[1]
+                      result = val[0]
                     }
-                | tLPAREN2 block_call opt_nl tRPAREN
+                | args tCOMMA
+                    {
+                      result = val[0]
+                    }
+                | block_call
                     {
                       warning "parenthesize argument(s) for future version"
-                      result = s(:array, val[1])
+                      result = s(:array, val[0])
                     }
-                | tLPAREN2 args tCOMMA block_call opt_nl tRPAREN
+                | args tCOMMA block_call
                     {
                       warning "parenthesize argument(s) for future version"
-                      result = val[1].add val[3]
+                      result = val[0].add val[2]
                     }
 
   opt_paren_args: none
@@ -896,7 +906,7 @@ rule
                     {
                       result = val[1]
                     }
-                | none_block_pass
+                | none
 
             args: arg_value
                     {
@@ -950,7 +960,7 @@ rule
                     {
                       lexer.lex_state = :expr_endarg
                     }
-                    opt_nl tRPAREN
+                    rparen
                     {
                       warning "(...) interpreted as grouped expression"
                       result = val[1]
@@ -968,7 +978,7 @@ rule
                     {
                       result = s(:colon3, val[1].to_sym)
                     }
-                | primary_value "[" aref_args tRBRACK
+                | primary_value tLBRACK2 aref_args tRBRACK
                     {
                       result = new_aref val
                     }
@@ -984,11 +994,11 @@ rule
                     {
                       result = s(:return)
                     }
-                | kYIELD tLPAREN2 call_args tRPAREN
+                | kYIELD tLPAREN2 call_args rparen
                     {
                       result = new_yield val[2]
                     }
-                | kYIELD tLPAREN2 tRPAREN
+                | kYIELD tLPAREN2 rparen
                     {
                       result = new_yield
                     }
@@ -996,7 +1006,7 @@ rule
                     {
                       result = new_yield
                     }
-                | kDEFINED opt_nl tLPAREN2 expr tRPAREN
+                | kDEFINED opt_nl tLPAREN2 expr rparen
                     {
                       result = s(:defined, val[3])
                     }
@@ -1182,6 +1192,19 @@ rule
                       result = value_expr(val[0])
                     }
 
+                    # These are really stupid
+         k_begin: kBEGIN
+            k_if: kIF
+        k_unless: kUNLESS
+         k_while: kWHILE
+         k_until: kUNTIL
+          k_case: kCASE
+           k_for: kFOR
+         k_class: kCLASS
+        k_module: kMODULE
+           k_def: kDEF
+           k_end: kEND
+
             then: term
                 | tCOLON
                 | kTHEN
@@ -1290,6 +1313,60 @@ rule
                       self.lexer.command_start = true
                     }
 
+     opt_bv_decl: none
+                | tSEMI bv_decls
+                    {
+                      result = val[1]
+                    }
+
+        bv_decls: bvar
+                | bv_decls tCOMMA bvar
+                    {
+                      result = val[0] << val[2]
+                    }
+
+            bvar: tIDENTIFIER
+                | f_bad_arg
+
+          lambda: lambda_body
+                    {
+                      call = new_call nil, :lambda
+                      result = s(:iter, call, 0, val[0])
+                    }
+                | f_larglist lambda_body
+                    {
+                      case val[0].size
+                      when 1
+                        args = 0
+                      when 2
+                        args = s(:lasgn, val[0][1])
+                      else
+                        vars = val[0][1..-1].map { |name| s(:lasgn, name) }
+                        args = s(:masgn, s(:array, *vars))
+                      end
+
+                      call = new_call nil, :lambda
+                      result = s(:iter, call, args, val[1])
+                    }
+
+     f_larglist: tLPAREN2 f_args opt_bv_decl rparen
+                    {
+                      result = val[1]
+                    }
+                | f_args
+                    {
+                      result = val[0]
+                    }
+
+     lambda_body: tLAMBEG compstmt tRCURLY
+                    {
+                      result = val[1]
+                    }
+                | kDO_LAMBDA compstmt kEND
+                    {
+                      result = val[1]
+                    }
+
         do_block: kDO_BLOCK
                     {
                       self.env.extend :dynamic
@@ -1353,45 +1430,6 @@ rule
                 | kSUPER
                     {
                       result = s(:zsuper)
-                    }
-
-          lambda: lambda_body
-                    {
-                      call = new_call nil, :lambda
-                      result = s(:iter, call, 0, val[0])
-                    }
-                | f_larglist lambda_body
-                    {
-                      case val[0].size
-                      when 1
-                        args = 0
-                      when 2
-                        args = s(:lasgn, val[0][1])
-                      else
-                        vars = val[0][1..-1].map { |name| s(:lasgn, name) }
-                        args = s(:masgn, s(:array, *vars))
-                      end
-
-                      call = new_call nil, :lambda
-                      result = s(:iter, call, args, val[1])
-                    }
-
-     f_larglist: tLPAREN2 f_args opt_nl tRPAREN
-                    {
-                      result = val[1]
-                    }
-                | f_args
-                    {
-                      result = val[0]
-                    }
-
-     lambda_body: tLAMBEG compstmt tRCURLY
-                    {
-                      result = val[1]
-                    }
-                | kDO_LAMBDA compstmt kEND
-                    {
-                      result = val[1]
                     }
 
      brace_block: tLCURLY
@@ -1521,7 +1559,7 @@ rule
                       result = new_xstring val[1]
                     }
 
-          regexp: tREGEXP_BEG xstring_contents tREGEXP_END
+          regexp: tREGEXP_BEG regexp_contents tREGEXP_END
                     {
                       result = new_regexp val
                     }
@@ -1583,6 +1621,15 @@ xstring_contents: none
                       result = nil
                     }
                 | xstring_contents string_content
+                    {
+                      result = literal_concat(val[0], val[1])
+                    }
+
+regexp_contents: none
+                    {
+                      result = nil
+                    }
+                | regexp_contents string_content
                     {
                       result = literal_concat(val[0], val[1])
                     }
@@ -1678,25 +1725,35 @@ xstring_contents: none
                       result = -val[1] # TODO: pt_testcase
                     }
 
-        variable: tIDENTIFIER
+   user_variable: tIDENTIFIER
                 | tIVAR
                 | tGVAR
                 | tCONSTANT
                 | tCVAR
-                | kNIL      { result = s(:nil)   }
+
+keyword_variable: kNIL      { result = s(:nil)   }
                 | kSELF     { result = s(:self)  }
                 | kTRUE     { result = s(:true)  }
                 | kFALSE    { result = s(:false) }
                 | k__FILE__ { result = s(:str, self.file) }
                 | k__LINE__ { result = s(:lit, lexer.src.current_line) }
 
-         var_ref: variable
+         var_ref: user_variable
+                    {
+                      var = val[0]
+                      result = Sexp === var ? var : self.gettable(var)
+                    }
+                | keyword_variable
                     {
                       var = val[0]
                       result = Sexp === var ? var : self.gettable(var)
                     }
 
-         var_lhs: variable
+         var_lhs: user_variable
+                    {
+                      result = self.assignable val[0]
+                    }
+                | keyword_variable
                     {
                       result = self.assignable val[0]
                     }
@@ -1722,7 +1779,7 @@ xstring_contents: none
                       result = nil
                     }
 
-       f_arglist: tLPAREN2 f_args opt_nl tRPAREN
+       f_arglist: tLPAREN2 f_args rparen
                     {
                       result = val[1]
                       lexer.lex_state = :expr_beg
@@ -1753,15 +1810,11 @@ xstring_contents: none
                     {
                       result = args19 val
                     }
-                | f_arg                             opt_f_block_arg
-                    {
-                      result = args19 val
-                    }
-                | f_arg tCOMMA f_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
-                    {
-                      result = args19 val
-                    }
                 | f_arg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = args19 val
+                    }
+                | f_arg                             opt_f_block_arg
                     {
                       result = args19 val
                     }
@@ -1777,11 +1830,11 @@ xstring_contents: none
                     {
                       result = args19 val
                     }
-                |                        f_rest_arg opt_f_block_arg
+                | f_optarg tCOMMA f_arg opt_f_block_arg
                     {
                       result = args19 val
                     }
-                | f_optarg tCOMMA f_arg opt_f_block_arg
+                |                        f_rest_arg opt_f_block_arg
                     {
                       result = args19 val
                     }
@@ -1798,18 +1851,24 @@ xstring_contents: none
                       result = args19 val
                     }
 
-      f_norm_arg: tCONSTANT
+       f_bad_arg: tCONSTANT
                     {
-                      yyerror "formal argument cannot be a constant: #{val[0]}"
+                      yyerror "formal argument cannot be a constant"
                     }
                 | tIVAR
                     {
                       yyerror "formal argument cannot be an instance variable"
                     }
+                | tGVAR
+                    {
+                      yyerror "formal argument cannot be a global variable"
+                    }
                 | tCVAR
                     {
                       yyerror "formal argument cannot be a class variable"
                     }
+
+      f_norm_arg: f_bad_arg
                 | tIDENTIFIER
                     {
                       identifier = val[0].to_sym
@@ -1884,7 +1943,7 @@ xstring_contents: none
                     {
                       lexer.lex_state = :expr_beg
                     }
-                    expr opt_nl tRPAREN
+                    expr rparen
                     {
                       result = val[2]
                       yyerror "Can't define single method for literals." if
@@ -1932,6 +1991,8 @@ xstring_contents: none
     dot_or_colon: tDOT | tCOLON2
        opt_terms:  | terms
           opt_nl:  | tNL
+          rparen: opt_nl tRPAREN
+        rbracket: opt_nl tRBRACK
          trailer:  | tNL | tCOMMA
 
             term: tSEMI { yyerrok }
@@ -1941,9 +2002,6 @@ xstring_contents: none
                 | terms tSEMI { yyerrok }
 
             none: { result = nil }
-
- none_block_pass: { result = nil }
-
 end
 
 ---- inner

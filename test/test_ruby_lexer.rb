@@ -1080,7 +1080,7 @@ class TestRubyLexer < MiniTest::Unit::TestCase
   def test_yylex_open_square_bracket_meth
     util_lex_token("m[3]",
                    :tIDENTIFIER, "m",
-                   "[", "[",
+                   :tLBRACK2, "[",
                    :tINTEGER, 3,
                    :tRBRACK, "]")
   end

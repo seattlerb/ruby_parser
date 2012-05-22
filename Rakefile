@@ -161,7 +161,7 @@ task :debug => :isolate do
          end
 
   begin
-    parser.process(ruby, file)
+    p parser.process(ruby, file)
   rescue Racc::ParseError => e
     p e
     ss = parser.lexer.src
