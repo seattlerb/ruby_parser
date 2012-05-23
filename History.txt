@@ -1,4 +1,4 @@
-=== 3.0.0a1 / 2012-05-22
+=== 3.0.0.a1 / 2012-05-22
 
 This is the first alpha release of the 3.0.0 series. It is probably
 woefully incomplete, bug ridden, and hasn't showered in several days.
