@@ -658,8 +658,17 @@ module RubyParserStuff
 
   def new_module val
     line, path, body = val[1], val[2], val[4]
-    body = s(:scope, body).compact
-    result = s(:module, path, *body[1..-1])
+
+    result = s(:module, path)
+
+    if body then # REFACTOR?
+      if body.first == :block then
+        result.push(*body[1..-1])
+      else
+        result.push body
+      end
+    end
+
     result.line = line
     result.comments = self.comments.pop
     result
