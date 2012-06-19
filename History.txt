@@ -1,3 +1,17 @@
+=== 3.0.0.a2 / 2012-06-19
+
+* 1 minor enhancement:
+
+  * Updated to sexp_processor ~> 4.0
+
+* 1 bug fix:
+
+  * Fixed new_module to remove scope/block. Not enough tests on module variance.
+
+* 1 known issue:
+
+  * No parsing of "a.()" thingy. (reported by julian7) (patches welcome!)
+
 === 3.0.0.a1 / 2012-05-22
 
 This is the first alpha release of the 3.0.0 series. It is probably
