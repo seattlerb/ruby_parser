@@ -1423,6 +1423,14 @@ rule
                     {
                       result = new_call val[0], val[2].to_sym
                     }
+                | primary_value tDOT paren_args
+                    {
+                      result = new_call val[0], :call
+                    }
+                | primary_value tCOLON2 paren_args
+                    {
+                      result = new_call val[0], :call
+                    }
                 | kSUPER paren_args
                     {
                       result = new_super val[1]

@@ -720,6 +720,20 @@ class TestRuby19Parser < RubyParserTestCase
     self.processor = Ruby19Parser.new
   end
 
+  def test_call_parens
+    rb = "a.()"
+    pt = s(:call, s(:call, nil, :a), :call)
+
+    assert_parse rb, pt
+  end
+
+  def test_call_parens_cm
+    rb = "a::()"
+    pt = s(:call, s(:call, nil, :a), :call)
+
+    assert_parse rb, pt
+  end
+
   # HACK: need to figure out the desired structure and get this working
   # def test_wtf
   #   # lambda -> f_larglist lambda_body
