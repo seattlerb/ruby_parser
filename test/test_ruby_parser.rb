@@ -725,6 +725,22 @@ class TestRuby18Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
+  def test_case_then_colon_18
+    rb = "case x; when Fixnum: 42; end"
+    pt = s(:case,
+           s(:call, nil, :x),
+           s(:when, s(:array, s(:const, :Fixnum)), s(:lit, 42)),
+           nil)
+
+    assert_parse rb, pt
+  end
+
+  def test_do_colon_18
+    rb = "while false : 42 end"
+    pt = s(:while, s(:false), s(:lit, 42), true)
+
+    assert_parse rb, pt
+  end
 end
 
 class TestRuby19Parser < RubyParserTestCase
@@ -736,11 +752,28 @@ class TestRuby19Parser < RubyParserTestCase
     self.processor = Ruby19Parser.new
   end
 
+  def test_do_colon_19
+    rb = "while false : 42 end"
+
+    assert_parse_error rb, "parse error on value \":\" (tCOLON)"
+  end
+
   def test_assoc_list_19
     rb = "{1, 2, 3, 4}"
     pt = s(:hash, s(:lit, 1), s(:lit, 2), s(:lit, 3), s(:lit, 4))
 
     assert_parse_error rb, "parse error on value \",\" (tCOMMA)"
+  end
+
+  def test_case_then_colon_19
+    rb = <<-EOM
+      case x
+      when Fixnum : # need the space to not hit new hash arg syntax
+        42
+      end
+    EOM
+
+    assert_parse_error rb, "parse error on value \":\" (tCOLON)"
   end
 
   def test_call_parens

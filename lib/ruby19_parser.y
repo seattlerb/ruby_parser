@@ -1202,12 +1202,10 @@ rule
            k_end: kEND
 
             then: term
-                | tCOLON
                 | kTHEN
                 | term kTHEN
 
               do: term
-                | tCOLON
                 | kDO_COND
 
          if_tail: opt_else
