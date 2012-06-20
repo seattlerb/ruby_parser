@@ -978,10 +978,6 @@ rule
                     {
                       result = s(:colon3, val[1].to_sym)
                     }
-                | primary_value tLBRACK2 aref_args tRBRACK
-                    {
-                      result = new_aref val
-                    }
                 | tLBRACK aref_args tRBRACK
                     {
                       result = val[1] || s(:array)
@@ -1438,6 +1434,10 @@ rule
                 | kSUPER
                     {
                       result = s(:zsuper)
+                    }
+                | primary_value tLBRACK2 aref_args tRBRACK
+                    {
+                      result = new_aref val
                     }
 
      brace_block: tLCURLY
