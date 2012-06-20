@@ -21,7 +21,7 @@ Hoe.spec 'ruby_parser' do
     self.perforce_ignore << "lib/ruby19_parser.rb"
   end
 
-  self.racc_flags << " -g" if plugin?(:racc) && ENV["DEBUG"]
+  self.racc_flags << " -t" if plugin?(:racc) && ENV["DEBUG"]
 end
 
 file "lib/ruby18_parser.rb" => "lib/ruby18_parser.y"
