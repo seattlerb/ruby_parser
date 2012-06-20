@@ -1961,14 +1961,6 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result = val[0]
                     }
-                | args trailer
-                    {
-                      size = val[0].size
-                      if (size % 2 != 1) then # != 1 because of leading :array
-                        yyerror "Odd number (#{size}) list for Hash. #{val[0].inspect}"
-                      end
-                      result = val[0]
-                    }
 
           assocs: assoc
                 | assocs tCOMMA assoc

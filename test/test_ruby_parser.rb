@@ -44,6 +44,14 @@ class RubyParserTestCase < ParseTreeTestCase
     assert_equal pt, result
   end
 
+  def assert_parse_error rb, emsg
+    e = assert_raises Racc::ParseError do
+      processor.parse rb
+    end
+
+    assert_equal emsg, e.message.strip # TODO: why strip?
+  end
+
   def assert_parse_line rb, pt, line
     assert_parse rb, pt
     assert_equal line, result.line,   "call should have line number"
@@ -709,6 +717,14 @@ class TestRuby18Parser < RubyParserTestCase
     assert flip
     assert_equal :lvar, flip.last
   end
+
+  def test_assoc_list_18
+    rb = "{1, 2, 3, 4}"
+    pt = s(:hash, s(:lit, 1), s(:lit, 2), s(:lit, 3), s(:lit, 4))
+
+    assert_parse rb, pt
+  end
+
 end
 
 class TestRuby19Parser < RubyParserTestCase
@@ -718,6 +734,13 @@ class TestRuby19Parser < RubyParserTestCase
     super
 
     self.processor = Ruby19Parser.new
+  end
+
+  def test_assoc_list_19
+    rb = "{1, 2, 3, 4}"
+    pt = s(:hash, s(:lit, 1), s(:lit, 2), s(:lit, 3), s(:lit, 4))
+
+    assert_parse_error rb, "parse error on value \",\" (tCOMMA)"
   end
 
   def test_call_parens
