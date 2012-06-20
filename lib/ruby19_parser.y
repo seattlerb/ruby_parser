@@ -1324,12 +1324,7 @@ rule
             bvar: tIDENTIFIER
                 | f_bad_arg
 
-          lambda: lambda_body
-                    {
-                      call = new_call nil, :lambda
-                      result = s(:iter, call, 0, val[0])
-                    }
-                | f_larglist lambda_body
+          lambda: f_larglist lambda_body
                     {
                       case val[0].size
                       when 1
