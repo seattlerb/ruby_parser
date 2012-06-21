@@ -48,9 +48,36 @@ rule
          program:   {
                       self.lexer.lex_state = :expr_beg
                     }
-                    compstmt
+                    top_compstmt
                     {
-                      result = val[1]
+                      result = new_compstmt val
+                    }
+
+    top_compstmt: top_stmts opt_terms
+                    {
+                      result = val[0]
+                    }
+
+       top_stmts: none
+                | top_stmt
+                | top_stmts terms top_stmt
+                    {
+                      result = self.block_append val[0], val[2]
+                    }
+                | error top_stmt
+
+        top_stmt: stmt
+                | klBEGIN
+                    {
+                      if (self.in_def || self.in_single > 0) then
+                        yyerror "BEGIN in method"
+                      end
+                      self.env.extend
+                    }
+                    tLCURLY top_compstmt tRCURLY
+                    {
+                      result = new_iter s(:preexe), nil, val[3] # TODO: add test?
+                      result = nil # TODO: since it isn't supposed to go in the AST
                     }
 
         bodystmt: compstmt opt_rescue opt_else opt_ensure
@@ -118,18 +145,6 @@ rule
                 | stmt kRESCUE_MOD stmt
                     {
                       result = s(:rescue, val[0], new_resbody(s(:array), val[2]))
-                    }
-                | klBEGIN
-                    {
-                      if (self.in_def || self.in_single > 0) then
-                        yyerror "BEGIN in method"
-                      end
-                      self.env.extend
-                    }
-                    tLCURLY compstmt tRCURLY
-                    {
-                      result = new_iter s(:preexe), nil, val[3] # TODO: add test?
-                      result = nil # TODO: since it isn't supposed to go in the AST
                     }
                 | klEND tLCURLY compstmt tRCURLY
                     {
@@ -199,9 +214,9 @@ rule
                     {
                       result = logop(:or, val[0], val[2])
                     }
-                | kNOT expr
+                | kNOT opt_nl expr
                     {
-                      result = s(:not, val[1])
+                      result = s(:not, val[2])
                     }
                 | tBANG command_call
                     {

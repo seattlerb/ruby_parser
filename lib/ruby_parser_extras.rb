@@ -583,7 +583,7 @@ module RubyParserStuff
   end
 
   def new_compstmt val
-    result = void_stmts(val[0])
+    result = void_stmts(val.grep(Sexp)[0])
     result = remove_begin(result) if result
     result
   end
