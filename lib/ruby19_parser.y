@@ -1040,7 +1040,7 @@ rule
                     }
                 | kNOT tLPAREN2 expr rparen
                     {
-                      raise "no"
+                      raise "no1"
                     }
                 | kNOT tLPAREN2 rparen
                     {
@@ -1104,10 +1104,6 @@ rule
                 | kCASE            opt_terms case_body kEND
                     {
                       result = new_case nil, val[2]
-                    }
-                | kCASE opt_terms kELSE compstmt kEND # TODO: need a test
-                    {
-                      result = new_case nil, val[3]
                     }
                 | kFOR for_var kIN
                     {
