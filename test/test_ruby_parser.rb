@@ -780,6 +780,13 @@ class TestRuby19Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
+  def test_encoding
+    rb = '__ENCODING__'
+    pt = s(:str, "Unsupported!")
+
+    assert_parse rb, pt
+  end
+
   def test_do_colon_19
     rb = "while false : 42 end"
 

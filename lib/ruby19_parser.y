@@ -7,7 +7,7 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       kREDO kRETRY kIN kDO kDO_COND kDO_BLOCK kDO_LAMBDA kRETURN kYIELD kSUPER
       kSELF kNIL kTRUE kFALSE kAND kOR kNOT kIF_MOD kUNLESS_MOD kWHILE_MOD
       kUNTIL_MOD kRESCUE_MOD kALIAS kDEFINED klBEGIN klEND k__LINE__
-      k__FILE__ tIDENTIFIER tFID tGVAR tIVAR tCONSTANT tLABEL tCVAR tNTH_REF
+      k__FILE__ k__ENCODING__ tIDENTIFIER tFID tGVAR tIVAR tCONSTANT tLABEL tCVAR tNTH_REF
       tBACK_REF tSTRING_CONTENT tINTEGER tFLOAT tREGEXP_END tUPLUS
       tUMINUS tUMINUS_NUM tPOW tCMP tEQ tEQQ tNEQ tGEQ tLEQ tANDOP
       tOROP tMATCH tNMATCH tDOT tDOT2 tDOT3 tAREF tASET tLSHFT tRSHFT
@@ -513,12 +513,12 @@ rule
                     }
 
               op: tPIPE    | tCARET     | tAMPER2 | tCMP   | tEQ     | tEQQ
-                | tMATCH   | tGT        | tGEQ    | tLT    | tLEQ    | tLSHFT
+                | tMATCH | tNMATCH | tGT        | tGEQ    | tLT    | tLEQ | tNEQ | tLSHFT
                 | tRSHFT   | tPLUS      | tMINUS  | tSTAR2 | tSTAR   | tDIVIDE
-                | tPERCENT | tPOW       | tTILDE  | tUPLUS | tUMINUS | tAREF
+                | tPERCENT | tPOW | tBANG       | tTILDE  | tUPLUS | tUMINUS | tAREF
                 | tASET    | tBACK_REF2
 
-        reswords: k__LINE__ | k__FILE__   | klBEGIN | klEND  | kALIAS  | kAND
+        reswords: k__LINE__ | k__FILE__  | k__ENCODING__ | klBEGIN | klEND  | kALIAS  | kAND
                 | kBEGIN    | kBREAK      | kCASE   | kCLASS | kDEF    | kDEFINED
                 | kDO       | kELSE       | kELSIF  | kEND   | kENSURE | kFALSE
                 | kFOR      | kIN         | kMODULE | kNEXT  | kNIL    | kNOT
@@ -1765,6 +1765,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                 | kFALSE    { result = s(:false) }
                 | k__FILE__ { result = s(:str, self.file) }
                 | k__LINE__ { result = s(:lit, lexer.src.current_line) }
+                | k__ENCODING__ { result = s(:str, "Unsupported!") }
 
          var_ref: user_variable
                     {

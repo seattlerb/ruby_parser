@@ -1007,6 +1007,7 @@ module RubyParserStuff
                 ["__LINE__", [:k__LINE__, :k__LINE__   ], :expr_end   ],
                 ["class",    [:kCLASS,    :kCLASS      ], :expr_class ],
                 ["__FILE__", [:k__FILE__, :k__FILE__   ], :expr_end   ],
+                ["__ENCODING__", [:k__ENCODING__, :k__ENCODING__], :expr_end],
                 ["END",      [:klEND,     :klEND       ], :expr_end   ],
                 ["BEGIN",    [:klBEGIN,   :klBEGIN     ], :expr_end   ],
                 ["while",    [:kWHILE,    :kWHILE_MOD  ], :expr_beg   ],
