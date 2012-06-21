@@ -766,6 +766,20 @@ class TestRuby19Parser < RubyParserTestCase
     self.processor = Ruby19Parser.new
   end
 
+  def test_expr_not
+    rb = "!(42)"
+    pt = s(:call, s(:lit, 42), :"!")
+
+    assert_parse rb, pt
+  end
+
+  def test_expr_not_empty
+    rb = "!()"
+    pt = s(:call, s(:nil), :"!")
+
+    assert_parse rb, pt
+  end
+
   def test_do_colon_19
     rb = "while false : 42 end"
 
@@ -774,7 +788,6 @@ class TestRuby19Parser < RubyParserTestCase
 
   def test_assoc_list_19
     rb = "{1, 2, 3, 4}"
-    pt = s(:hash, s(:lit, 1), s(:lit, 2), s(:lit, 3), s(:lit, 4))
 
     assert_parse_error rb, "parse error on value \",\" (tCOMMA)"
   end

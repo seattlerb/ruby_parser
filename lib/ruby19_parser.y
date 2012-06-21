@@ -1027,6 +1027,14 @@ rule
                     {
                       result = s(:defined, val[3])
                     }
+                | kNOT tLPAREN2 expr rparen
+                    {
+                      raise "no"
+                    }
+                | kNOT tLPAREN2 rparen
+                    {
+                      raise "no2"
+                    }
                 | operation brace_block
                     {
                       oper, iter = val[0], val[1]
