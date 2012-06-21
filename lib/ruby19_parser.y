@@ -7,16 +7,18 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       kREDO kRETRY kIN kDO kDO_COND kDO_BLOCK kDO_LAMBDA kRETURN kYIELD kSUPER
       kSELF kNIL kTRUE kFALSE kAND kOR kNOT kIF_MOD kUNLESS_MOD kWHILE_MOD
       kUNTIL_MOD kRESCUE_MOD kALIAS kDEFINED klBEGIN klEND k__LINE__
-      k__FILE__ k__ENCODING__ tIDENTIFIER tFID tGVAR tIVAR tCONSTANT tLABEL tCVAR tNTH_REF
-      tBACK_REF tSTRING_CONTENT tINTEGER tFLOAT tREGEXP_END tUPLUS
-      tUMINUS tUMINUS_NUM tPOW tCMP tEQ tEQQ tNEQ tGEQ tLEQ tANDOP
-      tOROP tMATCH tNMATCH tDOT tDOT2 tDOT3 tAREF tASET tLSHFT tRSHFT
-      tCOLON2 tCOLON3 tOP_ASGN tASSOC tLPAREN tLPAREN2 tRPAREN tLPAREN_ARG
-      tLBRACK tLBRACK2 tRBRACK tLBRACE tLBRACE_ARG tSTAR tSTAR2 tAMPER tAMPER2
-      tTILDE tPERCENT tDIVIDE tPLUS tMINUS tLT tGT tPIPE tBANG tCARET
-      tLCURLY tRCURLY tBACK_REF2 tSYMBEG tSTRING_BEG tXSTRING_BEG tREGEXP_BEG
-      tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END tSTRING
-      tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAST_TOKEN tLAMBDA tLAMBEG
+      k__FILE__ k__ENCODING__ tIDENTIFIER tFID tGVAR tIVAR tCONSTANT
+      tLABEL tCVAR tNTH_REF tBACK_REF tSTRING_CONTENT tINTEGER tFLOAT
+      tREGEXP_END tUPLUS tUMINUS tUMINUS_NUM tPOW tCMP tEQ tEQQ tNEQ
+      tGEQ tLEQ tANDOP tOROP tMATCH tNMATCH tDOT tDOT2 tDOT3 tAREF
+      tASET tLSHFT tRSHFT tCOLON2 tCOLON3 tOP_ASGN tASSOC tLPAREN
+      tLPAREN2 tRPAREN tLPAREN_ARG tLBRACK tLBRACK2 tRBRACK tLBRACE
+      tLBRACE_ARG tSTAR tSTAR2 tAMPER tAMPER2 tTILDE tPERCENT tDIVIDE
+      tPLUS tMINUS tLT tGT tPIPE tBANG tCARET tLCURLY tRCURLY
+      tBACK_REF2 tSYMBEG tSTRING_BEG tXSTRING_BEG tREGEXP_BEG
+      tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END
+      tSTRING tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAST_TOKEN
+      tLAMBDA tLAMBEG
 
 prechigh
   right    tBANG tTILDE tUPLUS
@@ -512,19 +514,21 @@ rule
                       result = new_undef val[0], val[3]
                     }
 
-              op: tPIPE    | tCARET     | tAMPER2 | tCMP   | tEQ     | tEQQ
-                | tMATCH | tNMATCH | tGT        | tGEQ    | tLT    | tLEQ | tNEQ | tLSHFT
-                | tRSHFT   | tPLUS      | tMINUS  | tSTAR2 | tSTAR   | tDIVIDE
-                | tPERCENT | tPOW | tBANG       | tTILDE  | tUPLUS | tUMINUS | tAREF
-                | tASET    | tBACK_REF2
+                op: tPIPE    | tCARET  | tAMPER2  | tCMP  | tEQ     | tEQQ
+                |   tMATCH   | tNMATCH | tGT      | tGEQ  | tLT     | tLEQ
+                |   tNEQ     | tLSHFT  | tRSHFT   | tPLUS | tMINUS  | tSTAR2
+                |   tSTAR    | tDIVIDE | tPERCENT | tPOW  | tBANG   | tTILDE
+                |   tUPLUS   | tUMINUS | tAREF    | tASET | tBACK_REF2
 
-        reswords: k__LINE__ | k__FILE__  | k__ENCODING__ | klBEGIN | klEND  | kALIAS  | kAND
-                | kBEGIN    | kBREAK      | kCASE   | kCLASS | kDEF    | kDEFINED
-                | kDO       | kELSE       | kELSIF  | kEND   | kENSURE | kFALSE
-                | kFOR      | kIN         | kMODULE | kNEXT  | kNIL    | kNOT
-                | kOR       | kREDO       | kRESCUE | kRETRY | kRETURN | kSELF
-                | kSUPER    | kTHEN       | kTRUE   | kUNDEF | kWHEN   | kYIELD
-                | kIF       | kUNLESS     | kWHILE  | kUNTIL
+        reswords: k__LINE__ | k__FILE__ | k__ENCODING__ | klBEGIN | klEND
+                | kALIAS    | kAND      | kBEGIN        | kBREAK  | kCASE
+                | kCLASS    | kDEF      | kDEFINED      | kDO     | kELSE
+                | kELSIF    | kEND      | kENSURE       | kFALSE  | kFOR
+                | kIN       | kMODULE   | kNEXT         | kNIL    | kNOT
+                | kOR       | kREDO     | kRESCUE       | kRETRY  | kRETURN
+                | kSELF     | kSUPER    | kTHEN         | kTRUE   | kUNDEF
+                | kWHEN     | kYIELD    | kIF           | kUNLESS | kWHILE
+                | kUNTIL
 
              arg: lhs tEQL arg
                     {
@@ -533,7 +537,6 @@ rule
                 | lhs tEQL arg kRESCUE_MOD arg
                     {
                       result = self.node_assign val[0], s(:rescue, val[2], new_resbody(s(:array), val[4]))
-                      # result.line = val[0].line
                     }
                 | var_lhs tOP_ASGN arg
                     {
