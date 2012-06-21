@@ -138,10 +138,7 @@ rule
                       end
                       result = new_iter s(:postexe), nil, val[2]
                     }
-                | lhs tEQL command_call
-                    {
-                      result = self.node_assign val[0], val[2]
-                    }
+                | command_asgn
                 | mlhs tEQL command_call
                     {
                       result = new_masgn val[0], val[2], :wrap
@@ -183,6 +180,15 @@ rule
                       result = new_masgn val[0], val[2]
                     }
                 | expr
+
+    command_asgn: lhs tEQL command_call
+                    {
+                      result = self.node_assign val[0], val[2]
+                    }
+                | lhs tEQL command_asgn
+                    {
+                      result = self.node_assign val[0], val[2]
+                    }
 
             expr: command_call
                 | expr kAND expr
