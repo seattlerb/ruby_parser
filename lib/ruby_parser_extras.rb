@@ -1138,11 +1138,21 @@ class Ruby18Parser < Racc::Parser
   include RubyParserStuff
 end
 
-class RubyParser < Ruby18Parser
+##
+# RubyParser is a compound parser that first attempts to parse using
+# the 1.9 syntax parser and falls back to the 1.8 syntax parser on a
+# parse error.
+
+class RubyParser
   def initialize
-    super
-    warn "WA\RNING: Deprecated: RubyParser. Use Ruby18Parser or Ruby19Parser"
-    warn "  from #{caller.first}"
+    @p18 = Ruby18Parser.new
+    @p19 = Ruby19Parser.new
+  end
+
+  def parse s
+    @p19.parse s
+  rescue Racc::ParseError
+    @p18.parse s
   end
 end
 

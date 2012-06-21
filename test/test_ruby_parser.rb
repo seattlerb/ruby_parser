@@ -7,21 +7,9 @@ gem "minitest"
 require 'minitest/autorun'
 require 'ruby_parser'
 
-$: << File.expand_path('~/Work/p4/zss/src/ParseTree/dev/test')
+$: << File.expand_path('~/Work/p4/zss/src/sexp_processor/dev/lib')
 
 require 'pt_testcase'
-
-class Ruby18Parser # FIX
-  def process input
-    parse input
-  end
-end
-
-class Ruby19Parser
-  def process input
-    parse input
-  end
-end
 
 class RubyParserTestCase < ParseTreeTestCase
   attr_accessor :result, :processor
@@ -58,7 +46,7 @@ class RubyParserTestCase < ParseTreeTestCase
   end
 end
 
-module TestRubyParser
+module TestRubyParserShared
   def test_attrasgn_array_lhs
     rb = '[1, 2, 3, 4][from .. to] = ["a", "b", "c"]'
     pt = s(:attrasgn,
@@ -693,8 +681,34 @@ module TestRubyParser
   end
 end
 
+class TestRubyParser < MiniTest::Unit::TestCase
+  def test_parse
+    processor = RubyParser.new
+
+    # 1.8 only syntax
+    rb = "while false : 42 end"
+    pt = s(:while, s(:false), s(:lit, 42), true)
+
+    assert_equal pt, processor.parse(rb)
+
+    # 1.9 only syntax
+    rb = "a.()"
+    pt = s(:call, s(:call, nil, :a), :call)
+
+    assert_equal pt, processor.parse(rb)
+
+    # bad syntax
+    e = assert_raises Racc::ParseError do
+      processor.parse "a.("
+    end
+
+    msg = "parse error on value \"(\" (tLPAREN2)"
+    assert_equal msg, e.message.strip
+  end
+end
+
 class TestRuby18Parser < RubyParserTestCase
-  include TestRubyParser
+  include TestRubyParserShared
 
   def setup
     super
@@ -744,7 +758,7 @@ class TestRuby18Parser < RubyParserTestCase
 end
 
 class TestRuby19Parser < RubyParserTestCase
-  include TestRubyParser
+  include TestRubyParserShared
 
   def setup
     super

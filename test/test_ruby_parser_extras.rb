@@ -9,7 +9,7 @@ class TestStackState < MiniTest::Unit::TestCase
   attr_reader :s
 
   def setup
-    @s = RubyParser::StackState.new :test
+    @s = RubyParserStuff::StackState.new :test
   end
 
   def test_stack_state
@@ -60,7 +60,7 @@ class TestEnvironment < MiniTest::Unit::TestCase
   end
 
   def setup
-    @env = RubyParser::Environment.new
+    @env = RubyParserStuff::Environment.new
     @env[:blah] = 42
     assert_equal 42, @env[:blah]
   end

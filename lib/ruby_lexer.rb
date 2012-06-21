@@ -221,9 +221,9 @@ class RubyLexer
 
   def initialize v = 18
     self.version = v
-    self.cond = RubyParser::StackState.new(:cond)
-    self.cmdarg = RubyParser::StackState.new(:cmdarg)
-    self.tern = RubyParser::StackState.new(:tern)
+    self.cond = RubyParserStuff::StackState.new(:cond)
+    self.cmdarg = RubyParserStuff::StackState.new(:cmdarg)
+    self.tern = RubyParserStuff::StackState.new(:tern)
     self.nest = 0
     @comments = []
 
@@ -1334,7 +1334,7 @@ class RubyLexer
 
       unless lex_state == :expr_dot then
         # See if it is a reserved word.
-        keyword = RubyParser::Keyword.keyword token
+        keyword = RubyParserStuff::Keyword.keyword token
 
         if keyword then
           state           = lex_state

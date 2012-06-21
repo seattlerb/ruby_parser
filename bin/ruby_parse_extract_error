@@ -5,8 +5,6 @@ require 'ruby_parser'
 
 ARGV.push "-" if ARGV.empty?
 
-parser = Ruby18Parser.new
-
 class Racc::Parser
   def extract_defs
     ss = lexer.src
@@ -43,6 +41,8 @@ ARGV.replace ARGV.map { |path|
     path
   end
 }.flatten
+
+parser = RubyParser.new
 
 ARGV.each do |file|
   ruby = file == "-" ? $stdin.read : File.read(file)
