@@ -1381,11 +1381,11 @@ rule
        when_args: args
                 | args tCOMMA tSTAR arg_value
                     {
-                      result = list_append val[0], new_when(val[3], nil)
+                      result = list_append val[0], s(:splat, val[3])
                     }
                 | tSTAR arg_value
                     {
-                      result = s(:array, new_when(val[1], nil))
+                      result = s(:array, s(:splat, val[1]))
                     }
 
            cases: opt_else | case_body

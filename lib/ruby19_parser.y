@@ -933,9 +933,17 @@ rule
                     {
                       result = s(:array, val[0])
                     }
+                | tSTAR arg_value
+                    {
+                      result = s(:array, s(:splat, val[1]))
+                    }
                 | args tCOMMA arg_value
                     {
                       result = self.list_append val[0], val[2]
+                    }
+                | args tCOMMA tSTAR arg_value
+                    {
+                      result = self.list_append val[0], s(:splat, val[3])
                     }
 
             mrhs: args tCOMMA arg_value
@@ -1502,21 +1510,11 @@ rule
                     {
                       result = self.lexer.lineno
                     }
-                    when_args then compstmt cases
+                    args then compstmt cases
                     {
                       result = new_when(val[2], val[4])
                       result.line = val[1]
                       result << val[5] if val[5]
-                    }
-
-       when_args: args
-                | args tCOMMA tSTAR arg_value
-                    {
-                      result = self.list_append val[0], new_when(val[3], nil)
-                    }
-                | tSTAR arg_value
-                    {
-                      result = s(:array, new_when(val[1], nil))
                     }
 
            cases: opt_else | case_body
