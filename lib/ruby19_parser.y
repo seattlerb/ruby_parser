@@ -210,21 +210,6 @@ rule
 
     command_call: command
                 | block_command
-                | kRETURN call_args
-                    {
-                      line = val[0].last
-                      result = s(:return, ret_args(val[1])).line(line)
-                    }
-                | kBREAK call_args
-                    {
-                      line = val[0].last
-                      result = s(:break, ret_args(val[1])).line(line)
-                    }
-                | kNEXT call_args
-                    {
-                      line = val[0].last
-                      result = s(:next, ret_args(val[1])).line(line)
-                    }
 
    block_command: block_call
                 | block_call tDOT operation2 command_args
@@ -296,6 +281,21 @@ rule
                 | kYIELD command_args
                     {
                       result = new_yield val[1]
+                    }
+                | kRETURN call_args
+                    {
+                      line = val[0].last
+                      result = s(:return, ret_args(val[1])).line(line)
+                    }
+                | kBREAK call_args
+                    {
+                      line = val[0].last
+                      result = s(:break, ret_args(val[1])).line(line)
+                    }
+                | kNEXT call_args
+                    {
+                      line = val[0].last
+                      result = s(:next, ret_args(val[1])).line(line)
                     }
 
             mlhs: mlhs_basic

@@ -33,7 +33,7 @@ Autotest.add_hook :initialize do |at|
 end
 
 Autotest.add_hook :run_command do |at|
-  system "rake parser"
+  system "rake parser DEBUG=1"
 end
 
 class Autotest
