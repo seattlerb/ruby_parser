@@ -322,13 +322,13 @@ rule
                     }
 
             mlhs: mlhs_basic
-                | tLPAREN mlhs_entry rparen
+                | tLPAREN mlhs_inner rparen
                     {
                       result = val[1]
                     }
 
-      mlhs_entry: mlhs_basic
-                | tLPAREN mlhs_entry rparen
+      mlhs_inner: mlhs_basic
+                | tLPAREN mlhs_inner rparen
                     {
                       result = s(:masgn, s(:array, val[1]))
                     }
@@ -345,21 +345,45 @@ rule
                     {
                       result = s(:masgn, val[0] << s(:splat, val[2]))
                     }
+                | mlhs_head tSTAR mlhs_node tCOMMA mlhs_post
+                    {
+                      ary = list_append val[0], s(:splat, val[2])
+                      ary.concat val[4][1..-1]
+                      result = s(:masgn, ary)
+                    }
                 | mlhs_head tSTAR
                     {
                       result = s(:masgn, val[0] << s(:splat))
+                    }
+                | mlhs_head tSTAR tCOMMA mlhs_post
+                    {
+                      ary = list_append val[0], s(:splat)
+                      ary.concat val[3][1..-1]
+                      result = s(:masgn, ary)
                     }
                 | tSTAR mlhs_node
                     {
                       result = s(:masgn, s(:array, s(:splat, val[1])))
                     }
+                | tSTAR mlhs_node tCOMMA mlhs_post
+                    {
+                      ary = s(:array, s(:splat, val[1]))
+                      ary.concat val[3][1..-1]
+                      result = s(:masgn, ary)
+                    }
                 | tSTAR
                     {
                       result = s(:masgn, s(:array, s(:splat)))
                     }
+                | tSTAR tCOMMA mlhs_post
+                    {
+                      ary = s(:array, s(:splat))
+                      ary.concat val[2][1..-1]
+                      result = s(:masgn, ary)
+                    }
 
        mlhs_item: mlhs_node
-                | tLPAREN mlhs_entry rparen
+                | tLPAREN mlhs_inner rparen
                     {
                       result = val[1]
                     }
@@ -371,6 +395,15 @@ rule
                 | mlhs_head mlhs_item tCOMMA
                     {
                       result = val[0] << val[1].compact
+                    }
+
+       mlhs_post: mlhs_item
+                    {
+                      result = s(:array, val[0])
+                    }
+                | mlhs_post tCOMMA mlhs_item
+                    {
+                      result = list_append val[0], val[2]
                     }
 
        mlhs_node: user_variable

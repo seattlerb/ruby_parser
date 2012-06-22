@@ -766,6 +766,80 @@ class TestRuby19Parser < RubyParserTestCase
     self.processor = Ruby19Parser.new
   end
 
+  def test_mlhs_back_splat
+    rb = "a, b, c, *s = f"
+    pt = s(:masgn,
+           s(:array,
+             s(:lasgn, :a), s(:lasgn, :b), s(:lasgn, :c),
+             s(:splat, s(:lasgn, :s))),
+           s(:to_ary, s(:call, nil, :f)))
+
+    assert_parse rb, pt
+  end
+
+  def test_mlhs_back_anonsplat
+    rb = "a, b, c, * = f"
+    pt = s(:masgn,
+           s(:array,
+             s(:lasgn, :a), s(:lasgn, :b), s(:lasgn, :c),
+             s(:splat)),
+           s(:to_ary, s(:call, nil, :f)))
+
+    assert_parse rb, pt
+  end
+
+  def test_mlhs_mid_splat
+    rb = "a, b, c, *s, x, y, z = f"
+    pt = s(:masgn,
+           s(:array,
+             s(:lasgn, :a), s(:lasgn, :b), s(:lasgn, :c),
+             s(:splat, s(:lasgn, :s)),
+             s(:lasgn, :x), s(:lasgn, :y), s(:lasgn, :z)),
+           s(:to_ary, s(:call, nil, :f)))
+
+    assert_parse rb, pt
+  end
+
+  def test_mlhs_mid_anonsplat
+    rb = "a, b, c, *, x, y, z = f"
+    pt = s(:masgn,
+           s(:array, s(:lasgn, :a), s(:splat), s(:lasgn, :z)),
+           s(:to_ary, s(:call, nil, :f)))
+    pt = s(:masgn,
+           s(:array,
+             s(:lasgn, :a), s(:lasgn, :b), s(:lasgn, :c),
+             s(:splat),
+             s(:lasgn, :x), s(:lasgn, :y), s(:lasgn, :z)),
+           s(:to_ary, s(:call, nil, :f)))
+
+    assert_parse rb, pt
+  end
+
+  def test_mlhs_front_splat
+    rb = "*s, x, y, z = f"
+    pt = s(:masgn,
+           s(:array, s(:splat, s(:lasgn, :s)), s(:lasgn, :z)),
+           s(:to_ary, s(:call, nil, :f)))
+    pt = s(:masgn,
+           s(:array,
+             s(:splat, s(:lasgn, :s)),
+             s(:lasgn, :x), s(:lasgn, :y), s(:lasgn, :z)),
+           s(:to_ary, s(:call, nil, :f)))
+
+    assert_parse rb, pt
+  end
+
+  def test_mlhs_front_anonsplat
+    rb = "*, x, y, z = f"
+    pt = s(:masgn,
+           s(:array,
+             s(:splat),
+             s(:lasgn, :x), s(:lasgn, :y), s(:lasgn, :z)),
+           s(:to_ary, s(:call, nil, :f)))
+
+    assert_parse rb, pt
+  end
+
   def test_expr_not
     rb = "!(42)"
     pt = s(:call, s(:lit, 42), :"!")
