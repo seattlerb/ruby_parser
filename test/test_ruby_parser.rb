@@ -1,6 +1,6 @@
 #!/usr/local/bin/ruby
 
-ENV['VERBOSE'] = "1"
+# ENV['VERBOSE'] = "1"
 
 require 'rubygems'
 gem "minitest"
