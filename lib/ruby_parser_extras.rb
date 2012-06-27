@@ -2,6 +2,7 @@ require 'stringio'
 require 'racc/parser'
 require 'sexp'
 require 'strscan'
+require 'ruby_lexer'
 
 def d o
   $stderr.puts o.inspect
@@ -223,6 +224,57 @@ module RubyParserStuff
     result
   end
 
+  def block_args19 val, id
+    # HACK OMG THIS CODE IS SOOO UGLY! CLEAN ME
+    untested = %w[1 2 3 4 7 9 10 11 12 14]
+    raise "no block_args19 #{id}" if untested.include? id
+
+    r = s(:array)
+
+    val.compact.each do |v|
+      next if %w[,].include? v
+      case v
+      when Sexp then
+        case v.first
+        when :args then
+          r.concat v[1..-1].map { |s| s(:lasgn, s) }
+        when :block_arg then
+          r << s(:lasgn, :"&#{v.last}")
+        else
+          raise "block_args19 #{id} unhandled sexp type:: #{v.inspect}"
+        end
+      when Symbol
+        case v.to_s
+        when /^\*(.+)/ then
+          r << s(:splat, s(:lasgn, $1.to_sym))
+        when /^\*/ then
+          r << s(:splat)
+        else
+          raise "block_args19 #{id} unhandled symbol type:: #{v.inspect}"
+        end
+      else
+        raise "block_args19 #{id} unhandled type:: #{v.inspect}"
+      end
+    end
+
+    if r.size > 2 then
+      r = s(:masgn, r)
+    elsif r.size == 2 then
+      case r.last.first
+      when :splat then
+        r = s(:masgn, r)
+      when :lasgn then
+        r = r.last
+      else
+        raise "oh noes!: #{r.inspect}"
+      end
+    else
+      raise "fuck no #{r.inspect}"
+    end
+
+    r
+  end
+
   def aryset receiver, index
     s(:attrasgn, receiver, :"[]=", *index[1..-1])
   end
@@ -389,7 +441,7 @@ module RubyParserStuff
     v = self.class.name[/1[89]/]
     self.lexer = RubyLexer.new v && v.to_i
     self.lexer.parser = self
-    @env = Environment.new
+    @env = RubyParserStuff::Environment.new
     @comments = []
 
     @canonicalize_conditions = true
@@ -1183,11 +1235,11 @@ class Sexp
   end
 
   def add x
-    raise "no" # TODO: need a test to trigger this
+    concat x
   end
 
   def add_all x
-    raise "no" # TODO: need a test to trigger this
+    raise "no: #{self.inspect}.add_all #{x.inspect}" # TODO: need a test to trigger this
   end
 
   alias :node_type :sexp_type

@@ -164,7 +164,7 @@ rule
                     {
                       result = new_op_asgn val
                     }
-                | primary_value tLBRACK2 aref_args tRBRACK tOP_ASGN command_call
+                | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN command_call
                     {
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
                     }
@@ -173,6 +173,10 @@ rule
                       result = s(:op_asgn, val[0], val[4], val[2], val[3])
                     }
                 | primary_value tDOT tCONSTANT tOP_ASGN command_call
+                    {
+                      result = s(:op_asgn, val[0], val[4], val[2], val[3])
+                    }
+                | primary_value tCOLON2 tCONSTANT tOP_ASGN command_call
                     {
                       result = s(:op_asgn, val[0], val[4], val[2], val[3])
                     }
@@ -249,7 +253,7 @@ rule
                       self.env.extend(:dynamic)
                       result = self.lexer.lineno
                     }
-                    opt_block_var
+                    opt_block_param
                     {
                       result = self.env.dynamic.keys
                     }
@@ -414,7 +418,7 @@ rule
                     {
                       result = self.assignable val[0]
                     }
-                | primary_value tLBRACK2 aref_args tRBRACK
+                | primary_value tLBRACK2 opt_call_args rbracket
                     {
                       result = self.aryset val[0], val[2]
                     }
@@ -459,7 +463,7 @@ rule
                     {
                       result = self.assignable val[0]
                     }
-                | primary_value tLBRACK2 aref_args tRBRACK
+                | primary_value tLBRACK2 opt_call_args rbracket
                     {
                       result = self.aryset val[0], val[2]
                     }
@@ -575,7 +579,12 @@ rule
                     {
                       result = new_op_asgn val
                     }
-                | primary_value tLBRACK2 aref_args tRBRACK tOP_ASGN arg
+                | var_lhs tOP_ASGN arg kRESCUE_MOD arg
+                    {
+                      result = new_op_asgn val
+                      result = self.node_assign s(:rescue, result, new_resbody(s(:array), val[4]))
+                    }
+                | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN arg
                     {
                       val[2][0] = :arglist
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
@@ -752,10 +761,10 @@ rule
                     {
                       result = s(:defined, val[2])
                     }
-                | arg tEH arg tCOLON arg
+                | arg tEH arg opt_nl tCOLON arg
                     {
                       lexer.tern.pop
-                      result = s(:if, val[0], val[2], val[4])
+                      result = s(:if, val[0], val[2], val[5])
                     }
                 | primary
 
@@ -765,36 +774,26 @@ rule
                     }
 
        aref_args: none
-                | command opt_nl
-                    {
-                      warning 'parenthesize argument(s) for future version'
-                      result = s(:array, val[0])
-                    }
                 | args trailer
                     {
                       result = val[0]
-                    }
-                | args tCOMMA tSTAR arg opt_nl
-                    {
-                      result = self.arg_concat val[0], val[3]
-                    }
-                | assocs trailer
-                    {
-                      result = s(:array, s(:hash, *val[0].values))
                     }
                 | args tCOMMA assocs trailer
                     {
                       result = val[0] << s(:hash, *val[2].values)
                     }
-                | tSTAR arg opt_nl
+                | assocs trailer
                     {
-                      result = s(:array, s(:splat, val[1]))
+                      result = s(:array, s(:hash, *val[0].values))
                     }
 
       paren_args: tLPAREN2 opt_call_args rparen
                     {
                       result = val[1]
                     }
+
+  opt_paren_args: none
+                | paren_args
 
    opt_call_args: none
                     {
@@ -808,19 +807,15 @@ rule
                     {
                       result = val[0]
                     }
-                | block_call
-                    {
-                      warning "parenthesize argument(s) for future version"
-                      result = s(:array, val[0])
-                    }
-                | args tCOMMA block_call
+                | args tCOMMA assocs tCOMMA
                     {
                       warning "parenthesize argument(s) for future version"
                       result = val[0].add val[2]
                     }
-
-  opt_paren_args: none
-                | paren_args
+                | assocs tCOMMA
+                    {
+                      raise "no1: #{val.inspect}"
+                    }
 
        call_args: command
                     {
@@ -831,96 +826,15 @@ rule
                     {
                       result = self.arg_blk_pass val[0], val[1]
                     }
-                | args tCOMMA tSTAR arg_value opt_block_arg
-                    {
-                      result = self.arg_concat val[0], val[3]
-                      result = self.arg_blk_pass result, val[4]
-                    }
-                | args tCOMMA tSTAR arg_value tCOMMA args opt_block_arg
-                    {
-                      result = self.arg_concat val[0], val[3]
-                      val[5][1..-1].each {|a| result << a }
-                      result = self.arg_blk_pass result, val[6]
-                    }
                 | assocs opt_block_arg
                     {
                       result = s(:array, s(:hash, *val[0].values))
                       result = self.arg_blk_pass result, val[1]
-                    }
-                | assocs tCOMMA tSTAR arg_value opt_block_arg
-                    {
-                      result = self.arg_concat s(:array, s(:hash, *val[0].values)), val[3]
-                      result = self.arg_blk_pass result, val[4]
                     }
                 | args tCOMMA assocs opt_block_arg
                     {
                       result = val[0] << s(:hash, *val[2].values)
                       result = self.arg_blk_pass result, val[3]
-                    }
-                | args tCOMMA assocs tCOMMA tSTAR arg opt_block_arg
-                    {
-                      val[0] << s(:hash, *val[2].values)
-                      result = self.arg_concat val[0], val[5]
-                      result = self.arg_blk_pass result, val[6]
-                    }
-                | tSTAR arg_value opt_block_arg
-                    {
-                      result = self.arg_blk_pass s(:splat, val[1]), val[2]
-                    }
-                | block_arg
-
-      call_args2: arg_value tCOMMA args opt_block_arg
-                    {
-                      args = self.list_prepend val[0], val[2]
-                      result = self.arg_blk_pass args, val[3]
-                    }
-                | arg_value tCOMMA block_arg
-                    {
-                      result = self.arg_blk_pass val[0], val[2]
-                    }
-                | arg_value tCOMMA tSTAR arg_value opt_block_arg
-                    {
-                      result = self.arg_concat s(:array, val[0]), val[3]
-                      result = self.arg_blk_pass result, val[4]
-                    }
-                | arg_value tCOMMA args tCOMMA tSTAR arg_value opt_block_arg
-                    {
-                      result = self.arg_concat s(:array, val[0], s(:hash, *val[2].values)), val[5]
-                      result = self.arg_blk_pass result, val[6]
-                    }
-                | assocs opt_block_arg
-                    {
-                      result = s(:array, s(:hash, *val[0].values))
-                      result = self.arg_blk_pass result, val[1]
-                    }
-                | assocs tCOMMA tSTAR arg_value opt_block_arg
-                    {
-                      result = s(:array, s(:hash, *val[0].values), val[3])
-                      result = self.arg_blk_pass result, val[4]
-                    }
-                | arg_value tCOMMA assocs opt_block_arg
-                    {
-                      result = s(:array, val[0], s(:hash, *val[2].values))
-                      result = self.arg_blk_pass result, val[3]
-                    }
-                | arg_value tCOMMA args tCOMMA assocs opt_block_arg
-                    {
-                      result = s(:array, val[0]).add_all(val[2]).add(s(:hash, *val[4].values))
-                      result = self.arg_blk_pass result, val[5]
-                    }
-                | arg_value tCOMMA assocs tCOMMA tSTAR arg_value opt_block_arg
-                    {
-                      result = self.arg_concat s(:array, val[0]).add(s(:hash, *val[2].values)), val[5]
-                      result = self.arg_blk_pass result, val[6]
-                    }
-                | arg_value tCOMMA args tCOMMA assocs tCOMMA tSTAR arg_value opt_block_arg
-                    {
-                      result = self.arg_concat s(:array, val[0]).add_all(val[2]).add(s(:hash, *val[4].values)), val[7]
-                      result = self.arg_blk_pass result, val[8]
-                    }
-                | tSTAR arg_value opt_block_arg
-                    {
-                      result = self.arg_blk_pass s(:splat, val[1]), val[2]
                     }
                 | block_arg
 
@@ -928,29 +842,9 @@ rule
                       result = lexer.cmdarg.stack.dup
                       lexer.cmdarg.push true
                     }
-                    open_args
+                      call_args
                     {
                       lexer.cmdarg.stack.replace val[0]
-                      result = val[1]
-                    }
-
-       open_args: call_args
-                | tLPAREN_ARG
-                    {
-                      lexer.lex_state = :expr_endarg
-                    }
-                    tRPAREN
-                    {
-                      warning "don't put space before argument parentheses"
-                      result = nil
-                    }
-                | tLPAREN_ARG call_args2
-                    {
-                      lexer.lex_state = :expr_endarg
-                    }
-                    tRPAREN
-                    {
-                      warning "don't put space before argument parentheses"
                       result = val[1]
                     }
 
@@ -1073,11 +967,11 @@ rule
                     }
                 | kNOT tLPAREN2 expr rparen
                     {
-                      raise "no1"
+                      raise "no2: #{val.inspect}"
                     }
                 | kNOT tLPAREN2 rparen
                     {
-                      raise "no2"
+                      raise "no3: #{val.inspect}"
                     }
                 | operation brace_block
                     {
@@ -1295,85 +1189,138 @@ rule
                       val[0].delete_at 1 if val[0][1].nil? # HACK
                     }
 
-       block_par: mlhs_item
+          f_marg: f_norm_arg
                     {
-                      result = s(:array, val[0])
+                      raise "no4: #{val.inspect}"
                     }
-                | block_par tCOMMA mlhs_item
+                | tLPAREN f_margs rparen
                     {
-                      result = self.list_append val[0], val[2]
+                      raise "no5: #{val.inspect}"
                     }
 
-       block_var: block_par
+     f_marg_list: f_marg
                     {
-                      result = block_var val[0], nil, nil
+                      raise "no6: #{val.inspect}"
                     }
-                | block_par tCOMMA
+                | f_marg_list tCOMMA f_marg
                     {
-                      result = block_var val[0], nil, nil
+                      raise "no7: #{val.inspect}"
                     }
-                | block_par tCOMMA tAMPER lhs
+
+         f_margs: f_marg_list
                     {
-                      result = block_var val[0], nil, val[3]
+                      raise "no8: #{val.inspect}"
                     }
-                | block_par tCOMMA tSTAR lhs tCOMMA tAMPER lhs
+                | f_marg_list tCOMMA tSTAR f_norm_arg
                     {
-                      result = block_var val[0], val[3], val[6]
+                      raise "no9: #{val.inspect}"
                     }
-                | block_par tCOMMA tSTAR tCOMMA tAMPER lhs
+                | f_marg_list tCOMMA tSTAR f_norm_arg tCOMMA f_marg_list
                     {
-                      result = block_var val[0], s(:splat), val[5]
+                      raise "no10: #{val.inspect}"
                     }
-                | block_par tCOMMA tSTAR lhs
+                | f_marg_list tCOMMA tSTAR
                     {
-                      result = block_var val[0], val[3], nil
+                      raise "no11: #{val.inspect}"
                     }
-                | block_par tCOMMA tSTAR
+                | f_marg_list tCOMMA tSTAR tCOMMA f_marg_list
                     {
-                      result = block_var val[0], s(:splat), nil
+                      raise "no12: #{val.inspect}"
                     }
-                | tSTAR lhs tCOMMA tAMPER lhs
+                | tSTAR f_norm_arg
                     {
-                      result = block_var nil, val[1], val[4]
+                      raise "no13: #{val.inspect}"
                     }
-                | tSTAR tCOMMA tAMPER lhs
+                | tSTAR f_norm_arg tCOMMA f_marg_list
                     {
-                      result = block_var nil, s(:splat), val[3]
-                    }
-                | tSTAR lhs
-                    {
-                      result = block_var nil, val[1], nil
+                      raise "no14: #{val.inspect}"
                     }
                 | tSTAR
                     {
-                      result = block_var nil, s(:splat), nil
+                      raise "no15: #{val.inspect}"
                     }
-                | tAMPER lhs
+                | tSTAR tCOMMA f_marg_list
                     {
-                      result = block_var nil, nil, val[1]
+                      raise "no16: #{val.inspect}"
                     }
-                ;
 
-   opt_block_var: none
-                | tPIPE tPIPE
+     block_param: f_arg tCOMMA f_block_optarg tCOMMA f_rest_arg opt_f_block_arg
                     {
-                      result = 0
-                      self.lexer.command_start = true
+                      result = block_args19 val, "1"
+                    }
+                | f_arg tCOMMA f_block_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = block_args19 val, "2"
+                    }
+                | f_arg tCOMMA f_block_optarg opt_f_block_arg
+                    {
+                      result = block_args19 val, "3"
+                    }
+                | f_arg tCOMMA f_block_optarg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = block_args19 val, "4"
+                    }
+                | f_arg tCOMMA f_rest_arg opt_f_block_arg
+                    {
+                      result = block_args19 val, "5"
+                    }
+                | f_arg tCOMMA
+                    {
+                      result = block_args19 val, "6"
+                    }
+                | f_arg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = block_args19 val, "7"
+                    }
+                | f_arg opt_f_block_arg
+                    {
+                      result = block_args19 val, "8"
+                    }
+                | f_block_optarg tCOMMA f_rest_arg opt_f_block_arg
+                    {
+                      result = block_args19 val, "9"
+                    }
+                | f_block_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = block_args19 val, "10"
+                    }
+                | f_block_optarg opt_f_block_arg
+                    {
+                      result = block_args19 val, "11"
+                    }
+                | f_block_optarg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = block_args19 val, "12"
+                    }
+                | f_rest_arg opt_f_block_arg
+                    {
+                      result = block_args19 val, "13"
+                    }
+                | f_rest_arg tCOMMA f_arg opt_f_block_arg
+                    {
+                      result = block_args19 val, "14"
+                    }
+                | f_block_arg
+                    {
+                      result = block_args19 val, "15"
+                    }
+
+ opt_block_param: none
+                | block_param_def
+
+ block_param_def: tPIPE opt_bv_decl tPIPE
+                    {
+                      raise "no17: #{val.inspect}"
                     }
                 | tOROP
                     {
                       result = 0
                       self.lexer.command_start = true
                     }
-                | tPIPE block_var tPIPE
+                | tPIPE block_param opt_bv_decl tPIPE
                     {
                       result = val[1]
-                      self.lexer.command_start = true
-                    }
-                | tPIPE tAMPER block_var tPIPE
-                    {
-                      result = s(:lasgn, :"&block")
-                      self.lexer.command_start = true
+                      result.concat val[2] if val[2]
                     }
 
      opt_bv_decl: none
@@ -1386,6 +1333,7 @@ rule
                 | bv_decls tCOMMA bvar
                     {
                       result = val[0] << val[2]
+                      raise "no18: #{val.inspect}"
                     }
 
             bvar: tIDENTIFIER
@@ -1430,7 +1378,7 @@ rule
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                    opt_block_var
+                    opt_block_param
                     {
                       result = self.env.dynamic.keys
                     }
@@ -1497,7 +1445,7 @@ rule
                     {
                       result = s(:zsuper)
                     }
-                | primary_value tLBRACK2 aref_args tRBRACK
+                | primary_value tLBRACK2 opt_call_args rbracket
                     {
                       result = new_aref val
                     }
@@ -1507,7 +1455,7 @@ rule
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                    opt_block_var
+                    opt_block_param
                     {
                       result = self.env.dynamic.keys
                     }
@@ -1525,7 +1473,7 @@ rule
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                 opt_block_var
+                 opt_block_param
                     {
                       result = self.env.dynamic.keys
                     }
@@ -1938,12 +1886,18 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       result = val[0]
                     }
 
-           f_arg: f_norm_arg
+      f_arg_item: f_norm_arg
+                | tLPAREN f_margs rparen
+                    {
+                      raise "no19: #{val.inspect}"
+                    }
+
+           f_arg: f_arg_item
                     {
                       result = s(:args)
                       result << val[0].to_sym
                     }
-                | f_arg tCOMMA f_norm_arg
+                | f_arg tCOMMA f_arg_item
                     {
                       val[0] << val[2].to_sym
                       result = val[0]
@@ -1953,6 +1907,20 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result = self.assignable val[0], val[2]
                       # TODO: detect duplicate names
+                    }
+
+     f_block_opt: tIDENTIFIER tEQL primary_value
+                    {
+                      raise "no20: #{val.inspect}"
+                    }
+
+  f_block_optarg: f_block_opt
+                    {
+                      raise "no21: #{val.inspect}"
+                    }
+                | f_block_optarg tCOMMA f_block_opt
+                    {
+                      raise "no22: #{val.inspect}"
                     }
 
         f_optarg: f_opt
