@@ -613,72 +613,6 @@ module TestRubyParserShared
     assert_equal 3, result.if.return.line
     assert_equal 3, result.if.return.lit.line
   end
-
-  def test_parse_if_not_canonical
-    rb = "if not var.nil? then 'foo' else 'bar'\nend"
-    pt = s(:if,
-           s(:call, s(:call, nil, :var), :nil?),
-           s(:str, "bar"),
-           s(:str, "foo"))
-
-    assert_parse rb, pt
-  end
-
-  def test_parse_if_not_noncanonical
-    rb = "if not var.nil? then 'foo' else 'bar'\nend"
-    pt = s(:if,
-           s(:not,
-             s(:call, s(:call, nil, :var), :nil?)),
-           s(:str, "foo"),
-           s(:str, "bar"))
-
-    processor.canonicalize_conditions = false
-
-    assert_parse rb, pt
-  end
-
-  def test_parse_while_not_canonical
-    rb = "while not var.nil?\n  'foo'\nend"
-    pt = s(:until,
-           s(:call, s(:call, nil, :var), :nil?),
-           s(:str, "foo"), true)
-
-    assert_parse rb, pt
-  end
-
-  def test_parse_while_not_noncanonical
-    rb = "while not var.nil?\n  'foo'\nend"
-    pt = s(:while,
-           s(:not,
-             s(:call, s(:call, nil, :var), :nil?)),
-           s(:str, "foo"), true)
-
-    processor.canonicalize_conditions = false
-
-    assert_parse rb, pt
-  end
-
-  def test_parse_until_not_canonical
-    rb = "until not var.nil?\n  'foo'\nend"
-
-    pt = s(:while,
-           s(:call, s(:call, nil, :var), :nil?),
-           s(:str, "foo"), true)
-
-    assert_parse rb, pt
-  end
-
-  def test_parse_until_not_noncanonical
-    rb = "until not var.nil?\n  'foo'\nend"
-    pt = s(:until,
-           s(:not,
-             s(:call, s(:call, nil, :var), :nil?)),
-           s(:str, "foo"), true)
-
-    processor.canonicalize_conditions = false
-
-    assert_parse rb, pt
-  end
 end
 
 class TestRubyParser < MiniTest::Unit::TestCase
@@ -752,6 +686,69 @@ class TestRuby18Parser < RubyParserTestCase
   def test_do_colon_18
     rb = "while false : 42 end"
     pt = s(:while, s(:false), s(:lit, 42), true)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_until_not_canonical
+    rb = "until not var.nil?\n  'foo'\nend"
+
+    pt = s(:while,
+           s(:call, s(:call, nil, :var), :nil?),
+           s(:str, "foo"), true)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_until_not_noncanonical
+    rb = "until not var.nil?\n  'foo'\nend"
+    pt = s(:until,
+           s(:not, s(:call, s(:call, nil, :var), :nil?)),
+           s(:str, "foo"), true)
+
+    processor.canonicalize_conditions = false
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_if_not_canonical
+    rb = "if not var.nil? then 'foo' else 'bar'\nend"
+    pt = s(:if,
+           s(:call, s(:call, nil, :var), :nil?),
+           s(:str, "bar"),
+           s(:str, "foo"))
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_if_not_noncanonical
+    rb = "if not var.nil? then 'foo' else 'bar'\nend"
+    pt = s(:if,
+           s(:not, s(:call, s(:call, nil, :var), :nil?)),
+           s(:str, "foo"),
+           s(:str, "bar"))
+
+    processor.canonicalize_conditions = false
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_while_not_canonical
+    rb = "while not var.nil?\n  'foo'\nend"
+    pt = s(:until,
+           s(:call, s(:call, nil, :var), :nil?),
+           s(:str, "foo"), true)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_while_not_noncanonical
+    rb = "while not var.nil?\n  'foo'\nend"
+    pt = s(:while,
+           s(:not, s(:call, s(:call, nil, :var), :nil?)),
+           s(:str, "foo"), true)
+
+    processor.canonicalize_conditions = false
 
     assert_parse rb, pt
   end
@@ -840,8 +837,15 @@ class TestRuby19Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
+  def test_expr_not_bang
+    rb = "! a b"
+    pt = s(:call, s(:call, nil, :a, s(:call, nil, :b)), :"!")
+
+    assert_parse rb, pt
+  end
+
   def test_expr_not
-    rb = "!(42)"
+    rb = "not (42)"
     pt = s(:call, s(:lit, 42), :"!")
 
     assert_parse rb, pt
@@ -894,6 +898,96 @@ class TestRuby19Parser < RubyParserTestCase
   def test_call_parens_cm
     rb = "a::()"
     pt = s(:call, s(:call, nil, :a), :call)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_def_xxx1
+    rb = 'def f(a, *b, c = nil) end'
+
+    assert_parse_error rb, 'parse error on value "=" (tEQL)'
+  end
+
+  def test_parse_def_xxx2
+    rb = 'def f(a = nil, *b, c = nil) end'
+
+    assert_parse_error rb, 'parse error on value "=" (tEQL)'
+  end
+
+  def test_parse_def_xxx3
+    rb = 'def f(a = nil, *b, c) end'
+    pt = s(:defn, :f,
+           s(:args, :a, :"*b", :c, s(:block, s(:lasgn, :a, s(:nil)))),
+           s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_until_not_canonical
+    rb = "until not var.nil?\n  'foo'\nend"
+    pt = s(:until,
+           s(:call, s(:call, s(:call, nil, :var), :nil?), :"!"),
+           s(:str, "foo"), true)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_until_not_noncanonical
+    rb = "until not var.nil?\n  'foo'\nend"
+    pt = s(:until,
+           s(:call, s(:call, s(:call, nil, :var), :nil?), :"!"),
+           s(:str, "foo"), true)
+
+    processor.canonicalize_conditions = false
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_if_not_canonical
+    rb = "if not var.nil? then 'foo' else 'bar'\nend"
+    pt = s(:if,
+           s(:call, s(:call, s(:call, nil, :var), :nil?), :"!"),
+           s(:str, "foo"),
+           s(:str, "bar"))
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_if_not_noncanonical
+    rb = "if not var.nil? then 'foo' else 'bar'\nend"
+    pt = s(:if,
+           s(:call, s(:call, s(:call, nil, :var), :nil?), :"!"),
+           s(:str, "foo"),
+           s(:str, "bar"))
+
+    processor.canonicalize_conditions = false
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_while_not_canonical
+    rb = "while not var.nil?\n  'foo'\nend"
+    pt = s(:while,
+           s(:call, s(:call, s(:call, nil, :var), :nil?), :"!"),
+           s(:str, "foo"), true)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_while_not_noncanonical
+    rb = "while not var.nil?\n  'foo'\nend"
+    pt = s(:while,
+           s(:call, s(:call, s(:call, nil, :var), :nil?), :"!"),
+           s(:str, "foo"), true)
+
+    processor.canonicalize_conditions = false
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_opt_call_args_assocs_comma
+    rb = "1[2=>3,]"
+    pt = s(:call, s(:lit, 1), :[], s(:lit, 2), s(:lit, 3))
 
     assert_parse rb, pt
   end

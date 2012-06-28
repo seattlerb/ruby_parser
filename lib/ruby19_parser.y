@@ -222,11 +222,11 @@ rule
                     }
                 | kNOT opt_nl expr
                     {
-                      result = s(:not, val[2])
+                      result = s(:call, val[2], :"!")
                     }
                 | tBANG command_call
                     {
-                      result = s(:not, val[1])
+                      result = s(:call, val[1], :"!")
                     }
                 | arg
 
@@ -814,7 +814,7 @@ rule
                     }
                 | assocs tCOMMA
                     {
-                      raise "no1: #{val.inspect}"
+                      result = val[0]
                     }
 
        call_args: command

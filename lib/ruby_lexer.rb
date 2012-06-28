@@ -35,6 +35,8 @@ class RubyLexer
   # What handles warnings
   attr_accessor :warnings
 
+  attr_accessor :space_seen
+
   EOF = :eof_haha!
 
   # ruby constants for strings (should this be moved somewhere else?)
@@ -237,6 +239,7 @@ class RubyLexer
   end
 
   def lex_state= o
+    # warn "wtf lex_state = #{o.inspect}"
     raise "wtf\?" unless Symbol === o
     @lex_state = o
   end
@@ -640,7 +643,7 @@ class RubyLexer
 
   def yylex # 826 lines
     c = ''
-    space_seen = false
+    self.space_seen = false
     command_state = false
     src = self.src
 
@@ -656,7 +659,7 @@ class RubyLexer
 
     loop do # START OF CASE
       if src.scan(/[\ \t\r\f\v]/) then # \s - \n + \v
-        space_seen = true
+        self.space_seen = true
         next
       elsif src.check(/[^a-zA-Z]/) then
         if src.scan(/\n|#/) then
@@ -711,9 +714,9 @@ class RubyLexer
           end
         elsif src.scan(/\(/) then
           result = if ruby18 then
-                     yylex_paren18 space_seen
+                     yylex_paren18
                    else
-                     yylex_paren19 space_seen
+                     yylex_paren19
                    end
 
           self.expr_beg_push "("
@@ -755,10 +758,7 @@ class RubyLexer
 
           return process_token(command_state)
         elsif src.scan(/\:\:/) then
-          if (lex_state == :expr_beg ||
-              lex_state == :expr_mid ||
-              lex_state == :expr_class ||
-              (lex_state.is_argument && space_seen)) then
+          if is_beg? || lex_state == :expr_class || is_space_arg? then
             self.lex_state = :expr_beg
             self.yacc_value = "::"
             return :tCOLON3
@@ -1139,7 +1139,7 @@ class RubyLexer
         elsif src.scan(/\\/) then
           if src.scan(/\n/) then
             self.lineno = nil
-            space_seen = true
+            self.space_seen = true
             next
           end
           rb_compile_error "bare backslash only allowed before newline"
@@ -1233,7 +1233,7 @@ class RubyLexer
     end
   end
 
-  def yylex_paren18 space_seen
+  def yylex_paren18
     self.command_start = true
     result = :tLPAREN2
 
@@ -1253,17 +1253,39 @@ class RubyLexer
     result
   end
 
-  def yylex_paren19 space_seen
-    if (lex_state == :expr_beg || lex_state == :expr_mid ||
-        lex_state == :expr_value || lex_state == :expr_class) then
+  def is_end?
+    (lex_state == :expr_end    ||
+     lex_state == :expr_endarg ||
+     lex_state == :expr_endfn)
+  end
+
+  def is_arg?
+    lex_state == :expr_arg || lex_state == :expr_cmdarg
+  end
+
+  def is_beg?
+    (lex_state == :expr_beg   ||
+     lex_state == :expr_mid   ||
+     lex_state == :expr_value ||
+     lex_state == :expr_class)
+  end
+
+  def is_space_arg? c = "x"
+    is_arg? and space_seen and c !~ /\s/
+  end
+
+  def yylex_paren19
+    if is_beg? then
       result = :tLPAREN
-    elsif ((lex_state == :expr_arg || lex_state == :expr_cmdarg) and
-           space_seen) then
+    elsif is_space_arg? then
       result = :tLPAREN_ARG
     else
       self.tern.push false
       result = :tLPAREN2
     end
+
+    # p :wtf_paren => [lex_state, space_seen, result]
+
     # HACK paren_nest++;
 
     # HACK: this is a mess, but it makes the tests pass, so suck it
@@ -1334,7 +1356,11 @@ class RubyLexer
 
       unless lex_state == :expr_dot then
         # See if it is a reserved word.
-        keyword = RubyParserStuff::Keyword.keyword token
+        keyword = if ruby18 then # REFACTOR need 18/19 lexer subclasses
+                    RubyParserStuff::Keyword.keyword18 token
+                  else
+                    RubyParserStuff::Keyword.keyword19 token
+                  end
 
         if keyword then
           state           = lex_state

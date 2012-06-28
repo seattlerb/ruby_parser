@@ -1068,11 +1068,24 @@ module RubyParserStuff
 
     # :startdoc:
 
-    WORDLIST = Hash[*wordlist.map { |o| [o.name, o] }.flatten] unless
-      defined? WORDLIST
+    WORDLIST18 = Hash[*wordlist.map { |o| [o.name, o] }.flatten]
+    WORDLIST19 = Hash[*wordlist.map { |o| [o.name, o] }.flatten]
 
-    def self.keyword str
-      WORDLIST[str]
+    %w[and case elsif for if in module or unless until when while].each do |k|
+      WORDLIST19[k] = WORDLIST19[k].dup
+      WORDLIST19[k].state = :expr_value
+    end
+    %w[not].each do |k|
+      WORDLIST19[k] = WORDLIST19[k].dup
+      WORDLIST19[k].state = :expr_arg
+    end
+
+    def self.keyword18 str # REFACTOR
+      WORDLIST18[str]
+    end
+
+    def self.keyword19 str
+      WORDLIST19[str]
     end
   end
 
