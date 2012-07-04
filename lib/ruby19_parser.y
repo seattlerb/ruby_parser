@@ -730,7 +730,7 @@ rule
                     }
                 | tBANG arg
                     {
-                      result = new_call val[1], :"!@"
+                      result = new_call val[1], :"!"
                     }
                 | tTILDE arg
                     {
