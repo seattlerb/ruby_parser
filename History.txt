@@ -1,3 +1,36 @@
+=== 3.0.0.a3 / 2012-07-03
+
+* 1 major enhancement:
+
+  * OMG! Implemented all the 1.9 arg crap and I went from 500 lines of
+    structural diff to 32!
+
+* 17 minor enhancements:
+
+  * 1.9: !(...) is now a method call. ugh
+  * 1.9: Added __ENCODING__ keyword (returns Unsupported atm).
+  * 1.9: Added support for "a.()" thingy. whatever you call it. Have I ever mentioned that ruby has too much syntax? I mean really...
+  * 1.9: Moved kRETURN/kBREAK/kNEXT from command_call to command
+  * 1.9: Removed when_args and refactored into args production.
+  * 1.9: Support for not/! being a call to #!. why matz? why?!?
+  * 1.9: Support for trailing comma support in opt call args.
+  * 1.9: Switched keyword support to deal with 1.8 vs 1.9 differences.
+  * 1.9: refactored and created command_asgn
+  * 1.9: removed case/else from primary
+  * 1.9: reworked mlhs and family. Now horrible things like 'a, *, c = f' work
+  * 1.9: reworked top level rules from program to expr. Lots of lame refactorings in mri.
+  * Moved 'a[]' from primary down to method_call
+  * Removed 'args trailer' production from assoc_list (eg {1, 2}).
+  * Removed 1.9 support for : as a terminator in do/then
+  * RubyParser no longer subclasses the 18 parser, so I had to change some consts around.
+  * Undeprecated RubyParser - but now it is a compound parser that tries 1.9 first.
+
+* 3 bug fixes:
+
+  * 1.9: fixed bang method name.
+  * Fixed case/when/splat handling on both 1.8 and 1.9.
+  * Removed lambda_body production from lambda
+
 === 3.0.0.a2 / 2012-06-19
 
 * 1 minor enhancement:
