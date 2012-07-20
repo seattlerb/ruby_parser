@@ -37,6 +37,8 @@ end
 ARGV.replace ARGV.map { |path|
   if File.directory? path then
     Dir.glob File.join path, "**/*.rb"
+  elsif path =~ /\*\*/ then
+    Dir.glob path
   else
     path
   end
