@@ -807,7 +807,7 @@ class RubyLexer
             else
               rb_compile_error "unexpected '['"
             end
-          elsif lex_state == :expr_beg || lex_state == :expr_mid then
+          elsif is_beg? then
             self.tern.push false
             result = :tLBRACK
           elsif lex_state.is_argument && space_seen then
