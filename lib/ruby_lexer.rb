@@ -666,6 +666,8 @@ class RubyLexer
           self.lineno = nil
           c = src.matched
           if c == '#' then
+            # TODO: add magic comment handling?
+
             src.pos -= 1
 
             while src.scan(/\s*#.*(\n+|\z)/) do
@@ -681,7 +683,7 @@ class RubyLexer
           src.scan(/\n+/)
 
           if [:expr_beg, :expr_fname,
-              :expr_dot, :expr_class].include? lex_state then
+              :expr_dot, :expr_class, :expr_value].include? lex_state then
             next
           end
 
