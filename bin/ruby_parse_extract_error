@@ -26,7 +26,7 @@ class Racc::Parser
   end
 
   def retest_for_errors defs
-    d :retest => defs.size
+    warn "# retest: #{defs.size}"
 
     parser = self.class.new
 
@@ -42,7 +42,7 @@ ARGV.replace ARGV.map { |path|
   end
 }.flatten
 
-parser = RubyParser.new
+parser = Ruby19Parser.new
 
 ARGV.each do |file|
   ruby = file == "-" ? $stdin.read : File.read(file)
@@ -52,7 +52,7 @@ ARGV.each do |file|
     parser.process(ruby, file)
     $stderr.puts "good"
   rescue Racc::ParseError => e
-    $stderr.puts "error: #{e.description}"
+    $stderr.puts "error: #{e.message.strip}"
     $stderr.puts
 
     defs = parser.extract_defs
