@@ -139,7 +139,7 @@ task :compare19 do
 end
 
 task :debug => :isolate do
-  ENV["V"] ||= "18"
+  ENV["V"] ||= "19"
   Rake.application[:parser].invoke # this way we can have DEBUG set
 
   $: << "lib"
