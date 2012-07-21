@@ -33,9 +33,15 @@ class RubyParserTestCase < ParseTreeTestCase
   end
 
   def assert_parse_error rb, emsg
-    e = assert_raises Racc::ParseError do
-      processor.parse rb
+    e = nil
+    out, err = capture_io do
+      e = assert_raises Racc::ParseError do
+        processor.parse rb
+      end
     end
+
+    assert_equal "", out
+    assert_match(/parse error on value/, err)
 
     assert_equal emsg, e.message.strip # TODO: why strip?
   end
@@ -47,6 +53,11 @@ class RubyParserTestCase < ParseTreeTestCase
 end
 
 module TestRubyParserShared
+  def setup
+    super
+    # p :test => [self.class, __name__]
+  end
+
   def test_attrasgn_array_lhs
     rb = '[1, 2, 3, 4][from .. to] = ["a", "b", "c"]'
     pt = s(:attrasgn,
@@ -613,6 +624,27 @@ module TestRubyParserShared
     assert_equal 3, result.if.return.line
     assert_equal 3, result.if.return.lit.line
   end
+
+  def test_bug_and
+    rb = "true and []"
+    pt = s(:and, s(:true), s(:array))
+
+    assert_parse rb, pt
+
+    rb = "true and\ntrue"
+    pt = s(:and, s(:true), s(:true))
+
+    assert_parse rb, pt
+  end
+
+  def test_bug_args
+    rb = "f { |(a, b)| d }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:masgn, s(:array, s(:lasgn, :a), s(:lasgn, :b))),
+           s(:call, nil, :d))
+
+    assert_parse rb, pt
+  end
 end
 
 class TestRubyParser < MiniTest::Unit::TestCase
@@ -623,7 +655,12 @@ class TestRubyParser < MiniTest::Unit::TestCase
     rb = "while false : 42 end"
     pt = s(:while, s(:false), s(:lit, 42), true)
 
-    assert_equal pt, processor.parse(rb)
+    out, err = capture_io do
+      assert_equal pt, processor.parse(rb)
+    end
+
+    assert_empty out
+    assert_match(/parse error on value .:/, err)
 
     # 1.9 only syntax
     rb = "a.()"
@@ -633,7 +670,9 @@ class TestRubyParser < MiniTest::Unit::TestCase
 
     # bad syntax
     e = assert_raises Racc::ParseError do
-      processor.parse "a.("
+      capture_io do
+        processor.parse "a.("
+      end
     end
 
     msg = "parse error on value \"(\" (tLPAREN2)"

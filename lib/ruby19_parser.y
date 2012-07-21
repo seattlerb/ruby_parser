@@ -1190,9 +1190,6 @@ rule
                     }
 
           f_marg: f_norm_arg
-                    {
-                      raise "no4: #{val.inspect}"
-                    }
                 | tLPAREN f_margs rparen
                     {
                       raise "no5: #{val.inspect}"
@@ -1200,16 +1197,16 @@ rule
 
      f_marg_list: f_marg
                     {
-                      raise "no6: #{val.inspect}"
+                      result = s(:array, val[0])
                     }
                 | f_marg_list tCOMMA f_marg
                     {
-                      raise "no7: #{val.inspect}"
+                      result = list_append val[0], val[2]
                     }
 
          f_margs: f_marg_list
                     {
-                      raise "no8: #{val.inspect}"
+                      result = block_var val[0], nil, nil
                     }
                 | f_marg_list tCOMMA tSTAR f_norm_arg
                     {
@@ -1883,19 +1880,26 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       identifier = val[0].to_sym
                       self.env[identifier] = :lvar
 
-                      result = val[0]
+                      result = identifier
                     }
 
       f_arg_item: f_norm_arg
                 | tLPAREN f_margs rparen
                     {
-                      raise "no19: #{val.inspect}"
+                      result = val[1]
                     }
 
            f_arg: f_arg_item
                     {
-                      result = s(:args)
-                      result << val[0].to_sym
+                      case val[0]
+                      when Symbol then
+                        result = s(:args)
+                        result << val[0].to_sym
+                      when Sexp then
+                        result = val[0]
+                      else
+                        raise "Unknown f_arg type: #{val.inspect}"
+                      end
                     }
                 | f_arg tCOMMA f_arg_item
                     {

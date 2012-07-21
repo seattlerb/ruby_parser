@@ -202,6 +202,9 @@ module RubyParserStuff
           r.concat v[1..-1].map { |s| s(:lasgn, s) }
         when :block_arg then
           r << s(:lasgn, :"&#{v.last}")
+        when :masgn then
+          args = v.array[1..-1].map { |s| s(:lasgn, s) }
+          r << s(:masgn, s(:array, *args))
         else
           raise "block_args19 #{id} unhandled sexp type:: #{v.inspect}"
         end
@@ -225,7 +228,7 @@ module RubyParserStuff
       case r.last.first
       when :splat then
         r = s(:masgn, r)
-      when :lasgn then
+      when :lasgn, :masgn then
         r = r.last
       else
         raise "oh noes!: #{r.inspect}"
@@ -957,8 +960,17 @@ module RubyParserStuff
   end
 
   def yyerror msg
-    # for now do nothing with the msg
+    warn msg
+    super()
+  end
+
+  def on_error(et, ev, values)
     super
+  rescue Racc::ParseError => e
+    # I don't like how the exception obscures the error message
+    msg = "# ERROR: %s:%p :: %s" % [self.file, lexer.lineno, e.message.strip]
+    warn msg
+    raise
   end
 
   class Keyword
@@ -1177,11 +1189,13 @@ class RubyParser
     @p19 = Ruby19Parser.new
   end
 
-  def parse s
-    @p19.parse s
+  def process s, f = "(string)"
+    Ruby19Parser.new.process s, f
   rescue Racc::ParseError
-    @p18.parse s
+    Ruby18Parser.new.process s, f
   end
+
+  alias :parse :process
 end
 
 ############################################################
