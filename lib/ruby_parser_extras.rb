@@ -75,44 +75,6 @@ class RPStringScanner < StringScanner
       s
     end
   end
-
-  # TODO:
-  # def last_line(src)
-  #   if n = src.rindex("\n")
-  #     src[(n+1) .. -1]
-  #   else
-  #     src
-  #   end
-  # end
-  # private :last_line
-
-  # def next_words_on_error
-  #   if n = @src.rest.index("\n")
-  #     @src.rest[0 .. (n-1)]
-  #   else
-  #     @src.rest
-  #   end
-  # end
-
-  # def prev_words_on_error(ev)
-  #   pre = @pre
-  #   if ev and /#{Regexp.quote(ev)}$/ =~ pre
-  #     pre = $`
-  #   end
-  #   last_line(pre)
-  # end
-
-  # def on_error(et, ev, values)
-  #   lines_of_rest = @src.rest.to_a.length
-  #   prev_words = prev_words_on_error(ev)
-  #   at = 4 + prev_words.length
-  #   message = <<-MSG
-  # RD syntax error: line #{@blockp.line_index - lines_of_rest}:
-  # ...#{prev_words} #{(ev||'')} #{next_words_on_error()} ...
-  #   MSG
-  #   message << " " * at + "^" * (ev ? ev.length : 0) + "\n"
-  #   raise ParseError, message
-  # end
 end
 
 module RubyParserStuff
