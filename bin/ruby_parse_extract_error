@@ -53,7 +53,7 @@ ARGV.each do |file|
     $stderr.print "Validating #{file}: "
     parser.process(ruby, file)
     $stderr.puts "good"
-  rescue Racc::ParseError => e
+  rescue RuntimeError, Racc::ParseError => e
     $stderr.puts "error: #{e.message.strip}"
     $stderr.puts
 
