@@ -171,4 +171,13 @@ task :debug => :isolate do
   end
 end
 
+task :extract => :isolate do
+  ENV["V"] ||= "19"
+  Rake.application[:parser].invoke # this way we can have DEBUG set
+
+  file = ENV["F"] || ENV["FILE"]
+
+  ruby "-Ilib", "bin/ruby_parse_extract_error", file
+end
+
 # vim: syntax=Ruby
