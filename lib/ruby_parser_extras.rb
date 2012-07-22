@@ -169,6 +169,8 @@ module RubyParserStuff
             raise "wtf? #{val.inspect}" unless lasgn[0] == :lasgn
             result << lasgn[1]
           end
+        when :lasgn then
+          result << val
         else
           raise "unhandled sexp: #{val.inspect}"
         end
@@ -203,8 +205,7 @@ module RubyParserStuff
         when :block_arg then
           r << s(:lasgn, :"&#{v.last}")
         when :masgn then
-          args = v.array[1..-1].map { |s| s(:lasgn, s) }
-          r << s(:masgn, s(:array, *args))
+          r << v
         else
           raise "block_args19 #{id} unhandled sexp type:: #{v.inspect}"
         end

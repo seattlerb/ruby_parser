@@ -645,6 +645,35 @@ module TestRubyParserShared
 
     assert_parse rb, pt
   end
+
+  def test_bug_args_masgn
+    rb = "f { |((a, b), c)| }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:masgn,
+             s(:array,
+               s(:masgn, s(:array, s(:lasgn, :a), s(:lasgn, :b))),
+               s(:lasgn, :c))))
+
+    assert_parse rb, pt
+  end
+
+  # TODO
+  # def test_bug_args_masgn2
+  #   rb = "f { |((a, b), c), d| }"
+  #   pt = s(:iter,
+  #          s(:call, nil, :f),
+  #          s(:masgn,
+  #            s(:array,
+  #              s(:masgn,
+  #                s(:array,
+  #                  s(:masgn,
+  #                    s(:array, s(:lasgn, :a), s(:lasgn, :b))),
+  #                  s(:lasgn, :c))),
+  #              s(:lasgn, :d))))
+  # 
+  #   assert_parse rb, pt
+  # end
 end
 
 class TestRubyParser < MiniTest::Unit::TestCase

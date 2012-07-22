@@ -1190,9 +1190,12 @@ rule
                     }
 
           f_marg: f_norm_arg
+                    {
+                      result = assignable val[0]
+                    }
                 | tLPAREN f_margs rparen
                     {
-                      raise "no5: #{val.inspect}"
+                      result = val[1]
                     }
 
      f_marg_list: f_marg
@@ -1884,6 +1887,9 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     }
 
       f_arg_item: f_norm_arg
+                    # { # TODO
+                    #   result = assignable val[0]
+                    # }
                 | tLPAREN f_margs rparen
                     {
                       result = val[1]
