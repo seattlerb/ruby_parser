@@ -658,7 +658,7 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  # TODO
+  # TODO:
   # def test_bug_args_masgn2
   #   rb = "f { |((a, b), c), d| }"
   #   pt = s(:iter,
@@ -671,7 +671,18 @@ module TestRubyParserShared
   #                    s(:array, s(:lasgn, :a), s(:lasgn, :b))),
   #                  s(:lasgn, :c))),
   #              s(:lasgn, :d))))
-  # 
+  #
+  #   assert_parse rb, pt
+  # end
+
+  # TODO:
+  # def test_bug_comma
+  #   rb = "if test ?d, dir then end"
+  #   pt = s(:if,
+  #          s(:call, nil, :test, s(:lit, 100), s(:call, nil, :dir)),
+  #          nil,
+  #          nil)
+  #
   #   assert_parse rb, pt
   # end
 end
@@ -1045,4 +1056,3 @@ class TestRuby19Parser < RubyParserTestCase
   #   assert_parse rb, pt
   # end
 end
-
