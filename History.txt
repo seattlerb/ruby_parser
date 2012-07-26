@@ -1,3 +1,24 @@
+=== 3.0.0.a4 / 2012-07-26
+
+* 10 minor enhancements:
+
+  * 'rake debug' defaults to 1.9 parser since that's all I'm doing these days
+  * 1.9: Fixed f { |(a, b, ...), ...| ... } handling.
+  * Added 'rake extract F=path' task to quickly extract errors from large files
+  * Added on_error handler to provide more readable error message.
+  * Aliased #process to #parse.
+  * Renamed #parse to #process (legacy name), added default path of '(string)'
+  * cleaned ruby_parse_extract_error  output and fixed to 1.9 parser
+  * ruby_parse_extract_error expands shell globs from ARGV
+  * ruby_parse_extract_error should also capture RuntimeError
+  * yyerror(msg) now warns with the message instead of ignoring it.
+
+* 3 bug fixes:
+
+  * 1.9: Fixed bug lexing/parsing [ in rhs.
+  * 1.9: Fixed f { |((a, b), c)| ... } handling
+  * 1.9: fixed newline handling during expr_value
+
 === 3.0.0.a3 / 2012-07-03
 
 * 1 major enhancement:
