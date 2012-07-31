@@ -685,6 +685,13 @@ module TestRubyParserShared
   #
   #   assert_parse rb, pt
   # end
+
+  def test_if_symbol
+    rb = "if f :x; end"
+    pt = s(:if, s(:call, nil, :f, s(:lit, :x)), nil, nil)
+
+    assert_parse rb, pt
+  end
 end
 
 class TestRubyParser < MiniTest::Unit::TestCase

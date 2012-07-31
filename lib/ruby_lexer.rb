@@ -239,7 +239,7 @@ class RubyLexer
   end
 
   def lex_state= o
-    # warn "wtf lex_state = #{o.inspect}"
+    # warn "wtf lex_state = #{o.inspect} from #{caller.first}"
     raise "wtf\?" unless Symbol === o
     @lex_state = o
   end
@@ -483,6 +483,10 @@ class RubyLexer
 
   def ruby18
     Ruby18Parser === parser
+  end
+
+  def ruby19
+    Ruby19Parser === parser
   end
 
   def src= src
@@ -769,15 +773,16 @@ class RubyLexer
           self.lex_state = :expr_dot
           self.yacc_value = "::"
           return :tCOLON2
-        elsif lex_state != :expr_end && lex_state != :expr_endarg && src.scan(/:([a-zA-Z_]\w*(?:[?!]|=(?!>))?)/) then
+        elsif ! is_end? && src.scan(/:([a-zA-Z_]\w*(?:[?!]|=(?!>))?)/) then
+          # scanning shortcut to symbols
           self.yacc_value = src[1]
           self.lex_state = :expr_end
           return :tSYMBOL
         elsif src.scan(/\:/) then
           # ?: / then / when
-          if (lex_state == :expr_end || lex_state == :expr_endarg||
-              src.check(/\s/)) then
+          if is_end? || src.check(/\s/) then
             self.lex_state = :expr_beg
+            # TODO warn_balanced(":", "symbol literal");
             self.yacc_value = ":"
             return :tCOLON
           end
@@ -1394,17 +1399,19 @@ class RubyLexer
         end
       end
 
-      if (lex_state == :expr_beg || lex_state == :expr_mid ||
-          lex_state == :expr_dot || lex_state == :expr_arg ||
-          lex_state == :expr_cmdarg) then
-        if command_state then
-          self.lex_state = :expr_cmdarg
+      self.lex_state =
+        if is_beg? || lex_state == :expr_dot || is_arg? then
+          if command_state then
+            :expr_cmdarg
+          else
+            :expr_arg
+          end
+        elsif ruby19 && lex_state == :expr_fname then
+          :expr_endfn
         else
-          self.lex_state = :expr_arg
+          :expr_end
         end
-      else
-        self.lex_state = :expr_end
-      end
+
     end
 
     self.yacc_value = token
