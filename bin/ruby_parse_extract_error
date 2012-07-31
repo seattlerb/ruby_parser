@@ -42,7 +42,9 @@ ARGV.replace ARGV.map { |path|
   else
     path
   end
-}.flatten
+}.flatten.reject { |f|
+  f =~ /bad_ruby_file/ # I have intentionally bad code in my test dirs
+}
 
 parser = Ruby19Parser.new
 
