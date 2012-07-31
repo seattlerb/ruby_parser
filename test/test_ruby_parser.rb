@@ -675,16 +675,24 @@ module TestRubyParserShared
   #   assert_parse rb, pt
   # end
 
-  # TODO:
-  # def test_bug_comma
-  #   rb = "if test ?d, dir then end"
-  #   pt = s(:if,
-  #          s(:call, nil, :test, s(:lit, 100), s(:call, nil, :dir)),
-  #          nil,
-  #          nil)
-  #
-  #   assert_parse rb, pt
-  # end
+  def test_bug_comma
+    val = case self.processor
+          when Ruby18Parser then
+            s(:lit, 100)
+          when Ruby19Parser then
+            s(:str, "d")
+          else
+            raise "wtf"
+          end
+
+    rb = "if test ?d, dir then end"
+    pt = s(:if,
+           s(:call, nil, :test, val, s(:call, nil, :dir)),
+           nil,
+           nil)
+
+    assert_parse rb, pt
+  end
 
   def test_if_symbol
     rb = "if f :x; end"
