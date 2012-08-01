@@ -809,8 +809,7 @@ rule
                     }
                 | args tCOMMA assocs tCOMMA
                     {
-                      warning "parenthesize argument(s) for future version"
-                      result = val[0].add val[2]
+                      result = val[0] << s(:hash, *val[2][1..-1])
                     }
                 | assocs tCOMMA
                     {

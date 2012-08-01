@@ -646,16 +646,31 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  def test_bug_args_masgn
+  # according to 2.3.1 parser:
+  # rp.process("f { |(a,b),c| }") == rp.process("f { |((a,b),c)| }")
+
+  # def test_bug_args_masgn
+  #   rb = "f { |(a, b), c| }"
+  #   pt = s(:iter,
+  #          s(:call, nil, :f),
+  #          s(:masgn,
+  #            s(:array,
+  #              s(:masgn, s(:array, s(:lasgn, :a), s(:lasgn, :b))),
+  #              s(:lasgn, :c))))
+  # 
+  #   assert_parse rb, pt.dup
+  # end
+
+  def test_bug_args_masgn_outer_parens
     rb = "f { |((a, b), c)| }"
-    pt = s(:iter,
+    pt = s(:iter,               # NOTE: same sexp as test_bug_args_masgn
            s(:call, nil, :f),
            s(:masgn,
              s(:array,
                s(:masgn, s(:array, s(:lasgn, :a), s(:lasgn, :b))),
                s(:lasgn, :c))))
 
-    assert_parse rb, pt
+    assert_parse rb, pt.dup
   end
 
   # TODO:
@@ -1045,6 +1060,24 @@ class TestRuby19Parser < RubyParserTestCase
   def test_parse_opt_call_args_assocs_comma
     rb = "1[2=>3,]"
     pt = s(:call, s(:lit, 1), :[], s(:lit, 2), s(:lit, 3))
+
+    assert_parse rb, pt
+  end
+
+  def test_bug_hash_args
+    rb = "foo(:bar, baz: nil)"
+    pt = s(:call, nil, :foo,
+           s(:lit, :bar),
+           s(:hash, s(:lit, :baz), s(:nil)))
+
+    assert_parse rb, pt
+  end
+
+  def test_bug_hash_args_trailing_comma
+    rb = "foo(:bar, baz: nil,)"
+    pt = s(:call, nil, :foo,    # NOTE: same sexp as test_bug_hash_args
+           s(:lit, :bar),
+           s(:hash, s(:lit, :baz), s(:nil)))
 
     assert_parse rb, pt
   end
