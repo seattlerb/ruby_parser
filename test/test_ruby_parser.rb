@@ -718,6 +718,18 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_bug_masgn_right
+    rb = "f { |a, (b, c)| }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:masgn,
+             s(:array,
+               s(:lasgn, :a),
+               s(:masgn, s(:array, s(:lasgn, :b), s(:lasgn, :c))))))
+
+    assert_parse rb, pt
+  end
+
   def test_if_symbol
     rb = "if f :x; end"
     pt = s(:if, s(:call, nil, :f, s(:lit, :x)), nil, nil)

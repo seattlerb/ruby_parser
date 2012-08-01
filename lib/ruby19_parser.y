@@ -1908,7 +1908,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     }
                 | f_arg tCOMMA f_arg_item
                     {
-                      val[0] << val[2].to_sym
+                      val[0] << val[2]
                       result = val[0]
                     }
 

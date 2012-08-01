@@ -201,7 +201,16 @@ module RubyParserStuff
       when Sexp then
         case v.first
         when :args then
-          r.concat v[1..-1].map { |s| s(:lasgn, s) }
+          r.concat v[1..-1].map { |s| # FIX: this is a smell
+            case s
+            when Symbol then
+              s(:lasgn, s)
+            when Sexp then
+              s
+            else
+              raise "unhandled type: #{s.inspect}"
+            end
+          }
         when :block_arg then
           r << s(:lasgn, :"&#{v.last}")
         when :masgn then
@@ -1221,6 +1230,7 @@ class Sexp
   end
 
   def to_sym
+    raise "no"
     self.value.to_sym
   end
 
