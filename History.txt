@@ -1,3 +1,13 @@
+=== 3.0.0.a5 / 2012-07-31
+
+* 5 bug fixes:
+
+  * 1.9: Fix construction of 'f(:x, y: nil,)' w/ trailing comma.
+  * 1.9: cleaned up lexing exit lex_state handling. Fixes bug parsing 'if f :x; end'
+  * 1.9: fixed building of right-leaning masgns: 'f { |a, (b, c)| }'
+  * 1.9: fixed lexing 'when *splat'
+  * 1.9: fixed lexing of regexps in whens
+
 === 3.0.0.a4 / 2012-07-26
 
 * 10 minor enhancements:
