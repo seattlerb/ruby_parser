@@ -938,7 +938,7 @@ class RubyLexer
             result = if lex_state.is_argument && space_seen && src.check(/\S/) then
                        warning("`*' interpreted as argument prefix")
                        :tSTAR
-                     elsif lex_state == :expr_beg || lex_state == :expr_mid then
+                     elsif is_beg? then
                        :tSTAR
                      else
                        :tSTAR2
