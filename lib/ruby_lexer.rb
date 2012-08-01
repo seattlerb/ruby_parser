@@ -1096,7 +1096,7 @@ class RubyLexer
             return result
           end
         elsif src.scan(/\//) then
-          if lex_state == :expr_beg || lex_state == :expr_mid then
+          if is_beg? then
             self.lex_strterm = [:strterm, STR_REGEXP, '/', "\0"]
             self.yacc_value = "/"
             return :tREGEXP_BEG
