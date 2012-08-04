@@ -1151,7 +1151,7 @@ class RubyLexer
           end
           rb_compile_error "bare backslash only allowed before newline"
         elsif src.scan(/\%/) then
-          if lex_state == :expr_beg || lex_state == :expr_mid then
+          if is_beg? then
             return parse_quote
           end
 

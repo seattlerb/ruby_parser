@@ -646,6 +646,13 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_bug_cond_pct
+    rb = "case; when %r%blahblah%; end"
+    pt = s(:case, nil, s(:when, s(:array, s(:lit, /blahblah/)), nil), nil)
+
+    assert_parse rb, pt
+  end
+
   # according to 2.3.1 parser:
   # rp.process("f { |(a,b),c| }") == rp.process("f { |((a,b),c)| }")
 
@@ -657,7 +664,7 @@ module TestRubyParserShared
   #            s(:array,
   #              s(:masgn, s(:array, s(:lasgn, :a), s(:lasgn, :b))),
   #              s(:lasgn, :c))))
-  # 
+  #
   #   assert_parse rb, pt.dup
   # end
 
