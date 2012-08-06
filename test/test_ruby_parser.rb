@@ -787,6 +787,15 @@ module TestRubyParserShared
 
     assert_parse rb, pt
   end
+
+  def test_bug_op_asgn_rescue
+    rb = "a ||= b rescue nil"
+    pt = s(:rescue,
+           s(:op_asgn_or, s(:lvar, :a), s(:lasgn, :a, s(:call, nil, :b))),
+           s(:resbody, s(:array), s(:nil)))
+
+    assert_parse rb, pt
+  end
 end
 
 class TestRubyParser < MiniTest::Unit::TestCase

@@ -582,7 +582,7 @@ rule
                 | var_lhs tOP_ASGN arg kRESCUE_MOD arg
                     {
                       result = new_op_asgn val
-                      result = self.node_assign s(:rescue, result, new_resbody(s(:array), val[4]))
+                      result = s(:rescue, result, new_resbody(s(:array), val[4]))
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN arg
                     {
