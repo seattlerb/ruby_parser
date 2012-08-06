@@ -898,7 +898,7 @@ class RubyLexer
             return :tOP_ASGN
           end
 
-          if (lex_state == :expr_beg || lex_state == :expr_mid ||
+          if (is_beg? ||
               (lex_state.is_argument && space_seen && !src.check(/\s/))) then
             if lex_state.is_argument then
               arg_ambiguous
@@ -1144,7 +1144,7 @@ class RubyLexer
 
           return :tTILDE
         elsif src.scan(/\\/) then
-          if src.scan(/\n/) then
+          if src.scan(/\r?\n/) then
             self.lineno = nil
             self.space_seen = true
             next

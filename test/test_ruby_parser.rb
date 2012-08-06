@@ -697,11 +697,18 @@ module TestRubyParserShared
   #   assert_parse rb, pt
   # end
 
+  def ruby18
+    Ruby18Parser === self.processor
+  end
+
+  def ruby19
+    Ruby19Parser === self.processor
+  end
+
   def test_bug_comma
-    val = case self.processor
-          when Ruby18Parser then
+    val = if ruby18 then
             s(:lit, 100)
-          when Ruby19Parser then
+          elsif ruby19 then
             s(:str, "d")
           else
             raise "wtf"
@@ -749,6 +756,34 @@ module TestRubyParserShared
   def test_if_symbol
     rb = "if f :x; end"
     pt = s(:if, s(:call, nil, :f, s(:lit, :x)), nil, nil)
+
+    assert_parse rb, pt
+  end
+
+
+  def test_bug_not_parens
+    rb = "not(a)"
+    pt = if ruby18 then
+           s(:not, s(:call, nil, :a))
+         elsif ruby19 then
+           s(:call, s(:call, nil, :a), :"!")
+         else
+           raise "wtf"
+         end
+
+    assert_parse rb, pt
+  end
+
+  def test_pipe_space
+    rb = "a.b do | | end"
+    pt = s(:iter, s(:call, s(:call, nil, :a), :b), 0)
+
+    assert_parse rb, pt
+  end
+
+  def test_cond_unary_minus
+    rb = "if -1; end"
+    pt = s(:if, s(:lit, -1), nil, nil)
 
     assert_parse rb, pt
   end
@@ -1118,6 +1153,13 @@ class TestRuby19Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  # def test_pipe_semicolon # HACK
+  #   rb = "a.b do | ; c | end"
+  #   pt = s(:iter, s(:call, s(:call, nil, :a), :b), 0)
+  # 
+  #   assert_parse rb, pt
+  # end
 
   # HACK: need to figure out the desired structure and get this working
   # def test_wtf

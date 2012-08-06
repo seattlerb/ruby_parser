@@ -749,7 +749,7 @@ module RubyParserStuff
                   Regexp.new(node[1], o, k)
                 else
                   Regexp.new(node[1], o)
-                end
+                end rescue node[1] # HACK - drops options
     when :dstr then
       if options =~ /o/ then
         node[0] = :dregx_once

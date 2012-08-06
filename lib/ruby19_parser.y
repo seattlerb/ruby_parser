@@ -966,7 +966,7 @@ rule
                     }
                 | kNOT tLPAREN2 expr rparen
                     {
-                      raise "no2: #{val.inspect}"
+                      result = s(:call, val[2], :"!")
                     }
                 | kNOT tLPAREN2 rparen
                     {
@@ -1309,7 +1309,7 @@ rule
 
  block_param_def: tPIPE opt_bv_decl tPIPE
                     {
-                      raise "no17: #{val.inspect}"
+                      result = val[1] || 0
                     }
                 | tOROP
                     {
