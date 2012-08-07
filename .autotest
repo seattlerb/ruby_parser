@@ -11,6 +11,7 @@ Autotest.add_hook :initialize do |at|
   at.add_exception 'coverage'
   at.add_exception 'coverage.info'
   at.add_exception '.diff'
+  at.add_exception 'aaronsgems'
 
   at.libs << ':../../minitest/dev/lib'
   at.testlib = "minitest/autorun"

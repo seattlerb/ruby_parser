@@ -1,4 +1,5 @@
 #!/usr/local/bin/ruby
+# encoding: utf-8
 
 # ENV['VERBOSE'] = "1"
 
@@ -795,6 +796,31 @@ module TestRubyParserShared
            s(:resbody, s(:array), s(:nil)))
 
     assert_parse rb, pt
+  end
+
+  def test_magic_encoding_comment
+    rb = <<-EOM.gsub(/^      /, '')
+      # encoding: utf-8
+      class ExampleUTF8ClassNameVarietà
+        def self.è
+          così = :però
+        end
+      end
+    EOM
+
+    # TODO: class vars
+    # TODO: odd-ternary: a ?bb : c
+    # TODO: globals
+
+    pt = s(:class, :"ExampleUTF8ClassNameVariet\303\240", nil,
+           s(:defs, s(:self), :"\303\250", s(:args),
+             s(:lasgn, :"cos\303\254", s(:lit, :"per\303\262"))))
+
+    err = RUBY_VERSION =~ /^1\.8/ ? "Skipping magic encoding comment\n" : ""
+
+    assert_output "", err do
+      assert_parse rb, pt
+    end
   end
 end
 
