@@ -1212,13 +1212,18 @@ class RubyParser
     @p19 = Ruby19Parser.new
   end
 
-  def process s, f = "(string)"
+  def process(s, f = "(string)") # parens for emacs *sigh*
     Ruby19Parser.new.process s, f
   rescue Racc::ParseError
     Ruby18Parser.new.process s, f
   end
 
   alias :parse :process
+
+  def reset
+    @p18.reset
+    @p19.reset
+  end
 end
 
 ############################################################
