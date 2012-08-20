@@ -1,3 +1,21 @@
+=== 3.0.0.a6 / 2012-08-20
+
+* 2 minor enhancements:
+
+  * 1.8: Added basic encoding support to 1.8 parser. Assumes -Ku.
+  * 1.9: Added encoding magic comment support to 1.9 parser.
+
+* 8 bug fixes:
+
+  * 1.9: Fixed lexing of -1 w/in conditionals. yeah... I dunno.
+  * 1.9: Fixed parsing of a do | | end.
+  * 1.9: Fixed parsing of not(x).
+  * 1.9: Fixed parsing of op_asgn + rescue: 'a ||= b rescue nil'
+  * 1.9: added \r to the EOL backslash handler. dos files blow
+  * 1.9: hacked in a workaround for 1.9 specific regexps running in 1.8.
+  * Added #reset to RubyParser proxy class
+  * Fixed lexing of conditional w/ %() tokens
+
 === 3.0.0.a5 / 2012-07-31
 
 * 5 bug fixes:
