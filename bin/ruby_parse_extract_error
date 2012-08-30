@@ -33,8 +33,6 @@ class Racc::Parser
   end
 
   def retest_for_errors defs
-    warn "# retest: #{defs.size}"
-
     parser = self.class.new
 
     parser.process(defs.join("\n\n"))
@@ -43,7 +41,7 @@ class Racc::Parser
   end
 end
 
-ARGV.replace ARGV.map { |path|
+def expand path
   if File.directory? path then
     Dir.glob File.join path, "**/*.rb"
   elsif path =~ /\*\*/ then
@@ -51,50 +49,57 @@ ARGV.replace ARGV.map { |path|
   else
     path
   end
+end
+
+def process_error parser
+  defs = parser.extract_defs
+
+  orig_size = defs.size
+
+  if parser.retest_for_errors defs then
+    warn "Can't reproduce error with just methods, punting..."
+    return
+  end
+
+  catch :extract_done do
+    (1..defs.size).each do |perm_size|
+      defs.combination(perm_size).each do |trial|
+        unless parser.retest_for_errors trial then
+          puts trial.join "\n"
+          throw :extract_done
+        end
+      end
+    end
+  end
+rescue RuntimeError, Racc::ParseError => e
+  warn "# error: #{e.message.strip}"
+end
+
+def process file
+  ruby = file == "-" ? $stdin.read : File.read(file)
+
+  $stderr.print "# Validating #{file}: "
+  parser = Ruby19Parser.new
+  parser.process(ruby, file)
+  warn "good"
+  File.unlink file if $d
+rescue StandardError, SyntaxError, Racc::ParseError => e
+  warn ""
+  warn "# error: #{e.message.strip}" unless $q
+  warn ""
+  return if $q
+
+  process_error parser
+end
+
+ARGV.replace ARGV.map { |path|
+  expand path
 }.flatten.reject { |f|
   f =~ /bad_ruby_file/ # I have intentionally bad code in my test dirs
 }
 
+$stdout.sync = true
+
 ARGV.each do |file|
-  ruby = file == "-" ? $stdin.read : File.read(file)
-
-  begin
-    $stderr.print "# Validating #{file}: "
-    parser = Ruby19Parser.new
-    parser.process(ruby, file)
-    warn "good"
-    File.unlink file if $d
-  rescue StandardError, SyntaxError, Racc::ParseError => e
-    warn "# error: #{e.message.strip}" unless $q
-    warn ""
-    next if $q
-
-    begin
-      defs = parser.extract_defs
-
-      orig_size = defs.size
-
-      if parser.retest_for_errors defs then
-        warn "Can't reproduce error with just methods, punting..."
-        next
-      end
-
-      mandatory = defs.pop
-
-      catch :extract_done do
-        (1..defs.size).each do |perm_size|
-          defs.combination(perm_size).each do |trial|
-            trial << mandatory
-            unless parser.retest_for_errors trial then
-              puts trial.join "\n"
-              warn "# reduced repro found!"
-              throw :extract_done
-            end
-          end
-        end
-      end
-    rescue RuntimeError, Racc::ParseError => e
-      warn "# error: #{e.message.strip}"
-    end
-  end
+  process file
 end
