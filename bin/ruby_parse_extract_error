@@ -7,6 +7,7 @@ $q ||= ENV["QUIET"]
 
 require 'rubygems'
 require 'ruby_parser'
+require "timeout"
 
 ARGV.push "-" if ARGV.empty?
 
@@ -94,6 +95,12 @@ $stdout.sync = true
 
 ARGV.each do |path|
   expand(path).each do |file|
-    process file
+    begin
+      Timeout.timeout 30 do
+        process file
+      end
+    rescue Timeout::Error
+      warn "TIMEOUT"
+    end
   end
 end
