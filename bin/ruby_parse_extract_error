@@ -44,10 +44,8 @@ end
 def expand path
   if File.directory? path then
     Dir.glob File.join path, "**/*.rb"
-  elsif path =~ /\*\*/ then
-    Dir.glob path
   else
-    path
+    Dir.glob path
   end
 end
 
@@ -92,14 +90,10 @@ rescue StandardError, SyntaxError, Racc::ParseError => e
   process_error parser
 end
 
-ARGV.replace ARGV.map { |path|
-  expand path
-}.flatten.reject { |f|
-  f =~ /bad_ruby_file/ # I have intentionally bad code in my test dirs
-}
-
 $stdout.sync = true
 
-ARGV.each do |file|
-  process file
+ARGV.each do |path|
+  expand(path).each do |file|
+    process file
+  end
 end
