@@ -1189,6 +1189,27 @@ class TestRuby19Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
+  def test_zomg_sometimes_i_hate_this_project
+    rb = <<-RUBY
+      {
+        a: lambda { b ? c() : d },
+        e: nil,
+      }
+    RUBY
+
+    pt = s(:hash,
+           s(:lit, :a),
+           s(:iter,
+             s(:call, nil, :lambda),
+             nil,
+             s(:if, s(:call, nil, :b), s(:call, nil, :c), s(:call, nil, :d))),
+
+           s(:lit, :e),
+           s(:nil))
+
+    assert_parse rb, pt
+  end
+
   # def test_pipe_semicolon # HACK
   #   rb = "a.b do | ; c | end"
   #   pt = s(:iter, s(:call, s(:call, nil, :a), :b), 0)

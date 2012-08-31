@@ -16,7 +16,7 @@ class RubyLexer
   attr_accessor :command_start
   attr_accessor :cmdarg
   attr_accessor :cond
-  attr_accessor :tern
+  attr_accessor :tern # TODO: rename ternary damnit... wtf
   attr_accessor :nest
 
   ESC_RE = /\\([0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc])/
@@ -711,6 +711,7 @@ class RubyLexer
         elsif src.scan(/[\]\)\}]/) then
           cond.lexpop
           cmdarg.lexpop
+          tern.lexpop
           self.lex_state = :expr_end
           self.yacc_value = src.matched
           result = {
@@ -718,7 +719,6 @@ class RubyLexer
             "]" => :tRBRACK,
             "}" => :tRCURLY
           }[src.matched]
-          self.tern.lexpop if [:tRBRACK, :tRCURLY].include?(result)
           return result
         elsif src.scan(/\.\.\.?|,|![=~]?/) then
           self.lex_state = :expr_beg
@@ -1295,6 +1295,10 @@ class RubyLexer
     is_arg? and space_seen and c !~ /\s/
   end
 
+  def is_label_possible? command_state
+    (lex_state == :expr_beg && !command_state) || is_arg?
+  end
+
   def yylex_paren19
     if is_beg? then
       result = :tLPAREN
@@ -1358,15 +1362,11 @@ class RubyLexer
       end
 
       unless self.tern.is_in_state
-        if (lex_state == :expr_beg && (ruby18 || !command_state)) ||
-            lex_state == :expr_arg ||
-            lex_state == :expr_cmdarg then
+        if is_label_possible? command_state then
           colon = src.scan(/:/)
 
-          if colon && src.peek(1) != ":"
-            src.unscan
+          if colon && src.peek(1) != ":" then
             self.lex_state = :expr_beg
-            src.scan(/:/)
             self.yacc_value = [token, src.lineno]
             return :tLABEL
           end
@@ -1412,6 +1412,9 @@ class RubyLexer
           return keyword.id1
         end
       end
+
+      # TODO:
+      # if (mb == ENC_CODERANGE_7BIT && lex_state != EXPR_DOT) {
 
       self.lex_state =
         if is_beg? || lex_state == :expr_dot || is_arg? then
