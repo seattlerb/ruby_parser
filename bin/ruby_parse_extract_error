@@ -44,7 +44,7 @@ end
 
 def expand path
   if File.directory? path then
-    Dir.glob File.join path, "**/*.rb"
+    Dir.glob File.join path, "**/{*.rb,*.rake,Rakefile}"
   else
     Dir.glob path
   end
@@ -95,8 +95,9 @@ $stdout.sync = true
 
 ARGV.each do |path|
   expand(path).each do |file|
+    next unless File.file? file # omg... why would you name a dir support.rb?
     begin
-      Timeout.timeout 30 do
+      Timeout.timeout 10 do
         process file
       end
     rescue Timeout::Error
