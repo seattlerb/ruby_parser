@@ -7,7 +7,6 @@ $q ||= ENV["QUIET"]
 
 require 'rubygems'
 require 'ruby_parser'
-require "timeout"
 
 ARGV.push "-" if ARGV.empty?
 
@@ -89,6 +88,8 @@ rescue StandardError, SyntaxError, Racc::ParseError => e
   return if $q
 
   process_error parser
+rescue Timeout::Error
+  warn "TIMEOUT parsing #{file}. Skipping."
 end
 
 $stdout.sync = true
@@ -96,12 +97,6 @@ $stdout.sync = true
 ARGV.each do |path|
   expand(path).each do |file|
     next unless File.file? file # omg... why would you name a dir support.rb?
-    begin
-      Timeout.timeout 10 do
-        process file
-      end
-    rescue Timeout::Error
-      warn "TIMEOUT"
-    end
+    process file
   end
 end

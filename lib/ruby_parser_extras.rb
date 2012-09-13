@@ -3,6 +3,7 @@ require 'racc/parser'
 require 'sexp'
 require 'strscan'
 require 'ruby_lexer'
+require "timeout"
 
 def d o
   $stderr.puts o.inspect
@@ -901,29 +902,36 @@ module RubyParserStuff
     lhs
   end
 
-  def process(str, file = "(string)")
-    raise "bad val: #{str.inspect}" unless String === str
+  ##
+  # Parse +str+ at path +file+ and return a sexp. Raises
+  # Timeout::Error if it runs for more than +time+ seconds.
 
-    str.lines.first(2).find { |s| s[/^# encoding: (.+)/, 1] }
-    encoding = $1
+  def process(str, file = "(string)", time = 10)
+    Timeout.timeout time do
+      raise "bad val: #{str.inspect}" unless String === str
 
-    str = str.dup
+      str.lines.first(2).find { |s| s[/^# encoding: (.+)/, 1] }
+      encoding = $1
 
-    if encoding then
-      if defined?(Encoding) then
-        str.force_encoding(encoding).encode! "utf-8"
-      else
-        warn "Skipping magic encoding comment"
+      str = str.dup
+
+      if encoding then
+        if defined?(Encoding) then
+          str.force_encoding(encoding).encode! "utf-8"
+        else
+          warn "Skipping magic encoding comment"
+        end
       end
+
+      self.file = file
+      self.lexer.src = str
+
+      @yydebug = ENV.has_key? 'DEBUG'
+
+      do_parse
     end
-
-    self.file = file
-    self.lexer.src = str
-
-    @yydebug = ENV.has_key? 'DEBUG'
-
-    do_parse
   end
+
   alias :parse :process
 
   def remove_begin node
