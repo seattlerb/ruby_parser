@@ -1189,6 +1189,15 @@ class TestRuby19Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
+  def test_block_arg_optional
+    rb = "a { |b = 1| }"
+    pt = s(:iter,
+           s(:call, nil, :a),
+           s(:masgn, s(:array, s(:lasgn, :b, s(:lit, 1)))))
+
+    assert_parse rb, pt
+  end
+
   def test_zomg_sometimes_i_hate_this_project
     rb = <<-RUBY
       {
@@ -1213,7 +1222,7 @@ class TestRuby19Parser < RubyParserTestCase
   # def test_pipe_semicolon # HACK
   #   rb = "a.b do | ; c | end"
   #   pt = s(:iter, s(:call, s(:call, nil, :a), :b), 0)
-  # 
+  #
   #   assert_parse rb, pt
   # end
 

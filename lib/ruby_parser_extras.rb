@@ -190,8 +190,8 @@ module RubyParserStuff
 
   def block_args19 val, id
     # HACK OMG THIS CODE IS SOOO UGLY! CLEAN ME
-    untested = %w[1 2 3 4 7 9 10 11 12 14]
-    raise "no block_args19 #{id}" if untested.include? id
+    untested = %w[1 2 3 4 7 9 10 12 14]
+    raise "no block_args19 #{id} #{val.inspect}" if untested.include? id
 
     r = s(:array)
 
@@ -213,6 +213,8 @@ module RubyParserStuff
           }
         when :block_arg then
           r << s(:lasgn, :"&#{v.last}")
+        when :lasgn then
+          r << s(:masgn, s(:array, v))
         when :masgn then
           r << v
         else

@@ -1920,13 +1920,10 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
      f_block_opt: tIDENTIFIER tEQL primary_value
                     {
-                      raise "no20: #{val.inspect}"
+                      result = self.assignable val[0], val[2]
                     }
 
   f_block_optarg: f_block_opt
-                    {
-                      raise "no21: #{val.inspect}"
-                    }
                 | f_block_optarg tCOMMA f_block_opt
                     {
                       raise "no22: #{val.inspect}"
