@@ -5,10 +5,6 @@ require 'strscan'
 require 'ruby_lexer'
 require "timeout"
 
-def d o
-  $stderr.puts o.inspect
-end
-
 # WHY do I have to do this?!?
 class Regexp
   ONCE = 0 unless defined? ONCE # FIX: remove this - it makes no sense
@@ -75,6 +71,10 @@ class RPStringScanner < StringScanner
       d :scan => [s, caller.first] if s
       s
     end
+  end
+  
+  def d o
+    $stderr.puts o.inspect
   end
 end
 
