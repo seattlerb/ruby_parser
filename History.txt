@@ -1,3 +1,9 @@
+=== 3.0.0.a8 / 2012-09-26
+
+* 1 bug fix:
+
+  * Remove method #d from global namespace. (alexch)
+
 === 3.0.0.a7 / 2012-09-21
 
 * 3 minor enhancements:
