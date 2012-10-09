@@ -344,7 +344,7 @@ class RubyLexer
                                 [:tSYMBEG,       STR_SSYM]
                               end
 
-    rb_compile_error "Bad %string type. Expected [Qqwxr\W], found '#{c}'." if
+    rb_compile_error "Bad %string type. Expected [Qq\Wwxrs], found '#{c}'." if
       token_type.nil?
 
     self.lex_strterm = [:strterm, string_type, nnd, beg]
