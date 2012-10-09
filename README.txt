@@ -13,24 +13,19 @@ base types.
 
 As an example:
 
-  def conditional1(arg1)
-    if arg1 == 0 then
-      return 1
-    end
+  def conditional1 arg1
+    return 1 if arg1 == 0
     return 0
   end
 
 becomes:
 
-  s(:defn, :conditional1,
-   s(:args, :arg1),
-   s(:scope,
-    s(:block,
-     s(:if,
-      s(:call, s(:lvar, :arg1), :==, s(:arglist, s(:lit, 0))),
+  s(:defn, :conditional1, s(:args, :arg1),
+    s(:if,
+      s(:call, s(:lvar, :arg1), :==, s(:lit, 0)),
       s(:return, s(:lit, 1)),
       nil),
-     s(:return, s(:lit, 0)))))
+    s(:return, s(:lit, 0)))
 
 == FEATURES/PROBLEMS:
 
