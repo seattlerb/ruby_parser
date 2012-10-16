@@ -1286,7 +1286,7 @@ class TestRuby19Parser < RubyParserTestCase
     rb = "a { |b = 1| }"
     pt = s(:iter,
            s(:call, nil, :a),
-           s(:masgn, s(:array, s(:lasgn, :b, s(:lit, 1)))))
+           s(:args, :b, s(:block, s(:lasgn, :b, s(:lit, 1)))))
 
     assert_parse rb, pt
   end
@@ -1331,7 +1331,7 @@ class TestRuby19Parser < RubyParserTestCase
   #   pt = s(:iter,
   #          s(:call, nil, :lambda),
   #          s(:args, :a, :b,
-  #            s(:block, s(:lasgn, :b, s(nil)))),
+  #            s(:block, s(:lasgn, :b, s(:nil)))),
   #          s(:call, nil, :p, s(:array, s(:lvar, :a), s(:lvar, :b))))
   #
   #   assert_parse rb, pt
@@ -1340,4 +1340,37 @@ class TestRuby19Parser < RubyParserTestCase
   #
   #   assert_parse rb, pt
   # end
+
+  def test_block_args_opt1
+    rb = "f { |a, b = 42| [a, b] }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:args, :a, :b,
+             s(:block, s(:lasgn, :b, s(:lit, 42)))),
+           s(:array, s(:lvar, :a), s(:lvar, :b)))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_args_opt2
+    rb = "f { |a, b = 42, c = 24| [a, b, c] }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:args, :a, :b, :c,
+             s(:block, s(:lasgn, :b, s(:lit, 42)), s(:lasgn, :c, s(:lit, 24)))),
+           s(:array, s(:lvar, :a), s(:lvar, :b), s(:lvar, :c)))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_args_opt3
+    rb = "f { |a, b = 42, c = 24, &d| [a, b, c, d] }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:args, :a, :b, :c, :"&d",
+             s(:block, s(:lasgn, :b, s(:lit, 42)), s(:lasgn, :c, s(:lit, 24)))),
+           s(:array, s(:lvar, :a), s(:lvar, :b), s(:lvar, :c), s(:lvar, :d)))
+
+    assert_parse rb, pt
+  end
 end

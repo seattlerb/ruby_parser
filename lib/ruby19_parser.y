@@ -239,7 +239,7 @@ rule
                 | block_command
 
    block_command: block_call
-                | block_call tDOT operation2 command_args
+                | block_call tDOT operation2 command_args # TODO: dot_or_colon
                     {
                       result = new_call val[0], val[2], val[3]
                     }
@@ -1258,7 +1258,12 @@ rule
                     }
                 | f_arg tCOMMA f_block_optarg opt_f_block_arg
                     {
-                      result = block_args19 val, "3"
+                      arg, _, opt, block = val
+
+                      result = arg
+                      result.concat opt[1..-1].map { |s| s[1] }
+                      result << "&#{block.last}".to_sym if block
+                      result << opt
                     }
                 | f_arg tCOMMA f_block_optarg tCOMMA f_arg opt_f_block_arg
                     {
@@ -1290,7 +1295,12 @@ rule
                     }
                 | f_block_optarg opt_f_block_arg
                     {
-                      result = block_args19 val, "11"
+                      opt, block = val
+
+                      result = s(:args)
+                      result.concat opt[1..-1].map { |s| s[1] }
+                      result << "&#{block.last}".to_sym if block
+                      result << opt
                     }
                 | f_block_optarg tCOMMA f_arg opt_f_block_arg
                     {
@@ -1936,9 +1946,13 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     }
 
   f_block_optarg: f_block_opt
+                    {
+                      result = s(:block, val[0])
+                    }
                 | f_block_optarg tCOMMA f_block_opt
                     {
-                      raise "no22\non: #{val.inspect}"
+                      result = val[0]
+                      result << val[2]
                     }
 
         f_optarg: f_opt
