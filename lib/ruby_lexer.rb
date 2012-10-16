@@ -414,7 +414,7 @@ class RubyLexer
 
   def rb_compile_error msg
     msg += ". near line #{self.lineno}: #{src.rest[/^.*/].inspect}"
-    raise SyntaxError, msg
+    raise RubyParser::SyntaxError, msg
   end
 
   def read_escape # 51 lines

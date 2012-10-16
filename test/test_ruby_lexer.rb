@@ -318,7 +318,7 @@ class TestRubyLexer < MiniTest::Unit::TestCase
   end
 
   def test_yylex_cvar_bad
-    assert_raises SyntaxError do
+    assert_raises RubyParser::SyntaxError do
       util_lex_token "@@1"
     end
   end
@@ -1867,7 +1867,7 @@ class TestRubyLexer < MiniTest::Unit::TestCase
   ############################################################
 
   def util_bad_token s, *args
-    assert_raises SyntaxError do
+    assert_raises RubyParser::SyntaxError do
       util_lex_token s, *args
     end
   end
@@ -1879,7 +1879,7 @@ class TestRubyLexer < MiniTest::Unit::TestCase
 
   def util_escape_bad input
     @lex.src = input
-    assert_raises SyntaxError do
+    assert_raises RubyParser::SyntaxError do
       @lex.read_escape
     end
   end

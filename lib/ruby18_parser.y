@@ -258,10 +258,10 @@ rule
                 | operation command_args cmd_brace_block
                     {
                       result = new_call nil, val[0].to_sym, val[1]
+
                       if val[2] then
-                        if result[0] == :block_pass then
-                          raise "both block arg and actual block given"
-                        end
+                        block_dup_check result, val[2]
+
                         result, operation = val[2], result
                         result.insert 1, operation
                       end
@@ -273,6 +273,14 @@ rule
                 | primary_value tDOT operation2 command_args cmd_brace_block
                     {
                       result = new_call val[0], val[2].to_sym, val[3]
+                      raise "no2"
+
+                      if val[4] then
+                        block_dup_check result, val[4]
+
+                        val[2] << result
+                        result = val[2]
+                      end
                     }
                 | primary_value tCOLON2 operation2 command_args =tLOWEST
                     {
@@ -281,10 +289,11 @@ rule
                 | primary_value tCOLON2 operation2 command_args cmd_brace_block
                     {
                       result = new_call val[0], val[2].to_sym, val[3]
+                      raise "no3"
+
                       if val[4] then
-                        if result[0] == :block_pass then # REFACTOR
-                          raise "both block arg and actual block given"
-                        end
+                        block_dup_check result, val[4]
+
                         val[2] << result
                         result = val[2]
                       end
@@ -997,6 +1006,8 @@ rule
                 | method_call brace_block
                     {
                       call, iter = val[0], val[1]
+                      block_dup_check call, iter
+
                       iter.insert 1, call
                       result = iter
                     }
@@ -1287,8 +1298,7 @@ rule
 
       block_call: command do_block
                     {
-                      raise SyntaxError, "Both block arg and actual block given." if
-                        val[0] && val[0][0] == :blockpass
+                      block_dup_check val[0], val[1]
 
                       result = val[1]
                       result.insert 1, val[0]

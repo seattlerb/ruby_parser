@@ -271,9 +271,8 @@ rule
                     {
                       result = new_call nil, val[0].to_sym, val[1]
                       if val[2] then
-                        if result[0] == :block_pass then
-                          raise "both block arg and actual block given"
-                        end
+                        block_dup_check result, val[2]
+
                         result, operation = val[2], result
                         result.insert 1, operation
                       end
@@ -284,7 +283,13 @@ rule
                     }
                 | primary_value tDOT operation2 command_args cmd_brace_block
                     {
-                      result = new_call val[0], val[2].to_sym, val[3]
+                      recv, _, msg, args, block = val
+                      call = new_call recv, msg.to_sym, args
+
+                      block_dup_check call, block
+
+                      block.insert 1, call
+                      result = block
                     }
                 | primary_value tCOLON2 operation2 command_args =tLOWEST
                     {
@@ -292,14 +297,13 @@ rule
                     }
                 | primary_value tCOLON2 operation2 command_args cmd_brace_block
                     {
-                      result = new_call val[0], val[2].to_sym, val[3]
-                      if val[4] then
-                        if result[0] == :block_pass then # REFACTOR
-                          raise "both block arg and actual block given"
-                        end
-                        val[2] << result
-                        result = val[2]
-                      end
+                      recv, _, msg, args, block = val
+                      call = new_call recv, msg.to_sym, args
+
+                      block_dup_check call, block
+
+                      block.insert 1, call
+                      result = block
                     }
                 | kSUPER command_args
                     {
@@ -970,7 +974,7 @@ rule
                     }
                 | kNOT tLPAREN2 rparen
                     {
-                      raise "no3: #{val.inspect}"
+                      raise "no3\non#{val.inspect}"
                     }
                 | operation brace_block
                     {
@@ -984,7 +988,8 @@ rule
                 | method_call brace_block
                     {
                       call, iter = val[0], val[1]
-                      iter.insert 1, call
+                      block_dup_check call, iter
+                      iter.insert 1, call # FIX
                       result = iter
                     }
                 | tLAMBDA lambda
@@ -1212,35 +1217,35 @@ rule
                     }
                 | f_marg_list tCOMMA tSTAR f_norm_arg
                     {
-                      raise "no9: #{val.inspect}"
+                      raise "no9\non: #{val.inspect}"
                     }
                 | f_marg_list tCOMMA tSTAR f_norm_arg tCOMMA f_marg_list
                     {
-                      raise "no10: #{val.inspect}"
+                      raise "no10\non: #{val.inspect}"
                     }
                 | f_marg_list tCOMMA tSTAR
                     {
-                      raise "no11: #{val.inspect}"
+                      raise "no11\non: #{val.inspect}"
                     }
                 | f_marg_list tCOMMA tSTAR tCOMMA f_marg_list
                     {
-                      raise "no12: #{val.inspect}"
+                      raise "no12\non: #{val.inspect}"
                     }
                 | tSTAR f_norm_arg
                     {
-                      raise "no13: #{val.inspect}"
+                      raise "no13\non: #{val.inspect}"
                     }
                 | tSTAR f_norm_arg tCOMMA f_marg_list
                     {
-                      raise "no14: #{val.inspect}"
+                      raise "no14\non: #{val.inspect}"
                     }
                 | tSTAR
                     {
-                      raise "no15: #{val.inspect}"
+                      raise "no15\non: #{val.inspect}"
                     }
                 | tSTAR tCOMMA f_marg_list
                     {
-                      raise "no16: #{val.inspect}"
+                      raise "no16\non: #{val.inspect}"
                     }
 
      block_param: f_arg tCOMMA f_block_optarg tCOMMA f_rest_arg opt_f_block_arg
@@ -1329,10 +1334,13 @@ rule
                     }
 
         bv_decls: bvar
+                    {
+                      result = [val[0]]
+                    }
                 | bv_decls tCOMMA bvar
                     {
-                      result = val[0] << val[2]
-                      raise "no18: #{val.inspect}"
+                      result = val[0].concat val[2]
+                      raise "no18\non: #{val.inspect}"
                     }
 
             bvar: tIDENTIFIER
@@ -1393,8 +1401,12 @@ rule
 
       block_call: command do_block
                     {
-                      raise SyntaxError, "Both block arg and actual block given." if
-                        val[0] && val[0][0] == :blockpass
+                      # TODO:
+                      # if (nd_type($1) == NODE_YIELD) {
+                      #     compile_error(PARSER_ARG "block given to yield");
+
+                      syntax_error "Both block arg and actual block given." if
+                        val[0].block_pass?
 
                       result = val[1]
                       result.insert 1, val[0]
@@ -1926,7 +1938,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
   f_block_optarg: f_block_opt
                 | f_block_optarg tCOMMA f_block_opt
                     {
-                      raise "no22: #{val.inspect}"
+                      raise "no22\non: #{val.inspect}"
                     }
 
         f_optarg: f_opt

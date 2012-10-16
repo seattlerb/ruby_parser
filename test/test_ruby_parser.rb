@@ -33,6 +33,17 @@ class RubyParserTestCase < ParseTreeTestCase
     assert_equal pt, result
   end
 
+  def assert_syntax_error rb, emsg
+    e = nil
+    assert_silent do
+      e = assert_raises RubyParser::SyntaxError do
+        processor.parse rb
+      end
+    end
+
+    assert_equal emsg, e.message.strip # TODO: why strip?
+  end
+
   def assert_parse_error rb, emsg
     e = nil
     out, err = capture_io do
@@ -57,6 +68,58 @@ module TestRubyParserShared
   def setup
     super
     # p :test => [self.class, __name__]
+  end
+
+  BLOCK_DUP_MSG = "Both block arg and actual block given."
+
+  def test_double_block_error_01
+    assert_syntax_error "a(1, &b) { }", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_02
+    assert_syntax_error "a(1, &b) do end", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_03
+    assert_syntax_error "a 1, &b do end", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_04
+    assert_syntax_error "m.a(1, &b) { }", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_05
+    assert_syntax_error "m.a(1, &b) do end", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_06
+    assert_syntax_error "m.a 1, &b do end", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_07
+    assert_syntax_error "m::a(1, &b) { }", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_08
+    assert_syntax_error "m::a(1, &b) do end", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_09
+    assert_syntax_error "m::a 1, &b do end", BLOCK_DUP_MSG
+  end
+
+  def test_wtf_7
+    assert_parse "a.b (1) {c}", s(:iter,
+                                  s(:call, s(:call, nil, :a), :b, s(:lit, 1)),
+                                  nil,
+                                  s(:call, nil, :c))
+  end
+
+  def test_wtf_8
+    assert_parse "a::b (1) {c}", s(:iter,
+                                  s(:call, s(:call, nil, :a), :b, s(:lit, 1)),
+                                  nil,
+                                  s(:call, nil, :c))
   end
 
   def test_attrasgn_array_lhs
@@ -808,6 +871,8 @@ module TestRubyParserShared
       end
     EOM
 
+    rb.force_encoding "ASCII-8BIT" if rb.respond_to? :force_encoding
+
     # TODO: class vars
     # TODO: odd-ternary: a ?bb : c
     # TODO: globals
@@ -967,6 +1032,34 @@ class TestRuby18Parser < RubyParserTestCase
     processor.canonicalize_conditions = false
 
     assert_parse rb, pt
+  end
+
+  def test_double_block_error_10
+    assert_syntax_error "a.b (&b) {}", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_11
+    assert_syntax_error "a (1, &b) { }", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_12
+    assert_syntax_error "a (1, &b) do end", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_13
+    assert_syntax_error "m.a (1, &b) { }", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_14
+    assert_syntax_error "m.a (1, &b) do end", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_15
+    assert_syntax_error "m::a (1, &b) { }", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_16
+    assert_syntax_error "m::a (1, &b) do end", BLOCK_DUP_MSG
   end
 end
 

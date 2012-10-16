@@ -1,3 +1,5 @@
+# encoding: US-ASCII
+
 require 'rubygems'
 gem "minitest"
 require 'minitest/autorun'
@@ -10,6 +12,62 @@ class TestStackState < MiniTest::Unit::TestCase
 
   def setup
     @s = RubyParserStuff::StackState.new :test
+  end
+
+  def assert_encoding str, default = false
+    orig_str = str.dup
+    p = Ruby19Parser.new
+    s = nil
+
+    out, err = capture_io do
+      s = p.handle_encoding str
+    end
+
+    assert_equal orig_str.sub(/\357\273\277/, ''), s
+    assert_equal "", out
+
+    if defined?(Encoding) then
+      assert_equal "", err
+      assert_equal "UTF-8", s.encoding.to_s, str.inspect
+    else
+      if default then
+        assert_equal "", err
+      else
+        assert_equal "Skipping magic encoding comment\n", err
+      end
+    end
+  end
+
+  def test_handle_encoding_bom
+    # bom support, default to utf-8
+    assert_encoding "\xEF\xBB\xBF# blah"
+    # we force_encode to US-ASCII, then encode to UTF-8 so our lexer will work
+    assert_encoding "\xEF\xBB\xBF# encoding: US-ASCII"
+  end
+
+  def test_handle_encoding_default
+    assert_encoding "blah", :default
+  end
+
+  def test_handle_encoding_emacs
+    assert_encoding "# -*- coding: UTF-8 -*-"
+    assert_encoding "# -*- mode: ruby; coding: UTF-8 -*-"
+    assert_encoding "# -*- mode: ruby; coding: UTF-8; blah: t -*-"
+  end
+
+  def test_handle_encoding_english_wtf
+    assert_encoding "# Ruby 1.9: encoding: utf-8"
+  end
+
+  def test_handle_encoding_normal
+    assert_encoding "# encoding: UTF-8"
+    assert_encoding "# coding: UTF-8"
+    assert_encoding "# encoding = UTF-8"
+    assert_encoding "# coding = UTF-8"
+  end
+
+  def test_handle_encoding_vim
+    assert_encoding "# vim: set fileencoding=utf-8"
   end
 
   def test_stack_state

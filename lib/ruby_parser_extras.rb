@@ -1,3 +1,5 @@
+# encoding: ASCII-8BIT
+
 require 'stringio'
 require 'racc/parser'
 require 'sexp'
@@ -83,6 +85,10 @@ module RubyParserStuff
 
   attr_accessor :lexer, :in_def, :in_single, :file
   attr_reader :env, :comments
+
+  def syntax_error msg
+    raise RubyParser::SyntaxError, msg
+  end
 
   def arg_add(node1, node2) # TODO: nuke
     return s(:arglist, node2) unless node1
@@ -192,7 +198,7 @@ module RubyParserStuff
   def block_args19 val, id
     # HACK OMG THIS CODE IS SOOO UGLY! CLEAN ME
     untested = %w[1 2 3 4 7 9 10 12 14]
-    raise "no block_args19 #{id} #{val.inspect}" if untested.include? id
+    raise "no block_args19 #{id}\non: #{val.inspect}" if untested.include? id
 
     r = s(:array)
 
@@ -247,7 +253,7 @@ module RubyParserStuff
         raise "oh noes!: #{r.inspect}"
       end
     else
-      raise "fuck no #{r.inspect}"
+      raise "totally borked: #{r.inspect}"
     end
 
     r
@@ -260,6 +266,8 @@ module RubyParserStuff
   def assignable(lhs, value = nil)
     id = lhs.to_sym
     id = id.to_sym if Sexp === id
+
+    raise "write a test 1" if id.to_s =~ /^(?:self|nil|true|false|__LINE__|__FILE__)$/
 
     raise SyntaxError, "Can't change the value of #{id}" if
       id.to_s =~ /^(?:self|nil|true|false|__LINE__|__FILE__)$/
@@ -547,8 +555,10 @@ module RubyParserStuff
     # TODO: need a test for this... obviously
     case ref.first
     when :nth_ref then
+      raise "write a test 2"
       raise SyntaxError, "Can't set variable %p" % ref.last
     when :back_ref then
+      raise "write a test 3"
       raise SyntaxError, "Can't set back reference %p" % ref.last
     else
       raise "Unknown backref type: #{ref.inspect}"
@@ -861,6 +871,7 @@ module RubyParserStuff
 
   def new_yield args = nil
     # TODO: raise args.inspect unless [:arglist].include? args.first # HACK
+    raise "write a test 4" if args && args.node_type == :block_pass
     raise SyntaxError, "Block argument should not be given." if
       args && args.node_type == :block_pass
 
@@ -903,6 +914,70 @@ module RubyParserStuff
   end
 
   ##
+  # Returns a UTF-8 encoded string after processing BOMs and magic
+  # encoding comments.
+  #
+  # Holy crap... ok. Here goes:
+  #
+  # Ruby's file handling and encoding support is insane. We need to be
+  # able to lex a file. The lexer file is explicitly UTF-8 to make
+  # things cleaner. This allows us to deal with extended chars in
+  # class and method names. In order to do this, we need to encode all
+  # input source files as UTF-8. First, we look for a UTF-8 BOM by
+  # looking at the first line while forcing its encoding to
+  # ASCII-8BIT. If we find a BOM, we strip it and set the expected
+  # encoding to UTF-8. Then, we search for a magic encoding comment.
+  # If found, it overrides the BOM. Finally, we force the encoding of
+  # the input string to whatever was found, and then encode that to
+  # UTF-8 for compatibility with the lexer.
+
+  def handle_encoding str
+    str = str.dup
+    encoded = str.respond_to? :encoding
+
+    # if encoded then
+    #   original_encoding = str.encoding
+    #   str.force_encoding "ASCII-8BIT"
+    # end
+
+    encoding = nil
+    first = str.lines.first || ""
+    first.force_encoding("ASCII-8BIT") if encoded
+    encoding, str = "utf-8", str[3..-1] if first =~ /\A\xEF\xBB\xBF/
+
+    encoding = $1 if str.lines.first(2).find { |s|
+      s[/^#\s*-\*-.*?coding: ([^ ;]+).*?-\*-/, 1] ||
+      s[/^#.*(?:en)?coding(?:\s*=|:)\s*(.+)/, 1]
+    }
+
+    if encoding then
+      if encoded then
+        str.force_encoding(encoding).encode! "utf-8"
+      else
+        warn "Skipping magic encoding comment"
+      end
+    else
+      # nothing specified... ugh. try to encode as utf-8 as a last ditch effort
+      if encoded then
+        begin
+          str.encode! "utf-8"
+        rescue Encoding::InvalidByteSequenceError => e
+          # ok... you really suck. you have extended chars but didn't
+          # specify what they were. Now we try to force it and double
+          # check that it is valid.
+
+          str.force_encoding "utf-8"
+
+          # no amount of pain is enough for you.
+          raise "Bad encoding: #{e.message}" unless str.valid_encoding?
+        end
+      end
+    end
+
+    str
+  end
+
+  ##
   # Parse +str+ at path +file+ and return a sexp. Raises
   # Timeout::Error if it runs for more than +time+ seconds.
 
@@ -910,20 +985,9 @@ module RubyParserStuff
     Timeout.timeout time do
       raise "bad val: #{str.inspect}" unless String === str
 
-      str.lines.first(2).find { |s| s[/^# encoding: (.+)/, 1] }
-      encoding = $1
+      str = handle_encoding str
 
-      str = str.dup
-
-      if encoding then
-        if defined?(Encoding) then
-          str.force_encoding(encoding).encode! "utf-8"
-        else
-          warn "Skipping magic encoding comment"
-        end
-      end
-
-      self.file = file
+      self.file = file.dup
       self.lexer.src = str
 
       @yydebug = ENV.has_key? 'DEBUG'
@@ -951,8 +1015,15 @@ module RubyParserStuff
     self.comments.clear
   end
 
+  def block_dup_check call_or_args, block
+    syntax_error "Both block arg and actual block given." if
+      block and call_or_args.block_pass?
+  end
+
   def ret_args node
     if node then
+      raise "write a test 5" if node[0] == :block_pass
+
       raise SyntaxError, "block argument should not be given" if
         node[0] == :block_pass
 
@@ -1217,6 +1288,8 @@ end
 # parse error.
 
 class RubyParser
+  class SyntaxError < RuntimeError; end
+
   def initialize
     @p18 = Ruby18Parser.new
     @p19 = Ruby19Parser.new
@@ -1238,6 +1311,14 @@ end
 
 ############################################################
 # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+
+unless "".respond_to?(:grep) then
+  class String
+    def grep re
+      lines.grep re
+    end
+  end
+end
 
 class Symbol
   def is_argument # TODO: phase this out
@@ -1268,6 +1349,10 @@ class Sexp
 
   def add_all x
     raise "no: #{self.inspect}.add_all #{x.inspect}" # TODO: need a test to trigger this
+  end
+
+  def block_pass?
+    any? { |s| Sexp === s && s[0] == :block_pass }
   end
 
   alias :node_type :sexp_type
