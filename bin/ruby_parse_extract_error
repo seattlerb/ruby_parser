@@ -13,6 +13,9 @@ ARGV.push "-" if ARGV.empty?
 class Racc::Parser
   def extract_defs
     ss = lexer.src
+
+    raise "can't access source. possible encoding issue" unless ss
+
     src = ss.string
     pre_error = src[0...ss.pos]
 
@@ -52,8 +55,6 @@ end
 def process_error parser
   defs = parser.extract_defs
 
-  orig_size = defs.size
-
   if parser.retest_for_errors defs then
     warn "Can't reproduce error with just methods, punting..."
     return
@@ -81,6 +82,8 @@ def process file
   parser.process(ruby, file)
   warn "good"
   File.unlink file if $d
+rescue Timeout::Error
+  warn "TIMEOUT parsing #{file}. Skipping."
 rescue StandardError, SyntaxError, Racc::ParseError => e
   warn ""
   warn "# error: #{e.message.strip}" unless $q
@@ -88,8 +91,6 @@ rescue StandardError, SyntaxError, Racc::ParseError => e
   return if $q
 
   process_error parser
-rescue Timeout::Error
-  warn "TIMEOUT parsing #{file}. Skipping."
 end
 
 $stdout.sync = true
