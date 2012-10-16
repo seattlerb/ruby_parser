@@ -13,6 +13,12 @@ Autotest.add_hook :initialize do |at|
   at.add_exception '.diff'
   at.add_exception 'rubycorpus'
 
+  dirs = Dir["corpus*"] + Dir["gauntlet*"]
+
+  dirs.each do |f|
+    at.add_exception f
+  end
+
   at.libs << ':../../minitest/dev/lib'
   at.testlib = "minitest/autorun"
 
