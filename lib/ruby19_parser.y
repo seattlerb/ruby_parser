@@ -842,7 +842,7 @@ rule
                 | block_arg
 
     command_args:   {
-                      result = lexer.cmdarg.stack.dup
+                      result = lexer.cmdarg.stack.dup # TODO: smell?
                       lexer.cmdarg.push true
                     }
                       call_args
