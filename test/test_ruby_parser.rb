@@ -1382,4 +1382,18 @@ class TestRuby19Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  def test_motherfuckin_leading_dots
+    rb = "a\n.b"
+    pt = s(:call, s(:call, nil, :a), :b)
+
+    assert_parse rb, pt
+  end
+
+  def test_motherfuckin_leading_dots2
+    rb = "a\n..b"
+    pt = s(:call, s(:call, nil, :a), :b)
+
+    assert_parse_error rb, 'parse error on value ".." (tDOT2)'
+  end
 end

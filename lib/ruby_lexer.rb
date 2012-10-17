@@ -688,17 +688,13 @@ class RubyLexer
           self.lineno = nil
           c = src.matched
           if c == '#' then
-            # TODO: add magic comment handling?
-
             src.pos -= 1
 
             while src.scan(/\s*#.*(\n+|\z)/) do
               @comments << src.matched.gsub(/^ +#/, '#').gsub(/^ +$/, '')
             end
 
-            if src.eos? then
-              return RubyLexer::EOF
-            end
+            return RubyLexer::EOF if src.eos?
           end
 
           # Replace a string of newlines with a single one
@@ -706,6 +702,13 @@ class RubyLexer
 
           next if in_lex_state?(:expr_beg, :expr_fname, :expr_dot, :expr_class,
                                 :expr_value)
+
+          if src.scan(/([\ \t\r\f\v]*)\./) then
+            self.space_seen = true unless src[1].empty?
+
+            src.pos -= 1
+            next unless src.check(/\.\./)
+          end
 
           self.command_start = true
           self.lex_state = :expr_beg
