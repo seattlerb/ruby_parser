@@ -1328,12 +1328,6 @@ unless "".respond_to?(:grep) then
   end
 end
 
-class Symbol
-  def is_argument # TODO: phase this out
-    return self == :expr_arg || self == :expr_cmdarg
-  end
-end
-
 class Sexp
   attr_writer :paren
 
