@@ -744,6 +744,22 @@ class TestRubyLexer < MiniTest::Unit::TestCase
                    :tASSOC, "=>")
   end
 
+  def test_yylex_identifier_equals3
+    # @lex.lex_state = :expr_fname
+    util_lex_token(":a===b",
+                   :tSYMBOL, "a",
+                   :tEQQ, "===",
+                   :tIDENTIFIER, "b")
+  end
+
+  def test_yylex_identifier_equals_equals_arrow
+    # @lex.lex_state = :expr_fname
+    util_lex_token(":a==>b",
+                   :tSYMBOL, "a=",
+                   :tASSOC, "=>",
+                   :tIDENTIFIER, "b")
+  end
+
   def test_yylex_identifier_equals_caret
     util_lex_fname "^", :tCARET
   end

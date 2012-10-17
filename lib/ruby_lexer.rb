@@ -787,7 +787,7 @@ class RubyLexer
           self.lex_state = :expr_dot
           self.yacc_value = "::"
           return :tCOLON2
-        elsif ! is_end? && src.scan(/:([a-zA-Z_]#{IDENT_CHAR_RE}*(?:[?!]|=(?!>))?)/) then
+        elsif ! is_end? && src.scan(/:([a-zA-Z_]#{IDENT_CHAR_RE}*(?:[?!]|=(?==>)|=(?![=>]))?)/) then
           # scanning shortcut to symbols
           self.yacc_value = src[1]
           self.lex_state = :expr_end
@@ -1030,8 +1030,9 @@ class RubyLexer
           self.lex_strterm = [:strterm, STR_XQUOTE, '`', "\0"]
           return :tXSTRING_BEG
         elsif src.scan(/\?/) then
-          if lex_state == :expr_end || lex_state == :expr_endarg then
-            self.lex_state = :expr_beg
+
+          if is_end? then
+            self.lex_state = ruby18 ? :expr_beg : :expr_value # HACK?
             self.tern.push true
             self.yacc_value = "?"
             return :tEH
@@ -1299,31 +1300,18 @@ class RubyLexer
     (lex_state == :expr_beg && !command_state) || is_arg?
   end
 
-  def yylex_paren19
-    if is_beg? then
-      result = :tLPAREN
-    elsif is_space_arg? then
-      result = :tLPAREN_ARG
-    else
-      self.tern.push false
-      result = :tLPAREN2
-    end
-
-    # p :wtf_paren => [lex_state, space_seen, result]
-
-    # HACK paren_nest++;
-
-    # HACK: this is a mess, but it makes the tests pass, so suck it
-    # (stolen from the 1.8 side)
-    if lex_state == :expr_beg || lex_state == :expr_mid then
-      # do nothing
-    elsif space_seen then
-      if lex_state == :expr_arg then
-        self.tern.push false
+  def yylex_paren19 # TODO: move or remove
+    result =
+      if is_beg? then
+        :tLPAREN
+      elsif is_space_arg? then
+        :tLPAREN_ARG
+      else
+        :tLPAREN2 # plain '(' in parse.y
       end
-    else
-      self.tern.push false
-    end
+
+    # paren_nest++; # TODO
+
     result
   end
 
@@ -1361,7 +1349,7 @@ class RubyLexer
                    end
       end
 
-      unless self.tern.is_in_state
+      unless ruby18
         if is_label_possible? command_state then
           colon = src.scan(/:/)
 
@@ -1373,7 +1361,7 @@ class RubyLexer
 
           src.unscan if colon
         end
-      end unless ruby18
+      end
 
       unless lex_state == :expr_dot then
         # See if it is a reserved word.

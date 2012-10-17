@@ -171,6 +171,11 @@ task :debug => :isolate do
   end
 end
 
+task :debug_ruby do
+  file = ENV["F"] || ENV["FILE"]
+  sh "ruby19 -cwy #{file} 2>&1 | ./yuck.rb"
+end
+
 task :extract => :isolate do
   ENV["V"] ||= "19"
   Rake.application[:parser].invoke # this way we can have DEBUG set

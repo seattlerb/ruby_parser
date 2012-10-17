@@ -1373,4 +1373,13 @@ class TestRuby19Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  def test_i_have_no_freakin_clue
+    rb = "1 ? b('') : 2\na d: 3"
+    pt = s(:block,
+           s(:if, s(:lit, 1), s(:call, nil, :b, s(:str, "")), s(:lit, 2)),
+           s(:call, nil, :a, s(:hash, s(:lit, :d), s(:lit, 3))))
+
+    assert_parse rb, pt
+  end
 end
