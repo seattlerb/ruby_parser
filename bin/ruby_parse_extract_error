@@ -2,6 +2,8 @@
 
 $d ||= false
 $d ||= ENV["DELETE"]
+$t ||= false
+$t ||= ENV["DELETE_TIMEOUT"]
 $q ||= false
 $q ||= ENV["QUIET"]
 
@@ -84,6 +86,7 @@ def process file
   File.unlink file if $d
 rescue Timeout::Error
   warn "TIMEOUT parsing #{file}. Skipping."
+  File.unlink file if $t
 rescue StandardError, SyntaxError, Racc::ParseError => e
   warn ""
   warn "# error: #{e.message.strip}" unless $q
