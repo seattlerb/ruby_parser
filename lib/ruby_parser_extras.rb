@@ -945,8 +945,8 @@ module RubyParserStuff
     first.force_encoding("ASCII-8BIT") if encoded
     encoding, str = "utf-8", str[3..-1] if first =~ /\A\xEF\xBB\xBF/
 
-    encoding = $1 if str.lines.first(2).find { |s|
-      s[/^#\s*-\*-.*?coding: ([^ ;]+).*?-\*-/, 1] ||
+    encoding = $1.strip if str.lines.first(2).find { |s|
+      s[/^#\s*-\*-.*?coding:\s*([^ ;]+).*?-\*-/, 1] ||
       s[/^#.*(?:en)?coding(?:\s*=|:)\s*(.+)/, 1]
     }
 

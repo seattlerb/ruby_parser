@@ -24,18 +24,17 @@ class TestStackState < MiniTest::Unit::TestCase
     end
 
     assert_equal orig_str.sub(/\357\273\277/, ''), s
-    assert_equal "", out
+
+    exp_err = ""
 
     if defined?(Encoding) then
-      assert_equal "", err
       assert_equal "UTF-8", s.encoding.to_s, str.inspect
     else
-      if default then
-        assert_equal "", err
-      else
-        assert_equal "Skipping magic encoding comment\n", err
-      end
+      exp_err = "Skipping magic encoding comment\n" unless default
     end
+
+    assert_equal "", out
+    assert_equal exp_err, err
   end
 
   def test_handle_encoding_bom
@@ -53,6 +52,7 @@ class TestStackState < MiniTest::Unit::TestCase
     assert_encoding "# -*- coding: UTF-8 -*-"
     assert_encoding "# -*- mode: ruby; coding: UTF-8 -*-"
     assert_encoding "# -*- mode: ruby; coding: UTF-8; blah: t -*-"
+    assert_encoding "# -*- mode:ruby; coding:utf-8 -*-"
   end
 
   def test_handle_encoding_english_wtf
@@ -61,6 +61,7 @@ class TestStackState < MiniTest::Unit::TestCase
 
   def test_handle_encoding_normal
     assert_encoding "# encoding: UTF-8"
+    assert_encoding "# encoding: UTF-8\r\n" # UGH I hate windoze
     assert_encoding "# coding: UTF-8"
     assert_encoding "# encoding = UTF-8"
     assert_encoding "# coding = UTF-8"
