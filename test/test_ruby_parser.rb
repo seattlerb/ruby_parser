@@ -1392,7 +1392,6 @@ class TestRuby19Parser < RubyParserTestCase
 
   def test_motherfuckin_leading_dots2
     rb = "a\n..b"
-    pt = s(:call, s(:call, nil, :a), :b)
 
     assert_parse_error rb, 'parse error on value ".." (tDOT2)'
   end
