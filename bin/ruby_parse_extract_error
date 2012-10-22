@@ -48,7 +48,15 @@ end
 
 def expand path
   if File.directory? path then
-    Dir.glob File.join path, "**/{*.rb,*.rake,Rakefile}"
+    require 'find'
+
+    files = []
+
+    Find.find(*Dir[path]) do |f|
+      files << f if File.file? f
+    end
+
+    files
   else
     Dir.glob path
   end
@@ -73,7 +81,7 @@ def process_error parser
     end
   end
 rescue RuntimeError, Racc::ParseError => e
-  warn "# error: #{e.message.strip}"
+  warn "# process error: #{e.message.strip}"
 end
 
 def process file
@@ -85,9 +93,11 @@ def process file
   warn "good"
   File.unlink file if $d
 rescue Timeout::Error
+  $exit = 1
   warn "TIMEOUT parsing #{file}. Skipping."
   File.unlink file if $t
 rescue StandardError, SyntaxError, Racc::ParseError => e
+  $exit = 1
   warn ""
   warn "# error: #{e.message.strip}" unless $q
   warn ""
@@ -96,6 +106,7 @@ rescue StandardError, SyntaxError, Racc::ParseError => e
   process_error parser
 end
 
+$exit = 0
 $stdout.sync = true
 
 ARGV.each do |path|
@@ -104,3 +115,5 @@ ARGV.each do |path|
     process file
   end
 end
+
+exit $exit
