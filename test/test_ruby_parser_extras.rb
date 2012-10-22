@@ -33,8 +33,8 @@ class TestStackState < MiniTest::Unit::TestCase
       exp_err = "Skipping magic encoding comment\n" unless default
     end
 
-    assert_equal "", out
-    assert_equal exp_err, err
+    assert_equal "", out, str.inspect
+    assert_equal exp_err, err, str.inspect # HACK
   end
 
   def test_handle_encoding_bom
@@ -49,14 +49,56 @@ class TestStackState < MiniTest::Unit::TestCase
   end
 
   def test_handle_encoding_emacs
+    # Q: how many different ways can we screw these up? A: ALL OF THEM
+
+    assert_encoding "# - encoding: utf-8 -"
+    assert_encoding "# - encoding:utf-8"
+    assert_encoding "# -* coding: UTF-8 -*-"
     assert_encoding "# -*- coding: UTF-8 -*-"
-    assert_encoding "# -*- mode: ruby; coding: UTF-8 -*-"
-    assert_encoding "# -*- mode: ruby; coding: UTF-8; blah: t -*-"
+    assert_encoding "# -*- coding: utf-8 -*"
+    assert_encoding "# -*- coding: utf-8 -*-"
+    assert_encoding "# -*- coding: utf-8; mode: ruby -*-"
+    assert_encoding "# -*- coding: utf-8; mode: ruby; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2"
+    assert_encoding "# -*- coding:utf-8; mode:ruby; -*-"
+    assert_encoding "# -*- encoding: UTF-8 -*-"
+    assert_encoding "# -*- encoding: utf-8 -*"
+    assert_encoding "# -*- encoding: utf-8 -*-"
     assert_encoding "# -*- mode:ruby; coding:utf-8 -*-"
+    assert_encoding "# -*- ruby encoding: utf-8 -*-"
+    assert_encoding "# -- encoding: utf-8 --"
+    assert_encoding "# ~*~ encoding: utf-8 ~*~"
+    assert_encoding "#-*- coding: utf-8 -*-"
+    assert_encoding "#-*- coding:utf-8"
+    assert_encoding "#--  -*- mode: ruby; encoding: utf-8 -*-\n"
   end
 
-  def test_handle_encoding_english_wtf
+  def test_handle_encoding_wtf
+    assert_encoding "# coding : utf-8"
     assert_encoding "# Ruby 1.9: encoding: utf-8"
+    assert_encoding "# Encoding: UTF-8 <-- required, please leave this in."
+    assert_encoding "# Encoding: UTF-8"
+    assert_encoding "# coding: utf-8"
+    assert_encoding "# coding:utf-8"
+    assert_encoding "# coding=utf-8"
+    assert_encoding "# encoding: ASCII"
+    assert_encoding "# encoding: ASCII-8BIT"
+    assert_encoding "# encoding: ISO-8859-1"
+    assert_encoding "# encoding: UTF-8"
+    assert_encoding "# encoding: ascii-8bit"
+    assert_encoding "# encoding: cp1252"
+    assert_encoding "# encoding: euc-jp -*-"
+    assert_encoding "# encoding: utf-8 # -*- ruby -*-"
+    assert_encoding "# encoding: utf-8 require 'github_api/utils/url'"
+    assert_encoding "# encoding: utf-8!"
+    assert_encoding "# encoding: utf-8"
+    assert_encoding "#<Encoding:UTF-8>"
+    assert_encoding "#Encoding: UTF-8"
+    assert_encoding "#coding:utf-8"
+    assert_encoding "#encoding: UTF-8!"
+    assert_encoding "#encoding: UTF-8"
+    assert_encoding "#encoding: cp1252"
+    assert_encoding "#encoding: sjis"
+    assert_encoding "#encoding: utf-8"
   end
 
   def test_handle_encoding_normal
@@ -68,7 +110,15 @@ class TestStackState < MiniTest::Unit::TestCase
   end
 
   def test_handle_encoding_vim
+    assert_encoding "#  vim: set fileencoding=utf-8 filetype=ruby ts=2 : "
+    assert_encoding "# vim: fileencoding=UTF-8 ft=ruby syn=ruby ts=2 sw=2 ai eol et si"
+    assert_encoding "# vim: fileencoding=UTF-8 nobomb sw=2 ts=2 et"
+    assert_encoding "# vim: filetype=ruby, fileencoding=UTF-8, tabsize=2, shiftwidth=2"
     assert_encoding "# vim: set fileencoding=utf-8"
+    assert_encoding "# vim:encoding=UTF-8:"
+    assert_encoding "# vim:fileencoding=UTF-8:"
+    assert_encoding "# vim:set fileencoding=utf-8 filetype=ruby"
+    assert_encoding "# vim:set fileencoding=utf-8:"
   end
 
   def test_stack_state

@@ -1152,6 +1152,45 @@ class TestRubyLexer < MiniTest::Unit::TestCase
     util_lex_token "+@", :tUPLUS, "+@"
   end
 
+  def test_yylex_numbers
+    util_lex_token "0b10", :tINTEGER, 2
+    util_lex_token "0B10", :tINTEGER, 2
+
+    util_lex_token "0d10", :tINTEGER, 10
+    util_lex_token "0D10", :tINTEGER, 10
+
+    util_lex_token "0x10", :tINTEGER, 16
+    util_lex_token "0X10", :tINTEGER, 16
+
+    util_lex_token "0o10", :tINTEGER, 8
+    util_lex_token "0O10", :tINTEGER, 8
+    util_lex_token "0o",   :tINTEGER, 0
+    util_lex_token "0O",   :tINTEGER, 0
+
+    util_lex_token "0o",   :tINTEGER, 0
+    util_lex_token "0O",   :tINTEGER, 0
+
+    util_lex_token "0",    :tINTEGER, 0
+
+    util_bad_token "0x"
+    util_bad_token "0X"
+    util_bad_token "0b"
+    util_bad_token "0B"
+    util_bad_token "0d"
+    util_bad_token "0D"
+
+    util_bad_token "08"
+    util_bad_token "09"
+    util_bad_token "0o8"
+    util_bad_token "0o9"
+    util_bad_token "0O8"
+    util_bad_token "0O9"
+
+    util_bad_token "1_e1"
+    util_bad_token "1_.1"
+    util_bad_token "1__1"
+  end
+
   def test_yylex_plus_unary_number
     util_lex_token("+42",
                    :tINTEGER, 42)

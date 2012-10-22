@@ -2,6 +2,8 @@
 
 class RubyLexer
 
+  RUBY19 = "".respond_to? :encoding
+
   IDENT_CHAR_RE = case RUBY_VERSION
                   when /^1\.8/ then
                     /[\w\x80-\xFF]/
@@ -277,13 +279,13 @@ class RubyLexer
     self.lex_state = :expr_end
 
     case
-    when src.scan(/[+-]?0[xbd]\b/) then
+    when src.scan(/[+-]?0[xXbBdD]\b/) then
       rb_compile_error "Invalid numeric format"
     when src.scan(/[+-]?0x[a-f0-9_]+/i) then
       int_with_base(16)
-    when src.scan(/[+-]?0b[01_]+/) then
+    when src.scan(/[+-]?0[Bb][01_]+/) then
       int_with_base(2)
-    when src.scan(/[+-]?0d[0-9_]+/) then
+    when src.scan(/[+-]?0[Dd][0-9_]+/) then
       int_with_base(10)
     when src.scan(/[+-]?0[Oo]?[0-7_]*[89]/) then
       rb_compile_error "Illegal octal digit."
@@ -618,23 +620,24 @@ class RubyLexer
     return c
   end
 
-  def unescape s
+  ESCAPES = {
+    "a"    => "\007",
+    "b"    => "\010",
+    "e"    => "\033",
+    "f"    => "\f",
+    "n"    => "\n",
+    "r"    => "\r",
+    "s"    => " ",
+    "t"    => "\t",
+    "v"    => "\13",
+    "\\"   => '\\',
+    "\n"   => "",
+    "C-\?" => 127.chr,
+    "c\?"  => 127.chr,
+  }
 
-    r = {
-      "a"    => "\007",
-      "b"    => "\010",
-      "e"    => "\033",
-      "f"    => "\f",
-      "n"    => "\n",
-      "r"    => "\r",
-      "s"    => " ",
-      "t"    => "\t",
-      "v"    => "\13",
-      "\\"   => '\\',
-      "\n"   => "",
-      "C-\?" => 127.chr,
-      "c\?"  => 127.chr,
-    }[s]
+  def unescape s
+    r = ESCAPES[s]
 
     return r if r
 
@@ -1062,7 +1065,7 @@ class RubyLexer
             end
 
             # ternary
-            self.lex_state = :expr_beg
+            self.lex_state = ruby18 ? :expr_beg : :expr_value # HACK?
             self.tern.push true
             self.yacc_value = "?"
             return :tEH

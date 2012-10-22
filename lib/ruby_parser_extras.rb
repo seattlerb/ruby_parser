@@ -56,7 +56,11 @@ class RPStringScanner < StringScanner
   def unread_many str # TODO: remove this entirely - we should not need it
     warn({:unread_many => caller[0]}.inspect) if ENV['TALLY']
     self.extra_lines_added += str.count("\n")
-    string[pos, 0] = str
+    begin
+      string[pos, 0] = str
+    rescue IndexError
+      # HACK -- this is a bandaid on a dirty rag on an open festering wound
+    end
   end
 
   if ENV['DEBUG'] then
@@ -933,48 +937,77 @@ module RubyParserStuff
 
   def handle_encoding str
     str = str.dup
-    encoded = str.respond_to? :encoding
-
-    # if encoded then
-    #   original_encoding = str.encoding
-    #   str.force_encoding "ASCII-8BIT"
-    # end
-
+    ruby19 = str.respond_to? :encoding
     encoding = nil
-    first = str.lines.first || ""
-    first.force_encoding("ASCII-8BIT") if encoded
+
+    header = str.lines.first(2)
+    header.map! { |s| s.force_encoding "ASCII-8BIT" } if ruby19
+
+    first = header.first || ""
     encoding, str = "utf-8", str[3..-1] if first =~ /\A\xEF\xBB\xBF/
 
-    encoding = $1.strip if str.lines.first(2).find { |s|
-      s[/^#\s*-\*-.*?coding:\s*([^ ;]+).*?-\*-/, 1] ||
-      s[/^#.*(?:en)?coding(?:\s*=|:)\s*(.+)/, 1]
+    encoding = $1.strip if header.find { |s|
+      s[/^#.*?-\*-.*?coding:\s*([^ ;]+).*?-\*-/, 1] ||
+      s[/^#.*(?:en)?coding(?:\s*[:=])\s*([\w-]+)/, 1]
     }
 
     if encoding then
-      if encoded then
-        str.force_encoding(encoding).encode! "utf-8"
+      if ruby19 then
+        encoding.sub!(/utf-8-.+$/, 'utf-8') # HACK for stupid emacs formats
+        hack_encoding str, encoding
       else
         warn "Skipping magic encoding comment"
       end
     else
-      # nothing specified... ugh. try to encode as utf-8 as a last ditch effort
-      if encoded then
+      # nothing specified... ugh. try to encode as utf-8
+      if ruby19 then
         begin
           str.encode! "utf-8"
-        rescue Encoding::InvalidByteSequenceError => e
-          # ok... you really suck. you have extended chars but didn't
+        rescue Encoding::InvalidByteSequenceError, Encoding::UndefinedConversionError
+          # OK... You really suck. You have extended chars but didn't
           # specify what they were. Now we try to force it and double
           # check that it is valid.
 
-          str.force_encoding "utf-8"
-
-          # no amount of pain is enough for you.
-          raise "Bad encoding: #{e.message}" unless str.valid_encoding?
+          hack_encoding str
         end
       end
     end
 
     str
+  end
+
+  def hack_encoding str, extra = nil
+    # this is in sorted order of occurrence according to
+    # charlock_holmes against 500k files
+    encodings = [
+                 extra,
+                 Encoding::ISO_8859_1,
+                 Encoding::UTF_8,
+                 Encoding::ISO_8859_2,
+                 Encoding::ISO_8859_9,
+                 Encoding::SHIFT_JIS,
+                 Encoding::WINDOWS_1252,
+                 Encoding::EUC_JP,
+                ].compact
+
+    # terrible, horrible, no good, very bad, last ditch effort.
+    encodings.each do |enc|
+      begin
+        str.force_encoding enc
+        if str.valid_encoding? then
+          str.encode! Encoding::UTF_8
+          break
+        end
+      rescue Encoding::InvalidByteSequenceError
+        # do nothing
+      rescue Encoding::UndefinedConversionError
+        # do nothing
+      end
+    end
+
+    # no amount of pain is enough for you.
+    raise "Bad encoding. Need a magic encoding comment." unless
+      str.encoding.name == "UTF-8"
   end
 
   ##

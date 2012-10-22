@@ -1217,7 +1217,7 @@ rule
                     }
                 | f_marg_list tCOMMA tSTAR f_norm_arg
                     {
-                      raise "no9\non: #{val.inspect}"
+                      result = block_var val[0], val[3], nil
                     }
                 | f_marg_list tCOMMA tSTAR f_norm_arg tCOMMA f_marg_list
                     {
@@ -1312,7 +1312,11 @@ rule
                     }
                 | f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = block_args19 val, "14"
+                      rest, _, args, block = val
+
+                      result = args
+                      result[1,0] = rest
+                      result << "&#{block.last}".to_sym if block
                     }
                 | f_block_arg
                     {

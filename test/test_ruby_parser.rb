@@ -1395,4 +1395,47 @@ class TestRuby19Parser < RubyParserTestCase
 
     assert_parse_error rb, 'parse error on value ".." (tDOT2)'
   end
+
+  def test_kill_me
+    rb = "f { |a, (b, *c)| }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:masgn,
+             s(:array,
+               s(:lasgn, :a),
+               s(:masgn,
+                 s(:array,
+                   s(:lasgn, :b),
+                   s(:splat, :c)))))) # TODO: omg this is so horrible
+
+    assert_parse rb, pt
+  end
+
+  def test_kill_me2
+    rb = "f { |*a, b| }"
+    pt = s(:iter, s(:call, nil, :f), s(:args, :"*a", :b))
+
+    assert_parse rb, pt
+  end
+
+  def test_kill_me3
+    rb = "f { |*a, b, &c| }"
+    pt = s(:iter, s(:call, nil, :f), s(:args, :"*a", :b, :"&c"))
+
+    assert_parse rb, pt
+  end
+
+  def test_kill_me4
+    rb = "a=b ? true: false"
+    pt = s(:lasgn, :a, s(:if, s(:call, nil, :b), s(:true), s(:false)))
+
+    assert_parse rb, pt
+  end
+
+  # def test_kill_me5
+  #   rb = "f ->() { g do end }"
+  #   pt = 42
+  #
+  #   assert_parse rb, pt
+  # end
 end
