@@ -1,3 +1,43 @@
+=== 3.0.0.a9 / 2012-10-22
+
+Holy crap! I've hit a 99.92% success rate against 558k files! 492
+failed parses to go. NOW is the time to start testing ruby_parser
+against your code!
+
+* 16 minor enhancements:
+
+  * 1.9 parser: Finished magic encoding and utf-8 bom support.
+  * 1.9: Added leading dot support eg "a\n.b".
+  * 1.9: Added partial handling for *arg and opt=val args in block args.
+  * 1.9: OMFG Encoding is the worst thing ever. Overhauled encoding support once again. It is much better at doing last ditch guessing of the encoding of the source file. 
+  * 1.9: added String#grep for legacy support.
+  * Added Sexp#block_pass?
+  * Added ability to delete slow files when they timeout.
+  * Added block_dup_check and refactored grammar code to use it for block arg handling.
+  * Added in_lex_state?(*states) to clean up lexer code.
+  * Added tentative support for optional block args. THIS IS SUBJECT TO CHANGE!!
+  * Added toggleable debugging to StackState to make my life easier
+  * All untested uses have not moved but have been laced with poison. 
+  * Finally got good tests for most forms of double-block arg errors.
+  * Moved all _known_ uses of SyntaxError to RubyParser::SyntaxError
+  * f_block_optarg now always returns a block node.
+  * ruby_parse_extract_error uses Find.find instead of globbing so dot files aren't missed.
+
+* 12 bug fixes:
+
+  * 1.9: Completely ignore IndexError in unread_many because... you know... it sucks.
+  * 1.9: Fixed lex state after lexing ? in trinary.
+  * 1.9: Fixed lex state in some ternarys.
+  * 1.9: Fixed parsing of "1 ? b('') : 2\na d: 3"... ARE YOU NOT GLAD?!?!
+  * Fix Timeout differences between 1.8 and 1.9 :(
+  * Fixed emacs-style encodings to deal with no whitespace.
+  * Fixed error message for bad % codes. (whitequark)
+  * Fixed lexing of :a==>b vs :a===b vs :a==>b. P.S. Your space bar is broken. chump.
+  * Fixed lexing of rare numeric formats.
+  * Fixed magic comment encodings on DOS files ... :/
+  * Fixed ruby_parse_extract_error to exit non-zero on errors.
+  * Removed Symbol#is_argument and switch usage to is_arg?
+
 === 3.0.0.a8 / 2012-09-26
 
 * 1 bug fix:
