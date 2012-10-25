@@ -1770,7 +1770,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                 | kFALSE    { result = s(:false) }
                 | k__FILE__ { result = s(:str, self.file) }
                 | k__LINE__ { result = s(:lit, lexer.src.current_line) }
-                | k__ENCODING__ { result = s(:str, "Unsupported!") }
+                | k__ENCODING__ { result = s(:const, Encoding::UTF_8) }
 
          var_ref: user_variable
                     {
