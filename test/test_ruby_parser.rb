@@ -1167,7 +1167,7 @@ class TestRuby19Parser < RubyParserTestCase
 
   def test_encoding
     rb = '__ENCODING__'
-    pt = s(:str, "Unsupported!")
+    pt = s(:const, Encoding::UTF_8)
 
     assert_parse rb, pt
   end
