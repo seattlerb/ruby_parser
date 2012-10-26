@@ -1568,4 +1568,74 @@ class TestRuby19Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  def test_kill_me_6
+    # | f_marg_list tCOMMA tSTAR f_norm_arg tCOMMA f_marg_list
+    rb = "f { |a, (b, *c, d)| }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:args, :a, s(:masgn, :b, :"*c", :d)))
+
+    assert_parse rb, pt
+  end
+
+  def test_kill_me_7
+    # | f_marg_list tCOMMA tSTAR
+    rb = "f { |a, (b, *)| }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:args, :a, s(:masgn, :b, :*)))
+
+    assert_parse rb, pt
+  end
+
+  def test_kill_me_8
+    # | f_marg_list tCOMMA tSTAR tCOMMA f_marg_list
+    rb = "f { |a, (b, *, c)| }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:args, :a, s(:masgn, :b, :*, :c)))
+
+    assert_parse rb, pt
+  end
+
+  def test_kill_me_9
+    # | tSTAR f_norm_arg
+    rb = "f { |a, (*b)| }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:args, :a, s(:masgn, :"*b")))
+
+    assert_parse rb, pt
+  end
+
+  def test_kill_me_10
+    # | tSTAR f_norm_arg tCOMMA f_marg_list
+    rb = "f { |a, (*b, c)| }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:args, :a, s(:masgn, :"*b", :c)))
+
+    assert_parse rb, pt
+  end
+
+  def test_kill_me_11
+    # | tSTAR
+    rb = "f { |a, (*)| }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:args, :a, s(:masgn, :*)))
+
+    assert_parse rb, pt
+  end
+
+  def test_kill_me_12
+    # | tSTAR tCOMMA f_marg_list
+    rb = "f { |a, (*, b)| }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:args, :a, s(:masgn, :*, :b)))
+
+    assert_parse rb, pt
+  end
 end

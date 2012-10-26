@@ -134,7 +134,13 @@ module RubyParserStuff
     end
   end
 
-  def block_var ary, splat, block # REFACTOR: phase out via args
+  def block_var *args
+    result = self.args args
+    result[0] = :masgn
+    result
+  end
+
+  def block_var18 ary, splat, block
     ary ||= s(:array)
 
     if splat then
@@ -158,7 +164,7 @@ module RubyParserStuff
       case arg
       when Sexp then
         case arg.sexp_type
-        when :args, :block then
+        when :args, :block, :array then
           result.concat arg[1..-1]
         when :block_arg then
           result << :"&#{arg.last}"

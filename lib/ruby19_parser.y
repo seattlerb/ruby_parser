@@ -1212,39 +1212,55 @@ rule
 
          f_margs: f_marg_list
                     {
-                      result = block_var val[0], nil, nil
+                      args, = val
+
+                      result = block_var args
                     }
                 | f_marg_list tCOMMA tSTAR f_norm_arg
                     {
-                      result = block_var val[0], val[3], nil
+                      args, _, _, splat = val
+
+                      result = block_var args, "*#{splat}".to_sym
                     }
                 | f_marg_list tCOMMA tSTAR f_norm_arg tCOMMA f_marg_list
                     {
-                      raise "no10\non: #{val.inspect}"
+                      args, _, _, splat, _, args2 = val
+
+                      result = block_var args, "*#{splat}".to_sym, args2
                     }
                 | f_marg_list tCOMMA tSTAR
                     {
-                      raise "no11\non: #{val.inspect}"
+                      args, _, _ = val
+
+                      result = block_var args, :*
                     }
                 | f_marg_list tCOMMA tSTAR tCOMMA f_marg_list
                     {
-                      raise "no12\non: #{val.inspect}"
+                      args, _, _, _, args2 = val
+
+                      result = block_var args, :*, args2
                     }
                 | tSTAR f_norm_arg
                     {
-                      raise "no13\non: #{val.inspect}"
+                      _, splat = val
+
+                      result = block_var :"*#{splat}"
                     }
                 | tSTAR f_norm_arg tCOMMA f_marg_list
                     {
-                      raise "no14\non: #{val.inspect}"
+                      _, splat, _, args = val
+
+                      result = block_var :"*#{splat}", args
                     }
                 | tSTAR
                     {
-                      raise "no15\non: #{val.inspect}"
+                      result = block_var :*
                     }
                 | tSTAR tCOMMA f_marg_list
                     {
-                      raise "no16\non: #{val.inspect}"
+                      _, _, args = val
+
+                      result = block_var :*, args
                     }
 
      block_param: f_arg tCOMMA f_block_optarg tCOMMA f_rest_arg opt_f_block_arg
@@ -1686,7 +1702,7 @@ regexp_contents: none
                       when nil then
                         result = s(:evstr)
                       else
-                        raise "unknown rescue body: #{val[2].inspect}"
+                        raise "unknown string body: #{val[2].inspect}"
                       end
                     }
 

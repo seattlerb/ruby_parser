@@ -1212,51 +1212,51 @@ rule
 
        block_var: block_par
                     {
-                      result = block_var val[0], nil, nil
+                      result = block_var18 val[0], nil, nil
                     }
                 | block_par tCOMMA
                     {
-                      result = block_var val[0], nil, nil
+                      result = block_var18 val[0], nil, nil
                     }
                 | block_par tCOMMA tAMPER lhs
                     {
-                      result = block_var val[0], nil, val[3]
+                      result = block_var18 val[0], nil, val[3]
                     }
                 | block_par tCOMMA tSTAR lhs tCOMMA tAMPER lhs
                     {
-                      result = block_var val[0], val[3], val[6]
+                      result = block_var18 val[0], val[3], val[6]
                     }
                 | block_par tCOMMA tSTAR tCOMMA tAMPER lhs
                     {
-                      result = block_var val[0], s(:splat), val[5]
+                      result = block_var18 val[0], s(:splat), val[5]
                     }
                 | block_par tCOMMA tSTAR lhs
                     {
-                      result = block_var val[0], val[3], nil
+                      result = block_var18 val[0], val[3], nil
                     }
                 | block_par tCOMMA tSTAR
                     {
-                      result = block_var val[0], s(:splat), nil
+                      result = block_var18 val[0], s(:splat), nil
                     }
                 | tSTAR lhs tCOMMA tAMPER lhs
                     {
-                      result = block_var nil, val[1], val[4]
+                      result = block_var18 nil, val[1], val[4]
                     }
                 | tSTAR tCOMMA tAMPER lhs
                     {
-                      result = block_var nil, s(:splat), val[3]
+                      result = block_var18 nil, s(:splat), val[3]
                     }
                 | tSTAR lhs
                     {
-                      result = block_var nil, val[1], nil
+                      result = block_var18 nil, val[1], nil
                     }
                 | tSTAR
                     {
-                      result = block_var nil, s(:splat), nil
+                      result = block_var18 nil, s(:splat), nil
                     }
                 | tAMPER lhs
                     {
-                      result = block_var nil, nil, val[1]
+                      result = block_var18 nil, nil, val[1]
                     }
                 ;
 
