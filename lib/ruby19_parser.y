@@ -260,6 +260,8 @@ rule
                     compstmt tRCURLY
                     {
                       result = new_iter nil, val[2], val[4]
+                      result.line = val[1]
+
                       self.env.unextend
                     }
 
@@ -994,7 +996,7 @@ rule
                     }
                 | tLAMBDA lambda
                     {
-                      result = val[1]
+                      result = val[1] # TODO: fix lineno
                     }
                 | kIF expr_value then compstmt if_tail kEND
                     {
@@ -1194,9 +1196,6 @@ rule
                     }
 
           f_marg: f_norm_arg
-                    {
-                      result = assignable val[0]
-                    }
                 | tLPAREN f_margs rparen
                     {
                       result = val[1]
@@ -1250,77 +1249,63 @@ rule
 
      block_param: f_arg tCOMMA f_block_optarg tCOMMA f_rest_arg opt_f_block_arg
                     {
-                      result = block_args19 val, "1"
+                      result = args val
                     }
                 | f_arg tCOMMA f_block_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = block_args19 val, "2"
+                      result = args val
                     }
                 | f_arg tCOMMA f_block_optarg opt_f_block_arg
                     {
-                      arg, _, opt, block = val
-
-                      result = arg
-                      result.concat opt[1..-1].map { |s| s[1] }
-                      result << "&#{block.last}".to_sym if block
-                      result << opt
+                      result = args val
                     }
                 | f_arg tCOMMA f_block_optarg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = block_args19 val, "4"
+                      result = args val
                     }
                 | f_arg tCOMMA f_rest_arg opt_f_block_arg
                     {
-                      result = block_args19 val, "5"
+                      result = args val
                     }
                 | f_arg tCOMMA
                     {
-                      result = block_args19 val, "6"
+                      result = args val
                     }
                 | f_arg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = block_args19 val, "7"
+                      result = args val
                     }
                 | f_arg opt_f_block_arg
                     {
-                      result = block_args19 val, "8"
+                      result = args val
                     }
                 | f_block_optarg tCOMMA f_rest_arg opt_f_block_arg
                     {
-                      result = block_args19 val, "9"
+                      result = args val
                     }
                 | f_block_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = block_args19 val, "10"
+                      result = args val
                     }
                 | f_block_optarg opt_f_block_arg
                     {
-                      opt, block = val
-
-                      result = s(:args)
-                      result.concat opt[1..-1].map { |s| s[1] }
-                      result << "&#{block.last}".to_sym if block
-                      result << opt
+                      result = args val
                     }
                 | f_block_optarg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = block_args19 val, "12"
+                      result = args val
                     }
                 | f_rest_arg opt_f_block_arg
                     {
-                      result = block_args19 val, "13"
+                      result = args val
                     }
                 | f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      rest, _, args, block = val
-
-                      result = args
-                      result[1,0] = rest
-                      result << "&#{block.last}".to_sym if block
+                      result = args val
                     }
                 | f_block_arg
                     {
-                      result = block_args19 val, "15"
+                      result = args val
                     }
 
  opt_block_param: none
@@ -1362,23 +1347,18 @@ rule
 
           lambda: f_larglist lambda_body
                     {
-                      case val[0].size
-                      when 1
-                        args = 0
-                      when 2
-                        args = s(:lasgn, val[0][1])
-                      else
-                        vars = val[0][1..-1].map { |name| s(:lasgn, name) }
-                        args = s(:masgn, s(:array, *vars))
-                      end
+                      args, body = val
+
+                      args = 0 if args == s(:args)
 
                       call = new_call nil, :lambda
-                      result = s(:iter, call, args, val[1])
+                      result = new_iter call, args, body
                     }
 
      f_larglist: tLPAREN2 f_args opt_bv_decl rparen
                     {
                       result = val[1]
+                      raise "not yet: #{val.inspect}" if val[2]
                     }
                 | f_args
                     {
@@ -1405,9 +1385,9 @@ rule
                     }
                     compstmt kEND
                     {
-                      vars   = val[2]
+                      args   = val[2]
                       body   = val[4]
-                      result = new_iter nil, vars, body
+                      result = new_iter nil, args, body
                       result.line = val[1]
 
                       self.env.unextend
@@ -1486,12 +1466,12 @@ rule
                     }
                     compstmt tRCURLY
                     {
-                      # REFACTOR
-                      args   = val[2]
-                      body   = val[4]
+                      _, line, args, _, body, _ = val
+
                       result = new_iter nil, args, body
+                      result.line = line
+
                       self.env.unextend
-                      result.line = val[1]
                     }
                 | kDO
                     {
@@ -1504,11 +1484,12 @@ rule
                     }
                     compstmt kEND
                     {
-                      args = val[2]
-                      body = val[4]
+                      _, line, args, _, body, _ = val
+
                       result = new_iter nil, args, body
+                      result.line = line
+
                       self.env.unextend
-                      result.line = val[1]
                     }
 
        case_body: kWHEN
@@ -1526,7 +1507,7 @@ rule
 
       opt_rescue: kRESCUE exc_list exc_var then compstmt opt_rescue
                     {
-                      klasses, var, body, rest = val[1], val[2], val[4], val[5]
+                      _, klasses, var, _, body, rest = val
 
                       klasses ||= s(:array)
                       klasses << node_assign(var, s(:gvar, :"$!")) if var
@@ -1554,11 +1535,9 @@ rule
 
       opt_ensure: kENSURE compstmt
                     {
-                      if (val[1] != nil) then
-                        result = val[1]
-                      else
-                        result = s(:nil)
-                      end
+                      _, body = val
+
+                      result = body || s(:nil)
                     }
                 | none
 
@@ -1826,63 +1805,63 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
           f_args: f_arg tCOMMA f_optarg tCOMMA f_rest_arg opt_f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 | f_arg tCOMMA f_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 | f_arg tCOMMA f_optarg              opt_f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 | f_arg tCOMMA f_optarg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 | f_arg tCOMMA            f_rest_arg opt_f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 | f_arg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 | f_arg                             opt_f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 |           f_optarg tCOMMA f_rest_arg opt_f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 | f_optarg tCOMMA f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 |           f_optarg                opt_f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 | f_optarg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 |                        f_rest_arg opt_f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 |           f_rest_arg tCOMMA f_arg opt_f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 |                                       f_block_arg
                     {
-                      result = args19 val
+                      result = args val
                     }
                 |
                     {
-                      result = args19 val
+                      result = args val
                     }
 
        f_bad_arg: tCONSTANT
@@ -1912,9 +1891,6 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     }
 
       f_arg_item: f_norm_arg
-                    # { # TODO
-                    #   result = assignable val[0]
-                    # }
                 | tLPAREN f_margs rparen
                     {
                       result = val[1]
@@ -1925,7 +1901,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       case val[0]
                       when Symbol then
                         result = s(:args)
-                        result << val[0].to_sym
+                        result << val[0]
                       when Sexp then
                         result = val[0]
                       else
@@ -1934,8 +1910,15 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     }
                 | f_arg tCOMMA f_arg_item
                     {
-                      val[0] << val[2]
-                      result = val[0]
+                      list, _, item = val
+
+                      if list.sexp_type == :args then
+                        result = list
+                      else
+                        result = s(:args, list)
+                      end
+
+                      result << item
                     }
 
            f_opt: tIDENTIFIER tEQL arg_value
@@ -1991,7 +1974,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       identifier = val[1].to_sym
 
                       self.env[identifier] = :lvar
-                      result = s(:block_arg, identifier.to_sym)
+                      result = "&#{identifier}".to_sym
                     }
 
  opt_f_block_arg: tCOMMA f_block_arg

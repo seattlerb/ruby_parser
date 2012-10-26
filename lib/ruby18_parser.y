@@ -1203,11 +1203,11 @@ rule
 
        block_par: mlhs_item
                     {
-                      result = s(:array, val[0])
+                      result = s(:array, clean_mlhs(val[0]))
                     }
                 | block_par tCOMMA mlhs_item
                     {
-                      result = list_append val[0], val[2]
+                      result = list_append val[0], clean_mlhs(val[2])
                     }
 
        block_var: block_par
@@ -1682,39 +1682,39 @@ xstring_contents: none
 
           f_args: f_arg tCOMMA f_optarg tCOMMA f_rest_arg opt_f_block_arg
                     {
-                      result = args val[0], val[2], val[4], val[5]
+                      result = args val
                     }
                 | f_arg tCOMMA f_optarg                opt_f_block_arg
                     {
-                      result = args val[0], val[2],    nil, val[3]
+                      result = args val
                     }
                 | f_arg tCOMMA              f_rest_arg opt_f_block_arg
                     {
-                      result = args val[0],    nil, val[2], val[3]
+                      result = args val
                     }
                 | f_arg                             opt_f_block_arg
                     {
-                      result = args val[0],    nil,    nil, val[1]
+                      result = args val
                     }
                 |           f_optarg tCOMMA f_rest_arg opt_f_block_arg
                     {
-                      result = args    nil, val[0], val[2], val[3]
+                      result = args val
                     }
                 |           f_optarg                opt_f_block_arg
                     {
-                      result = args    nil, val[0],    nil, val[1]
+                      result = args val
                     }
                 |                        f_rest_arg opt_f_block_arg
                     {
-                      result = args    nil,    nil, val[0], val[1]
+                      result = args val
                     }
                 |                                       f_block_arg
                     {
-                      result = args    nil,    nil,    nil, val[0]
+                      result = args val
                     }
                 |
                     {
-                      result = args    nil,    nil,    nil,    nil
+                      result = args val
                     }
 
       f_norm_arg: tCONSTANT

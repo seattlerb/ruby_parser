@@ -115,152 +115,68 @@ module RubyParserStuff
     node1
   end
 
-  def block_var ary, splat, block
+  def clean_mlhs sexp
+    case sexp.sexp_type
+    when :masgn then
+      if sexp.size == 2 and sexp[1].sexp_type == :array then
+        s(:masgn, *sexp[1][1..-1].map { |sub| clean_mlhs sub })
+      else
+        sexp
+      end
+    when :gasgn, :iasgn, :lasgn, :cvasgn then
+      if sexp.size == 2 then
+        sexp.last
+      else
+        sexp # optional value
+      end
+    else
+      raise "unsupported type: #{sexp.inspect}"
+    end
+  end
+
+  def block_var ary, splat, block # REFACTOR: phase out via args
     ary ||= s(:array)
 
     if splat then
-      if splat == s(:splat) then
-        ary << splat
-      else
-        ary << s(:splat, splat)
-      end
+      splat = splat[1] unless Symbol === splat
+      ary << "*#{splat}".to_sym
     end
 
-    if block then
-      block[-1] = :"&#{block[-1]}"
-      ary << block
+    ary << "&#{block[1]}".to_sym if block
+
+    if ary.length > 2 or ary.splat then # HACK
+      s(:masgn, *ary[1..-1])
+    else
+      ary.last
     end
-
-    result = if ary.length > 2 or ary.splat then
-               s(:masgn, ary)
-             else
-               ary.last
-             end
-
-    result
   end
 
-  def args arg, optarg, rest_arg, block_arg, post_arg = nil
-    arg ||= s(:args)
-
-    result = arg
-    if optarg then
-      optarg[1..-1].each do |lasgn| # FIX clean sexp iter
-        raise "wtf? #{lasgn.inspect}" unless lasgn[0] == :lasgn
-        result << lasgn[1]
-      end
-    end
-
-    result << rest_arg  if rest_arg
-
-    result << :"&#{block_arg.last}" if block_arg
-    result << optarg    if optarg # TODO? huh - processed above as well
-    post_arg[1..-1].each {|pa| result << pa } if post_arg
-
-    result
-  end
-
-  def args19 vals # TODO: migrate to args once 1.8 tests pass as well
+  def args args
     result = s(:args)
-    block  = nil
 
-    vals.each do |val|
-      case val
+    args.each do |arg|
+      case arg
       when Sexp then
-        case val.first
-        when :args then
-          val[1..-1].each do |name|
-            result << name
-          end
+        case arg.sexp_type
+        when :args, :block then
+          result.concat arg[1..-1]
         when :block_arg then
-          result << :"&#{val.last}"
-        when :block then
-         block = val
-          val[1..-1].each do |lasgn| # FIX clean sexp iter
-            raise "wtf? #{val.inspect}" unless lasgn[0] == :lasgn
-            result << lasgn[1]
-          end
-        when :lasgn then
-          result << val
+          result << :"&#{arg.last}"
+        when :masgn then
+          result << arg
         else
-          raise "unhandled sexp: #{val.inspect}"
+          raise "unhandled: #{arg.inspect}"
         end
       when Symbol then
-        result << val
+        result << arg
       when ",", nil then
         # ignore
       else
-        raise "unhandled val: #{val.inspect} in #{vals.inspect}"
+        raise "unhandled: #{arg.inspect}"
       end
     end
-
-    result << block if block
 
     result
-  end
-
-  def block_args19 val, id
-    # HACK OMG THIS CODE IS SOOO UGLY! CLEAN ME
-    untested = %w[1 2 3 4 7 9 10 12 14]
-    raise "no block_args19 #{id}\non: #{val.inspect}" if untested.include? id
-
-    r = s(:array)
-
-    val.compact.each do |v|
-      next if %w[,].include? v
-      case v
-      when Sexp then
-        case v.first
-        when :args then
-          r.concat v[1..-1].map { |s| # FIX: this is a smell
-            case s
-            when Symbol then
-              s(:lasgn, s)
-            when Sexp then
-              s
-            else
-              raise "unhandled type: #{s.inspect}"
-            end
-          }
-        when :block_arg then
-          r << s(:lasgn, :"&#{v.last}")
-        when :lasgn then
-          r << s(:masgn, s(:array, v))
-        when :masgn then
-          r << v
-        else
-          raise "block_args19 #{id} unhandled sexp type:: #{v.inspect}"
-        end
-      when Symbol
-        case v.to_s
-        when /^\*(.+)/ then
-          r << s(:splat, s(:lasgn, $1.to_sym))
-        when /^\*/ then
-          r << s(:splat)
-        else
-          raise "block_args19 #{id} unhandled symbol type:: #{v.inspect}"
-        end
-      else
-        raise "block_args19 #{id} unhandled type:: #{v.inspect}"
-      end
-    end
-
-    if r.size > 2 then
-      r = s(:masgn, r)
-    elsif r.size == 2 then
-      case r.last.first
-      when :splat then
-        r = s(:masgn, r)
-      when :lasgn, :masgn then
-        r = r.last
-      else
-        raise "oh noes!: #{r.inspect}"
-      end
-    else
-      raise "totally borked: #{r.inspect}"
-    end
-
-    r
   end
 
   def aryset receiver, index
@@ -683,10 +599,18 @@ module RubyParserStuff
   end
 
   def new_iter call, args, body
+    body ||= nil
+
+    args ||= s(:args)
+    args = s(:args, args) if Symbol === args
+
     result = s(:iter)
     result << call if call
     result << args
     result << body if body
+
+    args[0] = :args unless args == 0
+
     result
   end
 

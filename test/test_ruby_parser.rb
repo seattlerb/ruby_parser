@@ -109,17 +109,23 @@ module TestRubyParserShared
   end
 
   def test_wtf_7
-    assert_parse "a.b (1) {c}", s(:iter,
-                                  s(:call, s(:call, nil, :a), :b, s(:lit, 1)),
-                                  nil,
-                                  s(:call, nil, :c))
+    rb = "a.b (1) {c}"
+    pt = s(:iter,
+           s(:call, s(:call, nil, :a), :b, s(:lit, 1)),
+           s(:args),
+           s(:call, nil, :c))
+
+    assert_parse rb, pt
   end
 
   def test_wtf_8
-    assert_parse "a::b (1) {c}", s(:iter,
-                                  s(:call, s(:call, nil, :a), :b, s(:lit, 1)),
-                                  nil,
-                                  s(:call, nil, :c))
+    rb = "a::b (1) {c}"
+    pt =  s(:iter,
+            s(:call, s(:call, nil, :a), :b, s(:lit, 1)),
+            s(:args),
+            s(:call, nil, :c))
+
+    assert_parse rb, pt
   end
 
   def test_attrasgn_array_lhs
@@ -198,7 +204,7 @@ module TestRubyParserShared
     rb = "a do\n  v = nil\n  begin\n    yield\n  rescue Exception => v\n    break\n  end\nend"
     pt = s(:iter,
            s(:call, nil, :a),
-           nil,
+           s(:args),
            s(:block,
              s(:lasgn, :v, s(:nil)),
              s(:rescue,
@@ -253,7 +259,7 @@ module TestRubyParserShared
            s(:call, nil, :a, s(:lit, 1)),
            s(:iter,
              s(:call, s(:call, nil, :a), :b),
-             s(:lasgn, :c)))
+             s(:args, :c)))
 
     assert_parse rb, pt
   end
@@ -585,7 +591,7 @@ module TestRubyParserShared
 
     pt = s(:iter,
            s(:call, nil, :f),
-           s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
+           s(:args, :x, :y),
            s(:call, s(:lvar, :x), :+, s(:lvar, :y)))
 
     assert_parse_line rb, pt, 1
@@ -624,7 +630,7 @@ module TestRubyParserShared
 
     pt = s(:iter,
            s(:call, nil, :f, s(:call, nil, :a)),
-           s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
+           s(:args, :x, :y),
            s(:call, s(:lvar, :x), :+, s(:lvar, :y)))
 
     assert_parse_line rb, pt, 1
@@ -639,7 +645,7 @@ module TestRubyParserShared
 
     pt = s(:iter,
            s(:call, nil, :f, s(:call, nil, :a)),
-           s(:masgn, s(:array, s(:lasgn, :x), s(:lasgn, :y))),
+           s(:args, :x, :y),
            s(:call, s(:lvar, :x), :+, s(:lvar, :y)))
 
     assert_parse_line rb, pt, 1
@@ -701,15 +707,6 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  def test_bug_args
-    rb = "f { |(a, b)| d }"
-    pt = s(:iter, s(:call, nil, :f),
-           s(:masgn, s(:array, s(:lasgn, :a), s(:lasgn, :b))),
-           s(:call, nil, :d))
-
-    assert_parse rb, pt
-  end
-
   def test_bug_cond_pct
     rb = "case; when %r%blahblah%; end"
     pt = s(:case, nil, s(:when, s(:array, s(:lit, /blahblah/)), nil), nil)
@@ -717,49 +714,33 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  # according to 2.3.1 parser:
+  # according to 2.3.1 parser -- added: ON 1.8 only:
   # rp.process("f { |(a,b),c| }") == rp.process("f { |((a,b),c)| }")
 
-  # def test_bug_args_masgn
-  #   rb = "f { |(a, b), c| }"
-  #   pt = s(:iter,
-  #          s(:call, nil, :f),
-  #          s(:masgn,
-  #            s(:array,
-  #              s(:masgn, s(:array, s(:lasgn, :a), s(:lasgn, :b))),
-  #              s(:lasgn, :c))))
-  #
-  #   assert_parse rb, pt.dup
-  # end
+  # ruby18 -e "p lambda { |(a,b)|     }.arity" # =>  2
+  # ruby19 -e "p lambda { |(a,b)|     }.arity" # =>  1
+  # ruby18 -e "p lambda { |(a,b),c|   }.arity" # =>  2
+  # ruby19 -e "p lambda { |(a,b),c|   }.arity" # =>  2
+  # ruby18 -e "p lambda { |((a,b),c)| }.arity" # =>  2
+  # ruby19 -e "p lambda { |((a,b),c)| }.arity" # =>  1
 
-  def test_bug_args_masgn_outer_parens
-    rb = "f { |((a, b), c)| }"
-    pt = s(:iter,               # NOTE: same sexp as test_bug_args_masgn
+  def test_bug_args_masgn
+    rb = "f { |(a, b), c| }"
+    pt = s(:iter,
            s(:call, nil, :f),
-           s(:masgn,
-             s(:array,
-               s(:masgn, s(:array, s(:lasgn, :a), s(:lasgn, :b))),
-               s(:lasgn, :c))))
+           s(:args, s(:masgn, :a, :b), :c))
 
     assert_parse rb, pt.dup
   end
 
-  # TODO:
-  # def test_bug_args_masgn2
-  #   rb = "f { |((a, b), c), d| }"
-  #   pt = s(:iter,
-  #          s(:call, nil, :f),
-  #          s(:masgn,
-  #            s(:array,
-  #              s(:masgn,
-  #                s(:array,
-  #                  s(:masgn,
-  #                    s(:array, s(:lasgn, :a), s(:lasgn, :b))),
-  #                  s(:lasgn, :c))),
-  #              s(:lasgn, :d))))
-  #
-  #   assert_parse rb, pt
-  # end
+  def test_bug_args_masgn2
+    rb = "f { |((a, b), c), d| }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:args, s(:masgn, s(:masgn, :a, :b), :c), :d))
+
+    assert_parse rb, pt
+  end
 
   def ruby18
     Ruby18Parser === self.processor
@@ -800,10 +781,7 @@ module TestRubyParserShared
     rb = "f { |a, (b, c)| }"
     pt = s(:iter,
            s(:call, nil, :f),
-           s(:masgn,
-             s(:array,
-               s(:lasgn, :a),
-               s(:masgn, s(:array, s(:lasgn, :b), s(:lasgn, :c))))))
+           s(:args, :a, s(:masgn, :b, :c)))
 
     assert_parse rb, pt
   end
@@ -862,14 +840,7 @@ module TestRubyParserShared
   end
 
   def test_magic_encoding_comment
-    rb = <<-EOM.gsub(/^      /, '')
-      # encoding: utf-8
-      class ExampleUTF8ClassNameVarietà
-        def self.è
-          così = :però
-        end
-      end
-    EOM
+    rb = "# encoding: utf-8\nclass ExampleUTF8ClassNameVarietà; def self.è; così = :però; end\nend\n"
 
     rb.force_encoding "ASCII-8BIT" if rb.respond_to? :force_encoding
 
@@ -886,6 +857,20 @@ module TestRubyParserShared
     assert_output "", err do
       assert_parse rb, pt
     end
+  end
+
+  def test_iter_args_1
+    rb = "f { |a,b| }"
+    pt = s(:iter, s(:call, nil, :f), s(:args, :a, :b))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_args_3
+    rb = "f { |a, (b, c), d| }"
+    pt = s(:iter, s(:call, nil, :f), s(:args, :a, s(:masgn, :b, :c), :d))
+
+    assert_parse rb, pt
   end
 end
 
@@ -1060,6 +1045,33 @@ class TestRuby18Parser < RubyParserTestCase
 
   def test_double_block_error_16
     assert_syntax_error "m::a (1, &b) do end", BLOCK_DUP_MSG
+  end
+
+  # In 1.8, block args with an outer set of parens are superfluous.
+  # In 1.9, outer set of parens are NOT... they are an explicit extra masgn.
+
+  def test_iter_args_2_18
+    rb = "f { |(a, b)| }"
+    pt = s(:iter, s(:call, nil, :f), s(:args, :a, :b))
+
+    assert_parse rb, pt
+  end
+
+  def test_bug_args__18
+    rb = "f { |(a, b)| }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:args, :a, :b))
+
+    assert_parse rb, pt
+  end
+
+  def test_bug_args_masgn_outer_parens__18
+    rb = "f { |((a, b), c)| }"
+    pt = s(:iter,               # NOTE: same sexp as test_bug_args_masgn
+           s(:call, nil, :f),
+           s(:args, s(:masgn, :a, :b), :c))
+
+    assert_parse rb, pt.dup
   end
 end
 
@@ -1286,7 +1298,7 @@ class TestRuby19Parser < RubyParserTestCase
     rb = "a { |b = 1| }"
     pt = s(:iter,
            s(:call, nil, :a),
-           s(:args, :b, s(:block, s(:lasgn, :b, s(:lit, 1)))))
+           s(:args, s(:lasgn, :b, s(:lit, 1))))
 
     assert_parse rb, pt
   end
@@ -1303,7 +1315,7 @@ class TestRuby19Parser < RubyParserTestCase
            s(:lit, :a),
            s(:iter,
              s(:call, nil, :lambda),
-             nil,
+             s(:args),
              s(:if, s(:call, nil, :b), s(:call, nil, :c), s(:call, nil, :d))),
 
            s(:lit, :e),
@@ -1319,34 +1331,31 @@ class TestRuby19Parser < RubyParserTestCase
   #   assert_parse rb, pt
   # end
 
-  # HACK: need to figure out the desired structure and get this working
-  # def test_wtf
-  #   # lambda -> f_larglist lambda_body
-  #   # f_larglist -> f_args opt_bv_decl
-  #   # opt_bv_decl
-  #   # bv_decls
-  #   # bvar
-  #
-  #   rb = "->(a, b=nil) { p [a, b] }"
-  #   pt = s(:iter,
-  #          s(:call, nil, :lambda),
-  #          s(:args, :a, :b,
-  #            s(:block, s(:lasgn, :b, s(:nil)))),
-  #          s(:call, nil, :p, s(:array, s(:lvar, :a), s(:lvar, :b))))
-  #
-  #   assert_parse rb, pt
-  #
-  #   rb = "->(a; b) { p [a, b] }"
-  #
-  #   assert_parse rb, pt
-  # end
+  def test_wtf
+    # lambda -> f_larglist lambda_body
+    # f_larglist -> f_args opt_bv_decl
+    # opt_bv_decl
+    # bv_decls
+    # bvar
+
+    rb = "->(a, b=nil) { p [a, b] }"
+    pt = s(:iter,
+           s(:call, nil, :lambda),
+           s(:args, :a, s(:lasgn, :b, s(:nil))),
+           s(:call, nil, :p, s(:array, s(:lvar, :a), s(:lvar, :b))))
+
+    assert_parse rb, pt
+
+    # rb = "->(a; b) { p [a, b] }"
+    #
+    # assert_parse rb, pt
+  end
 
   def test_block_args_opt1
     rb = "f { |a, b = 42| [a, b] }"
     pt = s(:iter,
            s(:call, nil, :f),
-           s(:args, :a, :b,
-             s(:block, s(:lasgn, :b, s(:lit, 42)))),
+           s(:args, :a, s(:lasgn, :b, s(:lit, 42))),
            s(:array, s(:lvar, :a), s(:lvar, :b)))
 
     assert_parse rb, pt
@@ -1356,8 +1365,7 @@ class TestRuby19Parser < RubyParserTestCase
     rb = "f { |a, b = 42, c = 24| [a, b, c] }"
     pt = s(:iter,
            s(:call, nil, :f),
-           s(:args, :a, :b, :c,
-             s(:block, s(:lasgn, :b, s(:lit, 42)), s(:lasgn, :c, s(:lit, 24)))),
+           s(:args, :a, s(:lasgn, :b, s(:lit, 42)), s(:lasgn, :c, s(:lit, 24))),
            s(:array, s(:lvar, :a), s(:lvar, :b), s(:lvar, :c)))
 
     assert_parse rb, pt
@@ -1367,8 +1375,7 @@ class TestRuby19Parser < RubyParserTestCase
     rb = "f { |a, b = 42, c = 24, &d| [a, b, c, d] }"
     pt = s(:iter,
            s(:call, nil, :f),
-           s(:args, :a, :b, :c, :"&d",
-             s(:block, s(:lasgn, :b, s(:lit, 42)), s(:lasgn, :c, s(:lit, 24)))),
+           s(:args, :a, s(:lasgn, :b, s(:lit, 42)), s(:lasgn, :c, s(:lit, 24)), :"&d"),
            s(:array, s(:lvar, :a), s(:lvar, :b), s(:lvar, :c), s(:lvar, :d)))
 
     assert_parse rb, pt
@@ -1400,13 +1407,7 @@ class TestRuby19Parser < RubyParserTestCase
     rb = "f { |a, (b, *c)| }"
     pt = s(:iter,
            s(:call, nil, :f),
-           s(:masgn,
-             s(:array,
-               s(:lasgn, :a),
-               s(:masgn,
-                 s(:array,
-                   s(:lasgn, :b),
-                   s(:splat, :c)))))) # TODO: omg this is so horrible
+           s(:args, :a, s(:masgn, :b, :"*c")))
 
     assert_parse rb, pt
   end
@@ -1438,4 +1439,133 @@ class TestRuby19Parser < RubyParserTestCase
   #
   #   assert_parse rb, pt
   # end
+
+  def test_iter_args_4
+    rb = "f { |a, *b, c| }"
+    pt = s(:iter, s(:call, nil, :f), s(:args, :a, :"*b", :c))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_args_5
+    rb = "f { |a, &b| }"
+    pt = s(:iter, s(:call, nil, :f), s(:args, :a, :"&b"))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_args_6
+    rb = "f { |a, b=42, c| }"
+    pt = s(:iter, s(:call, nil, :f), s(:args, :a, s(:lasgn, :b, s(:lit, 42)), :c))
+
+    assert_parse rb, pt
+  end
+
+  # In 1.8, block args with an outer set of parens are superfluous.
+  # In 1.9, outer set of parens are NOT... they are an explicit extra masgn.
+
+  def test_iter_args_2__19
+    rb = "f { |(a, b)| }"
+    pt = s(:iter, s(:call, nil, :f), s(:args, s(:masgn, :a, :b)))
+
+    assert_parse rb, pt
+  end
+
+  def test_bug_args__19
+    rb = "f { |(a, b)| d }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:args, s(:masgn, :a, :b)),
+           s(:call, nil, :d))
+
+    assert_parse rb, pt
+  end
+
+  def test_bug_args_masgn_outer_parens__19
+    rb = "f { |((k, v), i)| }"
+    pt = s(:iter,               # NOTE: same sexp as test_bug_args_masgn
+           s(:call, nil, :f),
+           s(:args, s(:masgn, s(:masgn, :k, :v), :i)))
+
+    assert_parse rb, pt.dup
+  end
+
+  def test_iter_args_7_1
+    rb = "f { |a = 42, *b| }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:args, s(:lasgn, :a, s(:lit, 42)), :"*b"))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_args_7_2
+    rb = "f { |a = 42, *b, &c| }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:args, s(:lasgn, :a, s(:lit, 42)), :"*b", :"&c"))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_args_8_1
+    rb = "f { |a = 42, *b, c| }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:args, s(:lasgn, :a, s(:lit, 42)), :"*b", :c))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_args_8_2
+    rb = "f { |a = 42, *b, c, &d| }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:args, s(:lasgn, :a, s(:lit, 42)), :"*b", :c, :"&d"))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_args_9_1
+    rb = "f { |a = 42, b| }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:args, s(:lasgn, :a, s(:lit, 42)), :b))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_args_9_2
+    rb = "f { |a = 42, b, &c| }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:args, s(:lasgn, :a, s(:lit, 42)), :b, :"&c"))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_args_10_1
+    rb = "f { |a, b = 42, *c| }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:args, :a, s(:lasgn, :b, s(:lit, 42)), :"*c"))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_args_10_2
+    rb = "f { |a, b = 42, *c, &d| }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:args, :a, s(:lasgn, :b, s(:lit, 42)), :"*c", :"&d"))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_args_11_1
+    rb = "f { |a, b = 42, *c, d| }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:args, :a, s(:lasgn, :b, s(:lit, 42)), :"*c", :d))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_args_11_2
+    rb = "f { |a, b = 42, *c, d, &e| }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:args, :a, s(:lasgn, :b, s(:lit, 42)), :"*c", :d, :"&e"))
+
+    assert_parse rb, pt
+  end
 end
