@@ -1,3 +1,16 @@
+=== 3.0.0.a10 / 2012-10-26
+
+* 1 major enhancement:
+
+  * iter nodes are now structurally the same as defs. Block args are COMPLETELY different.
+
+* 4 minor enhancements:
+
+  * 1.8 and 1.9 now treat f { |(...)| } differently, per MRI.
+  * 1.9: Added __ENCODING__ support. (witlessbird)
+  * 1.9: Finished coverage for masgn variants in block args
+  * 1.9: covered all forms of block args: optional, splat, block, and destructuring
+
 === 3.0.0.a9 / 2012-10-22
 
 Holy crap! I've hit a 99.92% success rate against 558k files! 492
