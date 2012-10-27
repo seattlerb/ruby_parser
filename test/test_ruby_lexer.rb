@@ -642,6 +642,15 @@ class TestRubyLexer < MiniTest::Unit::TestCase
                    :tNL,             nil)
   end
 
+  def test_yylex_heredoc_empty
+    util_lex_token("<<\"\"\n\#{x}\nblah2\n\n",
+                   :tSTRING_BEG,     "\"",
+                   :tSTRING_DBEG,    "\#{",
+                   :tSTRING_CONTENT, "x}\nblah2\n",
+                   :tSTRING_END,     "",
+                   :tNL,             nil)
+  end
+
   def test_yylex_heredoc_none
     util_lex_token("a = <<EOF\nblah\nblah\nEOF",
                    :tIDENTIFIER,     "a",

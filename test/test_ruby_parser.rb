@@ -872,6 +872,13 @@ module TestRubyParserShared
 
     assert_parse rb, pt
   end
+
+  def test_str_heredoc_interp
+    rb = "<<\"\"\n\#{x}\nblah2\n\n"
+    pt = s(:dstr, "", s(:evstr, s(:call, nil, :x)), s(:str, "\nblah2\n"))
+
+    assert_parse rb, pt
+  end
 end
 
 class TestRubyParser < MiniTest::Unit::TestCase

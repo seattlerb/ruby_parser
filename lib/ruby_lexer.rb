@@ -156,7 +156,7 @@ class RubyLexer
         string_buffer << '#'
       end
 
-      until src.check(eos_re) do
+      begin
         c = tokadd_string func, "\n", nil
 
         rb_compile_error err_msg if
@@ -171,7 +171,7 @@ class RubyLexer
 
         rb_compile_error err_msg if
           src.eos?
-      end
+      end until src.check(eos_re)
     else
       until src.check(eos_re) do
         string_buffer << src.scan(/.*(\n|\z)/)
@@ -193,9 +193,7 @@ class RubyLexer
     case
     when src.scan(/(-?)(['"`])(.*?)\2/) then
       term = src[2]
-      unless src[1].empty? then
-        func |= STR_FUNC_INDENT
-      end
+      func |= STR_FUNC_INDENT unless src[1].empty?
       func |= case term
               when "\'" then
                 STR_SQUOTE
@@ -989,9 +987,7 @@ class RubyLexer
                                 :expr_endarg, :expr_class) &&
                 (!is_arg? || space_seen)) then
               tok = self.heredoc_identifier
-              if tok then
-                return tok
-              end
+              return tok if tok
             end
 
             self.fix_arg_lex_state
