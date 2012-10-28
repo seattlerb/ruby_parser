@@ -1649,4 +1649,11 @@ class TestRuby19Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  def test_index_0
+    rb = "a[] = b"
+    pt = s(:attrasgn, s(:call, nil, :a), :[]=, s(:call, nil, :b))
+
+    assert_parse rb, pt
+  end
 end

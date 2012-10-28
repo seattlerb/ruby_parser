@@ -186,6 +186,7 @@ module RubyParserStuff
   end
 
   def aryset receiver, index
+    index ||= []
     s(:attrasgn, receiver, :"[]=", *index[1..-1])
   end
 
