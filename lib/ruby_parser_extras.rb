@@ -891,17 +891,7 @@ module RubyParserStuff
       end
     else
       # nothing specified... ugh. try to encode as utf-8
-      if ruby19 then
-        begin
-          str.encode! "utf-8"
-        rescue Encoding::InvalidByteSequenceError, Encoding::UndefinedConversionError
-          # OK... You really suck. You have extended chars but didn't
-          # specify what they were. Now we try to force it and double
-          # check that it is valid.
-
-          hack_encoding str
-        end
-      end
+      hack_encoding str if ruby19
     end
 
     str
