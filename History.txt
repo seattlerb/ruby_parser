@@ -1,3 +1,23 @@
+=== 3.0.0 / 2012-11-02
+
+I've hit 99.967% success rate against 558k files! 3.6σ!! 182 files
+failed to parse and spot checking them shows that they're pretty much
+lost causes. I'm sure I missed some stuff, but it is more important at
+this point to release a version to get more people using it in more
+diverse ways than I can come up with.
+
+* 3 minor enhancements:
+
+  * Added RBStringScanner#charpos using #string_to_pos.
+  * Added RBStringScanner#string_to_pos using String#byteslice.
+  * Optimized regexp used for escape chars in strings. (presidentbeef)
+
+* 3 bug fixes:
+
+  * Fixed current_line and unread_many depending on StringScanner#pos
+  * Fixed parsing of 'a[] = b'
+  * Fixed the worst abuse of heredocs EVER. Just because it is valid doesn't mean you should.
+
 === 3.0.0.a10 / 2012-10-26
 
 * 1 major enhancement:

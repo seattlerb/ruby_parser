@@ -14,7 +14,7 @@ Hoe.spec 'ruby_parser' do
 
   self.rubyforge_name = 'parsetree'
 
-  dependency 'sexp_processor', '~> 4.0'
+  dependency 'sexp_processor', '~> 4.1'
 
   if plugin? :perforce then
     self.perforce_ignore << "lib/ruby18_parser.rb"
