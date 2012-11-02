@@ -719,7 +719,7 @@ module RubyParserStuff
                     warn "Ignoring: #{e.message}"
                     Regexp.new(node[1], Regexp::ENC_NONE)
                   end
-                end #  rescue node[1] # HACK - drops options
+                end
     when :dstr then
       if options =~ /o/ then
         node[0] = :dregx_once
