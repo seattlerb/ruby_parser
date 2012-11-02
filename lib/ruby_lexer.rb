@@ -21,7 +21,7 @@ class RubyLexer
   attr_accessor :tern # TODO: rename ternary damnit... wtf
   attr_accessor :nest
 
-  ESC_RE = /\\([0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc])/
+  ESC_RE = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc]))/
 
   ##
   # What version of ruby to parse. 18 and 19 are the only valid values
