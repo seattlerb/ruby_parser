@@ -34,8 +34,25 @@ class RPStringScanner < StringScanner
 #       old_getch
 #     end
 #   end
+
+  if "".respond_to? :encoding then
+    def string_to_pos
+      string.byteslice(0, pos)
+    end
+
+    def charpos
+      string_to_pos.length
+    end
+  else
+    alias :charpos :pos
+
+    def string_to_pos
+      string[0..pos]
+    end
+  end
+
   def current_line # HAHA fuck you (HACK)
-    string[0..pos][/\A.*__LINE__/m].split(/\n/).size
+    string_to_pos[/\A.*__LINE__/m].split(/\n/).size
   end
 
   def extra_lines_added
@@ -57,7 +74,7 @@ class RPStringScanner < StringScanner
     warn({:unread_many => caller[0]}.inspect) if ENV['TALLY']
     self.extra_lines_added += str.count("\n")
     begin
-      string[pos, 0] = str
+      string[charpos, 0] = str
     rescue IndexError
       # HACK -- this is a bandaid on a dirty rag on an open festering wound
     end
