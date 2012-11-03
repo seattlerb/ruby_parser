@@ -36,8 +36,14 @@ class RPStringScanner < StringScanner
 #   end
 
   if "".respond_to? :encoding then
-    def string_to_pos
-      string.byteslice(0, pos)
+    if "".respond_to? :byteslice then
+      def string_to_pos
+        string.byteslice(0, pos)
+      end
+    else
+      def string_to_pos
+        string.bytes.first(pos).pack("c*").force_encoding(string.encoding)
+      end
     end
 
     def charpos
