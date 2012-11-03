@@ -1,3 +1,10 @@
+=== 3.0.1 / 2012-11-02
+
+* 2 bug fixes -- both based on MRI bugs... Yay?:
+
+  * 1.9.2 doesn't have String#byteslice... so I have to do the *HORRIBLE*.
+  * Lexing regexps w/ bad character encodings and no declared options will fall back to /.../n.
+
 === 3.0.0 / 2012-11-02
 
 I've hit 99.967% success rate against 558k files! 3.6σ!! 182 files
