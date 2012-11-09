@@ -1046,7 +1046,7 @@ module RubyParserStuff
   end
 
   def yyerror msg
-    warn msg
+    warn msg if $DEBUG
     super()
   end
 
@@ -1054,8 +1054,8 @@ module RubyParserStuff
     super
   rescue Racc::ParseError => e
     # I don't like how the exception obscures the error message
-    msg = "# ERROR: %s:%p :: %s" % [self.file, lexer.lineno, e.message.strip]
-    warn msg
+    e.message.replace "%s:%p :: %s" % [self.file, lexer.lineno, e.message.strip]
+    warn e.message if $DEBUG
     raise
   end
 
@@ -1286,9 +1286,9 @@ class RubyParser
   end
 
   def process(s, f = "(string)") # parens for emacs *sigh*
-    Ruby19Parser.new.process s, f
+    @p19.process s, f
   rescue Racc::ParseError
-    Ruby18Parser.new.process s, f
+    @p18.process s, f
   end
 
   alias :parse :process
