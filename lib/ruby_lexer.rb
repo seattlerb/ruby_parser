@@ -279,12 +279,12 @@ class RubyLexer
     case
     when src.scan(/[+-]?0[xXbBdD]\b/) then
       rb_compile_error "Invalid numeric format"
+    when src.scan(/[+-]?(?:(?:[1-9][\d_]*|0)(?!\.\d)\b|0[Dd][0-9_]+)/) then
+      int_with_base(10)
     when src.scan(/[+-]?0x[a-f0-9_]+/i) then
       int_with_base(16)
     when src.scan(/[+-]?0[Bb][01_]+/) then
       int_with_base(2)
-    when src.scan(/[+-]?0[Dd][0-9_]+/) then
-      int_with_base(10)
     when src.scan(/[+-]?0[Oo]?[0-7_]*[89]/) then
       rb_compile_error "Illegal octal digit."
     when src.scan(/[+-]?0[Oo]?[0-7_]+|0[Oo]/) then
@@ -298,10 +298,6 @@ class RubyLexer
       end
       self.yacc_value = number.to_f
       :tFLOAT
-    when src.scan(/[+-]?0\b/) then
-      int_with_base(10)
-    when src.scan(/[+-]?[\d_]+\b/) then
-      int_with_base(10)
     else
       rb_compile_error "Bad number format"
     end
