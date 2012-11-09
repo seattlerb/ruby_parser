@@ -151,6 +151,8 @@ task :debug => :isolate do
              Ruby19Parser.new
            end
 
+  time = (ENV["RP_TIMEOUT"] || 10).to_i
+
   file = ENV["F"] || ENV["FILE"]
 
   ruby = if file then
@@ -161,7 +163,7 @@ task :debug => :isolate do
          end
 
   begin
-    p parser.process(ruby, file)
+    p parser.process(ruby, file, time)
   rescue Racc::ParseError => e
     p e
     ss = parser.lexer.src
