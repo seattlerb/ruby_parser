@@ -41,21 +41,18 @@ class RubyParserTestCase < ParseTreeTestCase
       end
     end
 
-    assert_equal emsg, e.message.strip # TODO: why strip?
+    assert_equal emsg, e.message
   end
 
   def assert_parse_error rb, emsg
     e = nil
-    out, err = capture_io do
+    assert_silent do
       e = assert_raises Racc::ParseError do
         processor.parse rb
       end
     end
 
-    assert_equal "", out
-    assert_match(/parse error on value/, err)
-
-    assert_equal emsg, e.message.strip # TODO: why strip?
+    assert_equal emsg, e.message
   end
 
   def assert_parse_line rb, pt, line
@@ -889,12 +886,9 @@ class TestRubyParser < MiniTest::Unit::TestCase
     rb = "while false : 42 end"
     pt = s(:while, s(:false), s(:lit, 42), true)
 
-    out, err = capture_io do
+    assert_silent do
       assert_equal pt, processor.parse(rb)
     end
-
-    assert_empty out
-    assert_match(/parse error on value .:/, err)
 
     # 1.9 only syntax
     rb = "a.()"
@@ -909,7 +903,7 @@ class TestRubyParser < MiniTest::Unit::TestCase
       end
     end
 
-    msg = "parse error on value \"(\" (tLPAREN2)"
+    msg = "(string):1 :: parse error on value \"(\" (tLPAREN2)"
     assert_equal msg, e.message.strip
   end
 end
@@ -1186,13 +1180,13 @@ class TestRuby19Parser < RubyParserTestCase
   def test_do_colon_19
     rb = "while false : 42 end"
 
-    assert_parse_error rb, "parse error on value \":\" (tCOLON)"
+    assert_parse_error rb, "(string):1 :: parse error on value \":\" (tCOLON)"
   end
 
   def test_assoc_list_19
     rb = "{1, 2, 3, 4}"
 
-    assert_parse_error rb, "parse error on value \",\" (tCOMMA)"
+    assert_parse_error rb, "(string):1 :: parse error on value \",\" (tCOMMA)"
   end
 
   def test_case_then_colon_19
@@ -1203,19 +1197,19 @@ class TestRuby19Parser < RubyParserTestCase
       end
     EOM
 
-    assert_parse_error rb, "parse error on value \":\" (tCOLON)"
+    assert_parse_error rb, "(string):2 :: parse error on value \":\" (tCOLON)"
   end
 
   def test_parse_def_xxx1
     rb = 'def f(a, *b, c = nil) end'
 
-    assert_parse_error rb, 'parse error on value "=" (tEQL)'
+    assert_parse_error rb, '(string):1 :: parse error on value "=" (tEQL)'
   end
 
   def test_parse_def_xxx2
     rb = 'def f(a = nil, *b, c = nil) end'
 
-    assert_parse_error rb, 'parse error on value "=" (tEQL)'
+    assert_parse_error rb, '(string):1 :: parse error on value "=" (tEQL)'
   end
 
   def test_parse_until_not_canonical
@@ -1411,7 +1405,7 @@ class TestRuby19Parser < RubyParserTestCase
   def test_motherfuckin_leading_dots2
     rb = "a\n..b"
 
-    assert_parse_error rb, 'parse error on value ".." (tDOT2)'
+    assert_parse_error rb, '(string):2 :: parse error on value ".." (tDOT2)'
   end
 
   def test_kill_me
