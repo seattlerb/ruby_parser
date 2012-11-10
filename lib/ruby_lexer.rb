@@ -1376,13 +1376,16 @@ class RubyLexer
 
           if keyword.id0 == :kDO then
             self.command_start = true
-            return :kDO_COND  if cond.is_in_state
-            return :kDO_BLOCK if cmdarg.is_in_state && state != :expr_cmdarg
-            return :kDO_BLOCK if state == :expr_endarg
+
             if defined?(@hack_expects_lambda) && @hack_expects_lambda
               @hack_expects_lambda = false
               return :kDO_LAMBDA
             end
+
+            return :kDO_COND  if cond.is_in_state
+            return :kDO_BLOCK if cmdarg.is_in_state && state != :expr_cmdarg
+            return :kDO_BLOCK if state == :expr_endarg
+
             return :kDO
           end
 

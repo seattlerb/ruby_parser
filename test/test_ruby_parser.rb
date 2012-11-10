@@ -1650,4 +1650,14 @@ class TestRuby19Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  def test_lambda_do_vs_brace
+    pt = s(:call, nil, :f, s(:iter, s(:call, nil, :lambda), 0))
+
+    rb = "f ->() {}"
+    assert_parse rb, pt
+
+    rb = "f ->() do end"
+    assert_parse rb, pt
+  end
 end
