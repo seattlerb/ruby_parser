@@ -1452,11 +1452,11 @@ rule
                     }
                 | primary_value tDOT paren_args
                     {
-                      result = new_call val[0], :call
+                      result = new_call val[0], :call, val[2]
                     }
                 | primary_value tCOLON2 paren_args
                     {
-                      result = new_call val[0], :call
+                      result = new_call val[0], :call, val[2]
                     }
                 | kSUPER paren_args
                     {

@@ -1660,4 +1660,14 @@ class TestRuby19Parser < RubyParserTestCase
     rb = "f ->() do end"
     assert_parse rb, pt
   end
+
+  def test_thingy
+    pt = s(:call, s(:call, nil, :f), :call, s(:lit, 42))
+
+    rb = "f.(42)"
+    assert_parse rb, pt
+
+    rb = "f::(42)"
+    assert_parse rb, pt
+  end
 end
