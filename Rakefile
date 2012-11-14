@@ -144,6 +144,7 @@ task :debug => :isolate do
 
   $: << "lib"
   require 'ruby_parser'
+  require 'pp'
 
   parser = if ENV["V"] == "18" then
              Ruby18Parser.new
@@ -163,7 +164,7 @@ task :debug => :isolate do
          end
 
   begin
-    p parser.process(ruby, file, time)
+    pp parser.process(ruby, file, time)
   rescue Racc::ParseError => e
     p e
     ss = parser.lexer.src
@@ -185,6 +186,10 @@ task :extract => :isolate do
   file = ENV["F"] || ENV["FILE"]
 
   ruby "-Ilib", "bin/ruby_parse_extract_error", file
+end
+
+task :bugs do
+  sh "for f in bug*.rb ; do rake debug F=$f && rm $f ; done"
 end
 
 # vim: syntax=Ruby
