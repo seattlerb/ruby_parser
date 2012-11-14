@@ -1109,11 +1109,13 @@ rule
                       self.comments.push self.lexer.comments
                       self.in_def = true
                       self.env.extend
-                      result = lexer.lineno, lexer.src.beginning_of_line?
+                      result = lexer.lineno
                     }
                     f_arglist bodystmt kEND
                     {
                       result = new_defn val
+                      result[2].line val[2]
+
                       self.env.unextend
                       self.in_def = false
                     }
@@ -1127,10 +1129,12 @@ rule
                       self.in_single += 1
                       self.env.extend
                       lexer.lex_state = :expr_end # force for args
+                      result = lexer.lineno
                     }
                     f_arglist bodystmt kEND
                     {
                       result = new_defs val
+                      result[3].line val[5]
 
                       self.env.unextend
                       self.in_single -= 1

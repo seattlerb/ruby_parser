@@ -21,7 +21,7 @@ class Racc::Parser
     src = ss.string
     pre_error = src[0...ss.pos]
 
-    defs = pre_error.grep(/^ *def/)
+    defs = pre_error.grep(/^ *(?:def|it)/)
 
     raise "can't figure out where the bad code starts" unless defs.last
 
@@ -34,7 +34,7 @@ class Racc::Parser
 
     src = pre_error + post_error[0..idx+$&.length]
 
-    src.scan(/^(( *)def .*?^\2end)/m)
+    src.scan(/^(( *)(?:def|it) .*?^\2end)/m)
   end
 
   def retest_for_errors defs

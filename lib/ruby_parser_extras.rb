@@ -78,7 +78,7 @@ class RPStringScanner < StringScanner
 
   def unread_many str # TODO: remove this entirely - we should not need it
     warn({:unread_many => caller[0]}.inspect) if ENV['TALLY']
-    self.extra_lines_added += str.count("\n")
+    self.extra_lines_added += str.count("\n") - 1
     begin
       string[charpos, 0] = str
     rescue IndexError
@@ -355,6 +355,8 @@ module RubyParserStuff
                end
              end
 
+    result.line(result.line - 1) if result.line and lexer.src.bol?
+
     raise "identifier #{id.inspect} is not valid" unless result
 
     result
@@ -517,7 +519,6 @@ module RubyParserStuff
 
   def new_call recv, meth, args = nil
     result = s(:call, recv, meth)
-    result.line = recv.line if recv
 
     # TODO: need a test with f(&b) to produce block_pass
     # TODO: need a test with f(&b) { } to produce warning
@@ -528,6 +529,9 @@ module RubyParserStuff
 
     # HACK quick hack to make this work quickly... easy to clean up above
     result.concat args[1..-1]
+
+    line = result.grep(Sexp).map(&:line).compact.min
+    result.line = line if line
 
     result
   end

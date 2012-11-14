@@ -1229,7 +1229,7 @@ class RubyLexer
             return process_token(command_state)
           end
         elsif src.check(/\_/) then
-          if src.beginning_of_line? && src.scan(/\__END__(\n|\Z)/) then
+          if src.beginning_of_line? && src.scan(/\__END__(\r?\n|\Z)/) then
             self.lineno = nil
             return RubyLexer::EOF
           elsif src.scan(/\_\w*/) then

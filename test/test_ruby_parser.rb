@@ -12,6 +12,18 @@ $: << File.expand_path('~/Work/p4/zss/src/sexp_processor/dev/lib')
 
 require 'pt_testcase'
 
+class Sexp
+  alias oldeq2 ==
+  def ==(obj) # :nodoc:
+    if obj.class == self.class then
+      super and
+        (self.line.nil? or obj.line.nil? or self.line == obj.line)
+    else
+      false
+    end
+  end
+end
+
 class RubyParserTestCase < ParseTreeTestCase
   attr_accessor :result, :processor
 
@@ -542,21 +554,8 @@ module TestRubyParserShared
   end
 
   STARTING_LINE = {
-    "case_nested_inner_no_expr"          => 2,
-    "case_no_expr"                       => 2,
-    "case_splat"                         => 2,
-    "dstr_heredoc_expand"                => 1,
-    "dstr_heredoc_windoze_sucks"         => 1,
-    "dstr_heredoc_yet_again"             => 1,
-    "str_heredoc"                        => 1,
-    "str_heredoc_call"                   => 1,
-    "str_heredoc_empty"                  => 1,
-    "str_heredoc_indent"                 => 1,
+    "case_no_expr"                       => 2, # TODO this should be 1
     "structure_unused_literal_wwtt"      => 3, # yes, 3... odd test
-    "undef_block_1"                      => 2,
-    "undef_block_2"                      => 2,
-    "undef_block_3"                      => 2,
-    "undef_block_wtf"                    => 2,
   }
 
   def after_process_hook klass, node, data, input_name, output_name
@@ -660,9 +659,12 @@ module TestRubyParserShared
       puts string
     CODE
 
-    result = processor.parse rb
-    assert_equal 1, result.lasgn.line
-    assert_equal 4, result.call.line
+    pt = s(:block,
+           s(:lasgn, :string,
+             s(:str, "        very long string\n").line(1)).line(1),
+           s(:call, nil, :puts, s(:lvar, :string).line(4)).line(4)).line(1)
+
+    assert_parse rb, pt
   end
 
   def test_parse_line_newlines
@@ -873,6 +875,68 @@ module TestRubyParserShared
   def test_str_heredoc_interp
     rb = "<<\"\"\n\#{x}\nblah2\n\n"
     pt = s(:dstr, "", s(:evstr, s(:call, nil, :x)), s(:str, "\nblah2\n"))
+
+    assert_parse rb, pt
+  end
+
+  def test_i_fucking_hate_line_numbers
+    rb = <<-EOM.gsub(/^ {6}/, '')
+      def a
+        p 1
+        a.b 2
+        c.d 3, 4
+        e.f 5
+        g.h 6, 7
+        p(1)
+        a.b(2)
+        c.d(3, 4)
+        e.f(5)
+        g.h(6, 7)
+      end
+    EOM
+
+    pt = s(:defn, :a, s(:args).line(2),
+           s(:call, nil, :p, s(:lit, 1).line(2)).line(2),
+           s(:call, s(:call, nil, :a).line(3), :b,
+             s(:lit, 2).line(3)).line(3),
+           s(:call, s(:call, nil, :c).line(4), :d,
+             s(:lit, 3).line(4), s(:lit, 4).line(4)).line(4),
+           s(:call, s(:call, nil, :e).line(5), :f,
+             s(:lit, 5).line(5)).line(5),
+           s(:call, s(:call, nil, :g).line(6), :h,
+             s(:lit, 6).line(6), s(:lit, 7).line(6)).line(6),
+           s(:call, nil, :p, s(:lit, 1).line(7)).line(7),
+           s(:call, s(:call, nil, :a).line(8), :b,
+             s(:lit, 2).line(8)).line(8),
+           s(:call, s(:call, nil, :c).line(9), :d,
+             s(:lit, 3).line(9), s(:lit, 4).line(9)).line(9),
+           s(:call, s(:call, nil, :e).line(10), :f,
+             s(:lit, 5).line(10)).line(10),
+           s(:call, s(:call, nil, :g).line(11), :h,
+             s(:lit, 6).line(11), s(:lit, 7).line(11)).line(11)
+           ).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_i_fucking_hate_line_numbers2
+    rb = <<-EOM.gsub(/^ {6}/, '')
+      def a
+          p('a')
+          b = 1
+          p b
+          c =1
+      end
+      a
+    EOM
+
+      pt = s(:block,
+             s(:defn, :a, s(:args).line(2),
+               s(:call, nil, :p, s(:str, "a").line(2)).line(2),
+               s(:lasgn, :b, s(:lit, 1).line(3)).line(3),
+               s(:call, nil, :p, s(:lvar, :b).line(4)).line(4),
+               s(:lasgn, :c, s(:lit, 1).line(5)).line(5)).line(1),
+             s(:call, nil, :a).line(7)).line(1)
 
     assert_parse rb, pt
   end
