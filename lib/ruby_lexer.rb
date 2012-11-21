@@ -298,6 +298,8 @@ class RubyLexer
       end
       self.yacc_value = number.to_f
       :tFLOAT
+    when src.scan(/[+-]?[0-9_]+(?![e])/) then
+      int_with_base(10)
     else
       rb_compile_error "Bad number format"
     end
