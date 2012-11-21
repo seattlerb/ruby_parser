@@ -56,7 +56,7 @@ def expand path
       files << f if File.file? f
     end
 
-    files
+    files.sort
   else
     Dir.glob path
   end
