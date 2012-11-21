@@ -1,3 +1,24 @@
+=== 3.0.2 / 2012-11-21
+
+52 down makes 99.9767% or 3.7σ. 130 files failed to parse out of 558k.
+
+* 4 minor enhancements:
+
+  * Added RP_TIMEOUT env var to override default timeout of 10 seconds.
+  * Minor optimization to RubyLexer#parse_number
+  * Only output parseerror output to stderr if $DEBUG.
+  * ruby_parse_extract_error modified to include 'it' blocks in its search.
+
+* 7 bug fixes:
+
+  * 1.9: Fixed args in dot-call forms (eg f.(...)).
+  * 1.9: Fixed lexing stabby lambda w/ do/end
+  * Deal better with DOS files. Ugh.
+  * Fix line number of production after heredoc.
+  * Fixed RubyParser#process to reuse parser instances across calls.
+  * Fixed line numbers for several productions.
+  * new_call sets line number to smallest line number of members.
+
 === 3.0.1 / 2012-11-02
 
 * 2 bug fixes -- both based on MRI bugs... Yay?:
