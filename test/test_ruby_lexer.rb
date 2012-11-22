@@ -973,6 +973,10 @@ class TestRubyLexer < MiniTest::Unit::TestCase
     util_bad_token "@1"
   end
 
+  def test_yylex_ivar_bad_0_length
+    util_bad_token "1+@\n", :tINTEGER, 1, :tPLUS, "+"
+  end
+
   def test_yylex_keyword_expr
     @lex.lex_state = :expr_endarg
 
@@ -1969,4 +1973,3 @@ class TestRubyLexer < MiniTest::Unit::TestCase
     deny @lex.advance, "must be empty, but had #{[@lex.token, @lex.yacc_value].inspect}"
   end
 end
-

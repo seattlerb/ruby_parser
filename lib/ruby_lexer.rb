@@ -774,7 +774,7 @@ class RubyLexer
           self.lex_strterm = [:strterm, STR_DQUOTE, '"', "\0"] # TODO: question this
           self.yacc_value = "\""
           return :tSTRING_BEG
-        elsif src.scan(/\@\@?\w*/) then
+        elsif src.scan(/\@\@?\w+/) then
           self.token = src.matched
 
           rb_compile_error "`#{token}` is not allowed as a variable name" if
@@ -1244,9 +1244,8 @@ class RubyLexer
       if src.scan(/\004|\032|\000/) || src.eos? then # ^D, ^Z, EOF
         return RubyLexer::EOF
       else # alpha check
-        unless src.check IDENT_RE then
-          rb_compile_error "Invalid char #{src.matched.inspect} in expression"
-        end
+        rb_compile_error "Invalid char #{src.rest[0].chr} in expression" unless
+          src.check IDENT_RE
       end
 
       self.token = src.matched if self.src.scan IDENT_RE
@@ -1418,7 +1417,6 @@ class RubyLexer
     end
 
     self.yacc_value = token
-
 
     self.lex_state = :expr_end if
       last_state != :expr_dot && self.parser.env[token.to_sym] == :lvar
