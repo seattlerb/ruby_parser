@@ -1,3 +1,13 @@
+=== 3.0.3 / 2012-11-23
+
+* 1 minor enhancement:
+
+  * Improved error output on invalid char in expression.
+
+* 1 bug fix:
+
+  * Fixed lexing of no-name ivars. (whitequark)
+
 === 3.0.2 / 2012-11-21
 
 52 down makes 99.9767% or 3.7σ. 130 files failed to parse out of 558k.
