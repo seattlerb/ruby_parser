@@ -70,7 +70,7 @@ class RPStringScanner < StringScanner
   end
 
   def lineno
-    string[0...pos].count("\n") + 1 - extra_lines_added
+    string[0...charpos].count("\n") + 1 - extra_lines_added
   end
 
   # TODO: once we get rid of these, we can make things like
