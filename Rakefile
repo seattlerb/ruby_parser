@@ -189,7 +189,7 @@ task :extract => :isolate do
 end
 
 task :bugs do
-  sh "for f in bug*.rb ; do rake debug F=$f && rm $f ; done"
+  sh "for f in bug*.rb ; do rake19 debug F=$f && rm $f ; done"
 end
 
 # vim: syntax=Ruby
