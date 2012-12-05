@@ -537,7 +537,6 @@ rule
                       result = s(:op_asgn, val[0], val[4], val[2], val[3])
                     }
                 | primary_value tCOLON2 tCONSTANT tOP_ASGN arg
-
                     {
                       yyerror "constant re-assignment"
                     }
