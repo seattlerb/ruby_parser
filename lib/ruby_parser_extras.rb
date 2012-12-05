@@ -1301,6 +1301,17 @@ class RubyParser
     @p18.reset
     @p19.reset
   end
+
+  def self.for_current_ruby
+    case RUBY_VERSION
+    when /^1\.8/ then
+      Ruby18Parser.new
+    when /^1\.9/ then
+      Ruby19Parser.new
+    else
+      raise "unrecognized RUBY_VERSION #{RUBY_VERSION}"
+    end
+  end
 end
 
 ############################################################
