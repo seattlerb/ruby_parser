@@ -1049,10 +1049,7 @@ module RubyParserStuff
     # do nothing for now
   end
 
-  def yyerror msg
-    warn msg if $DEBUG
-    super()
-  end
+  alias yyerror syntax_error
 
   def on_error(et, ev, values)
     super
