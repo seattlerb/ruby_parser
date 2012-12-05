@@ -752,7 +752,6 @@ class RubyLexer
             tok = self.yacc_value = src.matched
             return TOKENS[tok]
           elsif src.scan(/\=begin(?=\s)/) then
-            # @comments << '=' << src.matched
             @comments << src.matched
 
             unless src.scan(/.*?\n=end( |\t|\f)*[^\n]*(\n|\z)/m) then

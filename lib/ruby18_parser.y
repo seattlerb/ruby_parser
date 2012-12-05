@@ -1083,6 +1083,7 @@ rule
                     {
                       result = new_class val
                       self.env.unextend
+                      self.lexer.comments # we don't care about comments in the body
                     }
                 | kCLASS tLSHFT
                     {
@@ -1103,6 +1104,7 @@ rule
                     {
                       result = new_sclass val
                       self.env.unextend
+                      self.lexer.comments # we don't care about comments in the body
                     }
                 | kMODULE
                     {
@@ -1120,6 +1122,7 @@ rule
                     {
                       result = new_module val
                       self.env.unextend
+                      self.lexer.comments # we don't care about comments in the body
                     }
                 | kDEF fname
                     {
@@ -1133,6 +1136,7 @@ rule
                       result = new_defn val
                       self.env.unextend
                       self.in_def = false
+                      self.lexer.comments # we don't care about comments in the body
                     }
                 | kDEF singleton dot_or_colon
                     {
@@ -1151,6 +1155,7 @@ rule
 
                       self.env.unextend
                       self.in_single -= 1
+                      self.lexer.comments # we don't care about comments in the body
                     }
                 | kBREAK
                     {

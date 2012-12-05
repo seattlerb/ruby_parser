@@ -27,6 +27,8 @@ end
 class RubyParserTestCase < ParseTreeTestCase
   attr_accessor :result, :processor
 
+  make_my_diffs_pretty!
+
   def self.previous key
     "Ruby"
   end
@@ -880,8 +882,8 @@ module TestRubyParserShared
   end
 
   def test_i_fucking_hate_line_numbers
-    rb = <<-EOM.gsub(/^ {6}/, '')
-      def a
+    rb = <<-END.gsub(/^ {6}/, '')
+      if true
         p 1
         a.b 2
         c.d 3, 4
@@ -893,52 +895,80 @@ module TestRubyParserShared
         e.f(5)
         g.h(6, 7)
       end
-    EOM
+    END
 
-    pt = s(:defn, :a, s(:args).line(2),
-           s(:call, nil, :p, s(:lit, 1).line(2)).line(2),
-           s(:call, s(:call, nil, :a).line(3), :b,
-             s(:lit, 2).line(3)).line(3),
-           s(:call, s(:call, nil, :c).line(4), :d,
-             s(:lit, 3).line(4), s(:lit, 4).line(4)).line(4),
-           s(:call, s(:call, nil, :e).line(5), :f,
-             s(:lit, 5).line(5)).line(5),
-           s(:call, s(:call, nil, :g).line(6), :h,
-             s(:lit, 6).line(6), s(:lit, 7).line(6)).line(6),
-           s(:call, nil, :p, s(:lit, 1).line(7)).line(7),
-           s(:call, s(:call, nil, :a).line(8), :b,
-             s(:lit, 2).line(8)).line(8),
-           s(:call, s(:call, nil, :c).line(9), :d,
-             s(:lit, 3).line(9), s(:lit, 4).line(9)).line(9),
-           s(:call, s(:call, nil, :e).line(10), :f,
-             s(:lit, 5).line(10)).line(10),
-           s(:call, s(:call, nil, :g).line(11), :h,
-             s(:lit, 6).line(11), s(:lit, 7).line(11)).line(11)
-           ).line(1)
+    pt = s(:if, s(:true).line(1),
+           s(:block,
+             s(:call, nil, :p, s(:lit, 1).line(2)).line(2),
+             s(:call, s(:call, nil, :a).line(3), :b,
+               s(:lit, 2).line(3)).line(3),
+             s(:call, s(:call, nil, :c).line(4), :d,
+               s(:lit, 3).line(4), s(:lit, 4).line(4)).line(4),
+             s(:call, s(:call, nil, :e).line(5), :f,
+               s(:lit, 5).line(5)).line(5),
+             s(:call, s(:call, nil, :g).line(6), :h,
+               s(:lit, 6).line(6), s(:lit, 7).line(6)).line(6),
+             s(:call, nil, :p, s(:lit, 1).line(7)).line(7),
+             s(:call, s(:call, nil, :a).line(8), :b,
+               s(:lit, 2).line(8)).line(8),
+             s(:call, s(:call, nil, :c).line(9), :d,
+               s(:lit, 3).line(9), s(:lit, 4).line(9)).line(9),
+             s(:call, s(:call, nil, :e).line(10), :f,
+               s(:lit, 5).line(10)).line(10),
+             s(:call, s(:call, nil, :g).line(11), :h,
+               s(:lit, 6).line(11), s(:lit, 7).line(11)).line(11)).line(2),
+           nil).line(1)
 
     assert_parse rb, pt
   end
 
   def test_i_fucking_hate_line_numbers2
     rb = <<-EOM.gsub(/^ {6}/, '')
-      def a
-          p('a')
-          b = 1
-          p b
-          c =1
+      if true then
+        p('a')
+        b = 1
+        p b
+        c =1
       end
       a
     EOM
 
-      pt = s(:block,
-             s(:defn, :a, s(:args).line(2),
+    pt = s(:block,
+           s(:if, s(:true).line(1),
+             s(:block,
                s(:call, nil, :p, s(:str, "a").line(2)).line(2),
                s(:lasgn, :b, s(:lit, 1).line(3)).line(3),
                s(:call, nil, :p, s(:lvar, :b).line(4)).line(4),
-               s(:lasgn, :c, s(:lit, 1).line(5)).line(5)).line(1),
-             s(:call, nil, :a).line(7)).line(1)
+               s(:lasgn, :c, s(:lit, 1).line(5)).line(5)).line(2), # TODO line 2?
+             nil).line(1),
+           s(:call, nil, :a).line(7)).line(1)
 
     assert_parse rb, pt
+  end
+
+  def test_parse_comments
+    p = RubyParser.new
+    sexp = p.parse <<-CODE
+      # class comment
+      class Inline
+        def show
+          # woot
+        end
+
+        # Returns a list of things
+        def list
+          # woot
+        end
+      end
+      CODE
+
+    assert_equal "# class comment\n", sexp.comments
+    act = sexp.find_nodes(:defn).map(&:comments)
+    exp = ["", "# Returns a list of things\n"]
+
+    assert_equal exp, act
+    assert_equal [], processor.comments
+    assert_equal "", processor.lexer.comments
   end
 end
 
