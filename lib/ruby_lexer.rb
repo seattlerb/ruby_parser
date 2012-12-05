@@ -7,7 +7,7 @@ class RubyLexer
   IDENT_CHAR_RE = case RUBY_VERSION
                   when /^1\.8/ then
                     /[\w\x80-\xFF]/
-                  when /^(1\.9|2\.0)/ then # HACK - matching 2.0 for now
+                  when /^1\.9/ then
                     /[\w\u0080-\uFFFF]/u
                   else
                     raise "bork"
