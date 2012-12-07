@@ -1,3 +1,16 @@
+=== 3.1.0 / 2012-12-06
+
+* 2 minor enhancements:
+
+  * Added RubyParser.for_current_ruby to provide a parser that matches your runtime. (neilconway)
+  * Duck-typed IDENT_CHAR_RE instead of using RUBY_VERSION
+
+* 3 bug fixes:
+
+  * Cleared out body comments in class/module/defn/defs
+  * Flipped lexer tests to US-ASCII to avoid encoding hell
+  * yyerror is now an alias for syntax_error
+
 === 3.0.4 / 2012-11-26
 
 * 1 bug fix:
