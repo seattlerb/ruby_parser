@@ -4,13 +4,10 @@ class RubyLexer
 
   RUBY19 = "".respond_to? :encoding
 
-  IDENT_CHAR_RE = case RUBY_VERSION
-                  when /^1\.8/ then
-                    /[\w\x80-\xFF]/
-                  when /^1\.9/ then
+  IDENT_CHAR_RE = if RUBY19 then
                     /[\w\u0080-\uFFFF]/u
                   else
-                    raise "bork"
+                    /[\w\x80-\xFF]/
                   end
 
   IDENT_RE = /^#{IDENT_CHAR_RE}+/
