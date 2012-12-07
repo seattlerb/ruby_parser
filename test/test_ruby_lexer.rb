@@ -1,4 +1,5 @@
 #!/usr/local/bin/ruby
+# encoding: US-ASCII
 
 require 'rubygems'
 gem "minitest"
