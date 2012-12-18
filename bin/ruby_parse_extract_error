@@ -4,11 +4,14 @@ $d ||= false
 $d ||= ENV["DELETE"]
 $t ||= false
 $t ||= ENV["DELETE_TIMEOUT"]
+$m ||= false
+$m ||= ENV["MOVE_TIMEOUT"]
 $q ||= false
 $q ||= ENV["QUIET"]
 
 require 'rubygems'
 require 'ruby_parser'
+require 'fileutils'
 
 ARGV.push "-" if ARGV.empty?
 
@@ -96,7 +99,14 @@ def process file
 rescue Timeout::Error
   $exit = 1
   warn "TIMEOUT parsing #{file}. Skipping."
-  File.unlink file if $t
+
+  if $m then
+    dir = File.join $m, File.dirname(file)
+    FileUtils.mkdir_p dir
+    FileUtils.move file, dir
+  elsif $t then
+    File.unlink file
+  end
 rescue StandardError, SyntaxError, Racc::ParseError => e
   $exit = 1
   warn ""
