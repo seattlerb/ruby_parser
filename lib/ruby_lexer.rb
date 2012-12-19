@@ -188,7 +188,7 @@ class RubyLexer
     self.string_buffer = []
 
     case
-    when src.scan(/(-?)(['"`])(.*?)\2/) then
+    when src.scan(/(-?)([\'\"\`])(.*?)\2/) then
       term = src[2]
       func |= STR_FUNC_INDENT unless src[1].empty?
       func |= case term
@@ -200,7 +200,7 @@ class RubyLexer
                 STR_XQUOTE
               end
       string_buffer << src[3]
-    when src.scan(/-?(['"`])(?!\1*\Z)/) then
+    when src.scan(/-?([\'\"\`])(?!\1*\Z)/) then
       rb_compile_error "unterminated here document identifier"
     when src.scan(/(-?)(\w+)/) then
       term = '"'
@@ -249,6 +249,9 @@ class RubyLexer
 
   def int_with_base base
     rb_compile_error "Invalid numeric format" if src.matched =~ /__/
+    rb_compile_error "numeric literal without digits" if
+      ruby19 and src.matched =~ /0o/i
+
     self.yacc_value = src.matched.to_i(base)
     return :tINTEGER
   end

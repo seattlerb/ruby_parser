@@ -1764,4 +1764,11 @@ class TestRuby19Parser < RubyParserTestCase
     rb = "f::(42)"
     assert_parse rb, pt
   end
+
+  def test_unary_plus_on_literal
+    rb = "+:a"
+    pt = s(:call, s(:lit, :a), :+@)
+
+    assert_parse rb, pt
+  end
 end

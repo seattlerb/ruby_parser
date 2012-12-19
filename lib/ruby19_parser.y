@@ -671,11 +671,7 @@ rule
                     }
                 | tUPLUS arg
                     {
-                      if val[1][0] == :lit then
-                        result = val[1]
-                      else
-                        result = new_call val[1], :"+@"
-                      end
+                      result = new_call val[1], :"+@"
                     }
                 | tUMINUS arg
                     {
