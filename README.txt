@@ -43,7 +43,12 @@ becomes:
 
 == SYNOPSIS:
 
-  Ruby19Parser.new.parse "1+1"
+  RubyParser.new.parse "1+1"
+  # => s(:call, s(:lit, 1), :+, s(:lit, 1))
+
+You can also use Ruby19Parser, Ruby18Parser, or RubyParser.for_current_ruby:
+
+  RubyParser.for_current_ruby.parse "1+1"
   # => s(:call, s(:lit, 1), :+, s(:lit, 1))
 
 == REQUIREMENTS:
