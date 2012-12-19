@@ -1,3 +1,16 @@
+=== 3.1.1 / 2012-12-19
+
+* 1 minor enhancement:
+
+  * Added MOVE_TIMEOUT env var for ruby_parse_extract_error to move slow files to a sibling directory
+
+* 4 bug fixes:
+
+  * 1.9: Fixed lexing of "0o". (whitequark)
+  * 1.9: Fixed parsing of unary plus on literals. (whitequark)
+  * Added timeout arg to RubyParser#process to pass through to the real parser
+  * Updated Synopsis to reflect new options for running RP. (louismullie)
+
 === 3.1.0 / 2012-12-06
 
 * 2 minor enhancements:
