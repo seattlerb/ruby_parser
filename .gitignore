@@ -1,0 +1,6 @@
+*~
+lib/ruby*_parser.rb
+lib/ruby*_parser.output
+lib/ruby_lexer.rb
+pkg/
+doc/

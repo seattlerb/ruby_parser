@@ -1,11 +1,9 @@
 # encoding: ASCII-8BIT
 
-require 'stringio'
 require 'racc/parser'
-require 'sexp'
-require 'strscan'
 require 'ruby_lexer'
-require "timeout"
+require 'sexp'
+require 'timeout'
 
 # :stopdoc:
 # WHY do I have to do this?!?
@@ -27,87 +25,6 @@ class Fixnum
   end
 end unless "a"[0] == "a"
 # :startdoc:
-
-class RPStringScanner < StringScanner
-#   if ENV['TALLY'] then
-#     alias :old_getch :getch
-#     def getch
-#       warn({:getch => caller[0]}.inspect)
-#       old_getch
-#     end
-#   end
-
-  if "".respond_to? :encoding then
-    if "".respond_to? :byteslice then
-      def string_to_pos
-        string.byteslice(0, pos)
-      end
-    else
-      def string_to_pos
-        string.bytes.first(pos).pack("c*").force_encoding(string.encoding)
-      end
-    end
-
-    def charpos
-      string_to_pos.length
-    end
-  else
-    alias :charpos :pos
-
-    def string_to_pos
-      string[0..pos]
-    end
-  end
-
-  def current_line # HAHA fuck you (HACK)
-    string_to_pos[/\A.*__LINE__/m].split(/\n/).size
-  end
-
-  def extra_lines_added
-    @extra_lines_added ||= 0
-  end
-
-  def extra_lines_added= val
-    @extra_lines_added = val
-  end
-
-  def lineno
-    string[0...charpos].count("\n") + 1 - extra_lines_added
-  end
-
-  # TODO: once we get rid of these, we can make things like
-  # TODO: current_line and lineno much more accurate and easy to do
-
-  def unread_many str # TODO: remove this entirely - we should not need it
-    warn({:unread_many => caller[0]}.inspect) if ENV['TALLY']
-    self.extra_lines_added += str.count("\n") - 1
-    begin
-      string[charpos, 0] = str
-    rescue IndexError
-      # HACK -- this is a bandaid on a dirty rag on an open festering wound
-    end
-  end
-
-  if ENV['DEBUG'] then
-    alias :old_getch :getch
-    def getch
-      c = self.old_getch
-      p :getch => [c, caller.first]
-      c
-    end
-
-    alias :old_scan :scan
-    def scan re
-      s = old_scan re
-      d :scan => [s, caller.first] if s
-      s
-    end
-  end
-
-  def d o
-    $stderr.puts o.inspect
-  end
-end
 
 module RubyParserStuff
   VERSION = "3.1.3" unless constants.include? "VERSION" # SIGH
@@ -273,19 +190,8 @@ module RubyParserStuff
                s(:cdecl, id)
              else
                case self.env[id]
-               when :lvar then
-                 s(:lasgn, id)
-               when :dvar, nil then
-                 if self.env.current[id] == :dvar then
-                   s(:lasgn, id)
-                 elsif self.env[id] == :dvar then
-                   self.env.use(id)
-                   s(:lasgn, id)
-                 elsif ! self.env.dynamic? then
-                   s(:lasgn, id)
-                 else
-                   s(:lasgn, id)
-                 end
+               when :lvar, :dvar, nil then
+                  s(:lasgn, id)
                else
                  raise "wtf? unknown type: #{self.env[id]}"
                end
@@ -389,8 +295,6 @@ module RubyParserStuff
                end
              end
 
-    result.line(result.line - 1) if result.line and lexer.src.bol?
-
     raise "identifier #{id.inspect} is not valid" unless result
 
     result
@@ -412,9 +316,11 @@ module RubyParserStuff
 
     v = self.class.name[/1[89]/]
     self.lexer = RubyLexer.new v && v.to_i
-    self.lexer.parser = self
+
     @env = RubyParserStuff::Environment.new
     @comments = []
+
+    self.lexer.static_env = @env
 
     @canonicalize_conditions = true
 
@@ -622,7 +528,7 @@ module RubyParserStuff
   end
 
   def new_defn val
-    (_, line), name, args, body = val[0], val[1], val[3], val[4]
+    name, args, body = val[1], val[3], val[4]
     body ||= s(:nil)
 
     result = s(:defn, name.to_sym, args)
@@ -635,7 +541,6 @@ module RubyParserStuff
       end
     end
 
-    result.line = line
     result.comments = self.comments.pop
     result
   end
@@ -737,7 +642,7 @@ module RubyParserStuff
 
   def new_regexp val
     node = val[1] || s(:str, '')
-    options = val[2]
+    options = val[3]
 
     o, k = 0, nil
     options.split(//).uniq.each do |c| # FIX: this has a better home
@@ -891,10 +796,10 @@ module RubyParserStuff
   end
 
   def next_token
-    if self.lexer.advance then
-      return self.lexer.token, self.lexer.yacc_value
+    if defined?(MiniTest)
+      lexer.advance
     else
-      return [false, '$end']
+      lexer.advance_and_decorate
     end
   end
 
@@ -1003,7 +908,8 @@ module RubyParserStuff
       str = handle_encoding str
 
       self.file = file.dup
-      self.lexer.src = str
+      self.lexer.reset
+      self.lexer.source = str
 
       @yydebug = ENV.has_key? 'DEBUG'
 
@@ -1054,7 +960,7 @@ module RubyParserStuff
 
   def s(*args)
     result = Sexp.new(*args)
-    result.line ||= lexer.lineno if lexer.src          # otherwise...
+    result.line ||= lexer.lineno if lexer.source
     result.file = self.file
     result
   end
@@ -1089,98 +995,6 @@ module RubyParserStuff
     raise
   end
 
-  class Keyword
-    class KWtable
-      attr_accessor :name, :state, :id0, :id1
-      def initialize(name, id=[], state=nil)
-        @name  = name
-        @id0, @id1 = id
-        @state = state
-      end
-    end
-
-    ##
-    # :stopdoc:
-    #
-    # :expr_beg    = ignore newline, +/- is a sign.
-    # :expr_end    = newline significant, +/- is a operator.
-    # :expr_arg    = newline significant, +/- is a operator.
-    # :expr_cmdarg = newline significant, +/- is a operator.
-    # :expr_endarg = newline significant, +/- is a operator.
-    # :expr_mid    = newline significant, +/- is a operator.
-    # :expr_fname  = ignore newline, no reserved words.
-    # :expr_dot    = right after . or ::, no reserved words.
-    # :expr_class  = immediate after class, no here document.
-
-    wordlist = [
-                ["end",      [:kEND,      :kEND        ], :expr_end   ],
-                ["else",     [:kELSE,     :kELSE       ], :expr_beg   ],
-                ["case",     [:kCASE,     :kCASE       ], :expr_beg   ],
-                ["ensure",   [:kENSURE,   :kENSURE     ], :expr_beg   ],
-                ["module",   [:kMODULE,   :kMODULE     ], :expr_beg   ],
-                ["elsif",    [:kELSIF,    :kELSIF      ], :expr_beg   ],
-                ["def",      [:kDEF,      :kDEF        ], :expr_fname ],
-                ["rescue",   [:kRESCUE,   :kRESCUE_MOD ], :expr_mid   ],
-                ["not",      [:kNOT,      :kNOT        ], :expr_beg   ],
-                ["then",     [:kTHEN,     :kTHEN       ], :expr_beg   ],
-                ["yield",    [:kYIELD,    :kYIELD      ], :expr_arg   ],
-                ["for",      [:kFOR,      :kFOR        ], :expr_beg   ],
-                ["self",     [:kSELF,     :kSELF       ], :expr_end   ],
-                ["false",    [:kFALSE,    :kFALSE      ], :expr_end   ],
-                ["retry",    [:kRETRY,    :kRETRY      ], :expr_end   ],
-                ["return",   [:kRETURN,   :kRETURN     ], :expr_mid   ],
-                ["true",     [:kTRUE,     :kTRUE       ], :expr_end   ],
-                ["if",       [:kIF,       :kIF_MOD     ], :expr_beg   ],
-                ["defined?", [:kDEFINED,  :kDEFINED    ], :expr_arg   ],
-                ["super",    [:kSUPER,    :kSUPER      ], :expr_arg   ],
-                ["undef",    [:kUNDEF,    :kUNDEF      ], :expr_fname ],
-                ["break",    [:kBREAK,    :kBREAK      ], :expr_mid   ],
-                ["in",       [:kIN,       :kIN         ], :expr_beg   ],
-                ["do",       [:kDO,       :kDO         ], :expr_beg   ],
-                ["nil",      [:kNIL,      :kNIL        ], :expr_end   ],
-                ["until",    [:kUNTIL,    :kUNTIL_MOD  ], :expr_beg   ],
-                ["unless",   [:kUNLESS,   :kUNLESS_MOD ], :expr_beg   ],
-                ["or",       [:kOR,       :kOR         ], :expr_beg   ],
-                ["next",     [:kNEXT,     :kNEXT       ], :expr_mid   ],
-                ["when",     [:kWHEN,     :kWHEN       ], :expr_beg   ],
-                ["redo",     [:kREDO,     :kREDO       ], :expr_end   ],
-                ["and",      [:kAND,      :kAND        ], :expr_beg   ],
-                ["begin",    [:kBEGIN,    :kBEGIN      ], :expr_beg   ],
-                ["__LINE__", [:k__LINE__, :k__LINE__   ], :expr_end   ],
-                ["class",    [:kCLASS,    :kCLASS      ], :expr_class ],
-                ["__FILE__", [:k__FILE__, :k__FILE__   ], :expr_end   ],
-                ["END",      [:klEND,     :klEND       ], :expr_end   ],
-                ["BEGIN",    [:klBEGIN,   :klBEGIN     ], :expr_end   ],
-                ["while",    [:kWHILE,    :kWHILE_MOD  ], :expr_beg   ],
-                ["alias",    [:kALIAS,    :kALIAS      ], :expr_fname ],
-                ["__ENCODING__", [:k__ENCODING__, :k__ENCODING__], :expr_end],
-               ].map { |args| KWtable.new(*args) }
-
-    # :startdoc:
-
-    WORDLIST18 = Hash[*wordlist.map { |o| [o.name, o] }.flatten]
-    WORDLIST19 = Hash[*wordlist.map { |o| [o.name, o] }.flatten]
-
-    WORDLIST18.delete "__ENCODING__"
-
-    %w[and case elsif for if in module or unless until when while].each do |k|
-      WORDLIST19[k] = WORDLIST19[k].dup
-      WORDLIST19[k].state = :expr_value
-    end
-    %w[not].each do |k|
-      WORDLIST19[k] = WORDLIST19[k].dup
-      WORDLIST19[k].state = :expr_arg
-    end
-
-    def self.keyword18 str # REFACTOR
-      WORDLIST18[str]
-    end
-
-    def self.keyword19 str
-      WORDLIST19[str]
-    end
-  end
-
   class Environment
     attr_reader :env, :dyn
 
@@ -1202,96 +1016,27 @@ module RubyParserStuff
       @env.first
     end
 
-    def dynamic
-      idx = @dyn.index false
-      @env[0...idx].reverse.inject { |env, scope| env.merge scope } || {}
-    end
-
-    def dynamic?
-      @dyn[0] != false
-    end
-
     def extend dyn = false
       @dyn.unshift dyn
       @env.unshift({})
-      @use.unshift({})
     end
 
     def initialize dyn = false
       @dyn = []
       @env = []
-      @use = []
       self.reset
     end
 
     def reset
       @dyn.clear
       @env.clear
-      @use.clear
       self.extend
     end
 
     def unextend
       @dyn.shift
       @env.shift
-      @use.shift
       raise "You went too far unextending env" if @env.empty?
-    end
-
-    def use id
-      @env.each_with_index do |env, i|
-        if env[id] then
-          @use[i][id] = true
-        end
-      end
-    end
-
-    def used? id
-      idx = @dyn.index false # REFACTOR
-      u = @use[0...idx].reverse.inject { |env, scope| env.merge scope } || {}
-      u[id]
-    end
-  end
-
-  class StackState
-    attr_reader :name
-    attr_reader :stack
-    attr_accessor :debug
-
-    def initialize(name)
-      @name = name
-      @stack = [false]
-      @debug = false
-    end
-
-    def inspect
-      "StackState(#{@name}, #{@stack.inspect})"
-    end
-
-    def is_in_state
-      p :stack_is_in_state => [name, @stack.last, caller.first] if debug
-      @stack.last
-    end
-
-    def lexpop
-      p :stack_lexpop => caller.first if debug
-      raise if @stack.size == 0
-      a = @stack.pop
-      b = @stack.pop
-      @stack.push(a || b)
-    end
-
-    def pop
-      r = @stack.pop
-      p :stack_pop => [name, r, @stack, caller.first] if debug
-      @stack.push false if @stack.size == 0
-      r
-    end
-
-    def push val
-      @stack.push val
-      p :stack_push => [name, @stack, caller.first] if debug
-      nil
     end
   end
 end
@@ -1302,10 +1047,18 @@ end
 
 class Ruby19Parser < Racc::Parser
   include RubyParserStuff
+
+  def self.do(what)
+    p new.process(what)
+  end
 end
 
 class Ruby18Parser < Racc::Parser
   include RubyParserStuff
+
+  def self.do(what)
+    p new.process(what)
+  end
 end
 
 ##
@@ -1355,14 +1108,6 @@ end
 
 ############################################################
 # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-
-unless "".respond_to?(:grep) then
-  class String
-    def grep re
-      lines.grep re
-    end
-  end
-end
 
 class Sexp
   attr_writer :paren

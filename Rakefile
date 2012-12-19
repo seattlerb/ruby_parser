@@ -31,6 +31,10 @@ file "lib/ruby18_parser.rb" => "lib/ruby18_parser.y"
 file "lib/ruby19_parser.rb" => "lib/ruby19_parser.y"
 file "lib/ruby20_parser.rb" => "lib/ruby20_parser.y"
 
+file "lib/ruby_lexer.rb" => "lib/ruby_lexer.rl" do |t|
+  sh "ragel -R #{t.prerequisites.first} -o #{t.name}"
+end
+
 task :clean do
   rm_rf(Dir["**/*~"] +
         Dir["**/*.diff"] +
