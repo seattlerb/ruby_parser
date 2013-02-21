@@ -520,7 +520,7 @@ bugs/patches/complaints/suggestions.
   * lex_strterm is now a plain array, removed RubyLexer#s(...).
   * yield and super now flatten args.
 
-* 21+ bug fixes:
+* 21 bug fixes:
 
   * I'm sure this list is missing a lot:
   * Fixed 2 bugs both involving attrasgn (and ilk) esp when lhs is an array.
