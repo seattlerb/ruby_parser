@@ -35,18 +35,15 @@ class RubyParserGauntlet < Gauntlet
   def diff_pp o1, o2
     require 'pp'
 
-    File.open("/tmp/a.#{$$}", "w") do |f|
-      PP.pp o1, f
-    end
+    Tempfile.new('ruby_parser_a') do |file_a|
+      PP.pp o1, file_a
 
-    File.open("/tmp/b.#{$$}", "w") do |f|
-      PP.pp o2, f
-    end
+      Tempfile.new('ruby_parser_b') do |file_b|
+        PP.pp o2, file_b
 
-    `diff -u /tmp/a.#{$$} /tmp/b.#{$$}`
-  ensure
-    File.unlink "/tmp/a.#{$$}" rescue nil
-    File.unlink "/tmp/b.#{$$}" rescue nil
+        `diff -u #{file_a.path} #{file_b.path}`
+      end
+    end
   end
 
   def broke name, file, msg
