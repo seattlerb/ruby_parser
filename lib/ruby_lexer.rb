@@ -1262,7 +1262,7 @@ class RubyLexer
   end
 
   def is_end?
-    in_lex_state? :expr_end, :expr_endarg, :expr_endfn
+    in_lex_state? :expr_end, :expr_endarg
   end
 
   def is_arg?
@@ -1395,8 +1395,6 @@ class RubyLexer
           else
             :expr_arg
           end
-        elsif ruby19 && in_lex_state?(:expr_fname) then
-          :expr_endfn
         else
           :expr_end
         end
