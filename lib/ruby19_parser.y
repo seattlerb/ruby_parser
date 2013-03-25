@@ -253,13 +253,9 @@ rule
                       self.env.extend(:dynamic)
                       result = self.lexer.lineno
                     }
-                    opt_block_param
+                    opt_block_param compstmt tRCURLY
                     {
-                      result = self.env.dynamic.keys
-                    }
-                    compstmt tRCURLY
-                    {
-                      result = new_iter nil, val[2], val[4]
+                      result = new_iter nil, val[2], val[3]
                       result.line = val[1]
 
                       self.env.unextend
@@ -1398,14 +1394,10 @@ rule
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                    opt_block_param
-                    {
-                      result = self.env.dynamic.keys
-                    }
-                    compstmt kEND
+                    opt_block_param compstmt kEND
                     {
                       args   = val[2]
-                      body   = val[4]
+                      body   = val[3]
                       result = new_iter nil, args, body
                       result.line = val[1]
 
@@ -1479,13 +1471,9 @@ rule
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                    opt_block_param
+                    opt_block_param compstmt tRCURLY
                     {
-                      result = self.env.dynamic.keys
-                    }
-                    compstmt tRCURLY
-                    {
-                      _, line, args, _, body, _ = val
+                      _, line, args, body, _ = val
 
                       result = new_iter nil, args, body
                       result.line = line
@@ -1497,13 +1485,9 @@ rule
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                 opt_block_param
+                 opt_block_param compstmt kEND
                     {
-                      result = self.env.dynamic.keys
-                    }
-                    compstmt kEND
-                    {
-                      _, line, args, _, body, _ = val
+                      _, line, args, body, _ = val
 
                       result = new_iter nil, args, body
                       result.line = line
