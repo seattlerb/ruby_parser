@@ -1379,8 +1379,6 @@ class RubyLexer
 
           return keyword.id0 if state == :expr_beg or state == :expr_value
 
-          self.lex_state = :expr_beg if keyword.id0 != keyword.id1
-
           return keyword.id1
         end
       end
