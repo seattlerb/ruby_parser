@@ -1745,6 +1745,13 @@ class TestRuby19Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
+  def test_index_0_opasgn
+    rb = "a[] += b"
+    pt = s(:op_asgn1, s(:call, nil, :a), nil, :+, s(:call, nil, :b))
+
+    assert_parse rb, pt
+  end
+
   def test_lambda_do_vs_brace
     pt = s(:call, nil, :f, s(:iter, s(:call, nil, :lambda), 0))
 
