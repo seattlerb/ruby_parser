@@ -1872,6 +1872,8 @@ end
 require "ruby_lexer"
 require "ruby_parser_extras"
 
+# :stopdoc:
+
 # Local Variables: **
 # racc-token-length-max:14 **
 # End: **

@@ -2,6 +2,7 @@
 
 class RubyLexer
 
+  # :stopdoc:
   RUBY19 = "".respond_to? :encoding
 
   IDENT_CHAR_RE = if RUBY19 then
@@ -19,6 +20,7 @@ class RubyLexer
   attr_accessor :nest
 
   ESC_RE = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc]))/
+  # :startdoc:
 
   ##
   # What version of ruby to parse. 18 and 19 are the only valid values
@@ -53,6 +55,8 @@ class RubyLexer
   EOF = :eof_haha!
 
   # ruby constants for strings (should this be moved somewhere else?)
+
+  # :stopdoc:
   STR_FUNC_BORING = 0x00
   STR_FUNC_ESCAPE = 0x01 # TODO: remove and replace with REGEXP
   STR_FUNC_EXPAND = 0x02
@@ -82,6 +86,7 @@ class RubyLexer
     "=~"  => :tMATCH,
     "->"  => :tLAMBDA,
   }
+  # :startdoc:
 
   # How the parser advances to the next token.
   #
