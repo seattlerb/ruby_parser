@@ -265,12 +265,6 @@ module RubyParserStuff
     return head if tail.nil?
     return tail if head.nil?
 
-    case head[0]
-    when :lit, :str then
-      # TODO: raise "no"
-      return tail
-    end
-
     line = [head.line, tail.line].compact.min
 
     head = remove_begin(head)
