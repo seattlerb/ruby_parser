@@ -7,6 +7,7 @@ require 'strscan'
 require 'ruby_lexer'
 require "timeout"
 
+# :stopdoc:
 # WHY do I have to do this?!?
 class Regexp
   ONCE = 0 unless defined? ONCE # FIX: remove this - it makes no sense
@@ -25,6 +26,7 @@ class Fixnum
     self
   end
 end unless "a"[0] == "a"
+# :startdoc:
 
 class RPStringScanner < StringScanner
 #   if ENV['TALLY'] then
@@ -265,6 +267,7 @@ module RubyParserStuff
 
     case head[0]
     when :lit, :str then
+      # TODO: raise "no"
       return tail
     end
 
@@ -473,29 +476,34 @@ module RubyParserStuff
   end
 
   def new_body val
-    result = val[0]
+    body, resbody, elsebody, ensurebody = val
 
-    if val[1] then
+    result = body
+
+    if resbody then
       result = s(:rescue)
-      result << val[0] if val[0]
+      result << body if body
 
-      resbody = val[1]
+      res = resbody
 
-      while resbody do
-        result << resbody
-        resbody = resbody.resbody(true)
+      while res do
+        result << res
+        res = res.resbody(true)
       end
 
-      result << val[2] if val[2]
+      result << elsebody if elsebody
 
-      result.line = (val[0] || val[1]).line
-    elsif not val[2].nil? then
-      warning("else without rescue is useless")
-      result = block_append(result, val[2])
+      result.line = (body || resbody).line
     end
 
-    result = s(:ensure, result, val[3]).compact if val[3]
-    return result
+    if elsebody and not resbody then
+      warning("else without rescue is useless")
+      result = block_append(s(:begin, result), elsebody)
+    end
+
+    result = s(:ensure, result, ensurebody).compact if ensurebody
+
+    result
   end
 
   def argl x
