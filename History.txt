@@ -1,3 +1,10 @@
+=== 3.1.3 / 2013-04-09
+
+* 2 bug fixes:
+
+  * Fixed begin w/ else but no rescue. (whitequark)
+  * Removed literal stripping from block_append. Not its job.
+
 === 3.1.2 / 2013-03-18
 
 * 1 minor enhancement:
