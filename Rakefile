@@ -8,6 +8,7 @@ Hoe.plugin :racc
 Hoe.plugin :isolate
 
 Hoe.add_include_dirs "../../sexp_processor/dev/lib"
+Hoe.add_include_dirs "../../minitest/dev/lib"
 
 Hoe.spec 'ruby_parser' do
   developer 'Ryan Davis', 'ryand-ruby@zenspider.com'
