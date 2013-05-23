@@ -4,7 +4,6 @@
 # ENV['VERBOSE'] = "1"
 
 require 'rubygems'
-gem "minitest"
 require 'minitest/autorun'
 require 'ruby_parser'
 
@@ -979,7 +978,7 @@ module TestRubyParserShared
   end
 end
 
-class TestRubyParser < MiniTest::Unit::TestCase
+class TestRubyParser < Minitest::Test
   def test_parse
     processor = RubyParser.new
 

@@ -2,13 +2,11 @@
 # encoding: US-ASCII
 
 require 'rubygems'
-gem "minitest"
-
 require 'minitest/autorun'
 require 'ruby_lexer'
 require 'ruby18_parser'
 
-class TestRubyLexer < MiniTest::Unit::TestCase
+class TestRubyLexer < Minitest::Test
   alias :deny :refute
 
   def setup

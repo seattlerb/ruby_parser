@@ -1,13 +1,12 @@
 # encoding: US-ASCII
 
 require 'rubygems'
-gem "minitest"
 require 'minitest/autorun'
 require 'ruby_parser_extras'
 
 require 'minitest/unit'
 
-class TestStackState < MiniTest::Unit::TestCase
+class TestStackState < Minitest::Test
   attr_reader :s
 
   def setup
@@ -163,7 +162,7 @@ class TestStackState < MiniTest::Unit::TestCase
   end
 end
 
-class TestEnvironment < MiniTest::Unit::TestCase
+class TestEnvironment < Minitest::Test
   def deny t
     assert ! t
   end
