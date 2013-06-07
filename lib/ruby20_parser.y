@@ -612,7 +612,7 @@ rule
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN arg
                     {
-                      val[2][0] = :arglist
+                      val[2][0] = :arglist if val[2]
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
                     }
                 | primary_value tDOT tIDENTIFIER tOP_ASGN arg
