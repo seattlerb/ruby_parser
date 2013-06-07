@@ -115,6 +115,21 @@ module RubyParserStuff
   attr_accessor :lexer, :in_def, :in_single, :file
   attr_reader :env, :comments
 
+  # Rhis is in sorted order of occurrence according to
+  # charlock_holmes against 500k files, with UTF_8 forced
+  # to the top.
+  #
+  # Overwrite this contstant if you need something different.
+  ENCODING_ORDER = [
+    Encoding::UTF_8,
+    Encoding::ISO_8859_1,
+    Encoding::ISO_8859_2,
+    Encoding::ISO_8859_9,
+    Encoding::SHIFT_JIS,
+    Encoding::WINDOWS_1252,
+    Encoding::EUC_JP
+  ] unless constants.include? "ENCODING_ORDER"
+
   def syntax_error msg
     raise RubyParser::SyntaxError, msg
   end
@@ -932,18 +947,8 @@ module RubyParserStuff
   end
 
   def hack_encoding str, extra = nil
-    # this is in sorted order of occurrence according to
-    # charlock_holmes against 500k files
-    encodings = [
-                 extra,
-                 Encoding::ISO_8859_1,
-                 Encoding::UTF_8,
-                 Encoding::ISO_8859_2,
-                 Encoding::ISO_8859_9,
-                 Encoding::SHIFT_JIS,
-                 Encoding::WINDOWS_1252,
-                 Encoding::EUC_JP,
-                ].compact
+    encodings = ENCODING_ORDER.dup
+    encodings.unshift(extra) unless extra.nil?
 
     # terrible, horrible, no good, very bad, last ditch effort.
     encodings.each do |enc|
