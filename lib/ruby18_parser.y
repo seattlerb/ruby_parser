@@ -521,7 +521,7 @@ rule
                 | primary_value tLBRACK2 aref_args tRBRACK tOP_ASGN arg
                     {
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
-                      val[2][0] = :arglist
+                      val[2][0] = :arglist if val[2]
                     }
                 | primary_value tDOT tIDENTIFIER tOP_ASGN arg
                     {
