@@ -1,4 +1,4 @@
-# encoding: US-ASCII
+# encoding: UTF-8
 
 class RubyLexer
 
@@ -6,12 +6,12 @@ class RubyLexer
   RUBY19 = "".respond_to? :encoding
 
   IDENT_CHAR_RE = if RUBY19 then
-                    /[\w\u0080-\uFFFF]/u
+                    /[\w\u0080-\u{10ffff}]/u
                   else
-                    /[\w\x80-\xFF]/
+                    /[\w\x80-\xFF]/n
                   end
 
-  IDENT_RE = /^#{IDENT_CHAR_RE}+/
+  IDENT_RE = /^#{IDENT_CHAR_RE}+/o
 
   attr_accessor :command_start
   attr_accessor :cmdarg
@@ -19,7 +19,7 @@ class RubyLexer
   attr_accessor :tern # TODO: rename ternary damnit... wtf
   attr_accessor :nest
 
-  ESC_RE = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc]))/
+  ESC_RE = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc]))/u
   # :startdoc:
 
   ##
@@ -75,6 +75,7 @@ class RubyLexer
   TOKENS = {
     "!"   => :tBANG,
     "!="  => :tNEQ,
+    # "!@"  => :tUBANG,
     "!~"  => :tNMATCH,
     ","   => :tCOMMA,
     ".."  => :tDOT2,
@@ -129,9 +130,9 @@ class RubyLexer
   def heredoc here # 63 lines
     _, eos, func, last_line = here
 
-    indent  = (func & STR_FUNC_INDENT) != 0
+    indent  = (func & STR_FUNC_INDENT) != 0 ? "[ \t]*" : nil
     expand  = (func & STR_FUNC_EXPAND) != 0
-    eos_re  = indent ? /[ \t]*#{eos}(\r?\n|\z)/ : /#{eos}(\r?\n|\z)/
+    eos_re  = /#{indent}#{Regexp.escape eos}(\r*\n|\z)/
     err_msg = "can't match #{eos_re.inspect} anywhere in "
 
     rb_compile_error err_msg if
@@ -207,7 +208,7 @@ class RubyLexer
       string_buffer << src[3]
     when src.scan(/-?([\'\"\`])(?!\1*\Z)/) then
       rb_compile_error "unterminated here document identifier"
-    when src.scan(/(-?)(\w+)/) then
+    when src.scan(/(-?)(#{IDENT_CHAR_RE}+)/) then
       term = '"'
       func |= STR_DQUOTE
       unless src[1].empty? then
@@ -349,6 +350,10 @@ class RubyLexer
                               when 's' then
                                 self.lex_state  = :expr_fname
                                 [:tSYMBEG,       STR_SSYM]
+                              when 'I' then
+                                [:tSYMBOLS_BEG, STR_DQUOTE | STR_FUNC_QWORDS]
+                              when 'i' then
+                                [:tQSYMBOLS_BEG, STR_SQUOTE | STR_FUNC_QWORDS]
                               end
 
     rb_compile_error "Bad %string type. Expected [Qq\Wwxrs], found '#{c}'." if
@@ -470,6 +475,8 @@ class RubyLexer
       c = src[2]
       c[0] = (c[0].ord & 0x9f).chr
       c
+    when src.scan(/^[89]/i) then # bad octal or hex... MRI ignores them :(
+      src.matched
     when src.scan(/[McCx0-9]/) || src.eos? then
       rb_compile_error("Invalid escape character syntax")
     else
@@ -642,20 +649,24 @@ class RubyLexer
 
     return r if r
 
-    case s
-    when /^[0-7]{1,3}/ then
-      $&.to_i(8).chr
-    when /^x([0-9a-fA-F]{1,2})/ then
-      $1.to_i(16).chr
-    when /^M-(.)/ then
-      ($1[0].ord | 0x80).chr
-    when /^(C-|c)(.)/ then
-      ($2[0].ord & 0x9f).chr
-    when /^[McCx0-9]/ then
-      rb_compile_error("Invalid escape character syntax")
-    else
-      s
-    end
+    x = case s
+        when /^[0-7]{1,3}/ then
+          $&.to_i(8).chr
+        when /^x([0-9a-fA-F]{1,2})/ then
+          $1.to_i(16).chr
+        when /^M-(.)/ then
+          ($1[0].ord | 0x80).chr
+        when /^(C-|c)(.)/ then
+          ($2[0].ord & 0x9f).chr
+        when /^[89a-f]/i then # bad octal or hex... ignore? that's what MRI does :(
+          s
+        when /^[McCx0-9]/ then
+          rb_compile_error("Invalid escape character syntax")
+        else
+          s
+        end
+    x.force_encoding "UTF-8" if RUBY19
+    x
   end
 
   def warning s
@@ -729,6 +740,14 @@ class RubyLexer
             "}" => :tRCURLY
           }[src.matched]
           return result
+        # elsif src.scan(/!@/) then # TODO
+        #   self.yacc_value = src.matched
+        # 
+        #   if in_lex_state? :expr_fname, :expr_dot then
+        #     self.lex_state = :expr_arg
+        #   end
+        # 
+        #   return :tUBANG
         elsif src.scan(/\.\.\.?|,|![=~]?/) then
           self.lex_state = :expr_beg
           tok = self.yacc_value = src.matched
@@ -778,7 +797,7 @@ class RubyLexer
           self.lex_strterm = [:strterm, STR_DQUOTE, '"', "\0"] # TODO: question this
           self.yacc_value = "\""
           return :tSTRING_BEG
-        elsif src.scan(/\@\@?\w+/) then
+        elsif src.scan(/\@\@?#{IDENT_CHAR_RE}+/o) then
           self.token = src.matched
 
           rb_compile_error "`#{token}` is not allowed as a variable name" if
@@ -850,7 +869,7 @@ class RubyLexer
 
           return result
         elsif src.scan(/\'(\\.|[^\'])*\'/) then
-          self.yacc_value = src.matched[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'")
+          self.yacc_value = src.matched[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'") # "
           self.lex_state = :expr_end
           return :tSTRING
         elsif src.check(/\|/) then

@@ -675,6 +675,22 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_parse_line_heredoc_regexp_chars
+    rb = <<-CODE
+      string = <<-"^D"
+        very long string
+      ^D
+      puts string
+    CODE
+
+    pt = s(:block,
+           s(:lasgn, :string,
+             s(:str, "        very long string\n").line(1)).line(1),
+           s(:call, nil, :puts, s(:lvar, :string).line(4)).line(4)).line(1)
+
+    assert_parse rb, pt
+  end
+
   def test_parse_line_newlines
     rb = "true\n\n"
     pt = s(:true)
@@ -757,10 +773,14 @@ module TestRubyParserShared
     Ruby19Parser === self.processor
   end
 
+  def ruby20
+    Ruby20Parser === self.processor
+  end
+
   def test_bug_comma
     val = if ruby18 then
             s(:lit, 100)
-          elsif ruby19 then
+          elsif ruby19  or ruby20 then
             s(:str, "d")
           else
             raise "wtf"
@@ -814,7 +834,7 @@ module TestRubyParserShared
     rb = "not(a)"
     pt = if ruby18 then
            s(:not, s(:call, nil, :a))
-         elsif ruby19 then
+         elsif ruby19 or ruby20 then
            s(:call, s(:call, nil, :a), :"!")
          else
            raise "wtf"
@@ -975,6 +995,776 @@ module TestRubyParserShared
     assert_equal exp, act
     assert_equal [], processor.comments
     assert_equal "", processor.lexer.comments
+  end
+
+  def test_call_pipe
+    rb = "1 | 2"
+    pt = s(:call, s(:lit, 1), :|, s(:lit, 2))
+
+    assert_parse rb, pt
+  end
+
+  def test_lasgn_command
+    rb = "a = b.c 1"
+    pt = s(:lasgn, :a, s(:call, s(:call, nil, :b), :c, s(:lit, 1)))
+
+    assert_parse rb, pt
+  end
+
+    def test_call_args_command
+    rb = "a.b c.d 1"
+    pt = s(:call, s(:call, nil, :a), :b,
+           s(:call, s(:call, nil, :c), :d,
+             s(:lit, 1)))
+
+    assert_parse rb, pt
+    end
+
+  def test_defined_eh_parens
+    rb = "defined?(42)"
+    pt = s(:defined, s(:lit, 42))
+
+    assert_parse rb, pt
+  end
+
+  def test_if_elsif
+    rb = "if 1; elsif 2; end"
+    pt = s(:if, s(:lit, 1), nil, s(:if, s(:lit, 2), nil, nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_gt
+    rb = "1 > 2"
+    pt = s(:call, s(:lit, 1), :>, s(:lit, 2))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_lt
+    rb = "1 < 2"
+    pt = s(:call, s(:lit, 1), :<, s(:lit, 2))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_lte
+    rb = "1 <= 2"
+    pt = s(:call, s(:lit, 1), :<=, s(:lit, 2))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_spaceship
+    rb = "1 <=> 2"
+    pt = s(:call, s(:lit, 1), :<=>, s(:lit, 2))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_and
+    rb = "1 & 2"
+    pt = s(:call, s(:lit, 1), :&, s(:lit, 2))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_star2
+    rb = "1 ** 2"
+    pt = s(:call, s(:lit, 1), :"**", s(:lit, 2))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_colon2
+    rb = "A::b"
+    pt = s(:call, s(:const, :A), :b)
+
+    assert_parse rb, pt
+  end
+
+  def test_call_star
+    rb = "1 * 2"
+    pt = s(:call, s(:lit, 1), :"*", s(:lit, 2))
+
+    assert_parse rb, pt
+  end
+
+  def test_yield_arg
+    rb = "yield 42"
+    pt = s(:yield, s(:lit, 42))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_div
+    rb = "1 / 2"
+    pt = s(:call, s(:lit, 1), :/, s(:lit, 2))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_eq3
+    rb = "1 === 2"
+    pt = s(:call, s(:lit, 1), :===, s(:lit, 2))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_carat
+    rb = "1 ^ 2"
+    pt = s(:call, s(:lit, 1), :^, s(:lit, 2))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_rshift
+    rb = "1 >> 2"
+    pt = s(:call, s(:lit, 1), :>>, s(:lit, 2))
+
+    assert_parse rb, pt
+  end
+
+  def test_lasgn_arg_rescue_arg
+    rb = "a = 1 rescue 2"
+    pt = s(:lasgn, :a, s(:rescue, s(:lit, 1), s(:resbody, s(:array), s(:lit, 2))))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_bang_squiggle
+    rb = "1 !~ 2"
+    pt = s(:not, s(:call, s(:lit, 1), :=~, s(:lit, 2))) # TODO: check for 1.9+
+
+    assert_parse rb, pt
+  end
+
+  def test_super_arg
+    rb = "super 42"
+    pt = s(:super, s(:lit, 42))
+
+    assert_parse rb, pt
+  end
+
+  def test_defns_reserved
+    rb = "def self.return; end"
+    pt = s(:defs, s(:self), :return, s(:args))
+
+    assert_parse rb, pt
+  end
+
+  def test_unary_minus
+    rb = "-a"
+    pt = s(:call, s(:call, nil, :a), :"-@")
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_command_call
+    rb = "a, = b.c 1"
+    pt = s(:masgn,
+           s(:array, s(:lasgn, :a)),
+           s(:to_ary, s(:call, s(:call, nil, :b), :c, s(:lit, 1))))
+
+    assert_parse rb, pt
+  end
+
+  def test_uminus_float
+    rb = "-0.0"
+    pt = s(:lit, -0.0)
+
+    assert_parse rb, pt
+  end
+
+  def test_op_asgn_command_call
+    rb = "a ||= b.c 2"
+    pt = s(:op_asgn_or,
+           s(:lvar, :a),
+           s(:lasgn, :a, s(:call, s(:call, nil, :b), :c, s(:lit, 2))))
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_paren
+    rb = "(a, b) = c.d"
+    pt = s(:masgn,
+           s(:array, s(:lasgn, :a), s(:lasgn, :b)),
+           s(:to_ary, s(:call, s(:call, nil, :c), :d)))
+
+    assert_parse rb, pt
+  end
+
+  def test_unary_tilde
+    rb = "~a"
+    pt = s(:call, s(:call, nil, :a), :~)
+
+    assert_parse rb, pt
+  end
+
+  def test_unary_plus
+    rb = "+a"
+    pt = s(:call, s(:call, nil, :a), :+@)
+
+    assert_parse rb, pt
+  end
+
+  def test_qwords_empty
+    rb = "%w()"
+    pt = s(:array)
+
+    assert_parse rb, pt
+  end
+
+  def test_qWords_space
+    rb = "%W( )"
+    pt = s(:array)
+
+    assert_parse rb, pt
+  end
+
+  def test_attr_asgn_colon_id
+    rb = "A::b = 1"
+    pt = s(:attrasgn, s(:const, :A), :b=, s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+
+  def test_aref_args_assocs
+    rb = "[1 => 2]"
+    pt = s(:array, s(:hash, s(:lit, 1), s(:lit, 2)))
+
+    assert_parse rb, pt
+  end
+
+  def test_BEGIN
+    rb = "BEGIN { 42 }"
+    pt = s(:iter, s(:preexe), s(:args), s(:lit, 42))
+
+    assert_parse rb, pt
+  end
+
+  def test_attrasgn_primary_dot_constant
+    rb = "a.B = 1"
+    pt = s(:attrasgn, s(:call, nil, :a), :"B=", s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+
+  def test_op_asgn_primary_colon_identifier
+    rb = "A::b += 1"
+    pt = s(:op_asgn, s(:const, :A), s(:lit, 1), :b, :+) # TODO: check? looks wack
+
+    assert_parse rb, pt
+  end
+
+  def test_words_interp
+    rb = '%W(#{1}b)'
+    pt = s(:array, s(:dstr, "", s(:evstr, s(:lit, 1)), s(:str, "b")))
+
+    assert_parse rb, pt
+  end
+
+  def test_op_asgn_index_command_call
+    rb = "a[:b] ||= c 1, 2"
+    pt = s(:op_asgn1, s(:call, nil, :a), s(:array, s(:lit, :b)),
+           :"||",
+           s(:call, nil, :c, s(:lit, 1), s(:lit, 2)))
+
+    assert_parse rb, pt
+  end
+
+  def test_op_asgn_val_dot_ident_command_call
+    rb = "a.b ||= c 1"
+    pt = s(:op_asgn, s(:call, nil, :a), s(:call, nil, :c, s(:lit, 1)), :b, :"||")
+
+    assert_parse rb, pt
+  end
+
+  def test_yield_empty_parens
+    rb = "yield()"
+    pt = s(:yield)
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_lhs_splat
+    rb = "*a = 1, 2, 3"
+    pt = s(:masgn,
+           s(:array, s(:splat, s(:lasgn, :a))),
+           s(:array, s(:lit, 1), s(:lit, 2), s(:lit, 3)))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_decomp_arg_splat
+    skip "not that smart yet" if ruby18 # HACK
+
+    rb = "a { |(b, *)| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, s(:masgn, :b, :*)))
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_arg_ident
+    rb = "a, b.C = d"
+    pt = s(:masgn,
+           s(:array, s(:lasgn, :a), s(:attrasgn, s(:call, nil, :b), :"C=")),
+           s(:to_ary, s(:call, nil, :d)))
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_arg_colon_arg
+    rb = "a, b::c = d"
+    pt = s(:masgn,
+           s(:array, s(:lasgn, :a), s(:attrasgn, s(:call, nil, :b), :c=)),
+           s(:to_ary, s(:call, nil, :d)))
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_star
+    rb = "* = 1"
+    pt = s(:masgn,
+           s(:array, s(:splat)),
+           s(:to_ary, s(:lit, 1)))
+
+    assert_parse rb, pt
+  end
+
+  def test_op_asgn_dot_ident_command_call
+    rb = "A.B ||= c 1"
+    pt = s(:op_asgn, s(:const, :A), s(:call, nil, :c, s(:lit, 1)), :B, :"||")
+
+    assert_parse rb, pt
+  end
+
+  def test_block_decomp_splat
+    skip "not that smart yet" if ruby18 # HACK
+
+    rb = "f { |(*a)| }"
+    pt = s(:iter, s(:call, nil, :f), s(:args, s(:masgn, :"*a")))
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_colon3
+    rb = "::A, ::B = 1, 2"
+    pt = s(:masgn,
+           s(:array, s(:const, nil, s(:colon3, :A)), s(:const, s(:colon3, :B))),
+           s(:array, s(:lit, 1), s(:lit, 2)))
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_colon2
+    rb = "a, b::C = 1, 2"
+    pt = s(:masgn,
+           s(:array, s(:lasgn, :a), s(:const, s(:colon2, s(:call, nil, :b), :C))),
+           s(:array, s(:lit, 1), s(:lit, 2)))
+
+    assert_parse rb, pt
+  end
+
+  def test_alias_gvar_backref
+    rb = "alias $MATCH $&"
+    pt = s(:valias, :$MATCH, :$&)
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_broken_windows_theory_applies_to_microsoft_more_than_anything
+    rb = "<<EOS\r\r\nEOS\r\r\n"
+    pt = s(:str, "")
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_unicode
+    rb = "<<OOTPÜT\n.\nOOTPÜT\n"
+    pt = s(:str, ".\n")
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_double_paren
+    rb = "((a,b))=c" # TODO: blog
+    pt = s(:masgn,
+           s(:array, s(:masgn, s(:array, s(:lasgn, :a), s(:lasgn, :b)))),
+           s(:to_ary, s(:call, nil, :c)))
+
+    assert_parse rb, pt
+  end
+end
+
+module TestRubyParserShared1920
+  def test_block_call_operation_dot
+    rb = "a.b c do end.d"
+    pt = s(:call,
+           s(:iter,
+             s(:call, s(:call, nil, :a), :b, s(:call, nil, :c)), s(:args)),
+           :d)
+
+    assert_parse rb, pt
+  end
+
+  def test_block_call_operation_colon
+    rb = "a.b c do end::d"
+    pt = s(:call,
+           s(:iter,
+             s(:call, s(:call, nil, :a), :b, s(:call, nil, :c)), s(:args)),
+           :d)
+
+    assert_parse rb, pt
+  end
+
+  def test_block_command_operation_dot
+    rb = "a :b do end.c :d"
+    pt = s(:call,
+           s(:iter, s(:call, nil, :a, s(:lit, :b)), s(:args)),
+           :c,
+           s(:lit, :d))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_command_operation_colon
+    rb = "a :b do end::c :d"
+    pt = s(:call,
+           s(:iter, s(:call, nil, :a, s(:lit, :b)), s(:args)),
+           :c,
+           s(:lit, :d))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_optarg
+    rb = "a { |b = :c| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, s(:lasgn, :b, s(:lit, :c))))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_reg_optarg
+    rb = "a { |b, c = :d| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, :b, s(:lasgn, :c, s(:lit, :d))))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_splat_reg
+    rb = "a { |*b, c| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, :"*b", :c))
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_opt_reg
+    rb = "def f(a=nil, b) end"
+    pt = s(:defn, :f, s(:args, s(:lasgn, :a, s(:nil)), :b), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_reg_opt_reg
+    rb = "def f(a, b = :c, d) end"
+    pt = s(:defn, :f, s(:args, :a, s(:lasgn, :b, s(:lit, :c)), :d), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_splat_arg
+    rb = "def f(*, a) end"
+    pt = s(:defn, :f, s(:args, :*, :a), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_arg_asplat_arg
+    rb = "def call(interp, *, args) end"
+    pt = s(:defn, :call, s(:args, :interp, :*, :args), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_arg_scope
+    rb = "a { |b; c| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, :b, s(:shadow, :c)))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_arg_scope2
+    rb = "a {|b; c, d| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, :b, s(:shadow, :c, :d)))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_arg_splat_arg
+    rb = "a { |b, *c, d| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, :b, :"*c", :d))
+
+    assert_parse rb, pt
+  end
+
+  def test_stabby_proc_scope
+    rb = "->(a; b) {}"
+    pt = s(:iter, s(:call, nil, :lambda), s(:args, :a, s(:shadow, :b)))
+
+    assert_parse rb, pt
+  end
+
+  def test_stabby_arg_opt_splat_arg_block_omfg
+    rb = "->(b, c=1, *d, e, &f){}"
+    pt = s(:iter,
+           s(:call, nil, :lambda),
+           s(:args, :b, s(:lasgn, :c, s(:lit, 1)), :"*d", :e, :"&f"))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_arg_opt_splat_arg_block_omfg
+    rb = "a { |b, c=1, *d, e, &f| }"
+    pt = s(:iter,
+           s(:call, nil, :a),
+           s(:args, :b, s(:lasgn, :c, s(:lit, 1)), :"*d", :e, :"&f"))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_arg_opt_splat
+    rb = "a { |b, c = 1, *d| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, :b, s(:lasgn, :c, s(:lit, 1)), :"*d"))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_opt_splat
+    rb = "a { |b = 1, *c| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, s(:lasgn, :b, s(:lit, 1)), :"*c"))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_arg_opt_arg_block
+    rb = "a { |b, c=1, d, &e| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, :b, s(:lasgn, :c, s(:lit, 1)), :d, :"&e"))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_opt_arg
+    rb = "a { |b=1, c| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, s(:lasgn, :b, s(:lit, 1)), :c))
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_opt_splat_arg
+    rb = "def f (a = 1, *b, c) end"
+    pt = s(:defn, :f, s(:args, s(:lasgn, :a, s(:lit, 1)), :"*b", :c), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_opt_splat_arg_block_omfg
+    rb = "a { |b=1, *c, d, &e| }"
+    pt = s(:iter,
+           s(:call, nil, :a),
+           s(:args, s(:lasgn, :b, s(:lit, 1)), :"*c", :d, :"&e"))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_scope
+    rb = "a { |;b| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, s(:shadow, :b)))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_unary_bang
+    rb = "!1"
+    pt = s(:call, s(:lit, 1), :"!")
+
+    assert_parse rb, pt
+  end
+
+  def test_assoc_label
+    rb = "a(b:1)"
+    pt = s(:call, nil, :a, s(:hash, s(:lit, :b), s(:lit, 1)))
+
+    assert_parse rb, pt
+  end
+
+  def test_bang_eq
+    rb = "1 != 2"
+    pt = s(:call, s(:lit, 1), :"!=", s(:lit, 2))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_not
+    rb = "not 42"
+    pt = s(:call, s(:lit, 42), :"!")
+
+    assert_parse rb, pt
+  end
+
+  def test_call_bang_command_call
+    rb = "! a.b 1"
+    pt = s(:call, s(:call, s(:call, nil, :a), :b, s(:lit, 1)), :"!")
+
+    assert_parse rb, pt
+  end
+
+  def test_stabby_arg_no_paren
+    rb = "->a{}"
+    pt = s(:iter, s(:call, nil, :lambda), s(:args, :a))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_trailing_comma
+    rb = "f(1,)"
+    pt = s(:call, nil, :f, s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_assoc_trailing_comma
+    rb = "f(1=>2,)"
+    pt = s(:call, nil, :f, s(:hash, s(:lit, 1), s(:lit, 2)))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_args_assoc_trailing_comma
+    rb = "f(1, 2=>3,)"
+    pt = s(:call, nil, :f, s(:lit, 1), s(:hash, s(:lit, 2), s(:lit, 3)))
+
+    assert_parse rb, pt
+  end
+
+  def test_do_lambda
+    rb = "->() do end"
+    pt = s(:iter, s(:call, nil, :lambda), 0)
+
+    assert_parse rb, pt
+  end
+
+  def test_call_dot_parens
+    rb = "1.()"
+    pt = s(:call, s(:lit, 1), :call)
+
+    assert_parse rb, pt
+  end
+
+  def test_call_colon_parens
+    rb = "1::()"
+    pt = s(:call, s(:lit, 1), :call)
+
+    assert_parse rb, pt
+  end
+
+  def test_block_args_opt2
+    rb = "a { | b=1, c=2 | }"
+    pt = s(:iter,
+           s(:call, nil, :a),
+           s(:args, s(:lasgn, :b, s(:lit, 1)), s(:lasgn, :c, s(:lit, 2))))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_paren_splat # TODO: rename # TODO: should work on 1.8
+    rb = "a { |(b, *c)| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, s(:masgn, :b, :"*c")))
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_anon_splat_arg
+    rb = "*, a = b"
+    pt = s(:masgn,
+           s(:array, s(:splat), s(:lasgn, :a)),
+           s(:to_ary, s(:call, nil, :b)))
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_splat_arg
+    rb = "*a, b = c"
+    pt = s(:masgn,
+           s(:array, s(:splat, s(:lasgn, :a)), s(:lasgn, :b)),
+           s(:to_ary, s(:call, nil, :c)))
+
+    assert_parse rb, pt
+  end
+
+  def test_lasgn_lasgn_command_call
+    rb = "a = b = c 1"
+    pt = s(:lasgn, :a, s(:lasgn, :b, s(:call, nil, :c, s(:lit, 1))))
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_arg_splat_arg
+    rb = "a, *b, c = d"
+    pt = s(:masgn,
+           s(:array, s(:lasgn, :a), s(:splat, s(:lasgn, :b)), s(:lasgn, :c)),
+           s(:to_ary, s(:call, nil, :d)))
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_splat_arg_arg
+    rb = "*a, b, c = d"
+    pt = s(:masgn,
+           s(:array, s(:splat, s(:lasgn, :a)), s(:lasgn, :b), s(:lasgn, :c)),
+           s(:to_ary, s(:call, nil, :d)))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_decomp_anon_splat_arg
+    rb = "f { |(*, a)| }"
+    pt = s(:iter, s(:call, nil, :f), s(:args, s(:masgn, :*, :a)))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_decomp_arg_splat_arg
+    rb = "f { |(a, *b, c)| }"
+    pt = s(:iter, s(:call, nil, :f), s(:args, s(:masgn, :a, :"*b", :c)))
+
+    assert_parse rb, pt
+  end
+
+  def test_symbol_empty
+    skip "can't do this in ruby 1.8" if RUBY_VERSION < "1.9"
+
+    rb = ":''"
+    pt = s(:lit, "".to_sym)
+
+    assert_parse rb, pt
+  end
+
+  def test_masgn_var_star_var
+    rb = "a, *, b = c" # TODO: blog
+    pt = s(:masgn,
+           s(:array, s(:lasgn, :a), s(:splat), s(:lasgn, :b)),
+           s(:to_ary, s(:call, nil, :c)))
+
+    assert_parse rb, pt
+  end
+
+  def test_mlhs_keyword
+    skip "Breaks on 1.9 and 2.0 parser but valid" # HACK
+    rb = "a.!=(true, true)"
+    pt = 42
+
+    assert_parse rb, pt
   end
 end
 
@@ -1174,10 +1964,39 @@ class TestRuby18Parser < RubyParserTestCase
 
     assert_parse rb, pt.dup
   end
+
+  def test_call_unary_bang
+    rb = "!1"
+    pt = s(:not, s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+
+  def test_bang_eq
+    rb = "1 != 2"
+    pt = s(:not, s(:call, s(:lit, 1), :"==", s(:lit, 2)))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_not
+    rb = "not 42"
+    pt = s(:not, s(:lit, 42))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_bang_command_call
+    rb = "! a.b 1"
+    pt = s(:not, s(:call, s(:call, nil, :a), :b, s(:lit, 1)))
+
+    assert_parse rb, pt
+  end
 end
 
 class TestRuby19Parser < RubyParserTestCase
   include TestRubyParserShared
+  include TestRubyParserShared1920
 
   def setup
     super
@@ -1376,7 +2195,7 @@ class TestRuby19Parser < RubyParserTestCase
 
   def test_parse_opt_call_args_assocs_comma
     rb = "1[2=>3,]"
-    pt = s(:call, s(:lit, 1), :[], s(:lit, 2), s(:lit, 3))
+    pt = s(:call, s(:lit, 1), :[], s(:hash, s(:lit, 2), s(:lit, 3)))
 
     assert_parse rb, pt
   end
@@ -1774,6 +2593,122 @@ class TestRuby19Parser < RubyParserTestCase
   def test_unary_plus_on_literal
     rb = "+:a"
     pt = s(:call, s(:lit, :a), :+@)
+
+    assert_parse rb, pt
+  end
+end
+
+class TestRuby20Parser < RubyParserTestCase
+  include TestRubyParserShared
+  include TestRubyParserShared1920
+
+  def setup
+    super
+
+    self.processor = Ruby20Parser.new
+  end
+
+  def test_defn_kwarg_val
+    rb = "def f(a, b:1) end"
+    pt = s(:defn, :f, s(:args, :a, s(:kwarg, :b, s(:lit, 1))), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_args_kw_block
+    rb = "def f(a: 1, &b); end"
+    pt = s(:defn, :f, s(:args, s(:kwarg, :a, s(:lit, 1)), :"&b"), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_kwarg_kwarg
+    rb = "def f(a, b: 1, c: 2) end"
+    pt = s(:defn, :f, s(:args, :a,
+                        s(:kwarg, :b, s(:lit, 1)),
+                        s(:kwarg, :c, s(:lit, 2))),
+           s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_powarg
+    rb = "def f(**opts) end"
+    pt = s(:defn, :f, s(:args, :"**opts"), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_arg_kwsplat
+    rb = "a { |**b| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, :"**b"))
+
+    assert_parse rb, pt
+  end
+
+  def test_symbols
+    rb = "%i(a b c)"
+    pt = s(:array, s(:lit, :a), s(:lit, :b), s(:lit, :c))
+
+    assert_parse rb, pt
+  end
+
+  def test_symbols_interp
+    rb = '%i(a b#{1+1} c)'
+    pt = s(:array, s(:lit, :a), s(:lit, :'b#{1+1}'), s(:lit, :c))
+
+    assert_parse rb, pt
+  end
+
+  def test_symbols_empty_space
+    rb = "%i( )"
+    pt = s(:array)
+
+    assert_parse rb, pt
+  end
+
+  def test_symbols_empty
+    rb = "%i()"
+    pt = s(:array)
+
+    assert_parse rb, pt
+  end
+
+  def test_qsymbols
+    rb = "%I(a b c)"
+    pt = s(:array, s(:lit, :a), s(:lit, :b), s(:lit, :c))
+
+    assert_parse rb, pt
+  end
+
+  def test_qsymbols_interp
+    rb = '%I(a b#{1+1} c)'
+    pt = s(:array,
+           s(:lit, :a),
+           s(:dsym, "b", s(:evstr, s(:call, s(:lit, 1), :+, s(:lit, 1)))),
+           s(:lit, :c))
+
+    assert_parse rb, pt
+  end
+
+  def test_qsymbols_empty
+    rb = "%I()"
+    pt = s(:array)
+
+    assert_parse rb, pt
+  end
+
+  def test_qsymbols_empty_space
+    rb = "%I( )"
+    pt = s(:array)
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_unary_not # TODO: this needs to work on 1.9
+    skip "Not yet"
+    rb = "def !@; true; end" # I seriously HATE this
+    pt = s(:defn, :"!@", s(:args), s(:true))
 
     assert_parse rb, pt
   end

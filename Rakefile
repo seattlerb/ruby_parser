@@ -16,10 +16,12 @@ Hoe.spec 'ruby_parser' do
   self.rubyforge_name = 'parsetree'
 
   dependency 'sexp_processor', '~> 4.1'
+  dependency 'rake', '< 10', :developer
 
   if plugin? :perforce then
     self.perforce_ignore << "lib/ruby18_parser.rb"
     self.perforce_ignore << "lib/ruby19_parser.rb"
+    self.perforce_ignore << "lib/ruby20_parser.rb"
   end
 
   self.racc_flags << " -t" if plugin?(:racc) && ENV["DEBUG"]
@@ -27,6 +29,7 @@ end
 
 file "lib/ruby18_parser.rb" => "lib/ruby18_parser.y"
 file "lib/ruby19_parser.rb" => "lib/ruby19_parser.y"
+file "lib/ruby20_parser.rb" => "lib/ruby20_parser.y"
 
 task :clean do
   rm_rf(Dir["**/*~"] +
@@ -49,16 +52,6 @@ task :compare do
     system "./cmp.rb -q #{file} && rm #{file}"
   end
   system 'find -d unit -type d -empty -exec rmdir {} \;'
-end
-
-desc "Compares PT to RP and stops on first failure"
-task :find_bug do
-  files = Dir["unit/**/*.rb"]
-  puts "Parsing #{files.size} files"
-  files.each do |file|
-    puts file
-    sh "./cmp.rb -q #{file}"
-  end
 end
 
 task :sort do
@@ -122,6 +115,7 @@ task :isolate => :phony
 
 file "lib/ruby18_parser.rb" => :isolate
 file "lib/ruby19_parser.rb" => :isolate
+file "lib/ruby20_parser.rb" => :isolate
 
 task :compare18 do
   sh "./yack.rb lib/ruby18_parser.output > racc18.txt"
@@ -139,18 +133,29 @@ task :compare19 do
   sh "diff -du racc19.txt yacc19.txt | wc -l"
 end
 
+task :compare20 do
+  sh "./yack.rb lib/ruby20_parser.output > racc20.txt"
+  sh "./yack.rb parse20.output > yacc20.txt"
+  sh "diff -du racc20.txt yacc20.txt || true"
+  puts
+  sh "diff -du racc20.txt yacc20.txt | wc -l"
+end
+
 task :debug => :isolate do
-  ENV["V"] ||= "19"
+  ENV["V"] ||= "20"
   Rake.application[:parser].invoke # this way we can have DEBUG set
 
   $: << "lib"
   require 'ruby_parser'
   require 'pp'
 
-  parser = if ENV["V"] == "18" then
+  parser = case ENV["V"]
+           when "18" then
              Ruby18Parser.new
-           else
+           when "19" then
              Ruby19Parser.new
+           else
+             Ruby20Parser.new
            end
 
   time = (ENV["RP_TIMEOUT"] || 10).to_i
@@ -190,7 +195,7 @@ task :extract => :isolate do
 end
 
 task :bugs do
-  sh "for f in bug*.rb ; do rake19 debug F=$f && rm $f ; done"
+  sh "for f in bug*.rb ; do #{Gem.ruby} -S rake debug F=$f && rm $f ; done"
 end
 
 # vim: syntax=Ruby

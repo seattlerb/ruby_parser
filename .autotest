@@ -11,7 +11,12 @@ Autotest.add_hook :initialize do |at|
   at.add_exception 'coverage'
   at.add_exception 'coverage.info'
   at.add_exception '.diff'
+  at.add_exception '.output'
   at.add_exception 'rubycorpus'
+  at.add_exception "lib/ruby18_parser.rb"
+  at.add_exception "lib/ruby19_parser.rb"
+  at.add_exception "lib/ruby20_parser.rb"
+  at.add_exception "lib/gauntlet_rubyparser.rb"
 
   dirs = Dir["corpus*"] + Dir["gauntlet*"]
 
@@ -23,6 +28,8 @@ Autotest.add_hook :initialize do |at|
   at.testlib = "minitest/autorun"
 
   at.add_mapping(/^lib\/.*\.y$/) do |f, _|
+    re = %r%^test/test_#{File.basename(f, '.y').gsub(/(\d+)/, '')}.rb$%
+    at.files_matching re
     at.files_matching %r%^test/.*#{File.basename(f, '.y').gsub '_', '_?'}.rb$%
   end
 
@@ -34,7 +41,7 @@ Autotest.add_hook :initialize do |at|
     at.extra_class_map[klass] = "test/test_ruby_parser_extras.rb"
   end
 
-  %w(TestRuby18Parser TestRuby19Parser TestParseTree).each do |klass| # HACK
+  %w(TestRuby18Parser TestRuby19Parser TestRuby20Parser TestParseTree).each do |klass| # HACK
     at.extra_class_map[klass] = "test/test_ruby_parser.rb"
   end
 end
@@ -45,6 +52,12 @@ end
 
 class Autotest
   def ruby
-    File.expand_path "~/.multiruby/install/1.9.0-0/bin/ruby"
+    File.expand_path "~/.multiruby/install/1.9.3-p194/bin/ruby"
   end
-end if ENV['ONENINE']
+end if ENV['R19']
+
+class Autotest
+  def ruby
+    File.expand_path "~/.multiruby/install/2.0.0-p195/bin/ruby"
+  end
+end if ENV['R20']

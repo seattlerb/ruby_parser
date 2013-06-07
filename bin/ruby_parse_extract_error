@@ -13,6 +13,14 @@ require 'rubygems'
 require 'ruby_parser'
 require 'fileutils'
 
+class IO
+  RUBY19 = "<3".respond_to? :encoding
+
+  class << self
+    alias :binread :read unless RUBY19
+  end
+end
+
 ARGV.push "-" if ARGV.empty?
 
 class Racc::Parser
@@ -88,11 +96,11 @@ rescue RuntimeError, Racc::ParseError => e
 end
 
 def process file
-  ruby = file == "-" ? $stdin.read : File.read(file)
+  ruby = file == "-" ? $stdin.binread : File.binread(file)
   time = (ENV["RP_TIMEOUT"] || 10).to_i
 
   $stderr.print "# Validating #{file}: "
-  parser = Ruby19Parser.new
+  parser = Ruby20Parser.new
   parser.process(ruby, file, time)
   warn "good"
   File.unlink file if $d

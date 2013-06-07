@@ -26,6 +26,12 @@ class TestRubyLexer < Minitest::Test
     deny   @lex.advance # nada
   end
 
+  def test_unicode_ident
+    s = "@\u1088\u1077\u1093\u1072"
+    util_lex_token(s.dup,
+                   :tIVAR, s.dup)
+  end
+
   def test_read_escape
     util_escape "\\",   "\\"
     util_escape "\n",   "n"
@@ -42,6 +48,9 @@ class TestRubyLexer < Minitest::Test
     util_escape "\010", "b"
     util_escape " ",    "s"
     util_escape "q",    "q" # plain vanilla escape
+
+    util_escape "8", "8" # ugh... mri... WHY?!?
+    util_escape "9", "9" # ugh... mri... WHY?!?
   end
 
   def test_read_escape_c
@@ -909,6 +918,10 @@ class TestRubyLexer < Minitest::Test
     util_bad_token "08"
   end
 
+  def test_yylex_integer_oct_bad_range2
+    util_bad_token "08"
+  end
+
   def test_yylex_integer_oct_bad_underscores
     util_bad_token "01__23"
   end
@@ -1162,6 +1175,13 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_plus_unary_method
     @lex.lex_state = :expr_fname
     util_lex_token "+@", :tUPLUS, "+@"
+  end
+
+  def test_yylex_not_unary_method
+    skip "not yet"
+
+    @lex.lex_state = :expr_fname
+    util_lex_token "!@", :tUBANG, "!@"
   end
 
   def test_yylex_numbers
@@ -1615,8 +1635,17 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_string_double_escape_M
+    chr = "\341"
+    chr.force_encoding("UTF-8") if RubyLexer::RUBY19
+
     util_lex_token('"\\M-a"',
-                   :tSTRING, "\341")
+                   :tSTRING, chr)
+  end
+
+  def test_why_does_ruby_hate_me?
+    util_lex_token('"Nl%\000\000A\000\999"', # you should be ashamed
+                   :tSTRING,
+                   ["Nl%", "\x00", "\x00", "A", "\x00", "999"].join)
   end
 
   def test_yylex_string_double_escape_M_backslash
@@ -1713,6 +1742,30 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_string_escape_x_single
     util_lex_token('"\\x0"',
                    :tSTRING, "\000")
+  end
+
+  def test_yylex_string_pct_i
+    util_lex_token("%i[s1 s2\ns3]",
+                   :tQSYMBOLS_BEG,   "%i[",
+                   :tSTRING_CONTENT, "s1",
+                   :tSPACE,              nil,
+                   :tSTRING_CONTENT, "s2",
+                   :tSPACE,              nil,
+                   :tSTRING_CONTENT, "s3",
+                   :tSPACE,              nil,
+                   :tSTRING_END,     nil)
+  end
+
+  def test_yylex_string_pct_I
+    util_lex_token("%I[s1 s2\ns3]",
+                   :tSYMBOLS_BEG,    "%I[",
+                   :tSTRING_CONTENT, "s1",
+                   :tSPACE,              nil,
+                   :tSTRING_CONTENT, "s2",
+                   :tSPACE,              nil,
+                   :tSTRING_CONTENT, "s3",
+                   :tSPACE,              nil,
+                   :tSTRING_END,     nil)
   end
 
   def test_yylex_string_pct_Q
@@ -1966,6 +2019,7 @@ class TestRubyLexer < Minitest::Test
       token = args.shift
       value = args.shift
       assert @lex.advance, "no more tokens"
+      # assert_equal [token, value].map(&:encoding), [@lex.token, [@lex.yacc_value].flatten.first].map(&:encoding), input # TODO
       assert_equal [token, value], [@lex.token, [@lex.yacc_value].flatten.first], input
     end
 

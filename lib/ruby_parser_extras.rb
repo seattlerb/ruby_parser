@@ -115,6 +115,17 @@ module RubyParserStuff
   attr_accessor :lexer, :in_def, :in_single, :file
   attr_reader :env, :comments
 
+  $good20 = []
+
+  %w[
+  ].map(&:to_i).each do |n|
+    $good20[n] = n
+  end
+
+  def debug20 n, v = nil, r = nil
+    raise "not yet #{n} #{v.inspect} => #{r.inspect}" unless $good20[n]
+  end
+
   def syntax_error msg
     raise RubyParser::SyntaxError, msg
   end
@@ -129,7 +140,7 @@ module RubyParserStuff
   end
 
   def arg_blk_pass node1, node2 # TODO: nuke
-    node1 = s(:arglist, node1) unless [:arglist, :array].include? node1.first
+    node1 = s(:arglist, node1) unless [:arglist, :array, :args].include? node1.first
     node1 << node2 if node2
     node1
   end
@@ -146,12 +157,14 @@ module RubyParserStuff
       if sexp.size == 2 and sexp[1].sexp_type == :array then
         s(:masgn, *sexp[1][1..-1].map { |sub| clean_mlhs sub })
       else
+        debug20 5
         sexp
       end
     when :gasgn, :iasgn, :lasgn, :cvasgn then
       if sexp.size == 2 then
         sexp.last
       else
+        debug20 7
         sexp # optional value
       end
     else
@@ -193,17 +206,24 @@ module RubyParserStuff
           result.concat arg[1..-1]
         when :block_arg then
           result << :"&#{arg.last}"
-        when :masgn then
+        when :shadow then
+          if Sexp === result.last and result.last.sexp_type == :shadow then
+            result.last << arg.last
+          else
+            result << arg
+          end
+        when :masgn, :block_pass, :hash then
           result << arg
         else
-          raise "unhandled: #{arg.inspect}"
+          debug20 18
+          raise "unhandled: #{arg.inspect} in #{args.inspect}"
         end
       when Symbol then
         result << arg
-      when ",", nil then
+      when ",", "|", ";", "(", ")", nil then
         # ignore
       else
-        raise "unhandled: #{arg.inspect}"
+        raise "unhandled: #{arg.inspect} in #{args.inspect}"
       end
     end
 
@@ -216,7 +236,7 @@ module RubyParserStuff
   end
 
   def assignable(lhs, value = nil)
-    id = lhs.to_sym
+    id = lhs.to_sym unless Sexp === lhs
     id = id.to_sym if Sexp === id
 
     raise "write a test 1" if id.to_s =~ /^(?:self|nil|true|false|__LINE__|__FILE__)$/
@@ -936,8 +956,8 @@ module RubyParserStuff
     # charlock_holmes against 500k files
     encodings = [
                  extra,
+                 Encoding::UTF_8, # moved to top to reflect default in 2.0
                  Encoding::ISO_8859_1,
-                 Encoding::UTF_8,
                  Encoding::ISO_8859_2,
                  Encoding::ISO_8859_9,
                  Encoding::SHIFT_JIS,
@@ -1267,6 +1287,10 @@ module RubyParserStuff
   end
 end
 
+class Ruby20Parser < Racc::Parser
+  include RubyParserStuff
+end
+
 class Ruby19Parser < Racc::Parser
   include RubyParserStuff
 end
@@ -1337,7 +1361,7 @@ class Sexp
   end
 
   def to_sym
-    raise "no"
+    raise "no: #{self.inspect}.to_sym is a bug"
     self.value.to_sym
   end
 

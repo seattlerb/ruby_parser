@@ -78,8 +78,7 @@ rule
                     }
                     tLCURLY top_compstmt tRCURLY
                     {
-                      result = new_iter s(:preexe), nil, val[3] # TODO: add test?
-                      result = nil # TODO: since it isn't supposed to go in the AST
+                      result = new_iter s(:preexe), nil, val[3]
                     }
 
         bodystmt: compstmt opt_rescue opt_else opt_ensure
@@ -170,11 +169,11 @@ rule
                     }
                 | primary_value tDOT tIDENTIFIER tOP_ASGN command_call
                     {
-                      result = s(:op_asgn, val[0], val[4], val[2], val[3])
+                      result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
                     }
                 | primary_value tDOT tCONSTANT tOP_ASGN command_call
                     {
-                      result = s(:op_asgn, val[0], val[4], val[2], val[3])
+                      result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
                     }
                 | primary_value tCOLON2 tCONSTANT tOP_ASGN command_call
                     {
@@ -241,11 +240,11 @@ rule
    block_command: block_call
                 | block_call tDOT operation2 command_args # TODO: dot_or_colon
                     {
-                      result = new_call val[0], val[2], val[3]
+                      result = new_call val[0], val[2].to_sym, val[3]
                     }
                 | block_call tCOLON2 operation2 command_args
                     {
-                      result = new_call val[0], val[2], val[3]
+                      result = new_call val[0], val[2].to_sym, val[3]
                     }
 
  cmd_brace_block: tLBRACE_ARG
@@ -605,7 +604,7 @@ rule
                     }
                 | primary_value tCOLON2 tIDENTIFIER tOP_ASGN arg
                     {
-                      result = s(:op_asgn, val[0], val[4], val[2], val[3])
+                      result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
                     }
                 | primary_value tCOLON2 tCONSTANT tOP_ASGN arg
                     {
@@ -810,11 +809,11 @@ rule
                     }
                 | args tCOMMA assocs tCOMMA
                     {
-                      result = val[0] << s(:hash, *val[2][1..-1])
+                      result = val[0] << s(:hash, *val[2][1..-1]) # TODO: self.args
                     }
                 | assocs tCOMMA
                     {
-                      result = val[0]
+                      result = s(:hash, *val[0].values)
                     }
 
        call_args: command
@@ -1333,7 +1332,8 @@ rule
 
  block_param_def: tPIPE opt_bv_decl tPIPE
                     {
-                      result = val[1] || 0
+                      result = args val
+                      result = 0 if result == s(:args)
                     }
                 | tOROP
                     {
@@ -1342,8 +1342,7 @@ rule
                     }
                 | tPIPE block_param opt_bv_decl tPIPE
                     {
-                      result = val[1]
-                      result.concat val[2] if val[2]
+                      result = args val
                     }
 
      opt_bv_decl: none
@@ -1354,15 +1353,17 @@ rule
 
         bv_decls: bvar
                     {
-                      result = [val[0]]
+                      result = args val
                     }
                 | bv_decls tCOMMA bvar
                     {
-                      result = val[0].concat val[2]
-                      raise "no18\non: #{val.inspect}"
+                      result = args val
                     }
 
             bvar: tIDENTIFIER
+                    {
+                      result = s(:shadow, val[0].to_sym)
+                    }
                 | f_bad_arg
 
           lambda: f_larglist lambda_body
@@ -1377,8 +1378,7 @@ rule
 
      f_larglist: tLPAREN2 f_args opt_bv_decl rparen
                     {
-                      result = val[1]
-                      raise "not yet: #{val.inspect}" if val[2]
+                      result = args val
                     }
                 | f_args
                     {
@@ -1427,11 +1427,11 @@ rule
                     }
                 | block_call tDOT operation2 opt_paren_args
                     {
-                      result = new_call val[0], val[2], val[3]
+                      result = new_call val[0], val[2].to_sym, val[3]
                     }
                 | block_call tCOLON2 operation2 opt_paren_args
                     {
-                      result = new_call val[0], val[2], val[3]
+                      result = new_call val[0], val[2].to_sym, val[3]
                     }
 
      method_call: operation
@@ -1733,8 +1733,7 @@ regexp_contents: none
                       lexer.lex_state = :expr_end
                       result = val[1]
 
-                      yyerror "empty symbol literal" if
-                        result.nil? or result.empty?
+                      result ||= s(:str, "")
 
                       case result[0]
                       when :dstr then
@@ -2050,7 +2049,8 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     }
                 | tLABEL arg_value
                     {
-                      result = s(:array, s(:lit, val[0][0].to_sym), val[1])
+                      label, _ = val[0] # TODO: fix lineno?
+                      result = s(:array, s(:lit, label.to_sym), val[1])
                     }
 
        operation: tIDENTIFIER | tCONSTANT | tFID
