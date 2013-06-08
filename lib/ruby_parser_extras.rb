@@ -126,6 +126,23 @@ module RubyParserStuff
     raise "not yet #{n} #{v.inspect} => #{r.inspect}" unless $good20[n]
   end
 
+  ruby19 = "".respond_to? :encoding
+
+  # Rhis is in sorted order of occurrence according to
+  # charlock_holmes against 500k files, with UTF_8 forced
+  # to the top.
+  #
+  # Overwrite this contstant if you need something different.
+  ENCODING_ORDER = [
+    Encoding::UTF_8, # moved to top to reflect default in 2.0
+    Encoding::ISO_8859_1,
+    Encoding::ISO_8859_2,
+    Encoding::ISO_8859_9,
+    Encoding::SHIFT_JIS,
+    Encoding::WINDOWS_1252,
+    Encoding::EUC_JP
+  ] if ruby19
+
   def syntax_error msg
     raise RubyParser::SyntaxError, msg
   end
@@ -952,18 +969,8 @@ module RubyParserStuff
   end
 
   def hack_encoding str, extra = nil
-    # this is in sorted order of occurrence according to
-    # charlock_holmes against 500k files
-    encodings = [
-                 extra,
-                 Encoding::UTF_8, # moved to top to reflect default in 2.0
-                 Encoding::ISO_8859_1,
-                 Encoding::ISO_8859_2,
-                 Encoding::ISO_8859_9,
-                 Encoding::SHIFT_JIS,
-                 Encoding::WINDOWS_1252,
-                 Encoding::EUC_JP,
-                ].compact
+    encodings = ENCODING_ORDER.dup
+    encodings.unshift(extra) unless extra.nil?
 
     # terrible, horrible, no good, very bad, last ditch effort.
     encodings.each do |enc|
