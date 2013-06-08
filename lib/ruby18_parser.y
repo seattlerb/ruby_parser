@@ -240,13 +240,9 @@ rule
                       self.env.extend(:dynamic)
                       result = self.lexer.lineno
                     }
-                    opt_block_var
+                    opt_block_var compstmt tRCURLY
                     {
-                      result = self.env.dynamic.keys
-                    }
-                    compstmt tRCURLY
-                    {
-                      result = new_iter nil, val[2], val[4]
+                      result = new_iter nil, val[2], val[3]
                       self.env.unextend
                     }
 
@@ -698,7 +694,6 @@ rule
                     }
                 | arg tEH arg tCOLON arg
                     {
-                      lexer.tern.pop
                       result = s(:if, val[0], val[2], val[4])
                     }
                 | primary
@@ -1285,14 +1280,10 @@ rule
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                    opt_block_var
-                    {
-                      result = self.env.dynamic.keys
-                    }
-                    compstmt kEND
+                    opt_block_var compstmt kEND
                     {
                       vars   = val[2]
-                      body   = val[4]
+                      body   = val[3]
                       result = new_iter nil, vars, body
                       result.line = val[1]
 
@@ -1349,15 +1340,11 @@ rule
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                    opt_block_var
-                    {
-                      result = self.env.dynamic.keys
-                    }
-                    compstmt tRCURLY
+                    opt_block_var compstmt tRCURLY
                     {
                       # REFACTOR
                       args   = val[2]
-                      body   = val[4]
+                      body   = val[3]
                       result = new_iter nil, args, body
                       self.env.unextend
                       result.line = val[1]
@@ -1367,14 +1354,10 @@ rule
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                 opt_block_var
-                    {
-                      result = self.env.dynamic.keys
-                    }
-                    compstmt kEND
+                 opt_block_var compstmt kEND
                     {
                       args = val[2]
-                      body = val[4]
+                      body = val[3]
                       result = new_iter nil, args, body
                       self.env.unextend
                       result.line = val[1]

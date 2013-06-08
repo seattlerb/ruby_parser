@@ -273,19 +273,8 @@ module RubyParserStuff
                s(:cdecl, id)
              else
                case self.env[id]
-               when :lvar then
+               when :lvar, :dvar, nil then
                  s(:lasgn, id)
-               when :dvar, nil then
-                 if self.env.current[id] == :dvar then
-                   s(:lasgn, id)
-                 elsif self.env[id] == :dvar then
-                   self.env.use(id)
-                   s(:lasgn, id)
-                 elsif ! self.env.dynamic? then
-                   s(:lasgn, id)
-                 else
-                   s(:lasgn, id)
-                 end
                else
                  raise "wtf? unknown type: #{self.env[id]}"
                end
@@ -1202,54 +1191,27 @@ module RubyParserStuff
       @env.first
     end
 
-    def dynamic
-      idx = @dyn.index false
-      @env[0...idx].reverse.inject { |env, scope| env.merge scope } || {}
-    end
-
-    def dynamic?
-      @dyn[0] != false
-    end
-
     def extend dyn = false
       @dyn.unshift dyn
       @env.unshift({})
-      @use.unshift({})
     end
 
     def initialize dyn = false
       @dyn = []
       @env = []
-      @use = []
       self.reset
     end
 
     def reset
       @dyn.clear
       @env.clear
-      @use.clear
       self.extend
     end
 
     def unextend
       @dyn.shift
       @env.shift
-      @use.shift
       raise "You went too far unextending env" if @env.empty?
-    end
-
-    def use id
-      @env.each_with_index do |env, i|
-        if env[id] then
-          @use[i][id] = true
-        end
-      end
-    end
-
-    def used? id
-      idx = @dyn.index false # REFACTOR
-      u = @use[0...idx].reverse.inject { |env, scope| env.merge scope } || {}
-      u[id]
     end
   end
 

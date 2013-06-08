@@ -16,7 +16,6 @@ class RubyLexer
   attr_accessor :command_start
   attr_accessor :cmdarg
   attr_accessor :cond
-  attr_accessor :tern # TODO: rename ternary damnit... wtf
   attr_accessor :nest
 
   ESC_RE = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc]))/u
@@ -246,7 +245,6 @@ class RubyLexer
     self.version = v
     self.cond = RubyParserStuff::StackState.new(:cond)
     self.cmdarg = RubyParserStuff::StackState.new(:cmdarg)
-    self.tern = RubyParserStuff::StackState.new(:tern)
     self.nest = 0
     @comments = []
 
@@ -731,7 +729,6 @@ class RubyLexer
         elsif src.scan(/[\]\)\}]/) then
           cond.lexpop
           cmdarg.lexpop
-          tern.lexpop
           self.lex_state = :expr_end
           self.yacc_value = src.matched
           result = {
@@ -856,10 +853,8 @@ class RubyLexer
               rb_compile_error "unexpected '['"
             end
           elsif is_beg? then
-            self.tern.push false
             result = :tLBRACK
           elsif is_arg? && space_seen then
-            self.tern.push false
             result = :tLBRACK
           else
             result = :tLBRACK2
@@ -902,7 +897,6 @@ class RubyLexer
                    elsif in_lex_state?(:expr_endarg) then
                      :tLBRACE_ARG  #  block (expr)
                    else
-                     self.tern.push false
                      :tLBRACE      #  hash
                    end
 
@@ -1058,7 +1052,6 @@ class RubyLexer
 
           if is_end? then
             self.lex_state = ruby18 ? :expr_beg : :expr_value # HACK?
-            self.tern.push true
             self.yacc_value = "?"
             return :tEH
           end
@@ -1083,12 +1076,10 @@ class RubyLexer
 
             # ternary
             self.lex_state = ruby18 ? :expr_beg : :expr_value # HACK?
-            self.tern.push true
             self.yacc_value = "?"
             return :tEH
           elsif src.check(/\w(?=\w)/) then # ternary, also
             self.lex_state = :expr_beg
-            self.tern.push true
             self.yacc_value = "?"
             return :tEH
           end
@@ -1287,18 +1278,15 @@ class RubyLexer
       if in_lex_state? :expr_cmdarg then
         result = :tLPAREN_ARG
       elsif in_lex_state? :expr_arg then
-        self.tern.push false
         warning "don't put space before argument parentheses"
       end
-    else
-      self.tern.push false
     end
 
     result
   end
 
   def is_end?
-    in_lex_state? :expr_end, :expr_endarg, :expr_endfn
+    in_lex_state? :expr_end, :expr_endarg
   end
 
   def is_arg?
@@ -1414,8 +1402,6 @@ class RubyLexer
 
           return keyword.id0 if state == :expr_beg or state == :expr_value
 
-          self.lex_state = :expr_beg if keyword.id0 != keyword.id1
-
           return keyword.id1
         end
       end
@@ -1430,8 +1416,6 @@ class RubyLexer
           else
             :expr_arg
           end
-        elsif ruby19 && in_lex_state?(:expr_fname) then
-          :expr_endfn
         else
           :expr_end
         end
