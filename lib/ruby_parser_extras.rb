@@ -1317,12 +1317,17 @@ class RubyParser
   def initialize
     @p18 = Ruby18Parser.new
     @p19 = Ruby19Parser.new
+    @p20 = Ruby20Parser.new
   end
 
   def process(s, f = "(string)", t = 10) # parens for emacs *sigh*
-    @p19.process s, f, t
-  rescue Racc::ParseError
-    @p18.process s, f, t
+    @p20.process s, f, t
+  rescue Racc::ParseError, RubyParser::SyntaxError
+    begin
+      @p19.process s, f, t
+    rescue Racc::ParseError, RubyParser::SyntaxError
+      @p18.process s, f, t
+    end
   end
 
   alias :parse :process
