@@ -1331,6 +1331,8 @@ class RubyParser
       Ruby18Parser.new
     when /^1\.9/ then
       Ruby19Parser.new
+    when /^2.0/ then
+      Ruby20Parser.new
     else
       raise "unrecognized RUBY_VERSION #{RUBY_VERSION}"
     end
