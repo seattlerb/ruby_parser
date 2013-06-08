@@ -1161,6 +1161,8 @@ module RubyParserStuff
     WORDLIST18 = Hash[*wordlist.map { |o| [o.name, o] }.flatten]
     WORDLIST19 = Hash[*wordlist.map { |o| [o.name, o] }.flatten]
 
+    WORDLIST18.delete "__ENCODING__"
+
     %w[and case elsif for if in module or unless until when while].each do |k|
       WORDLIST19[k] = WORDLIST19[k].dup
       WORDLIST19[k].state = :expr_value

@@ -1333,7 +1333,6 @@ class RubyLexer
   end
 
   def process_token(command_state)
-
     token << src.matched if token =~ IDENT_RE && src.scan(/[\!\?](?!=)/)
 
     result = nil

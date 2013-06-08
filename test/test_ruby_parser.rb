@@ -1402,6 +1402,26 @@ module TestRubyParserShared
 
     assert_parse rb, pt
   end
+
+  def test___ENCODING__
+    # skip "lexer bug" if ruby18
+    rb = "__ENCODING__"
+    pt = if Ruby18Parser === processor then
+           s(:call, nil, :__ENCODING__)
+         else
+           if defined? Encoding then
+             if Ruby18Parser === processor then
+               s(:call, nil, :__ENCODING__)
+             else
+               s(:colon2, s(:const, :Encoding), :UTF_8)
+             end
+           else
+             s(:str, "Unsupported!")
+           end
+         end
+
+    assert_parse rb, pt
+  end
 end
 
 module TestRubyParserShared1920
@@ -2088,17 +2108,6 @@ class TestRuby19Parser < RubyParserTestCase
   def test_expr_not_bang
     rb = "! a b"
     pt = s(:call, s(:call, nil, :a, s(:call, nil, :b)), :"!")
-
-    assert_parse rb, pt
-  end
-
-  def test_encoding
-    rb = '__ENCODING__'
-    pt = if defined? Encoding then
-           s(:const, Encoding::UTF_8)
-         else
-           s(:str, "Unsupported!")
-         end
 
     assert_parse rb, pt
   end

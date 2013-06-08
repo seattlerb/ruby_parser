@@ -1905,10 +1905,8 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result =
                         if defined? Encoding then
-                          debug20 27
-                          s(:const, Encoding::UTF_8)
+                          s(:colon2, s(:const, :Encoding), :UTF_8)
                         else
-                          debug20 28
                           s(:str, "Unsupported!")
                         end
                     }

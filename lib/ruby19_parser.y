@@ -1772,7 +1772,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     { 
                       result = 
                         if defined? Encoding then
-                          s(:const, Encoding::UTF_8)
+                          s(:colon2, s(:const, :Encoding), :UTF_8)
                         else
                           s(:str, "Unsupported!")
                         end
