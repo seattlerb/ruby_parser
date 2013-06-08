@@ -1422,6 +1422,13 @@ module TestRubyParserShared
 
     assert_parse rb, pt
   end
+
+  def test_dstr_evstr_empty_end
+    rb = ':"#{field}"'
+    pt = s(:dsym, "", s(:evstr, s(:call, nil, :field)))
+
+    assert_parse rb, pt
+  end
 end
 
 module TestRubyParserShared1920

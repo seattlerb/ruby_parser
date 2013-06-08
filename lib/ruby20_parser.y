@@ -1872,9 +1872,10 @@ regexp_contents: none
                         result[0] = :dsym
                       when :str then
                         result = s(:lit, result.last.to_sym)
-                      else
-                        debug20 26
+                      when :evstr then
                         result = s(:dsym, "", result)
+                      else
+                        debug20 26, val, result
                       end
                     }
 
