@@ -49,10 +49,7 @@ preclow
 
 rule
 
-         program:   {
-                      self.lexer.lex_state = :expr_beg
-                    }
-                    top_compstmt
+         program: top_compstmt
                     {
                       result = new_compstmt val
                     }
@@ -108,7 +105,7 @@ rule
 
             stmt: kALIAS fitem
                     {
-                      lexer.lex_state = :expr_fname
+                      lexer.state = :expr_fname
                       result = self.lexer.lineno
                     }
                     fitem
@@ -543,13 +540,13 @@ rule
            fname: tIDENTIFIER | tCONSTANT | tFID
                 | op
                     {
-                      lexer.lex_state = :expr_end
+                      lexer.state = :expr_end
                       result = val[0]
                     }
 
                 | reswords
                     {
-                      lexer.lex_state = :expr_end
+                      lexer.state = :expr_end
                       result = val[0]
                     }
 
@@ -568,7 +565,7 @@ rule
                 |
                     undef_list tCOMMA
                     {
-                      lexer.lex_state = :expr_fname
+                      lexer.state = :expr_fname
                     }
                     fitem
                     {
@@ -579,7 +576,7 @@ rule
                 |   tMATCH   | tNMATCH | tGT      | tGEQ  | tLT     | tLEQ
                 |   tNEQ     | tLSHFT  | tRSHFT   | tPLUS | tMINUS  | tSTAR2
                 |   tSTAR    | tDIVIDE | tPERCENT | tPOW | tDBL_SPLAT | tBANG   | tTILDE
-                |   tUPLUS   | tUMINUS | tAREF    | tASET | tBACK_REF2 
+                |   tUPLUS   | tUMINUS | tAREF    | tASET | tBACK_REF2
 
 #| tUBANG
 
@@ -689,7 +686,7 @@ rule
                     {
                       result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
                       debug20 12, val, result
-                    } 
+                    }
                | tUPLUS arg
                     {
                       result = new_call val[1], :"+@"
@@ -946,7 +943,7 @@ rule
                     }
                 | tLPAREN_ARG expr
                     {
-                      lexer.lex_state = :expr_endarg
+                      lexer.state = :expr_endarg
                     }
                     rparen
                     {
@@ -1151,13 +1148,13 @@ rule
                 | kDEF singleton dot_or_colon
                     {
                       self.comments.push self.lexer.comments
-                      lexer.lex_state = :expr_fname
+                      lexer.state = :expr_fname
                     }
                     fname
                     {
                       self.in_single += 1
                       self.env.extend
-                      lexer.lex_state = :expr_end # force for args
+                      lexer.state = :expr_end # force for args
                       result = lexer.lineno
                     }
                     f_arglist bodystmt kEND
@@ -1795,7 +1792,7 @@ regexp_contents: none
                       result = lexer.lex_strterm
 
                       lexer.lex_strterm = nil
-                      lexer.lex_state = :expr_beg
+                      lexer.state = :expr_beg
                     }
                     string_dvar
                     {
@@ -1806,7 +1803,7 @@ regexp_contents: none
                     {
                       result = lexer.lex_strterm
                       lexer.lex_strterm = nil
-                      lexer.lex_state = :expr_beg
+                      lexer.state = :expr_beg
                       lexer.cond.push false
                       lexer.cmdarg.push false
                     }
@@ -1850,7 +1847,7 @@ regexp_contents: none
 
           symbol: tSYMBEG sym
                     {
-                      lexer.lex_state = :expr_end
+                      lexer.state = :expr_end
                       result = val[1].to_sym
                     }
                 | tSYMBOL
@@ -1862,7 +1859,7 @@ regexp_contents: none
 
             dsym: tSYMBEG xstring_contents tSTRING_END
                     {
-                      lexer.lex_state = :expr_end
+                      lexer.state = :expr_end
                       result = val[1]
 
                       result ||= s(:str, "")
@@ -1942,7 +1939,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     }
                 | tLT
                     {
-                      lexer.lex_state = :expr_beg
+                      lexer.state = :expr_beg
                     }
                     expr_value term
                     {
@@ -1958,12 +1955,12 @@ keyword_variable: kNIL      { result = s(:nil)   }
        f_arglist: tLPAREN2 f_args rparen
                     {
                       result = val[1]
-                      lexer.lex_state = :expr_beg
+                      lexer.state = :expr_beg
                       self.lexer.command_start = true
                     }
                 | f_args term
                     {
-                      self.lexer.lex_state = :expr_beg
+                      lexer.state = :expr_beg
                       result = val[0]
                     }
 
@@ -2215,7 +2212,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
        singleton: var_ref
                 | tLPAREN2
                     {
-                      lexer.lex_state = :expr_beg
+                      lexer.state = :expr_beg
                     }
                     expr rparen
                     {

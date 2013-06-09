@@ -1,4 +1,4 @@
-#!/usr/local/bin/ruby
+#!/usr/bin/env ruby
 # encoding: utf-8
 
 # ENV['VERBOSE'] = "1"
@@ -233,7 +233,7 @@ module TestRubyParserShared
 
     assert_parse rb, pt
 
-    assert_equal "# blah 1\n# blah 2\n\n", result.comments
+    assert_equal "# blah 1\n# blah 2\n", result.comments
     assert_equal "# blah 3\n", result.defn.comments
   end
 
@@ -243,7 +243,7 @@ module TestRubyParserShared
            s(:defn, :blah, s(:args), s(:nil)))
 
     assert_parse rb, pt
-    assert_equal "# blah 1\n\n# blah 2\n\n", result.comments
+    assert_equal "# blah 1\n# blah 2\n", result.comments
     assert_equal "# blah 3\n", result.defn.comments
   end
 
@@ -252,7 +252,7 @@ module TestRubyParserShared
     pt = s(:defn, :blah, s(:args), s(:nil))
 
     assert_parse rb, pt
-    assert_equal "# blah 1\n# blah 2\n\n", result.comments
+    assert_equal "# blah 1\n# blah 2\n", result.comments
   end
 
   def test_defs_comments
@@ -260,7 +260,7 @@ module TestRubyParserShared
     pt = s(:defs, s(:self), :blah, s(:args))
 
     assert_parse rb, pt
-    assert_equal "# blah 1\n# blah 2\n\n", result.comments
+    assert_equal "# blah 1\n# blah 2\n", result.comments
   end
 
   def test_do_bug # TODO: rename
@@ -539,13 +539,13 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  # def test_str_pct_nested_nested
-  #   rb = "%{ { #\{ \"#\{1}\" } } }"
-  #   assert_equal " { 1 } ", eval(rb)
-  #   pt = s(:dstr, " { ", s(:evstr, s(:lit, 1)), s(:str, " } "))
-  #
-  #   assert_parse rb, pt
-  # end
+  def test_str_pct_nested_nested
+    rb = "%{ { #\{ \"#\{1}\" } } }"
+    assert_equal " { 1 } ", eval(rb)
+    pt = s(:dstr, " { ", s(:evstr, s(:lit, 1)), s(:str, " } "))
+
+    assert_parse rb, pt
+  end
 
   def test_str_str
     rb = "\"a #\{'b'}\""
@@ -1739,6 +1739,13 @@ module TestRubyParserShared1920
   def test_lasgn_lasgn_command_call
     rb = "a = b = c 1"
     pt = s(:lasgn, :a, s(:lasgn, :b, s(:call, nil, :c, s(:lit, 1))))
+
+    assert_parse rb, pt
+  end
+
+  def test_str_heredoc_interp
+    rb = "<<\"\"\n\#{x}\nblah2\n\n"
+    pt = s(:dstr, "", s(:evstr, s(:call, nil, :x)), s(:str, "\n"), s(:str, "blah2\n"))
 
     assert_parse rb, pt
   end

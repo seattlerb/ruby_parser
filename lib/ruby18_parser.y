@@ -16,7 +16,7 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tTILDE tPERCENT tDIVIDE tPLUS tMINUS tLT tGT tPIPE tBANG tCARET
       tLCURLY tRCURLY tBACK_REF2 tSYMBEG tSTRING_BEG tXSTRING_BEG tREGEXP_BEG
       tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END tSTRING
-      tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAST_TOKEN
+      tSYMBOL tREGEXP_OPT tNL tEH tCOLON tCOMMA tSPACE tSEMI
 
 prechigh
   right    tBANG tTILDE tUPLUS
@@ -45,12 +45,9 @@ preclow
 
 rule
 
-         program:   {
-                      self.lexer.lex_state = :expr_beg
-                    }
-                    compstmt
+         program:   compstmt
                     {
-                      result = val[1]
+                      result = val[0]
                     }
 
         bodystmt: compstmt opt_rescue opt_else opt_ensure
@@ -76,7 +73,7 @@ rule
 
             stmt: kALIAS fitem
                     {
-                      lexer.lex_state = :expr_fname
+                      lexer.state = :expr_fname
                       result = self.lexer.lineno
                     }
                     fitem
@@ -209,20 +206,32 @@ rule
 
     command_call: command
                 | block_command
-                | kRETURN call_args
+                | kRETURN
                     {
-                      line = val[0].last
-                      result = s(:return, ret_args(val[1])).line(line)
+                      result = self.lexer.lineno
                     }
-                | kBREAK call_args
+                    call_args
                     {
-                      line = val[0].last
-                      result = s(:break, ret_args(val[1])).line(line)
+                      line = val[1]
+                      result = s(:return, ret_args(val[2])).line(line)
                     }
-                | kNEXT call_args
+                | kBREAK
                     {
-                      line = val[0].last
-                      result = s(:next, ret_args(val[1])).line(line)
+                      result = self.lexer.lineno
+                    }
+                    call_args
+                    {
+                      line = val[1]
+                      result = s(:break, ret_args(val[2])).line(line)
+                    }
+                | kNEXT
+                    {
+                      result = self.lexer.lineno
+                    }
+                    call_args
+                    {
+                      line = val[1]
+                      result = s(:next, ret_args(val[2])).line(line)
                     }
 
    block_command: block_call
@@ -240,13 +249,9 @@ rule
                       self.env.extend(:dynamic)
                       result = self.lexer.lineno
                     }
-                    opt_block_var
+                    opt_block_var compstmt tRCURLY
                     {
-                      result = self.env.dynamic.keys
-                    }
-                    compstmt tRCURLY
-                    {
-                      result = new_iter nil, val[2], val[4]
+                      result = new_iter nil, val[2], val[3]
                       self.env.unextend
                     }
 
@@ -462,13 +467,10 @@ rule
            fname: tIDENTIFIER | tCONSTANT | tFID
                 | op
                     {
-                      lexer.lex_state = :expr_end
                       result = val[0]
                     }
-
                 | reswords
                     {
-                      lexer.lex_state = :expr_end
                       result = val[0]
                     }
 
@@ -484,7 +486,7 @@ rule
                 |
                     undef_list tCOMMA
                     {
-                      lexer.lex_state = :expr_fname
+                      lexer.state = :expr_fname
                     }
                     fitem
                     {
@@ -698,7 +700,6 @@ rule
                     }
                 | arg tEH arg tCOLON arg
                     {
-                      lexer.tern.pop
                       result = s(:if, val[0], val[2], val[4])
                     }
                 | primary
@@ -850,19 +851,19 @@ rule
                 | block_arg
 
     command_args:   {
-                      result = lexer.cmdarg.stack.dup
-                      lexer.cmdarg.push true
+                      result = lexer.cmdarg.dup
+                      lexer.cmdarg.push(true)
                     }
                     open_args
                     {
-                      lexer.cmdarg.stack.replace val[0]
+                      lexer.cmdarg = val[0]
                       result = val[1]
                     }
 
        open_args: call_args
                 | tLPAREN_ARG
                     {
-                      lexer.lex_state = :expr_endarg
+                      lexer.state = :expr_endarg
                     }
                     tRPAREN
                     {
@@ -871,7 +872,7 @@ rule
                     }
                 | tLPAREN_ARG call_args2
                     {
-                      lexer.lex_state = :expr_endarg
+                      lexer.state = :expr_endarg
                     }
                     tRPAREN
                     {
@@ -940,7 +941,7 @@ rule
                     }
                 | tLPAREN_ARG expr
                     {
-                      lexer.lex_state = :expr_endarg
+                      lexer.state = :expr_endarg
                     }
                     opt_nl tRPAREN
                     {
@@ -1019,7 +1020,7 @@ rule
                     }
                 | kWHILE
                     {
-                      lexer.cond.push true
+                      lexer.cond.push(true)
                     }
                     expr_value do
                     {
@@ -1031,7 +1032,7 @@ rule
                     }
                 | kUNTIL
                     {
-                      lexer.cond.push true
+                      lexer.cond.push(true)
                     }
                     expr_value do
                     {
@@ -1055,7 +1056,7 @@ rule
                     }
                 | kFOR for_var kIN
                     {
-                      lexer.cond.push true
+                      lexer.cond.push(true)
                     }
                     expr_value do
                     {
@@ -1071,7 +1072,7 @@ rule
                     }
                     cpath superclass
                     {
-                      self.comments.push self.lexer.comments
+                      self.comments.push self.lexer.clear_comments
                       if (in_def || in_single > 0) then
                         yyerror "class definition in method body"
                       end
@@ -1081,7 +1082,7 @@ rule
                     {
                       result = new_class val
                       self.env.unextend
-                      self.lexer.comments # we don't care about comments in the body
+                      self.lexer.clear_comments
                     }
                 | kCLASS tLSHFT
                     {
@@ -1102,7 +1103,7 @@ rule
                     {
                       result = new_sclass val
                       self.env.unextend
-                      self.lexer.comments # we don't care about comments in the body
+                      self.lexer.clear_comments
                     }
                 | kMODULE
                     {
@@ -1110,7 +1111,7 @@ rule
                     }
                     cpath
                     {
-                      self.comments.push self.lexer.comments
+                      self.comments.push self.lexer.clear_comments
                       yyerror "module definition in method body" if
                         in_def or in_single > 0
 
@@ -1120,32 +1121,33 @@ rule
                     {
                       result = new_module val
                       self.env.unextend
-                      self.lexer.comments # we don't care about comments in the body
+                      self.lexer.clear_comments
                     }
                 | kDEF fname
                     {
-                      self.comments.push self.lexer.comments
+                      self.comments.push self.lexer.clear_comments
                       self.in_def = true
                       self.env.extend
-                      result = lexer.lineno, lexer.src.beginning_of_line?
+                      result = lexer.lineno
                     }
                     f_arglist bodystmt kEND
                     {
                       result = new_defn val
+                      result.line val[2]
+
                       self.env.unextend
                       self.in_def = false
-                      self.lexer.comments # we don't care about comments in the body
+                      self.lexer.clear_comments
                     }
                 | kDEF singleton dot_or_colon
                     {
-                      self.comments.push self.lexer.comments
-                      lexer.lex_state = :expr_fname
+                      self.comments.push self.lexer.clear_comments
+                      lexer.state = :expr_fname
                     }
                     fname
                     {
                       self.in_single += 1
                       self.env.extend
-                      lexer.lex_state = :expr_end # force for args
                     }
                     f_arglist bodystmt kEND
                     {
@@ -1153,7 +1155,7 @@ rule
 
                       self.env.unextend
                       self.in_single -= 1
-                      self.lexer.comments # we don't care about comments in the body
+                      self.lexer.clear_comments
                     }
                 | kBREAK
                     {
@@ -1267,17 +1269,17 @@ rule
                 | tPIPE tPIPE
                     {
                       result = 0
-                      self.lexer.command_start = true
+                      #self.lexer.command_start = true
                     }
                 | tOROP
                     {
                       result = 0
-                      self.lexer.command_start = true
+                      #self.lexer.command_start = true
                     }
                 | tPIPE block_var tPIPE
                     {
                       result = val[1]
-                      self.lexer.command_start = true
+                      #self.lexer.command_start = true
                     }
 
         do_block: kDO_BLOCK
@@ -1285,14 +1287,10 @@ rule
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                    opt_block_var
-                    {
-                      result = self.env.dynamic.keys
-                    }
-                    compstmt kEND
+                    opt_block_var compstmt kEND
                     {
                       vars   = val[2]
-                      body   = val[4]
+                      body   = val[3]
                       result = new_iter nil, vars, body
                       result.line = val[1]
 
@@ -1349,15 +1347,11 @@ rule
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                    opt_block_var
-                    {
-                      result = self.env.dynamic.keys
-                    }
-                    compstmt tRCURLY
+                    opt_block_var compstmt tRCURLY
                     {
                       # REFACTOR
                       args   = val[2]
-                      body   = val[4]
+                      body   = val[3]
                       result = new_iter nil, args, body
                       self.env.unextend
                       result.line = val[1]
@@ -1367,14 +1361,10 @@ rule
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                 opt_block_var
-                    {
-                      result = self.env.dynamic.keys
-                    }
-                    compstmt kEND
+                 opt_block_var compstmt kEND
                     {
                       args = val[2]
-                      body = val[4]
+                      body = val[3]
                       result = new_iter nil, args, body
                       self.env.unextend
                       result.line = val[1]
@@ -1471,7 +1461,7 @@ rule
                       result = new_xstring val[1]
                     }
 
-          regexp: tREGEXP_BEG xstring_contents tREGEXP_END
+          regexp: tREGEXP_BEG xstring_contents tSTRING_END tREGEXP_OPT
                     {
                       result = new_regexp val
                     }
@@ -1542,27 +1532,17 @@ xstring_contents: none
                       result = s(:str, val[0])
                     }
                 | tSTRING_DVAR
-                    {
-                      result = lexer.lex_strterm
-                      lexer.lex_strterm = nil
-                      lexer.lex_state = :expr_beg
-                    }
                     string_dvar
                     {
-                      lexer.lex_strterm = val[1]
-                      result = s(:evstr, val[2])
+                      result = s(:evstr, val[1])
                     }
                 | tSTRING_DBEG
                     {
-                      result = lexer.lex_strterm
-                      lexer.lex_strterm = nil
-                      lexer.lex_state = :expr_beg
-                      lexer.cond.push false
-                      lexer.cmdarg.push false
+                      lexer.cond.push(false)
+                      lexer.cmdarg.push(false)
                     }
                     compstmt tRCURLY
                     {
-                      lexer.lex_strterm = val[1]
                       lexer.cond.lexpop
                       lexer.cmdarg.lexpop
 
@@ -1587,9 +1567,8 @@ xstring_contents: none
                 | backref
 
 
-          symbol: tSYMBEG sym
+          symbol: tSYMBEG sym # TODO: unused, delete.
                     {
-                      lexer.lex_state = :expr_end
                       result = val[1].to_sym
                     }
                 | tSYMBOL
@@ -1601,7 +1580,6 @@ xstring_contents: none
 
             dsym: tSYMBEG xstring_contents tSTRING_END
                     {
-                      lexer.lex_state = :expr_end
                       result = val[1]
 
                       yyerror "empty symbol literal" if
@@ -1638,7 +1616,7 @@ xstring_contents: none
                 | kTRUE     { result = s(:true)  }
                 | kFALSE    { result = s(:false) }
                 | k__FILE__ { result = s(:str, self.file) }
-                | k__LINE__ { result = s(:lit, lexer.src.current_line) }
+                | k__LINE__ { result = s(:lit, lexer.lineno) }
 
          var_ref: variable
                     {
@@ -1658,13 +1636,9 @@ xstring_contents: none
                     {
                       result = nil
                     }
-                | tLT
+                | tLT expr_value term
                     {
-                      lexer.lex_state = :expr_beg
-                    }
-                    expr_value term
-                    {
-                      result = val[2]
+                      result = val[1]
                     }
                 | error term
                     {
@@ -1675,8 +1649,8 @@ xstring_contents: none
        f_arglist: tLPAREN2 f_args opt_nl tRPAREN
                     {
                       result = val[1]
-                      lexer.lex_state = :expr_beg
-                      self.lexer.command_start = true
+                      lexer.state = :expr_beg
+                      #self.lexer.command_start = true
                     }
                 | f_args term
                     {
@@ -1806,13 +1780,9 @@ xstring_contents: none
                     }
 
        singleton: var_ref
-                | tLPAREN2
+                | tLPAREN2 expr opt_nl tRPAREN
                     {
-                      lexer.lex_state = :expr_beg
-                    }
-                    expr opt_nl tRPAREN
-                    {
-                      result = val[2]
+                      result = val[1]
                       yyerror "Can't define single method for literals." if
                         result[0] == :lit
                     }
@@ -1868,7 +1838,6 @@ end
 
 ---- inner
 
-require "ruby_lexer"
 require "ruby_parser_extras"
 
 # :stopdoc:
