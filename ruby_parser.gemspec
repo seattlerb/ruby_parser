@@ -13,7 +13,7 @@ Gem::Specification.new do |s|
   s.description = "RP's output is the same as ParseTree's output: s-expressions using ruby's arrays and base types."
   s.version = RubyParser::VERSION
 
-  s.files = Dir["{bin,lib}/**/*"] + ["MIT-LICENSE", "Rakefile", "Readme.md"]
+  s.files = Dir["{bin,lib}/**/*"] + ["Rakefile", "Readme.md"]
 
   s.add_development_dependency "minitest"
 end
