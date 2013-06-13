@@ -1,10 +1,10 @@
-= ruby_parser
+# ruby_parser
 
-home :: https://github.com/seattlerb/ruby_parser
-bugs :: https://github.com/seattlerb/ruby_parser/issues
-rdoc :: http://docs.seattlerb.org/ruby_parser
+* [HOME](https://github.com/seattlerb/ruby_parser)
+* [BUGS](https://github.com/seattlerb/ruby_parser/issues)
+* [RDOC](http://docs.seattlerb.org/ruby_parser)
 
-== DESCRIPTION:
+## DESCRIPTION
 
 ruby_parser (RP) is a ruby parser written in pure ruby (utilizing
 racc--which does by default use a C extension). RP's output is
@@ -13,21 +13,25 @@ base types.
 
 As an example:
 
-  def conditional1 arg1
-    return 1 if arg1 == 0
-    return 0
-  end
+```ruby
+def conditional1 arg1
+  return 1 if arg1 == 0
+  return 0
+end
+```
 
 becomes:
 
-  s(:defn, :conditional1, s(:args, :arg1),
-    s(:if,
-      s(:call, s(:lvar, :arg1), :==, s(:lit, 0)),
-      s(:return, s(:lit, 1)),
-      nil),
-    s(:return, s(:lit, 0)))
+```ruby
+s(:defn, :conditional1, s(:args, :arg1),
+  s(:if,
+    s(:call, s(:lvar, :arg1), :==, s(:lit, 0)),
+    s(:return, s(:lit, 1)),
+    nil),
+  s(:return, s(:lit, 0)))
+```
 
-== FEATURES/PROBLEMS:
+## FEATURES/PROBLEMS:
 
 * Pure ruby, no compiles.
 * Includes preceding comment data for defn/defs/class/module nodes!
@@ -41,27 +45,31 @@ becomes:
 * Known Issue: Totally awesome.
 * Known Issue: line number values can be slightly off. Parsing LR sucks.
 
-== SYNOPSIS:
+## SYNOPSIS:
 
+```ruby
   RubyParser.new.parse "1+1"
   # => s(:call, s(:lit, 1), :+, s(:lit, 1))
+```
 
 You can also use Ruby19Parser, Ruby18Parser, or RubyParser.for_current_ruby:
 
+```ruby
   RubyParser.for_current_ruby.parse "1+1"
   # => s(:call, s(:lit, 1), :+, s(:lit, 1))
+```
 
-== REQUIREMENTS:
+## REQUIREMENTS:
 
 * ruby. woot.
 * sexp_processor for Sexp and SexpProcessor classes, and testing.
 * racc full package for parser development (compiling .y to .rb).
 
-== INSTALL:
+## INSTALL:
 
-* sudo gem install ruby_parser
+`sudo gem install ruby_parser`
 
-== LICENSE:
+## LICENSE:
 
 (The MIT License)
 
