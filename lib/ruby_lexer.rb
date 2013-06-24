@@ -968,25 +968,34 @@ class RubyLexer
             self.yacc_value = "**"
             return :tOP_ASGN
           elsif src.scan(/\*\*/) then
+            result = if is_space_arg? src.check(/./) then
+                       warning "`**' interpreted as argument prefix"
+                       :tDSTAR
+                     elsif is_beg? then
+                       :tDSTAR
+                     else
+                       # TODO: warn_balanced("**", "argument prefix");
+                       :tPOW
+                     end
             self.yacc_value = "**"
             self.fix_arg_lex_state
-            return :tPOW
+            return result
           elsif src.scan(/\*\=/) then
             self.lex_state = :expr_beg
             self.yacc_value = "*"
             return :tOP_ASGN
           elsif src.scan(/\*/) then
-            result = if is_arg? && space_seen && src.check(/\S/) then
+            result = if is_space_arg? src.check(/./) then
                        warning("`*' interpreted as argument prefix")
                        :tSTAR
                      elsif is_beg? then
                        :tSTAR
                      else
-                       :tSTAR2
+                       # TODO: warn_balanced("*", "argument prefix");
+                       :tSTAR2 # TODO: rename
                      end
             self.yacc_value = "*"
             self.fix_arg_lex_state
-
             return result
           end
         elsif src.check(/\</) then
@@ -1328,6 +1337,9 @@ class RubyLexer
       end
 
     # paren_nest++; # TODO
+    # TODO: COND_PUSH(0);
+    # TODO: CMDARG_PUSH(0);
+    self.lex_state = :expr_beg
 
     result
   end

@@ -157,7 +157,7 @@ module RubyParserStuff
   end
 
   def arg_blk_pass node1, node2 # TODO: nuke
-    node1 = s(:arglist, node1) unless [:arglist, :array, :args].include? node1.first
+    node1 = s(:arglist, node1) unless [:arglist, :call_args, :array, :args].include? node1.first
     node1 << node2 if node2
     node1
   end
@@ -212,6 +212,36 @@ module RubyParserStuff
     end
   end
 
+  def array_to_hash array
+    s(:hash, *array[1..-1])
+  end
+
+  def call_args args
+    result = s(:call_args)
+
+    args.each do |arg|
+      case arg
+      when Sexp then
+        case arg.sexp_type
+        when :array, :args, :call_args then # HACK? remove array at some point
+          result.concat arg[1..-1]
+        when :hash, :kwsplat, :block_pass, :call then
+          result << arg
+        else
+          raise "unhandled sexp: #{arg.sexp_type} in #{args.inspect}"
+        end
+      when Symbol then
+        result << arg
+      when ",", nil then
+        # ignore
+      else
+        raise "unhandled: #{arg.inspect} in #{args.inspect}"
+      end
+    end
+
+    result
+  end
+
   def args args
     result = s(:args)
 
@@ -219,7 +249,7 @@ module RubyParserStuff
       case arg
       when Sexp then
         case arg.sexp_type
-        when :args, :block, :array then
+        when :args, :block, :array, :call_args then # HACK call_args mismatch
           result.concat arg[1..-1]
         when :block_arg then
           result << :"&#{arg.last}"
@@ -229,11 +259,10 @@ module RubyParserStuff
           else
             result << arg
           end
-        when :masgn, :block_pass, :hash then
+        when :masgn, :block_pass, :hash then # HACK: remove. prolly call_args
           result << arg
         else
-          debug20 18
-          raise "unhandled: #{arg.inspect} in #{args.inspect}"
+          raise "unhandled: #{arg.sexp_type} in #{args.inspect}"
         end
       when Symbol then
         result << arg
@@ -563,7 +592,7 @@ module RubyParserStuff
     # TODO: need a test with f(&b) { } to produce warning
 
     args ||= s(:arglist)
-    args[0] = :arglist if args.first == :array
+    args[0] = :arglist if [:array, :call_args].include?  args.first
     args = s(:arglist, args) unless args.first == :arglist
 
     # HACK quick hack to make this work quickly... easy to clean up above

@@ -180,9 +180,13 @@ task :debug => :isolate do
   end
 end
 
+def ruby20
+  "/Users/ryan/.multiruby/install/2.0.0-p195/bin/ruby"
+end
+
 task :debug_ruby do
   file = ENV["F"] || ENV["FILE"]
-  sh "ruby19 -cwy #{file} 2>&1 | ./yuck.rb"
+  sh "#{ruby20} -cwy #{file} 2>&1 | ./yuck.rb"
 end
 
 task :extract => :isolate do

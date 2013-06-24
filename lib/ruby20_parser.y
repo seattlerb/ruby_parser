@@ -17,8 +17,8 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tPLUS tMINUS tLT tGT tPIPE tBANG tCARET tLCURLY tRCURLY
       tBACK_REF2 tSYMBEG tSTRING_BEG tXSTRING_BEG tREGEXP_BEG
       tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END
-      tSTRING tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAST_TOKEN
-      tLAMBDA tLAMBEG tDBL_SPLAT tCHAR tSYMBOLS_BEG tQSYMBOLS_BEG tSTRING_DEND
+      tSTRING tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAMBDA
+      tLAMBEG tDSTAR tCHAR tSYMBOLS_BEG tQSYMBOLS_BEG tSTRING_DEND
 
 # tUBANG
 
@@ -578,7 +578,7 @@ rule
                 op: tPIPE    | tCARET  | tAMPER2  | tCMP  | tEQ     | tEQQ
                 |   tMATCH   | tNMATCH | tGT      | tGEQ  | tLT     | tLEQ
                 |   tNEQ     | tLSHFT  | tRSHFT   | tPLUS | tMINUS  | tSTAR2
-                |   tSTAR    | tDIVIDE | tPERCENT | tPOW | tDBL_SPLAT | tBANG   | tTILDE
+                |   tSTAR    | tDIVIDE | tPERCENT | tPOW | tDSTAR | tBANG   | tTILDE
                 |   tUPLUS   | tUMINUS | tAREF    | tASET | tBACK_REF2 
 
 #| tUBANG
@@ -826,39 +826,39 @@ rule
                     }
                 | args tCOMMA
                     {
-                      result = val[0]
+                      result = args val
                     }
                 | args tCOMMA assocs tCOMMA
                     {
-                      result = args [val[0], s(:hash, *val[2][1..-1])]
+                      result = args [val[0], array_to_hash(val[2])]
                     }
                 | assocs tCOMMA
                     {
-                      result = s(:hash, *val[0][1..-1])
+                      result = args [array_to_hash(val[0])]
                     }
 
        call_args: command
                     {
                       warning "parenthesize argument(s) for future version"
-                      result = s(:array, val[0])
+                      result = call_args val
                     }
                 | args opt_block_arg
                     {
+                      result = call_args val
                       result = self.arg_blk_pass val[0], val[1]
                     }
                 | assocs opt_block_arg
                     {
-                      result = s(:array, s(:hash, *val[0].values))
+                      result = call_args [array_to_hash(val[0])]
                       result = self.arg_blk_pass result, val[1]
                     }
                 | args tCOMMA assocs opt_block_arg
                     {
-                      result = val[0].dup << s(:hash, *val[2].values)
-                      result = self.arg_blk_pass result, val[3]
+                      result = call_args val
                     }
                 | block_arg
                     {
-                      result = result
+                      result = call_args val
                     }
 
     command_args:   {
@@ -1302,19 +1302,19 @@ rule
 
  block_args_tail: f_block_kwarg tCOMMA f_kwrest opt_f_block_arg
                     {
-                      debug20 19, val, result
+                      result = call_args val
                     }
                 | f_block_kwarg opt_f_block_arg
                     {
-                      debug20 20, val, result
+                      result = call_args val
                     }
                 | f_kwrest opt_f_block_arg
                     {
-                      result = args val
+                      result = call_args val
                     }
                 | f_block_arg
                     {
-                      result = args val
+                      result = call_args val
                     }
 
 opt_block_args_tail: tCOMMA block_args_tail
@@ -1501,7 +1501,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                     paren_args
                     {
-                      args = self.args val[2..-1]
+                      args = self.call_args val[2..-1]
                       result = val[0].concat args[1..-1]
                     }
                 | primary_value tDOT operation2 opt_paren_args
@@ -1967,9 +1967,9 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       result = val[0]
                     }
 
-       args_tail: f_kwarg ',' f_kwrest opt_f_block_arg
+       args_tail: f_kwarg tCOMMA f_kwrest opt_f_block_arg
                     {
-                      debug20 31, val, result
+                      result = args val
                     }
 		| f_kwarg opt_f_block_arg
                     {
@@ -2111,19 +2111,19 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
             f_kw: tLABEL arg_value
                     {
+                      # TODO: call_args
                       label, _ = val[0] # TODO: fix lineno?
                       result = s(:array, s(:kwarg, label.to_sym, val[1]))
                     }
 
       f_block_kw: tLABEL primary_value
                     {
-                      debug20 33, val, result
+                      # TODO: call_args
+                      label, _ = val[0] # TODO: fix lineno?
+                      result = s(:array, s(:kwarg, label.to_sym, val[1]))
                     }
 
    f_block_kwarg: f_block_kw
-                    {
-                      debug20 34, val, result
-                    }
                 | f_block_kwarg tCOMMA f_block_kw
                     {
                       debug20 35, val, result
@@ -2136,7 +2136,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     }
 
      kwrest_mark: tPOW
-                | tDBL_SPLAT # TODO: why do both of these exist separately?
+                | tDSTAR
 
         f_kwrest: kwrest_mark tIDENTIFIER
                     {
@@ -2240,6 +2240,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       more = val[2][1..-1]
                       list.push(*more) unless more.empty?
                       result = list
+                      result[0] = :hash
                       # TODO: shouldn't this be a hash?
                     }
 
@@ -2251,9 +2252,9 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result = s(:array, s(:lit, val[0][0].to_sym), val[1])
                     }
-                | tDBL_SPLAT arg_value
+                | tDSTAR arg_value
                     {
-                      debug20 37, val, result
+                      result = s(:kwsplat, val[1])
                     }
 
        operation: tIDENTIFIER | tCONSTANT | tFID

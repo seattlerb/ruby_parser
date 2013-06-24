@@ -2735,4 +2735,32 @@ class TestRuby20Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  def test_defn_kwarg_kwsplat
+    rb = "def a(b: 1, **c) end"
+    pt = s(:defn, :a, s(:args, s(:kwarg, :b, s(:lit, 1)), :"**c"), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_arg_kwsplat
+    rb = "a(b, **1)"
+    pt = s(:call, nil, :a, s(:call, nil, :b), s(:kwsplat, s(:lit, 1)))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_kwarg
+    rb = "a { |b: 1| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, s(:kwarg, :b, s(:lit, 1))))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_kwarg_kwsplat
+    rb = "a { |b: 1, **c| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, s(:kwarg, :b, s(:lit, 1)), :"**c"))
+
+    assert_parse rb, pt
+  end
 end

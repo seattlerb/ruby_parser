@@ -5,10 +5,9 @@ require 'rubygems'
 require 'minitest/autorun'
 require 'ruby_lexer'
 require 'ruby18_parser'
+require 'ruby20_parser'
 
 class TestRubyLexer < Minitest::Test
-  alias :deny :refute
-
   def setup
     setup_lexer Ruby18Parser
   end
@@ -23,7 +22,7 @@ class TestRubyLexer < Minitest::Test
   def test_advance
     assert @lex.advance # blah
     assert @lex.advance # blah
-    deny   @lex.advance # nada
+    refute @lex.advance # nada
   end
 
   def test_unicode_ident
@@ -170,6 +169,54 @@ class TestRubyLexer < Minitest::Test
                    :tLPAREN2,    "(",
                    :tLABEL,      "a")
   end
+
+  def util_lex_token2 input, *args
+    @lex.src = input
+
+    args.each_slice(5) do |token, value, state, paren, brace|
+      assert @lex.advance, "no more tokens"
+
+      msg = message {
+        act = [@lex.token, @lex.yacc_value, @lex.lex_state].inspect
+        exp = [token, value, state].inspect
+        "#{input} :: #{exp} vs #{act}"
+      }
+
+      assert_equal token, @lex.token,      msg
+      assert_equal value, @lex.yacc_value, msg
+      assert_equal state, @lex.lex_state,  msg
+      assert_equal paren, @lex.paren_nest, msg
+    end
+
+    refute @lex.advance, "not empty: #{[@lex.token, @lex.yacc_value].inspect}"
+  end
+
+  # def test_yylex_lambda_args__20
+  #   setup_lexer Ruby20Parser
+  #
+  #   util_lex_token2("-> (a) { }",
+  #                   :tLAMBDA,     nil, :expr_endfn, 0, 0,
+  #                   :tLPAREN2,    "(", :expr_beg,   1, 0,
+  #                   :tIDENTIFIER, "a", :expr_arg,   1, 0,
+  #                   :tRPAREN,     ")", :expr_end,   0, 0,
+  #                   :tLAMBEG,     nil, :expr_beg,   0, 0,
+  #                   :tRCURLY,     "}", :expr_end,   0, 0)
+  # end
+  #
+  # def test_yylex_lambda_hash__20
+  #   setup_lexer Ruby20Parser
+  #
+  #   util_lex_token2("-> (a={}) { }",
+  #                   :tLAMBDA,     nil, :expr_endfn, 0, 0,
+  #                   :tLPAREN2,    "(", :expr_beg,   1, 0,
+  #                   :tIDENTIFIER, "a", :expr_arg,   1, 0,
+  #                   :tEQL,        "=", :expr_beg,   1, 0,
+  #                   :tLBRACE,     "{", :expr_beg,   1, 1,
+  #                   :tRCURLY,     "}", :expr_end,   1, 0,
+  #                   :tRPAREN,     ")", :expr_end,   0, 0,
+  #                   :tLAMBEG,     nil, :expr_beg,   0, 1,
+  #                   :tRCURLY,     "}", :expr_end,   0, 0)
+  # end
 
   def test_yylex_back_ref
     util_lex_token("[$&, $`, $', $+]",
@@ -1928,7 +1975,7 @@ class TestRubyLexer < Minitest::Test
 
   def test_yylex_underscore_end
     @lex.src = "__END__\n"
-    deny @lex.advance
+    refute @lex.advance
   end
 
   def test_yylex_uplus
@@ -2023,6 +2070,6 @@ class TestRubyLexer < Minitest::Test
       assert_equal [token, value], [@lex.token, [@lex.yacc_value].flatten.first], input
     end
 
-    deny @lex.advance, "must be empty, but had #{[@lex.token, @lex.yacc_value].inspect}"
+    refute @lex.advance, "must be empty, but had #{[@lex.token, @lex.yacc_value].inspect}"
   end
 end
