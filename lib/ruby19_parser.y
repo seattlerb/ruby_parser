@@ -1366,9 +1366,16 @@ rule
                     }
                 | f_bad_arg
 
-          lambda: f_larglist lambda_body
+          lambda:   {
+                      # TODO: dyna_push ? hrm
+                      result = lexer.lpar_beg
+                      lexer.paren_nest += 1
+                      lexer.lpar_beg = lexer.paren_nest
+                    }
+                    f_larglist lambda_body
                     {
-                      args, body = val
+                      lpar, args, body = val
+                      lexer.lpar_beg = lpar
 
                       args = 0 if args == s(:args)
 

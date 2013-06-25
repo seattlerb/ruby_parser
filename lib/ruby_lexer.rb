@@ -51,6 +51,8 @@ class RubyLexer
   attr_accessor :warnings
 
   attr_accessor :space_seen
+  attr_accessor :paren_nest
+  attr_accessor :lpar_beg
 
   EOF = :eof_haha!
 
@@ -248,6 +250,9 @@ class RubyLexer
     self.cmdarg = RubyParserStuff::StackState.new(:cmdarg)
     self.tern = RubyParserStuff::StackState.new(:tern)
     self.nest = 0
+    self.paren_nest = 0
+    self.lpar_beg = nil
+
     @comments = []
 
     reset
@@ -729,6 +734,8 @@ class RubyLexer
           self.lex_state = :expr_beg
           return :tNL
         elsif src.scan(/[\]\)\}]/) then
+          self.paren_nest -= 1 unless src.matched == "}"
+
           cond.lexpop
           cmdarg.lexpop
           tern.lexpop
@@ -767,7 +774,8 @@ class RubyLexer
                      yylex_paren19
                    end
 
-          # paren_nest++; # TODO
+          self.paren_nest += 1
+
           self.expr_beg_push "("
 
           return result
@@ -842,6 +850,8 @@ class RubyLexer
         elsif src.check(/[0-9]/) then
           return parse_number
         elsif src.scan(/\[/) then
+          self.paren_nest += 1
+
           result = src.matched
 
           if in_lex_state? :expr_fname, :expr_dot then
@@ -892,9 +902,12 @@ class RubyLexer
             return :tPIPE
           end
         elsif src.scan(/\{/) then
-          if defined?(@hack_expects_lambda) && @hack_expects_lambda
-            @hack_expects_lambda = false
-            self.lex_state = :expr_beg
+          if lpar_beg && lpar_beg == paren_nest then
+            self.lpar_beg = nil
+            self.paren_nest -= 1
+
+            expr_beg_push "{"
+
             return :tLAMBEG
           end
 
@@ -912,7 +925,6 @@ class RubyLexer
 
           return result
         elsif src.scan(/->/) then
-          @hack_expects_lambda = true
           self.lex_state = :expr_endfn
           return :tLAMBDA
         elsif src.scan(/[+-]/) then
@@ -1319,6 +1331,8 @@ class RubyLexer
     in_lex_state? :expr_beg, :expr_mid, :expr_value, :expr_class
   end
 
+  # TODO #define IS_AFTER_OPERATOR() IS_lex_state(EXPR_FNAME | EXPR_DOT)
+
   def is_space_arg? c = "x"
     is_arg? and space_seen and c !~ /\s/
   end
@@ -1403,22 +1417,23 @@ class RubyLexer
             return keyword.id0
           end
 
-          if keyword.id0 == :kDO then
-            self.command_start = true
+          self.command_start = true if lex_state == :expr_beg
 
-            if defined?(@hack_expects_lambda) && @hack_expects_lambda
-              @hack_expects_lambda = false
+          if keyword.id0 == :kDO then
+            if lpar_beg && lpar_beg == paren_nest then
+              self.lpar_beg = nil
+              self.paren_nest -= 1
+
               return :kDO_LAMBDA
             end
 
             return :kDO_COND  if cond.is_in_state
             return :kDO_BLOCK if cmdarg.is_in_state && state != :expr_cmdarg
-            return :kDO_BLOCK if state == :expr_endarg
-
+            return :kDO_BLOCK if [:expr_beg, :expr_endarg].include? state
             return :kDO
           end
 
-          return keyword.id0 if state == :expr_beg or state == :expr_value
+          return keyword.id0 if [:expr_beg, :expr_value].include? state
 
           self.lex_state = :expr_beg if keyword.id0 != keyword.id1
 

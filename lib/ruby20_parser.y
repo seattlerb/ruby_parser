@@ -160,9 +160,6 @@ rule
                       result = new_iter s(:postexe), nil, val[2]
                     }
                 | command_asgn
-                    {
-                      result = val[0]
-                    }
                 | mlhs tEQL command_call
                     {
                       result = new_masgn val[0], val[2], :wrap
@@ -1423,9 +1420,16 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | f_bad_arg
 
-          lambda: f_larglist lambda_body
+          lambda:   {
+                      # TODO: dyna_push ? hrm
+                      result = lexer.lpar_beg
+                      lexer.paren_nest += 1
+                      lexer.lpar_beg = lexer.paren_nest
+                    }
+                    f_larglist lambda_body
                     {
-                      args, body = val
+                      lpar, args, body = val
+                      lexer.lpar_beg = lpar
 
                       args = 0 if args == s(:args)
 
