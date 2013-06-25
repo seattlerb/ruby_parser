@@ -767,6 +767,7 @@ class RubyLexer
                      yylex_paren19
                    end
 
+          # paren_nest++; # TODO
           self.expr_beg_push "("
 
           return result
@@ -912,7 +913,7 @@ class RubyLexer
           return result
         elsif src.scan(/->/) then
           @hack_expects_lambda = true
-          self.lex_state = :expr_arg
+          self.lex_state = :expr_endfn
           return :tLAMBDA
         elsif src.scan(/[+-]/) then
           sign = src.matched
@@ -1335,13 +1336,6 @@ class RubyLexer
       else
         :tLPAREN2 # plain '(' in parse.y
       end
-
-    # paren_nest++; # TODO
-    # TODO: COND_PUSH(0);
-    # TODO: CMDARG_PUSH(0);
-    self.lex_state = :expr_beg
-
-    result
   end
 
   def process_token(command_state)
