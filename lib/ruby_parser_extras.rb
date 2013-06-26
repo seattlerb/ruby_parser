@@ -225,10 +225,8 @@ module RubyParserStuff
         case arg.sexp_type
         when :array, :args, :call_args then # HACK? remove array at some point
           result.concat arg[1..-1]
-        when :hash, :kwsplat, :block_pass, :call then
-          result << arg
         else
-          raise "unhandled sexp: #{arg.sexp_type} in #{args.inspect}"
+          result << arg
         end
       when Symbol then
         result << arg
@@ -592,7 +590,7 @@ module RubyParserStuff
     # TODO: need a test with f(&b) { } to produce warning
 
     args ||= s(:arglist)
-    args[0] = :arglist if [:array, :call_args].include?  args.first
+    args[0] = :arglist if [:array, :call_args].include? args.first
     args = s(:arglist, args) unless args.first == :arglist
 
     # HACK quick hack to make this work quickly... easy to clean up above

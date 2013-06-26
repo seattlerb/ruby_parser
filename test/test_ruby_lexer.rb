@@ -175,7 +175,7 @@ class TestRubyLexer < Minitest::Test
   def util_lex_token2 input, exp_sexp, *args
     lex.src = input
 
-    assert_equal exp_sexp, processor.class.new.parse(input)
+    assert_equal exp_sexp, processor.class.new.parse(input) if exp_sexp
 
     args.each_slice(5) do |token, value, state, paren, brace|
       assert @lex.advance, "no more tokens"
@@ -200,14 +200,15 @@ class TestRubyLexer < Minitest::Test
     setup_lexer Ruby20Parser
 
     util_lex_token2("-> (a) { }",
-                    s(:iter, s(:call, nil, :lambda), s(:args, :a)),
+                    s(:iter, s(:call, nil, :lambda),
+                      s(:args, :a)),
 
-                    :tLAMBDA,     nil, :expr_endfn, 0, 0,
-                    :tLPAREN2,    "(", :expr_beg,   1, 0,
-                    :tIDENTIFIER, "a", :expr_arg,   1, 0,
-                    :tRPAREN,     ")", :expr_end,   0, 0,
-                    :tLCURLY,     "{", :expr_beg,   0, 0, # TODO: question
-                    :tRCURLY,     "}", :expr_end,   0, 0)
+                    :tLAMBDA,     nil, :expr_endfn,  0, 0,
+                    :tLPAREN2,    "(", :expr_beg,    1, 0,
+                    :tIDENTIFIER, "a", :expr_arg,    1, 0,
+                    :tRPAREN,     ")", :expr_endfn,  0, 0,
+                    :tLCURLY,     "{", :expr_beg,    0, 0, # TODO: question
+                    :tRCURLY,     "}", :expr_endarg, 0, 0)
   end
 
   def test_yylex_lambda_args_opt__20
@@ -216,34 +217,58 @@ class TestRubyLexer < Minitest::Test
     xxx = ["nil", 1] # ugly
 
     util_lex_token2("-> (a=nil) { }",
-                    s(:iter, s(:call, nil, :lambda), s(:args, s(:lasgn, :a, s(:nil)))),
+                    s(:iter, s(:call, nil, :lambda),
+                      s(:args, s(:lasgn, :a, s(:nil)))),
 
-                    :tLAMBDA,     nil, :expr_endfn, 0, 0,
-                    :tLPAREN2,    "(", :expr_beg,   1, 0,
-                    :tIDENTIFIER, "a", :expr_arg,   1, 0,
-                    :tEQL,        "=", :expr_beg,   1, 0,
-                    :kNIL,        xxx, :expr_end,   1, 0,
-                    :tRPAREN,     ")", :expr_end,   0, 0,
-                    :tLCURLY,     "{", :expr_beg,   0, 0, # TODO: question
-                    :tRCURLY,     "}", :expr_end,   0, 0)
+                    :tLAMBDA,     nil, :expr_endfn,  0, 0,
+                    :tLPAREN2,    "(", :expr_beg,    1, 0,
+                    :tIDENTIFIER, "a", :expr_arg,    1, 0,
+                    :tEQL,        "=", :expr_beg,    1, 0,
+                    :kNIL,        xxx, :expr_end,    1, 0,
+                    :tRPAREN,     ")", :expr_endfn,  0, 0,
+                    :tLCURLY,     "{", :expr_beg,    0, 0, # TODO: question
+                    :tRCURLY,     "}", :expr_endarg, 0, 0)
   end
 
   def test_yylex_lambda_hash__20
     setup_lexer Ruby20Parser
 
     util_lex_token2("-> (a={}) { }",
-                    s(:iter, s(:call, nil, :lambda), s(:args, s(:lasgn, :a, s(:hash)))),
+                    s(:iter, s(:call, nil, :lambda),
+                      s(:args, s(:lasgn, :a, s(:hash)))),
 
-                    :tLAMBDA,     nil, :expr_endfn, 0, 0,
-                    :tLPAREN2,    "(", :expr_beg,   1, 0,
-                    :tIDENTIFIER, "a", :expr_arg,   1, 0,
-                    :tEQL,        "=", :expr_beg,   1, 0,
-                    :tLBRACE,     "{", :expr_beg,   1, 1,
-                    :tRCURLY,     "}", :expr_end,   1, 0,
-                    :tRPAREN,     ")", :expr_end,   0, 0,
-                    :tLCURLY,     "{", :expr_beg,   0, 1, # TODO: question
-                    :tRCURLY,     "}", :expr_end,   0, 0)
+                    :tLAMBDA,     nil, :expr_endfn,  0, 0,
+                    :tLPAREN2,    "(", :expr_beg,    1, 0,
+                    :tIDENTIFIER, "a", :expr_arg,    1, 0,
+                    :tEQL,        "=", :expr_beg,    1, 0,
+                    :tLBRACE,     "{", :expr_beg,    1, 1,
+                    :tRCURLY,     "}", :expr_endarg, 1, 0,
+                    :tRPAREN,     ")", :expr_endfn,  0, 0,
+                    :tLCURLY,     "{", :expr_beg,    0, 1, # TODO: question
+                    :tRCURLY,     "}", :expr_endarg, 0, 0)
   end
+
+  def test_yylex_iter_array_curly
+    util_lex_token2("f :a, [:b] { |c, d| }", # yes, this is bad code
+                    s(:iter,
+                      s(:call, nil, :f, s(:lit, :a), s(:array, s(:lit, :b))),
+                      s(:args, :c, :d)),
+
+                    :tIDENTIFIER, "f", :expr_cmdarg, 0, 0,
+                    :tSYMBOL,     "a", :expr_end,    0, 0,
+                    :tCOMMA,      ",", :expr_beg,    0, 0,
+                    :tLBRACK,     "[", :expr_beg,    1, 0,
+                    :tSYMBOL,     "b", :expr_end,    1, 0,
+                    :tRBRACK,     "]", :expr_endarg, 0, 0,
+                    :tLBRACE_ARG, "{", :expr_beg,    0, 0,
+                    :tPIPE,       "|", :expr_beg,    0, 0,
+                    :tIDENTIFIER, "c", :expr_arg,    0, 0,
+                    :tCOMMA,      ",", :expr_beg,    0, 0,
+                    :tIDENTIFIER, "d", :expr_arg,    0, 0,
+                    :tPIPE,       "|", :expr_beg,    0, 0,
+                    :tRCURLY,     "}", :expr_endarg, 0, 0)
+  end
+
 
   def test_yylex_back_ref
     util_lex_token("[$&, $`, $', $+]",

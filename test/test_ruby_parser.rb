@@ -2763,4 +2763,13 @@ class TestRuby20Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  def test_iter_array_curly
+    rb = "f :a, [:b] { |c, d| }" # yes, this is bad code... that's their problem
+    pt = s(:iter,
+           s(:call, nil, :f, s(:lit, :a), s(:array, s(:lit, :b))),
+           s(:args, :c, :d))
+
+    assert_parse rb, pt
+  end
 end

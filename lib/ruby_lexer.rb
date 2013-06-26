@@ -739,7 +739,13 @@ class RubyLexer
           cond.lexpop
           cmdarg.lexpop
           tern.lexpop
-          self.lex_state = :expr_end
+
+          self.lex_state = if src.matched == ")" then
+                             :expr_endfn
+                           else
+                             :expr_endarg
+                           end
+
           self.yacc_value = src.matched
           result = {
             ")" => :tRPAREN,
@@ -911,7 +917,7 @@ class RubyLexer
             return :tLAMBEG
           end
 
-          result = if is_arg? || in_lex_state?(:expr_end) then
+          result = if is_arg? || in_lex_state?(:expr_end, :expr_endfn) then
                      :tLCURLY      #  block (primary)
                    elsif in_lex_state?(:expr_endarg) then
                      :tLBRACE_ARG  #  block (expr)
