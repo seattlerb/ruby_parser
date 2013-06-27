@@ -52,6 +52,8 @@ class TestRubyLexer < Minitest::Test
 
     util_escape "8", "8" # ugh... mri... WHY?!?
     util_escape "9", "9" # ugh... mri... WHY?!?
+
+    util_escape "$",    "444" # ugh
   end
 
   def test_read_escape_c
@@ -1810,6 +1812,11 @@ class TestRubyLexer < Minitest::Test
                    :tSTRING, "n = ABC")
   end
 
+  def test_yylex_string_double_escape_octal_fucked
+    util_lex_token('"n = \\444"',
+                   :tSTRING, "n = $")
+  end
+
   def test_yylex_string_double_interp
     util_lex_token("\"blah #x a \#@a b \#$b c \#{3} # \"",
                    :tSTRING_BEG,     "\"",
@@ -2093,7 +2100,7 @@ class TestRubyLexer < Minitest::Test
 
   def util_escape expected, input
     @lex.src = input
-    assert_equal expected, @lex.read_escape
+    assert_equal expected, @lex.read_escape, input
   end
 
   def util_escape_bad input

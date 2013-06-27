@@ -457,7 +457,7 @@ class RubyLexer
     when src.scan(/s/) then                   # space
       " "
     when src.scan(/[0-7]{1,3}/) then          # octal constant
-      src.matched.to_i(8).chr
+      (src.matched.to_i(8) & 0xFF).chr
     when src.scan(/x([0-9a-fA-F]{1,2})/) then # hex constant
       src[1].to_i(16).chr
     when src.check(/M-\\[\\MCc]/) then
@@ -656,7 +656,7 @@ class RubyLexer
 
     x = case s
         when /^[0-7]{1,3}/ then
-          ($&.to_i(8) & 0x7F).chr
+          ($&.to_i(8) & 0xFF).chr
         when /^x([0-9a-fA-F]{1,2})/ then
           $1.to_i(16).chr
         when /^M-(.)/ then
