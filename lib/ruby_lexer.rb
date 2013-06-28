@@ -17,7 +17,7 @@ class RubyLexer
   attr_accessor :cmdarg
   attr_accessor :cond
   attr_accessor :tern # TODO: rename ternary damnit... wtf
-  attr_accessor :nest
+  attr_accessor :string_nest
 
   ESC_RE = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc]))/u
   # :startdoc:
@@ -52,6 +52,7 @@ class RubyLexer
 
   attr_accessor :space_seen
   attr_accessor :paren_nest
+  attr_accessor :brace_nest
   attr_accessor :lpar_beg
 
   EOF = :eof_haha!
@@ -249,8 +250,9 @@ class RubyLexer
     self.cond = RubyParserStuff::StackState.new(:cond)
     self.cmdarg = RubyParserStuff::StackState.new(:cmdarg)
     self.tern = RubyParserStuff::StackState.new(:tern)
-    self.nest = 0
+    self.string_nest = 0
     self.paren_nest = 0
+    self.brace_nest = 0
     self.lpar_beg = nil
 
     @comments = []
@@ -375,7 +377,7 @@ class RubyLexer
     space = false # FIX: remove these
     func = string_type
     paren = open
-    term_re = Regexp.escape term
+    term_re = @@regexp_cache[term]
 
     qwords = (func & STR_FUNC_QWORDS) != 0
     regexp = (func & STR_FUNC_REGEXP) != 0
@@ -388,9 +390,9 @@ class RubyLexer
 
     space = true if qwords and src.scan(/\s+/)
 
-    if self.nest == 0 && src.scan(/#{term_re}/) then
+    if self.string_nest == 0 && src.scan(/#{term_re}/) then
       if qwords then
-        quote[1] = nil
+        quote[1] = nil # TODO: make struct
         return :tSPACE
       elsif regexp then
         self.yacc_value = self.regx_options
@@ -547,6 +549,9 @@ class RubyLexer
     end
   end
 
+  @@regexp_cache = Hash.new { |h,k| h[k] = Regexp.new(Regexp.escape(k)) }
+  @@regexp_cache[nil] = nil
+
   def tokadd_string(func, term, paren) # 105 lines
     qwords = (func & STR_FUNC_QWORDS) != 0
     escape = (func & STR_FUNC_ESCAPE) != 0
@@ -554,24 +559,27 @@ class RubyLexer
     regexp = (func & STR_FUNC_REGEXP) != 0
     symbol = (func & STR_FUNC_SYMBOL) != 0
 
-    paren_re = paren.nil? ? nil : Regexp.new(Regexp.escape(paren))
-    term_re  = Regexp.new(Regexp.escape(term))
+    paren_re = @@regexp_cache[paren]
+    term_re  = @@regexp_cache[term]
 
     until src.eos? do
       c = nil
       handled = true
+
       case
-      when self.nest == 0 && src.scan(term_re) then
-        src.pos -= 1
-        break
       when paren_re && src.scan(paren_re) then
-        self.nest += 1
+        self.string_nest += 1
       when src.scan(term_re) then
-        self.nest -= 1
-      when qwords && src.scan(/\s/) then
+        if self.string_nest == 0 then
+          src.pos -= 1
+          break
+        else
+          self.string_nest -= 1
+        end
+      when expand && src.scan(/#(?=[\$\@\{])/) then
         src.pos -= 1
         break
-      when expand && src.scan(/#(?=[\$\@\{])/) then
+      when qwords && src.scan(/\s/) then
         src.pos -= 1
         break
       when expand && src.scan(/#(?!\n)/) then
@@ -601,13 +609,12 @@ class RubyLexer
           end
         else
           handled = false
-        end
+        end # inner /\\/ case
       else
         handled = false
-      end # case
+      end # top case
 
       unless handled then
-
         t = Regexp.escape term
         x = Regexp.escape(paren) if paren && paren != "\000"
         re = if qwords then
@@ -628,7 +635,6 @@ class RubyLexer
 
     c ||= src.matched
     c = RubyLexer::EOF if src.eos?
-
 
     return c
   end
@@ -734,7 +740,11 @@ class RubyLexer
           self.lex_state = :expr_beg
           return :tNL
         elsif src.scan(/[\]\)\}]/) then
-          self.paren_nest -= 1 unless src.matched == "}"
+          if src.matched == "}" then
+            self.brace_nest -= 1
+          else
+            self.paren_nest -= 1
+          end
 
           cond.lexpop
           cmdarg.lexpop
@@ -908,6 +918,7 @@ class RubyLexer
             return :tPIPE
           end
         elsif src.scan(/\{/) then
+          self.brace_nest += 1
           if lpar_beg && lpar_beg == paren_nest then
             self.lpar_beg = nil
             self.paren_nest -= 1
@@ -1325,6 +1336,16 @@ class RubyLexer
     result
   end
 
+  def yylex_paren19
+    if is_beg? then
+      :tLPAREN
+    elsif is_space_arg? then
+      :tLPAREN_ARG
+    else
+      :tLPAREN2 # plain '(' in parse.y
+    end
+  end
+
   def is_end?
     in_lex_state? :expr_end, :expr_endarg, :expr_endfn
   end
@@ -1345,17 +1366,6 @@ class RubyLexer
 
   def is_label_possible? command_state
     (in_lex_state?(:expr_beg) && !command_state) || is_arg?
-  end
-
-  def yylex_paren19 # TODO: move or remove
-    result =
-      if is_beg? then
-        :tLPAREN
-      elsif is_space_arg? then
-        :tLPAREN_ARG
-      else
-        :tLPAREN2 # plain '(' in parse.y
-      end
   end
 
   def process_token(command_state)

@@ -1808,32 +1808,44 @@ regexp_contents: none
                     }
                 | tSTRING_DBEG
                     {
-                      result = lexer.lex_strterm
+                      result = [lexer.lex_strterm, lexer.brace_nest, lexer.string_nest]
+
                       lexer.lex_strterm = nil
-                      lexer.lex_state = :expr_beg
+                      lexer.brace_nest  = 0
+                      lexer.string_nest = 0
+
                       lexer.cond.push false
                       lexer.cmdarg.push false
+
+                      lexer.lex_state   = :expr_beg
                     }
                     compstmt tRCURLY
                     {
                       # TODO: tRCURLY -> tSTRING_DEND
-                      lexer.lex_strterm = val[1]
+                      _, memo, stmt, _ = val
+
+                      lex_strterm, brace_nest, string_nest = memo
+
+                      lexer.lex_strterm = lex_strterm
+                      lexer.brace_nest  = brace_nest
+                      lexer.string_nest = string_nest
+
                       lexer.cond.lexpop
                       lexer.cmdarg.lexpop
 
-                      case val[2]
+                      case stmt
                       when Sexp then
-                        case val[2][0]
+                        case stmt[0]
                         when :str, :dstr, :evstr then
-                          result = val[2]
+                          result = stmt
                         else
-                          result = s(:evstr, val[2])
+                          result = s(:evstr, stmt)
                         end
                       when nil then
                         result = s(:evstr)
                       else
                         debug20 25
-                        raise "unknown string body: #{val[2].inspect}"
+                        raise "unknown string body: #{stmt.inspect}"
                       end
                     }
 
