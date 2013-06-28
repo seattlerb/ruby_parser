@@ -9,7 +9,7 @@ require 'ruby20_parser'
 
 class TestRubyLexer < Minitest::Test
   def setup
-    setup_lexer_class Ruby18Parser
+    setup_lexer_class Ruby20Parser
   end
 
   attr_accessor :processor, :lex
@@ -146,6 +146,8 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_label__18
+    setup_lexer_class Ruby18Parser
+
     util_lex_token("{a:",
                    :tLBRACE,     "{",
                    :tIDENTIFIER, "a",
@@ -153,6 +155,8 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_label_in_params__18
+    setup_lexer_class Ruby18Parser
+
     util_lex_token("foo(a:",
                    :tIDENTIFIER, "foo",
                    :tLPAREN2,    "(",
@@ -190,7 +194,7 @@ class TestRubyLexer < Minitest::Test
     assert_equal token, @lex.token,      msg
     assert_equal value, @lex.yacc_value, msg
     assert_equal state, @lex.lex_state,  msg
-    assert_equal paren, @lex.paren_nest, msg
+    assert_equal paren, @lex.paren_nest, msg if paren
     assert_equal brace, @lex.brace_nest, msg if brace
   end
 
@@ -241,7 +245,7 @@ class TestRubyLexer < Minitest::Test
     lexer.cmdarg.lexpop
   end
 
-  def test_yylex_fuck_fuck_me
+  def test_yylex_paren_string_parens_interpolated
     setup_lexer('%((#{b}#{d}))',
                 s(:dstr,
                   "(",
@@ -269,7 +273,7 @@ class TestRubyLexer < Minitest::Test
     refute_lexeme
   end
 
-  def test_yylex_fuck_fuck_me_good
+  def test_yylex_paren_string_interpolated_regexp
     setup_lexer('%( #{(/abcd/)} )',
                 s(:dstr, " ", s(:evstr, s(:lit, /abcd/)), s(:str, " ")))
 
@@ -291,9 +295,7 @@ class TestRubyLexer < Minitest::Test
     refute_lexeme
   end
 
-  def test_yylex_fuck_fuck_me_bad
-    setup_lexer_class Ruby20Parser # HACK: fails on 1.8 & 1.9 parser
-
+  def test_yylex_paren_string_parens_interpolated_regexp
     setup_lexer('%((#{(/abcd/)}))',
                 s(:dstr, "(", s(:evstr, s(:lit, /abcd/)), s(:str, ")")))
 
@@ -316,62 +318,15 @@ class TestRubyLexer < Minitest::Test
     refute_lexeme
   end
 
-  # def test_yylex_fuck_fuck_fuck_me
-  #   setup_lexer('%((#{c(/abcd/)}))',
-  #               s(:dstr,
-  #                 "(",
-  #                 s(:evstr, s(:call, nil, :b)),
-  #                 s(:evstr, s(:call, nil, :d)),
-  #                 s(:str, ")")))
-  #
-  #   assert_next_lexeme :tSTRING_BEG,     "%)", :expr_beg, 0, 0
-  #   assert_next_lexeme :tSTRING_CONTENT, "(",  :expr_beg, 0, 0
-  #   assert_next_lexeme :tSTRING_DBEG,    nil,  :expr_beg, 0, 0
-  #
-  #   emulate_string_interpolation do
-  #     assert_next_lexeme :tIDENTIFIER,   "b",  :expr_arg, 0, 1
-  #   end
-  #
-  #   assert_next_lexeme :tSTRING_DBEG,    nil,  :expr_beg, 0, 0
-  #
-  #   emulate_string_interpolation do
-  #     assert_next_lexeme :tIDENTIFIER,   "d",  :expr_arg, 0, 1
-  #   end
-  #
-  #   assert_next_lexeme :tSTRING_CONTENT, ")",  :expr_beg, 0, 0
-  #   assert_next_lexeme :tSTRING_END,     ")",  :expr_end, 0, 0
-  #
-  #   refute_lexeme
-  # end
-
-  # def test_yylex_fuck_fuck_fuck_fuck_me
-  #   setup_lexer('%((#{b}#{d(/^g_/)}#{1})) # //b for',
-  #               nil)
-  #
-  #   assert_next_lexeme :tSTRING_BEG,     "%)", :expr_beg, 0, 0
-  #   assert_next_lexeme :tSTRING_CONTENT, "(",  :expr_beg, 0, 0
-  #   assert_next_lexeme :tSTRING_DBEG,    nil,  :expr_beg, 0, 0
-  #
-  #   emulate_string_interpolation do
-  #     assert_next_lexeme :tIDENTIFIER, "b", :expr_arg, 0, 1
-  #   end
-  #
-  #   assert_next_lexeme :tSTRING_DBEG,    nil,  :expr_beg, 0, 0
-  #
-  #   emulate_string_interpolation do
-  #     assert_next_lexeme :tIDENTIFIER, "d", :expr_arg, 0, 1
-  #     assert_next_lexeme :tLPAREN2, "(", :expr_beg, 1, 1
-  #
-  #     assert_next_lexeme :tREGEXP_BEG, "/", :expr_beg, 1, 1
-  #     assert_equal [:strterm, 7, '/', "\0"], lexer.lex_strterm
-  #     assert_next_lexeme :tSTRING_CONTENT, "^g_", :expr_beg, 1, 1
-  #
-  #     assert_next_lexeme nil, nil, nil, 0, 0
-  #   end
-  #
-  #   assert_next_lexeme nil, nil, nil, 0, 0
-  #   refute_lexeme
-  # end
+  def test_yylex_method_parens_chevron
+    util_lex_token2("a()<<1",
+                    s(:call, s(:call, nil, :a), :<<, s(:lit, 1)),
+                    :tIDENTIFIER, "a",   :expr_cmdarg, 0, 0,
+                    :tLPAREN2,    "(",   :expr_beg,    1, 0,
+                    :tRPAREN,     ")",   :expr_endfn,  0, 0,
+                    :tLSHFT,      "<<" , :expr_beg,    0, 0,
+                    :tINTEGER,    1,     :expr_end,    0, 0)
+  end
 
   def test_yylex_lambda_args__20
     setup_lexer_class Ruby20Parser
@@ -1022,8 +977,16 @@ class TestRubyLexer < Minitest::Test
     util_lex_fname "<=>", :tCMP
   end
 
-  def test_yylex_identifier_def
+  def test_yylex_identifier_def__18
+    setup_lexer_class Ruby18Parser
+
     util_lex_fname "identifier", :tIDENTIFIER, :expr_end
+  end
+
+  def test_yylex_identifier_def__1920
+    setup_lexer_class Ruby19Parser
+
+    util_lex_fname "identifier", :tIDENTIFIER, :expr_endfn
   end
 
   def test_yylex_identifier_eh
@@ -1057,8 +1020,16 @@ class TestRubyLexer < Minitest::Test
     util_lex_fname "^", :tCARET
   end
 
-  def test_yylex_identifier_equals_def
+  def test_yylex_identifier_equals_def__18
+    setup_lexer_class Ruby18Parser
+
     util_lex_fname "identifier=", :tIDENTIFIER, :expr_end
+  end
+
+  def test_yylex_identifier_equals_def__1920
+    setup_lexer_class Ruby19Parser
+
+    util_lex_fname "identifier=", :tIDENTIFIER, :expr_endfn
   end
 
   def test_yylex_identifier_equals_def2
@@ -1151,25 +1122,25 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_question_eh_a__18
-    @lex = RubyLexer.new 18
+    setup_lexer_class Ruby18Parser
 
     util_lex_token "?a", :tINTEGER, 97
   end
 
   def test_yylex_question_eh_a__19
-    @lex = RubyLexer.new 19
+    setup_lexer_class Ruby19Parser
 
     util_lex_token '?a', :tSTRING, "a"
   end
 
   def test_yylex_question_eh_escape_M_escape_C__18
-    @lex = RubyLexer.new 18
+    setup_lexer_class Ruby18Parser
 
     util_lex_token '?\M-\C-a', :tINTEGER, 129
   end
 
   def test_yylex_question_eh_escape_M_escape_C__19
-    @lex = RubyLexer.new 19
+    setup_lexer_class Ruby19Parser
 
     util_lex_token '?\M-\C-a', :tSTRING, "\M-\C-a"
   end
@@ -1347,9 +1318,18 @@ class TestRubyLexer < Minitest::Test
     util_lex_token(" (", :tLPAREN_ARG, "(")
   end
 
-  def test_yylex_open_bracket_exprarg
+  def test_yylex_open_bracket_exprarg__18
+    setup_lexer_class Ruby18Parser
+
     @lex.lex_state = :expr_arg
     util_lex_token(" (", :tLPAREN2, "(")
+  end
+
+  def test_yylex_open_bracket_exprarg__19
+    setup_lexer_class Ruby19Parser
+
+    @lex.lex_state = :expr_arg
+    util_lex_token(" (", :tLPAREN_ARG, "(")
   end
 
   def test_yylex_open_curly_bracket
@@ -1505,13 +1485,13 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_question__18
-    @lex = RubyLexer.new 18
+    setup_lexer_class Ruby18Parser
 
     util_lex_token "?*", :tINTEGER, 42
   end
 
   def test_yylex_question__19
-    @lex = RubyLexer.new 19
+    setup_lexer_class Ruby19Parser
 
     util_lex_token "?*", :tSTRING, "*"
   end
@@ -1530,7 +1510,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_question_ws_backslashed__18
-    @lex = RubyLexer.new 18
+    setup_lexer_class Ruby18Parser
 
     @lex.lex_state = :expr_beg
     util_lex_token "?\\ ", :tINTEGER, 32
@@ -1547,7 +1527,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_question_ws_backslashed__19
-    @lex = RubyLexer.new 19
+    setup_lexer_class Ruby19Parser
 
     @lex.lex_state = :expr_beg
     util_lex_token "?\\ ", :tSTRING, " "
@@ -2288,7 +2268,11 @@ class TestRubyLexer < Minitest::Test
   def util_lex_fname name, type, end_state = :expr_arg
     @lex.lex_state = :expr_fname # can only set via parser's defs
 
-    util_lex_token("def #{name} ", :kDEF, "def", type, name)
+    util_lex_token2("def #{name} ",
+                    nil,
+
+                    :kDEF, "def", :expr_fname, 0, 0,
+                    type, name, end_state, 0, 0)
 
     assert_equal end_state, @lex.lex_state
   end

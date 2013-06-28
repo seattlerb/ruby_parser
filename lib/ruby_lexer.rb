@@ -247,9 +247,9 @@ class RubyLexer
 
   def initialize v = 18
     self.version = v
-    self.cond = RubyParserStuff::StackState.new(:cond)
+    self.cond   = RubyParserStuff::StackState.new(:cond)
     self.cmdarg = RubyParserStuff::StackState.new(:cmdarg)
-    self.tern = RubyParserStuff::StackState.new(:tern)
+    self.tern   = RubyParserStuff::StackState.new(:tern)
     self.string_nest = 0
     self.paren_nest = 0
     self.brace_nest = 0
@@ -262,8 +262,6 @@ class RubyLexer
 
   def int_with_base base
     rb_compile_error "Invalid numeric format" if src.matched =~ /__/
-    rb_compile_error "numeric literal without digits" if
-      ruby19 and src.matched =~ /0o/i
 
     self.yacc_value = src.matched.to_i(base)
     return :tINTEGER
@@ -874,9 +872,11 @@ class RubyLexer
             self.lex_state = :expr_arg
             case
             when src.scan(/\]\=/) then
+              self.paren_nest -= 1 # HACK? I dunno, or bug in MRI
               self.yacc_value = "[]="
               return :tASET
             when src.scan(/\]/) then
+              self.paren_nest -= 1 # HACK? I dunno, or bug in MRI
               self.yacc_value = "[]"
               return :tAREF
             else
@@ -1043,8 +1043,8 @@ class RubyLexer
             self.yacc_value = "\<\<"
             return :tOP_ASGN
           elsif src.scan(/\<\</) then
-            if (! in_lex_state?(:expr_end, :expr_dot,
-                                :expr_endarg, :expr_class) &&
+            if (!in_lex_state?(:expr_dot, :expr_class) &&
+                !is_end? &&
                 (!is_arg? || space_seen)) then
               tok = self.heredoc_identifier
               return tok if tok
@@ -1467,7 +1467,7 @@ class RubyLexer
           else
             :expr_arg
           end
-        elsif ruby19 && in_lex_state?(:expr_fname) then
+        elsif !ruby18 && in_lex_state?(:expr_fname) then
           :expr_endfn
         else
           :expr_end

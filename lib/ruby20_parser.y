@@ -1849,20 +1849,10 @@ regexp_contents: none
                       end
                     }
 
-     string_dvar: tGVAR
-                    {
-                      result = s(:gvar, val[0].to_sym)
-                    }
-                | tIVAR
-                    {
-                      result = s(:ivar, val[0].to_sym)
-                    }
-                | tCVAR
-                    {
-                      result = s(:cvar, val[0].to_sym)
-                    }
+     string_dvar: tGVAR { result = s(:gvar, val[0].to_sym) }
+                | tIVAR { result = s(:ivar, val[0].to_sym) }
+                | tCVAR { result = s(:cvar, val[0].to_sym) }
                 | backref
-
 
           symbol: tSYMBEG sym
                     {
