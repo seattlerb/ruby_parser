@@ -295,6 +295,24 @@ class TestRubyLexer < Minitest::Test
     refute_lexeme
   end
 
+  def test_yylex_number_times_ident_times_return_number
+    util_lex_token2("1 * b * 3",
+                    nil,
+                    :tINTEGER,      1, :expr_end, 0, 0,
+                    :tSTAR2,      "*", :expr_beg, 0, 0,
+                    :tIDENTIFIER, "b", :expr_arg, 0, 0,
+                    :tSTAR2,      "*", :expr_beg, 0, 0,
+                    :tINTEGER,      3, :expr_end, 0, 0)
+
+    util_lex_token2("1 * b *\n 3",
+                    nil,
+                    :tINTEGER,      1, :expr_end, 0, 0,
+                    :tSTAR2,      "*", :expr_beg, 0, 0,
+                    :tIDENTIFIER, "b", :expr_arg, 0, 0,
+                    :tSTAR2,      "*", :expr_beg, 0, 0,
+                    :tINTEGER,      3, :expr_end, 0, 0)
+  end
+
   def test_yylex_paren_string_parens_interpolated_regexp
     setup_lexer('%((#{(/abcd/)}))',
                 s(:dstr, "(", s(:evstr, s(:lit, /abcd/)), s(:str, ")")))

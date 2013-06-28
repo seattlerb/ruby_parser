@@ -724,8 +724,8 @@ class RubyLexer
           # Replace a string of newlines with a single one
           src.scan(/\n+/)
 
-          next if in_lex_state?(:expr_beg, :expr_fname, :expr_dot, :expr_class,
-                                :expr_value)
+          next if in_lex_state?(:expr_beg, :expr_value, :expr_class,
+                                :expr_fname, :expr_dot)
 
           if src.scan(/([\ \t\r\f\v]*)\./) then
             self.space_seen = true unless src[1].empty?
@@ -969,8 +969,7 @@ class RubyLexer
             return :tOP_ASGN
           end
 
-          if (is_beg? ||
-              (is_arg? && space_seen && !src.check(/\s/))) then
+          if (is_beg? || (is_arg? && space_seen && !src.check(/\s/))) then
             if is_arg? then
               arg_ambiguous
             end
@@ -998,7 +997,7 @@ class RubyLexer
             self.yacc_value = "**"
             return :tOP_ASGN
           elsif src.scan(/\*\*/) then
-            result = if is_space_arg? src.check(/./) then
+            result = if is_space_arg? src.check(/./m) then
                        warning "`**' interpreted as argument prefix"
                        :tDSTAR
                      elsif is_beg? then
@@ -1015,7 +1014,7 @@ class RubyLexer
             self.yacc_value = "*"
             return :tOP_ASGN
           elsif src.scan(/\*/) then
-            result = if is_space_arg? src.check(/./) then
+            result = if is_space_arg? src.check(/./m) then
                        warning("`*' interpreted as argument prefix")
                        :tSTAR
                      elsif is_beg? then
@@ -1024,6 +1023,7 @@ class RubyLexer
                        # TODO: warn_balanced("*", "argument prefix");
                        :tSTAR2 # TODO: rename
                      end
+
             self.yacc_value = "*"
             self.fix_arg_lex_state
             return result
@@ -1346,16 +1346,16 @@ class RubyLexer
     end
   end
 
-  def is_end?
-    in_lex_state? :expr_end, :expr_endarg, :expr_endfn
-  end
-
   def is_arg?
     in_lex_state? :expr_arg, :expr_cmdarg
   end
 
+  def is_end?
+    in_lex_state? :expr_end, :expr_endarg, :expr_endfn
+  end
+
   def is_beg?
-    in_lex_state? :expr_beg, :expr_mid, :expr_value, :expr_class
+    in_lex_state? :expr_beg, :expr_value, :expr_mid, :expr_class
   end
 
   # TODO #define IS_AFTER_OPERATOR() IS_lex_state(EXPR_FNAME | EXPR_DOT)
