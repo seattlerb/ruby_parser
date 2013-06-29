@@ -18,9 +18,7 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tBACK_REF2 tSYMBEG tSTRING_BEG tXSTRING_BEG tREGEXP_BEG
       tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END
       tSTRING tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAMBDA
-      tLAMBEG tDSTAR tCHAR tSYMBOLS_BEG tQSYMBOLS_BEG tSTRING_DEND
-
-# tUBANG
+      tLAMBEG tDSTAR tCHAR tSYMBOLS_BEG tQSYMBOLS_BEG tSTRING_DEND tUBANG
 
 prechigh
   right    tBANG tTILDE tUPLUS
@@ -572,13 +570,11 @@ rule
                       result = new_undef val[0], val[3]
                     }
 
-                op: tPIPE    | tCARET  | tAMPER2  | tCMP  | tEQ     | tEQQ
-                |   tMATCH   | tNMATCH | tGT      | tGEQ  | tLT     | tLEQ
-                |   tNEQ     | tLSHFT  | tRSHFT   | tPLUS | tMINUS  | tSTAR2
-                |   tSTAR    | tDIVIDE | tPERCENT | tPOW | tDSTAR | tBANG   | tTILDE
-                |   tUPLUS   | tUMINUS | tAREF    | tASET | tBACK_REF2 
-
-#| tUBANG
+                op: tPIPE    | tCARET  | tAMPER2  | tCMP  | tEQ    | tEQQ
+                |   tMATCH   | tNMATCH | tGT      | tGEQ  | tLT    | tLEQ
+                |   tNEQ     | tLSHFT  | tRSHFT   | tPLUS | tMINUS | tSTAR2
+                |   tSTAR    | tDIVIDE | tPERCENT | tPOW  | tDSTAR | tBANG   | tTILDE
+                |   tUPLUS   | tUMINUS | tUBANG   | tAREF | tASET  | tBACK_REF2 
 
         reswords: k__LINE__ | k__FILE__ | k__ENCODING__ | klBEGIN | klEND
                 | kALIAS    | kAND      | kBEGIN        | kBREAK  | kCASE

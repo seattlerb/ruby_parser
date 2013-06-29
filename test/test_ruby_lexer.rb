@@ -295,9 +295,38 @@ class TestRubyLexer < Minitest::Test
     refute_lexeme
   end
 
+  def test_yylex_not_at_defn
+    util_lex_token2("def +@; end",
+                    s(:defn, :+@, s(:args), s(:nil)),
+
+                    :kDEF,   ["def", 1], :expr_fname, 0, 0,
+                    :tUPLUS, "+@",       :expr_arg,   0, 0,
+                    :tSEMI,  ";",        :expr_beg,   0, 0,
+                    :kEND,   ["end", 1], :expr_end,   0, 0)
+
+    util_lex_token2("def !@; end",
+                    s(:defn, :"!@", s(:args), s(:nil)),
+
+                    :kDEF,   ["def", 1], :expr_fname, 0, 0,
+                    :tUBANG, "!@",       :expr_arg,   0, 0,
+                    :tSEMI,  ";",        :expr_beg,   0, 0,
+                    :kEND,   ["end", 1], :expr_end,   0, 0)
+  end
+
+  def test_yylex_not_at_ivar
+    util_lex_token2("!@ivar",
+                    s(:call, s(:ivar, :@ivar), :"!"),
+
+                    :tBANG, "!",     :expr_beg, 0, 0,
+                    :tIVAR, "@ivar", :expr_end, 0, 0)
+  end
+
   def test_yylex_number_times_ident_times_return_number
     util_lex_token2("1 * b * 3",
-                    nil,
+                    s(:call,
+                      s(:call, s(:lit, 1), :*, s(:call, nil, :b)),
+                      :*, s(:lit, 3)),
+
                     :tINTEGER,      1, :expr_end, 0, 0,
                     :tSTAR2,      "*", :expr_beg, 0, 0,
                     :tIDENTIFIER, "b", :expr_arg, 0, 0,
@@ -305,7 +334,10 @@ class TestRubyLexer < Minitest::Test
                     :tINTEGER,      3, :expr_end, 0, 0)
 
     util_lex_token2("1 * b *\n 3",
-                    nil,
+                    s(:call,
+                      s(:call, s(:lit, 1), :*, s(:call, nil, :b)),
+                      :*, s(:lit, 3)),
+
                     :tINTEGER,      1, :expr_end, 0, 0,
                     :tSTAR2,      "*", :expr_beg, 0, 0,
                     :tIDENTIFIER, "b", :expr_arg, 0, 0,

@@ -761,14 +761,25 @@ class RubyLexer
             "}" => :tRCURLY
           }[src.matched]
           return result
-        # elsif src.scan(/!@/) then # TODO
-        #   self.yacc_value = src.matched
-        # 
-        #   if in_lex_state? :expr_fname, :expr_dot then
-        #     self.lex_state = :expr_arg
-        #   end
-        # 
-        #   return :tUBANG
+        elsif src.scan(/\!/) then
+          if in_lex_state?(:expr_fname, :expr_dot) then
+            self.lex_state = :expr_arg
+
+            if src.scan(/@/) then
+              self.yacc_value = "!@"
+              return :tUBANG
+            end
+          else
+            self.lex_state = :expr_beg
+          end
+
+          if src.scan(/[=~]/) then
+            self.yacc_value = "!#{src.matched}"
+          else
+            self.yacc_value = "!"
+          end
+
+          return TOKENS[self.yacc_value]
         elsif src.scan(/\.\.\.?|,|![=~]?/) then
           self.lex_state = :expr_beg
           tok = self.yacc_value = src.matched
