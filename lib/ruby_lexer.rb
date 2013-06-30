@@ -1472,7 +1472,7 @@ class RubyLexer
       # if (mb == ENC_CODERANGE_7BIT && lex_state != EXPR_DOT) {
 
       self.lex_state =
-        if is_beg? || in_lex_state?(:expr_dot) || is_arg? then
+        if is_beg? || is_arg? || in_lex_state?(:expr_dot) then
           if command_state then
             :expr_cmdarg
           else
@@ -1488,8 +1488,10 @@ class RubyLexer
 
     self.yacc_value = token
 
-    self.lex_state = :expr_end if
-      last_state != :expr_dot && self.parser.env[token.to_sym] == :lvar
+    if (![:expr_dot, :expr_fname].include?(last_state) &&
+        self.parser.env[token.to_sym] == :lvar) then
+      self.lex_state = :expr_end
+    end
 
     return result
   end
