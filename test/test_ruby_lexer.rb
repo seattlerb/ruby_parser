@@ -8,18 +8,29 @@ require 'ruby18_parser'
 require 'ruby20_parser'
 
 class TestRubyLexer < Minitest::Test
-  def setup
-    setup_lexer_class Ruby20Parser
-  end
-
-  attr_accessor :processor, :lex
+  attr_accessor :processor, :lex, :parser_class
 
   alias :lexer :lex # lets me copy/paste code from parser
   alias :lexer= :lex=
 
-  def setup_lexer_class parser_class
+  def setup
+    setup_lexer_class Ruby20Parser
+  end
+
+  def setup_lexer input, exp_sexp = nil
+    # TODO: setup_new_parser
+    lex.src = input
+    assert_equal exp_sexp, processor.class.new.parse(input) if exp_sexp
+  end
+
+  def setup_new_parser
     self.processor = parser_class.new
     self.lex = processor.lexer
+  end
+
+  def setup_lexer_class parser_class
+    self.parser_class = parser_class
+    setup_new_parser
     lex.src = "blah blah"
     lex.lex_state = :expr_beg
   end
@@ -191,17 +202,14 @@ class TestRubyLexer < Minitest::Test
       "#{exp.inspect} vs #{act.inspect}"
     }
 
+    act_value = @lex.yacc_value
+    act_value = act_value.first if Array === act_value
+
     assert_equal token, @lex.token,      msg
-    assert_equal value, @lex.yacc_value, msg
+    assert_equal value, act_value,       msg
     assert_equal state, @lex.lex_state,  msg
     assert_equal paren, @lex.paren_nest, msg if paren
     assert_equal brace, @lex.brace_nest, msg if brace
-  end
-
-  def setup_lexer input, exp_sexp = nil
-    lex.src = input
-
-    assert_equal exp_sexp, processor.class.new.parse(input) if exp_sexp
   end
 
   def refute_lexeme
@@ -299,18 +307,18 @@ class TestRubyLexer < Minitest::Test
     assert_lex("def +@; end",
                s(:defn, :+@, s(:args), s(:nil)),
 
-               :kDEF,   ["def", 1], :expr_fname, 0, 0,
-               :tUPLUS, "+@",       :expr_arg,   0, 0,
-               :tSEMI,  ";",        :expr_beg,   0, 0,
-               :kEND,   ["end", 1], :expr_end,   0, 0)
+               :kDEF,   "def", :expr_fname, 0, 0,
+               :tUPLUS, "+@",  :expr_arg,   0, 0,
+               :tSEMI,  ";",   :expr_beg,   0, 0,
+               :kEND,   "end", :expr_end,   0, 0)
 
     assert_lex("def !@; end",
                s(:defn, :"!@", s(:args), s(:nil)),
 
-               :kDEF,   ["def", 1], :expr_fname, 0, 0,
-               :tUBANG, "!@",       :expr_arg,   0, 0,
-               :tSEMI,  ";",        :expr_beg,   0, 0,
-               :kEND,   ["end", 1], :expr_end,   0, 0)
+               :kDEF,   "def", :expr_fname, 0, 0,
+               :tUBANG, "!@",  :expr_arg,   0, 0,
+               :tSEMI,  ";",   :expr_beg,   0, 0,
+               :kEND,   "end", :expr_end,   0, 0)
   end
 
   def test_yylex_not_at_ivar
@@ -396,8 +404,6 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_lambda_args_opt__20
     setup_lexer_class Ruby20Parser
 
-    xxx = ["nil", 1] # ugly
-
     assert_lex("-> (a=nil) { }",
                s(:iter, s(:call, nil, :lambda),
                  s(:args, s(:lasgn, :a, s(:nil)))),
@@ -406,7 +412,7 @@ class TestRubyLexer < Minitest::Test
                :tLPAREN2,    "(", :expr_beg,    1, 0,
                :tIDENTIFIER, "a", :expr_arg,    1, 0,
                :tEQL,        "=", :expr_beg,    1, 0,
-               :kNIL,        xxx, :expr_end,    1, 0,
+               :kNIL,        "nil", :expr_end,    1, 0,
                :tRPAREN,     ")", :expr_endfn,  0, 0,
                :tLCURLY,     "{", :expr_beg,    0, 1,
                :tRCURLY,     "}", :expr_endarg, 0, 0)
@@ -460,7 +466,7 @@ class TestRubyLexer < Minitest::Test
                    s(:args),
                    s(:call, nil, :f, s(:lit, :c)))),
 
-               :tCONSTANT,   "X", :expr_cmdarg, 0, 0,
+               :tCONSTANT,   "X", :expr_end,    0, 0,
                :tEQL,        "=", :expr_beg,    0, 0,
                :tIDENTIFIER, "a", :expr_arg,    0, 0,
                :tLCURLY,     "{", :expr_beg,    0, 1,
@@ -481,7 +487,7 @@ class TestRubyLexer < Minitest::Test
                    s(:args),
                    s(:call, nil, :X, s(:lit, :c)))),
 
-               :tCONSTANT,   "X", :expr_cmdarg, 0, 0,
+               :tCONSTANT,   "X", :expr_end,    0, 0,
                :tEQL,        "=", :expr_beg,    0, 0,
                :tIDENTIFIER, "a", :expr_arg,    0, 0,
                :tLCURLY,     "{", :expr_beg,    0, 1,
