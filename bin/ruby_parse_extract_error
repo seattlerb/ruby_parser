@@ -8,10 +8,22 @@ $m ||= false
 $m ||= ENV["MOVE_TIMEOUT"]
 $q ||= false
 $q ||= ENV["QUIET"]
+$v ||= ENV["V"] || "20"
 
 require 'rubygems'
 require 'ruby_parser'
 require 'fileutils'
+
+$parser_class = case $v
+                when "18" then
+                  Ruby18Parser
+                when "19" then
+                  Ruby19Parser
+                when "20" then
+                  Ruby20Parser
+                else
+                  abort "Unknown version #{$v.inspect}. Needs to be 18, 19, or 20"
+                end
 
 class IO
   RUBY19 = "<3".respond_to? :encoding
@@ -100,7 +112,7 @@ def process file
   time = (ENV["RP_TIMEOUT"] || 10).to_i
 
   $stderr.print "# Validating #{file}: "
-  parser = Ruby20Parser.new
+  parser = $parser_class.new
   parser.process(ruby, file, time)
   warn "good"
   File.unlink file if $d
