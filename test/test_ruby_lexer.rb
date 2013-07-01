@@ -208,7 +208,7 @@ class TestRubyLexer < Minitest::Test
     refute @lex.advance, "not empty: #{[@lex.token, @lex.yacc_value].inspect}"
   end
 
-  def util_lex_token2 input, exp_sexp, *args
+  def assert_lex input, exp_sexp, *args
     setup_lexer input, exp_sexp
 
     args.each_slice(5) do |token, value, state, paren, brace|
@@ -296,53 +296,53 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_not_at_defn
-    util_lex_token2("def +@; end",
-                    s(:defn, :+@, s(:args), s(:nil)),
+    assert_lex("def +@; end",
+               s(:defn, :+@, s(:args), s(:nil)),
 
-                    :kDEF,   ["def", 1], :expr_fname, 0, 0,
-                    :tUPLUS, "+@",       :expr_arg,   0, 0,
-                    :tSEMI,  ";",        :expr_beg,   0, 0,
-                    :kEND,   ["end", 1], :expr_end,   0, 0)
+               :kDEF,   ["def", 1], :expr_fname, 0, 0,
+               :tUPLUS, "+@",       :expr_arg,   0, 0,
+               :tSEMI,  ";",        :expr_beg,   0, 0,
+               :kEND,   ["end", 1], :expr_end,   0, 0)
 
-    util_lex_token2("def !@; end",
-                    s(:defn, :"!@", s(:args), s(:nil)),
+    assert_lex("def !@; end",
+               s(:defn, :"!@", s(:args), s(:nil)),
 
-                    :kDEF,   ["def", 1], :expr_fname, 0, 0,
-                    :tUBANG, "!@",       :expr_arg,   0, 0,
-                    :tSEMI,  ";",        :expr_beg,   0, 0,
-                    :kEND,   ["end", 1], :expr_end,   0, 0)
+               :kDEF,   ["def", 1], :expr_fname, 0, 0,
+               :tUBANG, "!@",       :expr_arg,   0, 0,
+               :tSEMI,  ";",        :expr_beg,   0, 0,
+               :kEND,   ["end", 1], :expr_end,   0, 0)
   end
 
   def test_yylex_not_at_ivar
-    util_lex_token2("!@ivar",
-                    s(:call, s(:ivar, :@ivar), :"!"),
+    assert_lex("!@ivar",
+               s(:call, s(:ivar, :@ivar), :"!"),
 
-                    :tBANG, "!",     :expr_beg, 0, 0,
-                    :tIVAR, "@ivar", :expr_end, 0, 0)
+               :tBANG, "!",     :expr_beg, 0, 0,
+               :tIVAR, "@ivar", :expr_end, 0, 0)
   end
 
   def test_yylex_number_times_ident_times_return_number
-    util_lex_token2("1 * b * 3",
-                    s(:call,
-                      s(:call, s(:lit, 1), :*, s(:call, nil, :b)),
-                      :*, s(:lit, 3)),
+    assert_lex("1 * b * 3",
+               s(:call,
+                 s(:call, s(:lit, 1), :*, s(:call, nil, :b)),
+                 :*, s(:lit, 3)),
 
-                    :tINTEGER,      1, :expr_end, 0, 0,
-                    :tSTAR2,      "*", :expr_beg, 0, 0,
-                    :tIDENTIFIER, "b", :expr_arg, 0, 0,
-                    :tSTAR2,      "*", :expr_beg, 0, 0,
-                    :tINTEGER,      3, :expr_end, 0, 0)
+               :tINTEGER,      1, :expr_end, 0, 0,
+               :tSTAR2,      "*", :expr_beg, 0, 0,
+               :tIDENTIFIER, "b", :expr_arg, 0, 0,
+               :tSTAR2,      "*", :expr_beg, 0, 0,
+               :tINTEGER,      3, :expr_end, 0, 0)
 
-    util_lex_token2("1 * b *\n 3",
-                    s(:call,
-                      s(:call, s(:lit, 1), :*, s(:call, nil, :b)),
-                      :*, s(:lit, 3)),
+    assert_lex("1 * b *\n 3",
+               s(:call,
+                 s(:call, s(:lit, 1), :*, s(:call, nil, :b)),
+                 :*, s(:lit, 3)),
 
-                    :tINTEGER,      1, :expr_end, 0, 0,
-                    :tSTAR2,      "*", :expr_beg, 0, 0,
-                    :tIDENTIFIER, "b", :expr_arg, 0, 0,
-                    :tSTAR2,      "*", :expr_beg, 0, 0,
-                    :tINTEGER,      3, :expr_end, 0, 0)
+               :tINTEGER,      1, :expr_end, 0, 0,
+               :tSTAR2,      "*", :expr_beg, 0, 0,
+               :tIDENTIFIER, "b", :expr_arg, 0, 0,
+               :tSTAR2,      "*", :expr_beg, 0, 0,
+               :tINTEGER,      3, :expr_end, 0, 0)
   end
 
   def test_yylex_paren_string_parens_interpolated_regexp
@@ -369,28 +369,28 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_method_parens_chevron
-    util_lex_token2("a()<<1",
-                    s(:call, s(:call, nil, :a), :<<, s(:lit, 1)),
-                    :tIDENTIFIER, "a",   :expr_cmdarg, 0, 0,
-                    :tLPAREN2,    "(",   :expr_beg,    1, 0,
-                    :tRPAREN,     ")",   :expr_endfn,  0, 0,
-                    :tLSHFT,      "<<" , :expr_beg,    0, 0,
-                    :tINTEGER,    1,     :expr_end,    0, 0)
+    assert_lex("a()<<1",
+               s(:call, s(:call, nil, :a), :<<, s(:lit, 1)),
+               :tIDENTIFIER, "a",   :expr_cmdarg, 0, 0,
+               :tLPAREN2,    "(",   :expr_beg,    1, 0,
+               :tRPAREN,     ")",   :expr_endfn,  0, 0,
+               :tLSHFT,      "<<" , :expr_beg,    0, 0,
+               :tINTEGER,    1,     :expr_end,    0, 0)
   end
 
   def test_yylex_lambda_args__20
     setup_lexer_class Ruby20Parser
 
-    util_lex_token2("-> (a) { }",
-                    s(:iter, s(:call, nil, :lambda),
-                      s(:args, :a)),
+    assert_lex("-> (a) { }",
+               s(:iter, s(:call, nil, :lambda),
+                 s(:args, :a)),
 
-                    :tLAMBDA,     nil, :expr_endfn,  0, 0,
-                    :tLPAREN2,    "(", :expr_beg,    1, 0,
-                    :tIDENTIFIER, "a", :expr_arg,    1, 0,
-                    :tRPAREN,     ")", :expr_endfn,  0, 0,
-                    :tLCURLY,     "{", :expr_beg,    0, 1,
-                    :tRCURLY,     "}", :expr_endarg, 0, 0)
+               :tLAMBDA,     nil, :expr_endfn,  0, 0,
+               :tLPAREN2,    "(", :expr_beg,    1, 0,
+               :tIDENTIFIER, "a", :expr_arg,    1, 0,
+               :tRPAREN,     ")", :expr_endfn,  0, 0,
+               :tLCURLY,     "{", :expr_beg,    0, 1,
+               :tRCURLY,     "}", :expr_endarg, 0, 0)
   end
 
   def test_yylex_lambda_args_opt__20
@@ -398,131 +398,131 @@ class TestRubyLexer < Minitest::Test
 
     xxx = ["nil", 1] # ugly
 
-    util_lex_token2("-> (a=nil) { }",
-                    s(:iter, s(:call, nil, :lambda),
-                      s(:args, s(:lasgn, :a, s(:nil)))),
+    assert_lex("-> (a=nil) { }",
+               s(:iter, s(:call, nil, :lambda),
+                 s(:args, s(:lasgn, :a, s(:nil)))),
 
-                    :tLAMBDA,     nil, :expr_endfn,  0, 0,
-                    :tLPAREN2,    "(", :expr_beg,    1, 0,
-                    :tIDENTIFIER, "a", :expr_arg,    1, 0,
-                    :tEQL,        "=", :expr_beg,    1, 0,
-                    :kNIL,        xxx, :expr_end,    1, 0,
-                    :tRPAREN,     ")", :expr_endfn,  0, 0,
-                    :tLCURLY,     "{", :expr_beg,    0, 1,
-                    :tRCURLY,     "}", :expr_endarg, 0, 0)
+               :tLAMBDA,     nil, :expr_endfn,  0, 0,
+               :tLPAREN2,    "(", :expr_beg,    1, 0,
+               :tIDENTIFIER, "a", :expr_arg,    1, 0,
+               :tEQL,        "=", :expr_beg,    1, 0,
+               :kNIL,        xxx, :expr_end,    1, 0,
+               :tRPAREN,     ")", :expr_endfn,  0, 0,
+               :tLCURLY,     "{", :expr_beg,    0, 1,
+               :tRCURLY,     "}", :expr_endarg, 0, 0)
   end
 
   def test_yylex_lambda_hash__20
     setup_lexer_class Ruby20Parser
 
-    util_lex_token2("-> (a={}) { }",
-                    s(:iter, s(:call, nil, :lambda),
-                      s(:args, s(:lasgn, :a, s(:hash)))),
+    assert_lex("-> (a={}) { }",
+               s(:iter, s(:call, nil, :lambda),
+                 s(:args, s(:lasgn, :a, s(:hash)))),
 
-                    :tLAMBDA,     nil, :expr_endfn,  0, 0,
-                    :tLPAREN2,    "(", :expr_beg,    1, 0,
-                    :tIDENTIFIER, "a", :expr_arg,    1, 0,
-                    :tEQL,        "=", :expr_beg,    1, 0,
-                    :tLBRACE,     "{", :expr_beg,    1, 1,
-                    :tRCURLY,     "}", :expr_endarg, 1, 0,
-                    :tRPAREN,     ")", :expr_endfn,  0, 0,
-                    :tLCURLY,     "{", :expr_beg,    0, 1,
-                    :tRCURLY,     "}", :expr_endarg, 0, 0)
+               :tLAMBDA,     nil, :expr_endfn,  0, 0,
+               :tLPAREN2,    "(", :expr_beg,    1, 0,
+               :tIDENTIFIER, "a", :expr_arg,    1, 0,
+               :tEQL,        "=", :expr_beg,    1, 0,
+               :tLBRACE,     "{", :expr_beg,    1, 1,
+               :tRCURLY,     "}", :expr_endarg, 1, 0,
+               :tRPAREN,     ")", :expr_endfn,  0, 0,
+               :tLCURLY,     "{", :expr_beg,    0, 1,
+               :tRCURLY,     "}", :expr_endarg, 0, 0)
   end
 
   def test_yylex_iter_array_curly
-    util_lex_token2("f :a, [:b] { |c, d| }", # yes, this is bad code
-                    s(:iter,
-                      s(:call, nil, :f, s(:lit, :a), s(:array, s(:lit, :b))),
-                      s(:args, :c, :d)),
+    assert_lex("f :a, [:b] { |c, d| }", # yes, this is bad code
+               s(:iter,
+                 s(:call, nil, :f, s(:lit, :a), s(:array, s(:lit, :b))),
+                 s(:args, :c, :d)),
 
-                    :tIDENTIFIER, "f", :expr_cmdarg, 0, 0,
-                    :tSYMBOL,     "a", :expr_end,    0, 0,
-                    :tCOMMA,      ",", :expr_beg,    0, 0,
-                    :tLBRACK,     "[", :expr_beg,    1, 0,
-                    :tSYMBOL,     "b", :expr_end,    1, 0,
-                    :tRBRACK,     "]", :expr_endarg, 0, 0,
-                    :tLBRACE_ARG, "{", :expr_beg,    0, 1,
-                    :tPIPE,       "|", :expr_beg,    0, 1,
-                    :tIDENTIFIER, "c", :expr_arg,    0, 1,
-                    :tCOMMA,      ",", :expr_beg,    0, 1,
-                    :tIDENTIFIER, "d", :expr_arg,    0, 1,
-                    :tPIPE,       "|", :expr_beg,    0, 1,
-                    :tRCURLY,     "}", :expr_endarg, 0, 0)
+               :tIDENTIFIER, "f", :expr_cmdarg, 0, 0,
+               :tSYMBOL,     "a", :expr_end,    0, 0,
+               :tCOMMA,      ",", :expr_beg,    0, 0,
+               :tLBRACK,     "[", :expr_beg,    1, 0,
+               :tSYMBOL,     "b", :expr_end,    1, 0,
+               :tRBRACK,     "]", :expr_endarg, 0, 0,
+               :tLBRACE_ARG, "{", :expr_beg,    0, 1,
+               :tPIPE,       "|", :expr_beg,    0, 1,
+               :tIDENTIFIER, "c", :expr_arg,    0, 1,
+               :tCOMMA,      ",", :expr_beg,    0, 1,
+               :tIDENTIFIER, "d", :expr_arg,    0, 1,
+               :tPIPE,       "|", :expr_beg,    0, 1,
+               :tRCURLY,     "}", :expr_endarg, 0, 0)
   end
 
   def test_yylex_const_call_same_name
-    util_lex_token2("X = a { }; b { f :c }",
-                    s(:block,
-                      s(:cdecl, :X, s(:iter, s(:call, nil, :a), s(:args))),
-                      s(:iter,
-                        s(:call, nil, :b),
-                        s(:args),
-                        s(:call, nil, :f, s(:lit, :c)))),
+    assert_lex("X = a { }; b { f :c }",
+               s(:block,
+                 s(:cdecl, :X, s(:iter, s(:call, nil, :a), s(:args))),
+                 s(:iter,
+                   s(:call, nil, :b),
+                   s(:args),
+                   s(:call, nil, :f, s(:lit, :c)))),
 
-                    :tCONSTANT,   "X", :expr_cmdarg, 0, 0,
-                    :tEQL,        "=", :expr_beg,    0, 0,
-                    :tIDENTIFIER, "a", :expr_arg,    0, 0,
-                    :tLCURLY,     "{", :expr_beg,    0, 1,
-                    :tRCURLY,     "}", :expr_endarg, 0, 0,
-                    :tSEMI,       ";", :expr_beg,    0, 0,
+               :tCONSTANT,   "X", :expr_cmdarg, 0, 0,
+               :tEQL,        "=", :expr_beg,    0, 0,
+               :tIDENTIFIER, "a", :expr_arg,    0, 0,
+               :tLCURLY,     "{", :expr_beg,    0, 1,
+               :tRCURLY,     "}", :expr_endarg, 0, 0,
+               :tSEMI,       ";", :expr_beg,    0, 0,
 
-                    :tIDENTIFIER, "b", :expr_cmdarg, 0, 0,
-                    :tLCURLY,     "{", :expr_beg,    0, 1,
-                    :tIDENTIFIER, "f", :expr_cmdarg, 0, 1, # different
-                    :tSYMBOL,     "c", :expr_end,    0, 1,
-                    :tRCURLY,     "}", :expr_endarg, 0, 0)
+               :tIDENTIFIER, "b", :expr_cmdarg, 0, 0,
+               :tLCURLY,     "{", :expr_beg,    0, 1,
+               :tIDENTIFIER, "f", :expr_cmdarg, 0, 1, # different
+               :tSYMBOL,     "c", :expr_end,    0, 1,
+               :tRCURLY,     "}", :expr_endarg, 0, 0)
 
-    util_lex_token2("X = a { }; b { X :c }",
-                    s(:block,
-                      s(:cdecl, :X, s(:iter, s(:call, nil, :a), s(:args))),
-                      s(:iter,
-                        s(:call, nil, :b),
-                        s(:args),
-                        s(:call, nil, :X, s(:lit, :c)))),
+    assert_lex("X = a { }; b { X :c }",
+               s(:block,
+                 s(:cdecl, :X, s(:iter, s(:call, nil, :a), s(:args))),
+                 s(:iter,
+                   s(:call, nil, :b),
+                   s(:args),
+                   s(:call, nil, :X, s(:lit, :c)))),
 
-                    :tCONSTANT,   "X", :expr_cmdarg, 0, 0,
-                    :tEQL,        "=", :expr_beg,    0, 0,
-                    :tIDENTIFIER, "a", :expr_arg,    0, 0,
-                    :tLCURLY,     "{", :expr_beg,    0, 1,
-                    :tRCURLY,     "}", :expr_endarg, 0, 0,
-                    :tSEMI,       ";", :expr_beg,    0, 0,
+               :tCONSTANT,   "X", :expr_cmdarg, 0, 0,
+               :tEQL,        "=", :expr_beg,    0, 0,
+               :tIDENTIFIER, "a", :expr_arg,    0, 0,
+               :tLCURLY,     "{", :expr_beg,    0, 1,
+               :tRCURLY,     "}", :expr_endarg, 0, 0,
+               :tSEMI,       ";", :expr_beg,    0, 0,
 
-                    :tIDENTIFIER, "b", :expr_cmdarg, 0, 0,
-                    :tLCURLY,     "{", :expr_beg,    0, 1,
-                    :tCONSTANT,   "X", :expr_cmdarg, 0, 1, # same
-                    :tSYMBOL,     "c", :expr_end,    0, 1,
-                    :tRCURLY,     "}", :expr_endarg, 0, 0)
+               :tIDENTIFIER, "b", :expr_cmdarg, 0, 0,
+               :tLCURLY,     "{", :expr_beg,    0, 1,
+               :tCONSTANT,   "X", :expr_cmdarg, 0, 1, # same
+               :tSYMBOL,     "c", :expr_end,    0, 1,
+               :tRCURLY,     "}", :expr_endarg, 0, 0)
   end
 
   def test_yylex_lasgn_call_same_name
-    util_lex_token2("a = b.c :d => 1",
-                    s(:lasgn, :a,
-                      s(:call, s(:call, nil, :b), :c,
-                        s(:hash, s(:lit, :d), s(:lit, 1)))),
+    assert_lex("a = b.c :d => 1",
+               s(:lasgn, :a,
+                 s(:call, s(:call, nil, :b), :c,
+                   s(:hash, s(:lit, :d), s(:lit, 1)))),
 
-                    :tIDENTIFIER, "a", :expr_cmdarg, 0, 0,
-                    :tEQL,        "=", :expr_beg,    0, 0,
-                    :tIDENTIFIER, "b", :expr_arg,    0, 0,
-                    :tDOT,        ".", :expr_dot,    0, 0,
-                    :tIDENTIFIER, "c", :expr_arg,    0, 0, # different
-                    :tSYMBOL,     "d", :expr_end,    0, 0,
-                    :tASSOC,      "=>", :expr_beg,   0, 0,
-                    :tINTEGER,      1, :expr_end,    0, 0)
+               :tIDENTIFIER, "a", :expr_cmdarg, 0, 0,
+               :tEQL,        "=", :expr_beg,    0, 0,
+               :tIDENTIFIER, "b", :expr_arg,    0, 0,
+               :tDOT,        ".", :expr_dot,    0, 0,
+               :tIDENTIFIER, "c", :expr_arg,    0, 0, # different
+               :tSYMBOL,     "d", :expr_end,    0, 0,
+               :tASSOC,      "=>", :expr_beg,   0, 0,
+               :tINTEGER,      1, :expr_end,    0, 0)
 
-    util_lex_token2("a = b.a :d => 1",
-                    s(:lasgn, :a,
-                      s(:call, s(:call, nil, :b), :a,
-                        s(:hash, s(:lit, :d), s(:lit, 1)))),
+    assert_lex("a = b.a :d => 1",
+               s(:lasgn, :a,
+                 s(:call, s(:call, nil, :b), :a,
+                   s(:hash, s(:lit, :d), s(:lit, 1)))),
 
-                    :tIDENTIFIER, "a", :expr_cmdarg, 0, 0,
-                    :tEQL,        "=", :expr_beg,    0, 0,
-                    :tIDENTIFIER, "b", :expr_arg,    0, 0,
-                    :tDOT,        ".", :expr_dot,    0, 0,
-                    :tIDENTIFIER, "a", :expr_arg,    0, 0, # same as lvar
-                    :tSYMBOL,     "d", :expr_end,    0, 0,
-                    :tASSOC,      "=>", :expr_beg,   0, 0,
-                    :tINTEGER,      1, :expr_end,    0, 0)
+               :tIDENTIFIER, "a", :expr_cmdarg, 0, 0,
+               :tEQL,        "=", :expr_beg,    0, 0,
+               :tIDENTIFIER, "b", :expr_arg,    0, 0,
+               :tDOT,        ".", :expr_dot,    0, 0,
+               :tIDENTIFIER, "a", :expr_arg,    0, 0, # same as lvar
+               :tSYMBOL,     "d", :expr_end,    0, 0,
+               :tASSOC,      "=>", :expr_beg,   0, 0,
+               :tINTEGER,      1, :expr_end,    0, 0)
   end
 
   def test_yylex_back_ref
@@ -989,7 +989,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_heredoc_double_interp
-    # TODO: convert to util_lex_token2
+    # TODO: convert to assert_lex
     util_lex_token("a = <<\"EOF\"\n#x a \#@a b \#$b c \#{3} \nEOF\n",
                    :tIDENTIFIER,     "a",
                    :tEQL,              "=",
@@ -2392,11 +2392,11 @@ class TestRubyLexer < Minitest::Test
   def util_lex_fname name, type, end_state = :expr_arg
     @lex.lex_state = :expr_fname # can only set via parser's defs
 
-    util_lex_token2("def #{name} ",
-                    nil,
+    assert_lex("def #{name} ",
+               nil,
 
-                    :kDEF, "def", :expr_fname, 0, 0,
-                    type, name, end_state, 0, 0)
+               :kDEF, "def", :expr_fname, 0, 0,
+               type, name, end_state, 0, 0)
 
     assert_equal end_state, @lex.lex_state
   end
