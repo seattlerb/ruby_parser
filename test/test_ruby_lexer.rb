@@ -18,8 +18,9 @@ class TestRubyLexer < Minitest::Test
   end
 
   def setup_lexer input, exp_sexp = nil
-    # TODO: setup_new_parser
+    setup_new_parser
     lex.src = input
+    lex.lex_state = :expr_beg
     assert_equal exp_sexp, processor.class.new.parse(input) if exp_sexp
   end
 
@@ -31,8 +32,7 @@ class TestRubyLexer < Minitest::Test
   def setup_lexer_class parser_class
     self.parser_class = parser_class
     setup_new_parser
-    lex.src = "blah blah"
-    lex.lex_state = :expr_beg
+    setup_lexer "blah blah"
   end
 
   def test_advance
@@ -466,7 +466,7 @@ class TestRubyLexer < Minitest::Test
                    s(:args),
                    s(:call, nil, :f, s(:lit, :c)))),
 
-               :tCONSTANT,   "X", :expr_end,    0, 0,
+               :tCONSTANT,   "X", :expr_cmdarg, 0, 0,
                :tEQL,        "=", :expr_beg,    0, 0,
                :tIDENTIFIER, "a", :expr_arg,    0, 0,
                :tLCURLY,     "{", :expr_beg,    0, 1,
@@ -487,7 +487,7 @@ class TestRubyLexer < Minitest::Test
                    s(:args),
                    s(:call, nil, :X, s(:lit, :c)))),
 
-               :tCONSTANT,   "X", :expr_end,    0, 0,
+               :tCONSTANT,   "X", :expr_cmdarg, 0, 0,
                :tEQL,        "=", :expr_beg,    0, 0,
                :tIDENTIFIER, "a", :expr_arg,    0, 0,
                :tLCURLY,     "{", :expr_beg,    0, 1,
