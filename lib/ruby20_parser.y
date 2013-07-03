@@ -847,7 +847,12 @@ rule
                     }
                 | args tCOMMA assocs opt_block_arg
                     {
-                      result = call_args val
+                      if val[2][0] == :kwsplat
+                        result = call_args val
+                      else
+                        result = call_args [val[0], array_to_hash(val[2])]
+                        result = self.arg_blk_pass result, val[3]
+                      end
                     }
                 | block_arg
                     {
