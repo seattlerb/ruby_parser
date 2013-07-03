@@ -794,11 +794,12 @@ rule
                     }
                 | args tCOMMA assocs trailer
                     {
-                      result = args [val[0], s(:hash, *val[2].values)]
+                      result = args [val[0], array_to_hash(val[2])]
                     }
                 | assocs trailer
                     {
-                      result = s(:array, s(:hash, *val[0].values))
+                      result = args [array_to_hash(val[0])]
+                      result[0] = :array # TODO: switch to args?
                     }
 
       paren_args: tLPAREN2 opt_call_args rparen
@@ -847,7 +848,8 @@ rule
                     }
                 | args tCOMMA assocs opt_block_arg
                     {
-                      result = call_args val
+                      result = call_args [val[0], array_to_hash(val[2])]
+                      result = self.arg_blk_pass result, val[3]
                     }
                 | block_arg
                     {
@@ -965,7 +967,7 @@ rule
                     }
                 | tLBRACE assoc_list tRCURLY
                     {
-                      result = s(:hash, *val[1].values)
+                      result = s(:hash, *val[1].values) # TODO: array_to_hash?
                     }
                 | kRETURN
                     {

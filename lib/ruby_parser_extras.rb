@@ -214,7 +214,12 @@ module RubyParserStuff
   end
 
   def array_to_hash array
-    s(:hash, *array[1..-1])
+    case array.sexp_type
+    when :kwsplat then
+      array
+    else
+      s(:hash, *array[1..-1])
+    end
   end
 
   def call_args args
