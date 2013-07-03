@@ -1695,6 +1695,29 @@ module TestRubyParserShared1920
     assert_parse rb, pt
   end
 
+  def test_return_call_assocs
+    rb = "return y(z:1)"
+    pt = s(:return, s(:call, nil, :y, s(:hash, s(:lit, :z), s(:lit, 1))))
+
+    assert_parse rb, pt
+
+    rb = "return y z:1"
+    pt = s(:return, s(:call, nil, :y, s(:hash, s(:lit, :z), s(:lit, 1))))
+
+    assert_parse rb, pt
+
+    rb = "return y(z=>1)"
+    pt = s(:return, s(:call, nil, :y, s(:hash, s(:call, nil, :z), s(:lit, 1))))
+
+    assert_parse rb, pt
+
+    rb = "return y :z=>1"
+    pt = s(:return, s(:call, nil, :y, s(:hash, s(:lit, :z), s(:lit, 1))))
+
+    assert_parse rb, pt
+  end
+
+
   def test_call_assoc_new
     rb = "f(a:3)"
     pt = s(:call, nil, :f, s(:hash, s(:lit, :a), s(:lit, 3)))

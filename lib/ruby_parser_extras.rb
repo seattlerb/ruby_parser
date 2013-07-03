@@ -1075,7 +1075,8 @@ module RubyParserStuff
       raise SyntaxError, "block argument should not be given" if
         node[0] == :block_pass
 
-      node = node.last if node[0] == :array && node.size == 2
+      node = node.last if [:array, :call_args].include?(node[0]) && node.size==2
+      node = node.last if node[0] == :call_args && node.size == 2
       # HACK matz wraps ONE of the FOUR splats in a newline to
       # distinguish. I use paren for now. ugh
       node = s(:svalue, node) if node[0] == :splat and not node.paren
