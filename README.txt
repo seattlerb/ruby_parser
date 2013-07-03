@@ -13,19 +13,25 @@ base types.
 
 As an example:
 
-  def conditional1 arg1
-    return 1 if arg1 == 0
-    return 0
-  end
+    def conditional1 arg1
+      return 1 if arg1 == 0
+      return 0
+    end
 
 becomes:
 
-  s(:defn, :conditional1, s(:args, :arg1),
-    s(:if,
-      s(:call, s(:lvar, :arg1), :==, s(:lit, 0)),
-      s(:return, s(:lit, 1)),
-      nil),
-    s(:return, s(:lit, 0)))
+    s(:defn, :conditional1, s(:args, :arg1),
+      s(:if,
+        s(:call, s(:lvar, :arg1), :==, s(:lit, 0)),
+        s(:return, s(:lit, 1)),
+        nil),
+      s(:return, s(:lit, 0)))
+
+Tested against 801,039 files from the latest of all rubygems (as of 2013-05):
+
+* 1.8 parser is at 99.9739% accuracy, 3.651 sigma
+* 1.9 parser is at 99.9940% accuracy, 4.013 sigma
+* 2.0 parser is at 99.9939% accuracy, 4.008 sigma
 
 == FEATURES/PROBLEMS:
 
