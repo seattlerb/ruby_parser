@@ -1,3 +1,69 @@
+=== 3.2.0 / 2013-07-02
+
+* 1 major enhancement:
+
+  * Added (rough draft) 2.0 support. Still missing some small / rare things.
+
+* 12 minor enhancements:
+
+  * Added %i(symbol-names...) support. (%I too)
+  * Added 140 more tests, jumping test count from 1376 to 2143. Yay for test reuse!
+  * Added RubyLexer#brace_nest.
+  * Added compare20 rake task to diff the grammar architecture against MRI.
+  * Added lpar_beg and paren_nest to lexer to track state of parens in stabbies
+  * Added shadow nodes for scoped block args.
+  * Compound RubyParser now defaults to 2.0.
+  * Fixed rake to < 10, because 10's file dependency handling is so very broken.
+  * Made it possible to specify version in bin/ruby_parse_extract_error w/ -v 18|19|20
+  * Refactored to RubyParserStuff::ENCODING_ORDER to allow custom tweaking of encoding guessing. (samlown)
+  * Switched `rake debug` to default to 2.0.
+  * Translated some fixes across 1.8 and 1.9 from 2.0.
+
+* 42 bug fixes:
+
+  * 2.0: Fixed a number of block args scenarios w/ kwargs
+  * 2.0: Fixed args_tail mismatching against lexer.
+  * 2.0: Fixed assocs to return a hash node.
+  * 2.0: Fixed f_block_kw production.
+  * 2.0: Fixed f_block_kwarg production.
+  * 2.0: Fixed handling of stabby proc args in parens.
+  * 2.0: Fixed lexing of kwsplat nodes.
+  * 2.0: Implemented kwsplat nodes.
+  * Added tUBANG to lexer.
+  * Apparently ruby doesn't warn for escaped octal that goes above 7. wtf.
+  * Cleaned up a LOT of arg handling (block and defn, not calls) by using #args.
+  * ESC_RE is set to unicode. This seems problematic. *shrug*
+  * Either found a bug in MRI and/or fixed paren_nest count for []=? methods.
+  * Extended IDENT_CHAR_RE on 1.9+ to top out at \u{10ffff}... because we NEED a million unicode chars.
+  * Fixed % strings with interpolation.
+  * Fixed BEGIN {} to return a sexp.
+  * Fixed a[] += b. (stormbrew)
+  * Fixed arg_blk_pass to allow for sub-args nodes.
+  * Fixed assignable to allow for sexps to be passed to it.
+  * Fixed assoc args in 1.9.
+  * Fixed block_command and block_call (eg a.b c d) to #to_sym their args properly.
+  * Fixed bug in compound RubyParser so it rescues RubyParser::SyntaxError.
+  * Fixed env registration of cdecls.
+  * Fixed lex value for { when expr_endfn.
+  * Fixed lex_state for close paren/brace/bracket.
+  * Fixed lex_state transition for 1.9 if we lexed a defn name. Only 1.8 is odd.
+  * Fixed lexer problem with state mgmt of identifiers that also have registered var name.
+  * Fixed lexing of "1 *\n" to have the correct lex_state.
+  * Fixed lexing of heredocs vs chevron for some lex_states.
+  * Fixed op_asgn nodes to #to_sym their args properly.
+  * Fixed optional value block args.
+  * Fixed parsing of __ENCODING__ on ruby 1.8 (vcall).
+  * Fixed some oddity where 1.9 lexing was blowing up on "0o". Seems invalid now.
+  * Fixed strings with escaped octals > 128. Also... wtf.
+  * Fixed support for empty symbol (wtf?).
+  * Lexer is now declared UTF-8 internally. Hopefully this will fix the encoding mess.
+  * Made UTF_8 the default guess on encodings when it isn't explicit.
+  * Parsing of __ENCODING__ on ruby 1.9+ (in ruby 1.9+) is now colon2 sexp. (whitequark)
+  * Renamed RubyLexer#nest to string_nest
+  * RubyLexer#unescape ignores bad octal/hex and returns unicode strings.
+  * Switched a number of lexical constructs to use IDENT_CHAR_RE instead of \w. I wish there were something cleaner for regexps + unicode.
+  * Switched ruby_parse_extract_error to use binread.
+
 === 3.1.3 / 2013-04-09
 
 * 2 bug fixes:
