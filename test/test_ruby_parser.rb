@@ -1681,6 +1681,13 @@ module TestRubyParserShared1920
     assert_parse rb, pt
   end
 
+  def test_call_arg_assoc
+    rb = "f(1, 2=>3)"
+    pt = s(:call, nil, :f, s(:lit, 1), s(:hash, s(:lit, 2), s(:lit, 3)))
+
+    assert_parse rb, pt
+  end
+
   def test_do_lambda
     rb = "->() do end"
     pt = s(:iter, s(:call, nil, :lambda), 0)
