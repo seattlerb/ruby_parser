@@ -69,6 +69,14 @@ rule
                 | error top_stmt
 
         top_stmt: stmt
+                    {
+                      result = val[0]
+
+                      # TODO: remove once I have more confidence this is fixed
+                      # result.each_of_type :call_args do |s|
+                      #   debug20 666, s, result
+                      # end
+                    }
                 | klBEGIN
                     {
                       if (self.in_def || self.in_single > 0) then
@@ -574,7 +582,7 @@ rule
                 |   tMATCH   | tNMATCH | tGT      | tGEQ  | tLT    | tLEQ
                 |   tNEQ     | tLSHFT  | tRSHFT   | tPLUS | tMINUS | tSTAR2
                 |   tSTAR    | tDIVIDE | tPERCENT | tPOW  | tDSTAR | tBANG   | tTILDE
-                |   tUPLUS   | tUMINUS | tUBANG   | tAREF | tASET  | tBACK_REF2 
+                |   tUPLUS   | tUMINUS | tUBANG   | tAREF | tASET  | tBACK_REF2
 
         reswords: k__LINE__ | k__FILE__ | k__ENCODING__ | klBEGIN | klEND
                 | kALIAS    | kAND      | kBEGIN        | kBREAK  | kCASE
@@ -682,7 +690,7 @@ rule
                     {
                       result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
                       debug20 12, val, result
-                    } 
+                    }
                | tUPLUS arg
                     {
                       result = new_call val[1], :"+@"

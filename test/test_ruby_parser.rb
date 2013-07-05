@@ -1715,8 +1715,59 @@ module TestRubyParserShared1920
     pt = s(:return, s(:call, nil, :y, s(:hash, s(:lit, :z), s(:lit, 1))))
 
     assert_parse rb, pt
+
+    rb = "return 1, :z => 1"
+    pt = s(:return,
+           s(:array,
+             s(:lit, 1),
+             s(:hash, s(:lit, :z), s(:lit, 1))))
+
+    assert_parse rb, pt
+
+    rb = "return 1, :z => 1, :w => 2"
+    pt = s(:return,
+           s(:array,
+             s(:lit, 1),
+             s(:hash, s(:lit, :z), s(:lit, 1), s(:lit, :w), s(:lit, 2))))
+
+    assert_parse rb, pt
   end
 
+  def test_yield_call_assocs
+    rb = "yield y(z:1)"
+    pt = s(:yield, s(:call, nil, :y, s(:hash, s(:lit, :z), s(:lit, 1))))
+
+    assert_parse rb, pt
+
+    rb = "yield y z:1"
+    pt = s(:yield, s(:call, nil, :y, s(:hash, s(:lit, :z), s(:lit, 1))))
+
+    assert_parse rb, pt
+
+    rb = "yield y(z=>1)"
+    pt = s(:yield, s(:call, nil, :y, s(:hash, s(:call, nil, :z), s(:lit, 1))))
+
+    assert_parse rb, pt
+
+    rb = "yield y :z=>1"
+    pt = s(:yield, s(:call, nil, :y, s(:hash, s(:lit, :z), s(:lit, 1))))
+
+    assert_parse rb, pt
+
+    rb = "yield 1, :z => 1"
+    pt = s(:yield,
+           s(:lit, 1),
+           s(:hash, s(:lit, :z), s(:lit, 1)))
+
+    assert_parse rb, pt
+
+    rb = "yield 1, :z => 1, :w => 2"
+    pt = s(:yield,
+           s(:lit, 1),
+           s(:hash, s(:lit, :z), s(:lit, 1), s(:lit, :w), s(:lit, 2)))
+
+    assert_parse rb, pt
+  end
 
   def test_call_assoc_new
     rb = "f(a:3)"

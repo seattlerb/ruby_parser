@@ -916,8 +916,7 @@ module RubyParserStuff
 
     args ||= s(:arglist)
 
-    # TODO: I can prolly clean this up
-    args[0] = :arglist       if args.first == :array
+    args[0] = :arglist if [:call_args, :array].include?(args[0])
     args = s(:arglist, args) unless args.first == :arglist
 
     return s(:yield, *args[1..-1])
@@ -1075,8 +1074,9 @@ module RubyParserStuff
       raise SyntaxError, "block argument should not be given" if
         node[0] == :block_pass
 
-      node = node.last if [:array, :call_args].include?(node[0]) && node.size==2
-      node = node.last if node[0] == :call_args && node.size == 2
+      node[0] = :array if node[0] == :call_args
+      node = node.last if node[0] == :array && node.size == 2
+
       # HACK matz wraps ONE of the FOUR splats in a newline to
       # distinguish. I use paren for now. ugh
       node = s(:svalue, node) if node[0] == :splat and not node.paren
