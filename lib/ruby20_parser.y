@@ -798,7 +798,7 @@ rule
        aref_args: none
                 | args trailer
                     {
-                      result = val[0]
+                      result = args [val[0]]
                     }
                 | args tCOMMA assocs trailer
                     {
@@ -807,7 +807,6 @@ rule
                 | assocs trailer
                     {
                       result = args [array_to_hash(val[0])]
-                      result[0] = :array # TODO: switch to args?
                     }
 
       paren_args: tLPAREN2 opt_call_args rparen
@@ -972,6 +971,7 @@ rule
                 | tLBRACK aref_args tRBRACK
                     {
                       result = val[1] || s(:array)
+                      result[0] = :array # aref_args is :args
                     }
                 | tLBRACE assoc_list tRCURLY
                     {
