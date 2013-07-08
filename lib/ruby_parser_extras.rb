@@ -596,7 +596,7 @@ module RubyParserStuff
     # TODO: need a test with f(&b) { } to produce warning
 
     args ||= s(:arglist)
-    args[0] = :arglist if [:array, :call_args].include? args.first
+    args[0] = :arglist if [:args, :array, :call_args].include? args.first
     args = s(:arglist, args) unless args.first == :arglist
 
     # HACK quick hack to make this work quickly... easy to clean up above
