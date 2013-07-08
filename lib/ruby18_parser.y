@@ -1124,16 +1124,21 @@ rule
                     }
                 | kDEF fname
                     {
+                      result = lexer.lineno, self.in_def
+
                       self.comments.push self.lexer.comments
                       self.in_def = true
                       self.env.extend
-                      result = lexer.lineno, lexer.src.beginning_of_line?
                     }
                     f_arglist bodystmt kEND
                     {
+                      line, in_def = val[2]
+
                       result = new_defn val
+                      result[2].line line
+
                       self.env.unextend
-                      self.in_def = false
+                      self.in_def = in_def
                       self.lexer.comments # we don't care about comments in the body
                     }
                 | kDEF singleton dot_or_colon

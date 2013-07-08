@@ -1438,6 +1438,13 @@ module TestRubyParserShared
 
     assert_parse rb, pt
   end
+
+  def test_fubar_nesting
+    err = "class definition in method body"
+
+    assert_syntax_error "def a; class B; end; end", err
+    assert_syntax_error "def a; def b; end; class B; end; end", err
+  end
 end
 
 module TestRubyParserShared1920

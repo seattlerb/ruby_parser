@@ -655,7 +655,7 @@ module RubyParserStuff
   end
 
   def new_defn val
-    (_, line), name, args, body = val[0], val[1], val[3], val[4]
+    (_, line), name, _, args, body, * = val
     body ||= s(:nil)
 
     result = s(:defn, name.to_sym, args)
