@@ -803,6 +803,7 @@ rule
                 | args tCOMMA assocs trailer
                     {
                       result = args [val[0], array_to_hash(val[2])]
+                      result[0] = :array
                     }
                 | assocs trailer
                     {
