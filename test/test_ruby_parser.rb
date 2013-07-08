@@ -1236,6 +1236,15 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_aref_args_lit_assocs
+    skip if ruby18
+
+    rb = "[1, 2 => 3]"
+    pt = s(:array, s(:lit, 1), s(:hash, s(:lit, 2), s(:lit, 3)))
+
+    assert_parse rb, pt
+  end
+
   def test_BEGIN
     rb = "BEGIN { 42 }"
     pt = s(:iter, s(:preexe), s(:args), s(:lit, 42))
