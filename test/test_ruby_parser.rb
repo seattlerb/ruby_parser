@@ -1667,9 +1667,23 @@ module TestRubyParserShared1920
     assert_parse rb, pt
   end
 
+  def test_method_call_trailing_comma
+    rb = "a.f(1,)"
+    pt = s(:call, s(:call, nil, :a), :f, s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+
   def test_call_assoc_trailing_comma
     rb = "f(1=>2,)"
     pt = s(:call, nil, :f, s(:hash, s(:lit, 1), s(:lit, 2)))
+
+    assert_parse rb, pt
+  end
+
+  def test_method_call_assoc_trailing_comma
+    rb = "a.f(1=>2,)"
+    pt = s(:call, s(:call, nil, :a), :f, s(:hash, s(:lit, 1), s(:lit, 2)))
 
     assert_parse rb, pt
   end
@@ -2314,6 +2328,13 @@ class TestRuby19Parser < RubyParserTestCase
   def test_parse_opt_call_args_assocs_comma
     rb = "1[2=>3,]"
     pt = s(:call, s(:lit, 1), :[], s(:hash, s(:lit, 2), s(:lit, 3)))
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_opt_call_args_lit_comma
+    rb = "1[2,]"
+    pt = s(:call, s(:lit, 1), :[], s(:lit, 2))
 
     assert_parse rb, pt
   end
