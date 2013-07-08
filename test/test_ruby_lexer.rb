@@ -2231,14 +2231,6 @@ class TestRubyLexer < Minitest::Test
                    :tSTRING_END,     nil)
   end
 
-  def test_yylex_string_pct_w_tab
-    util_lex_token("%w[abc\tdef]",
-                   :tQWORDS_BEG,      "%w[",
-                   :tSTRING_CONTENT, "abc\tdef",
-                   :tSPACE,              nil,
-                   :tSTRING_END,     nil)
-  end
-
   def test_yylex_string_single
     util_lex_token("'string'",
                    :tSTRING, "string")
@@ -2373,6 +2365,24 @@ class TestRubyLexer < Minitest::Test
                    :tIDENTIFIER, "s",
                    :tEQL, "=",
                    :tFLOAT, 0.0)
+  end
+
+  def test_pct_w_backslashes
+    ["\t", "\n", "\r", "\v", "\f"].each do |char|
+      next if !RubyLexer::RUBY19 and char == "\v"
+
+      assert_lex("%w[foo#{char}bar]",
+                 s(:array, s(:str, "foo"), s(:str, "bar")),
+
+                 :tQWORDS_BEG,     "%w[", :expr_beg, 0, 0,
+                 :tSTRING_CONTENT, "foo", :expr_beg, 0, 0,
+                 :tSPACE,          nil,   :expr_beg, 0, 0,
+                 :tSTRING_CONTENT, "bar", :expr_beg, 0, 0,
+                 :tSPACE,          nil,   :expr_beg, 0, 0,
+                 :tSTRING_END,     nil,   :expr_end, 0, 0)
+    end
+
+    # flunk "Not yet"
   end
 
   ############################################################

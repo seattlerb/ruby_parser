@@ -616,7 +616,11 @@ class RubyLexer
         t = Regexp.escape term
         x = Regexp.escape(paren) if paren && paren != "\000"
         re = if qwords then
-               /[^#{t}#{x}\#\0\\\n\ ]+|./ # |. to pick up whatever
+               if RUBY19 then
+                 /[^#{t}#{x}\#\0\\\s]+|./ # |. to pick up whatever
+               else
+                 /[^#{t}#{x}\#\0\\\s\v]+|./ # argh. 1.8's \s doesn't pick up \v
+               end
              else
                /[^#{t}#{x}\#\0\\]+|./
              end
