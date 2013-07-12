@@ -1,3 +1,13 @@
+=== 3.2.2 / 2013-07-11
+
+* 5 bug fixes:
+
+  * 1.9/2.0: fixed assocs in return args. (presidentbeef)
+  * Fixed handling of parse error when class is nested in multiple defs. (whitequark)
+  * Fixed lexing of %w[] w/ funny whitespace separators. (whitequark)
+  * Fixed more call nodes that have trailing comma syntax. (presidentbeef)
+  * Fixed more call_args slippage.
+
 === 3.2.1 / 2013-07-03
 
 * 1 bug fix:
