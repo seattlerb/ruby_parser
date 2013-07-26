@@ -20,6 +20,7 @@ class RubyLexer
   attr_accessor :string_nest
 
   ESC_RE = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc]))/u
+  SIMPLE_STRING_RE = /(#{ESC_RE}|#(#{ESC_RE}|[^\{\#\@\$\"\\])|[^\"\\\#])*/o
   # :startdoc:
 
   ##
@@ -691,7 +692,7 @@ class RubyLexer
   #
   # @return Description of the Returned Value
 
-  def yylex # 826 lines
+  def yylex # 639 lines
     c = ''
     self.space_seen = false
     command_state = false
@@ -827,7 +828,7 @@ class RubyLexer
           else
             raise "you shouldn't be able to get here"
           end
-        elsif src.scan(/\"(#{ESC_RE}|#(#{ESC_RE}|[^\{\#\@\$\"\\])|[^\"\\\#])*\"/o) then
+        elsif src.scan(/\"(#{SIMPLE_STRING_RE})\"/o) then
           self.yacc_value = src.matched[1..-2].gsub(ESC_RE) { unescape $1 }
           self.lex_state = :expr_end
           return :tSTRING
