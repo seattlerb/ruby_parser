@@ -357,8 +357,10 @@ class RubyLexer
                                 self.lex_state  = :expr_fname
                                 [:tSYMBEG,       STR_SSYM]
                               when 'I' then
+                                src.scan(/\s*/)
                                 [:tSYMBOLS_BEG, STR_DQUOTE | STR_FUNC_QWORDS]
                               when 'i' then
+                                src.scan(/\s*/)
                                 [:tQSYMBOLS_BEG, STR_SQUOTE | STR_FUNC_QWORDS]
                               end
 
