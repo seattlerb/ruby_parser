@@ -101,7 +101,7 @@ class RubyLexer
     r = yylex
     self.token = r
 
-    raise "yylex returned nil" unless r
+    raise "yylex returned nil, near #{src.rest[0,10].inspect}" unless r
 
     return RubyLexer::EOF != r
   end
@@ -116,20 +116,6 @@ class RubyLexer
     c
   end
 
-  def expr_beg_push val
-    cond.push false
-    cmdarg.push false
-    self.lex_state = :expr_beg
-    self.yacc_value = val
-  end
-
-  def fix_arg_lex_state
-    self.lex_state = if in_lex_state? :expr_fname, :expr_dot then
-                       :expr_arg
-                     else
-                       :expr_beg
-                     end
-  end
 
   def heredoc here # 63 lines
     _, eos, func, last_line = here
@@ -687,12 +673,35 @@ class RubyLexer
     # do nothing for now
   end
 
+  def result lex_state, token, text # :nodoc:
+    lex_state = self.arg_state if lex_state == :arg_state
+    self.lex_state = lex_state if lex_state
+    self.yacc_value = text
+    token
+  end
+
+  def expr_result token, text
+    cond.push false
+    cmdarg.push false
+    result :expr_beg, token, text
+  end
+
+  def arg_state
+    if in_lex_state? :expr_fname, :expr_dot then
+      :expr_arg
+    else
+      :expr_beg
+    end
+  end
+
   ##
   # Returns the next token. Also sets yy_val is needed.
   #
   # @return Description of the Returned Value
 
-  def yylex # 639 lines
+
+
+  def yylex # 502 lines
     c = ''
     self.space_seen = false
     command_state = false
@@ -760,12 +769,12 @@ class RubyLexer
                            end
 
           self.yacc_value = src.matched
-          result = {
+          token = {
             ")" => :tRPAREN,
             "]" => :tRBRACK,
             "}" => :tRCURLY
           }[src.matched]
-          return result
+          return token
         elsif src.scan(/\!/) then
           if in_lex_state?(:expr_fname, :expr_dot) then
             self.lex_state = :expr_arg
@@ -786,19 +795,15 @@ class RubyLexer
 
           return TOKENS[self.yacc_value]
         elsif src.scan(/\.\.\.?|,|![=~]?/) then
-          self.lex_state = :expr_beg
-          tok = self.yacc_value = src.matched
-          return TOKENS[tok]
+          return self.result(:expr_beg, TOKENS[src.matched], src.matched)
         elsif src.check(/\./) then
           if src.scan(/\.\d/) then
             rb_compile_error "no .<digit> floating literal anymore put 0 before dot"
           elsif src.scan(/\./) then
-            self.lex_state = :expr_dot
-            self.yacc_value = "."
-            return :tDOT
+            return self.result(:expr_dot, :tDOT, ".")
           end
         elsif src.scan(/\(/) then
-          result = if ruby18 then
+          token = if ruby18 then
                      yylex_paren18
                    else
                      yylex_paren19
@@ -806,14 +811,11 @@ class RubyLexer
 
           self.paren_nest += 1
 
-          self.expr_beg_push "("
-
-          return result
+          return expr_result(token, "(")
         elsif src.check(/\=/) then
           if src.scan(/\=\=\=|\=\=|\=~|\=>|\=(?!begin\b)/) then
-            self.fix_arg_lex_state
-            tok = self.yacc_value = src.matched
-            return TOKENS[tok]
+            tok = src.matched
+            return result(:arg_state, TOKENS[tok], tok)
           elsif src.scan(/\=begin(?=\s)/) then
             @comments << src.matched
 
@@ -829,42 +831,32 @@ class RubyLexer
             raise "you shouldn't be able to get here"
           end
         elsif src.scan(/\"(#{SIMPLE_STRING_RE})\"/o) then
-          self.yacc_value = src.matched[1..-2].gsub(ESC_RE) { unescape $1 }
-          self.lex_state = :expr_end
-          return :tSTRING
+          string = src.matched[1..-2].gsub(ESC_RE) { unescape $1 }
+          return result(:expr_end, :tSTRING, string)
         elsif src.scan(/\"/) then # FALLBACK
           self.lex_strterm = [:strterm, STR_DQUOTE, '"', "\0"] # TODO: question this
-          self.yacc_value = "\""
-          return :tSTRING_BEG
+          return result(nil, :tSTRING_BEG, '"')
         elsif src.scan(/\@\@?#{IDENT_CHAR_RE}+/o) then
           self.token = src.matched
 
-          rb_compile_error "`#{token}` is not allowed as a variable name" if
-            token =~ /\@\d/
+          rb_compile_error "`#{self.token}` is not allowed as a variable name" if
+            self.token =~ /\@\d/
 
           return process_token(command_state)
         elsif src.scan(/\:\:/) then
           if is_beg? || in_lex_state?(:expr_class) || is_space_arg? then
-            self.lex_state = :expr_beg
-            self.yacc_value = "::"
-            return :tCOLON3
+            return result(:expr_beg, :tCOLON3, "::")
           end
 
-          self.lex_state = :expr_dot
-          self.yacc_value = "::"
-          return :tCOLON2
+          return result(:expr_dot, :tCOLON2, "::")
         elsif ! is_end? && src.scan(/:([a-zA-Z_]#{IDENT_CHAR_RE}*(?:[?!]|=(?==>)|=(?![=>]))?)/) then
           # scanning shortcut to symbols
-          self.yacc_value = src[1]
-          self.lex_state = :expr_end
-          return :tSYMBOL
+          return result(:expr_end, :tSYMBOL, src[1])
         elsif src.scan(/\:/) then
           # ?: / then / when
           if is_end? || src.check(/\s/) then
-            self.lex_state = :expr_beg
             # TODO warn_balanced(":", "symbol literal");
-            self.yacc_value = ":"
-            return :tCOLON
+            return result(:expr_beg, :tCOLON, ":")
           end
 
           case
@@ -874,64 +866,48 @@ class RubyLexer
             self.lex_strterm = [:strterm, STR_DSYM, src.matched, "\0"]
           end
 
-          self.lex_state = :expr_fname
-          self.yacc_value = ":"
-          return :tSYMBEG
+          return result(:expr_fname, :tSYMBEG, ":")
         elsif src.check(/[0-9]/) then
           return parse_number
         elsif src.scan(/\[/) then
           self.paren_nest += 1
 
-          result = src.matched
+          token = nil
 
           if in_lex_state? :expr_fname, :expr_dot then
-            self.lex_state = :expr_arg
             case
             when src.scan(/\]\=/) then
               self.paren_nest -= 1 # HACK? I dunno, or bug in MRI
-              self.yacc_value = "[]="
-              return :tASET
+              return result(:expr_arg, :tASET, "[]=")
             when src.scan(/\]/) then
               self.paren_nest -= 1 # HACK? I dunno, or bug in MRI
-              self.yacc_value = "[]"
-              return :tAREF
+              return result(:expr_arg, :tAREF, "[]")
             else
               rb_compile_error "unexpected '['"
             end
           elsif is_beg? then
             self.tern.push false
-            result = :tLBRACK
+            token = :tLBRACK
           elsif is_arg? && space_seen then
             self.tern.push false
-            result = :tLBRACK
+            token = :tLBRACK
           else
-            result = :tLBRACK2
+            token = :tLBRACK2
           end
 
-          self.expr_beg_push "["
-
-          return result
+          return expr_result(token, "[")
         elsif src.scan(/\'(\\.|[^\'])*\'/) then
-          self.yacc_value = src.matched[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'") # "
-          self.lex_state = :expr_end
-          return :tSTRING
+          text = src.matched[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'") # "
+          return result(:expr_end, :tSTRING, text)
         elsif src.check(/\|/) then
           if src.scan(/\|\|\=/) then
-            self.lex_state = :expr_beg
-            self.yacc_value = "||"
-            return :tOP_ASGN
+            return result(:expr_beg, :tOP_ASGN, "||")
           elsif src.scan(/\|\|/) then
-            self.lex_state = :expr_beg
-            self.yacc_value = "||"
-            return :tOROP
+            return result(:expr_beg, :tOROP, "||")
           elsif src.scan(/\|\=/) then
-            self.lex_state = :expr_beg
-            self.yacc_value = "|"
-            return :tOP_ASGN
+            return result(:expr_beg, :tOP_ASGN, "|")
           elsif src.scan(/\|/) then
-            self.fix_arg_lex_state
-            self.yacc_value = "|"
-            return :tPIPE
+            return result(:arg_state, :tPIPE, "|")
           end
         elsif src.scan(/\{/) then
           self.brace_nest += 1
@@ -939,12 +915,10 @@ class RubyLexer
             self.lpar_beg = nil
             self.paren_nest -= 1
 
-            expr_beg_push "{"
-
-            return :tLAMBEG
+            return expr_result(:tLAMBEG, "{")
           end
 
-          result = if is_arg? || in_lex_state?(:expr_end, :expr_endfn) then
+          token = if is_arg? || in_lex_state?(:expr_end, :expr_endfn) then
                      :tLCURLY      #  block (primary)
                    elsif in_lex_state?(:expr_endarg) then
                      :tLBRACE_ARG  #  block (expr)
@@ -953,13 +927,11 @@ class RubyLexer
                      :tLBRACE      #  hash
                    end
 
-          self.expr_beg_push "{"
-          self.command_start = true unless result == :tLBRACE
+          self.command_start = true unless token == :tLBRACE
 
-          return result
+          return expr_result(token, "{")
         elsif src.scan(/->/) then
-          self.lex_state = :expr_endfn
-          return :tLAMBDA
+          return result(:expr_endfn, :tLAMBDA, nil)
         elsif src.scan(/[+-]/) then
           sign = src.matched
           utype, type = if sign == "+" then
@@ -969,20 +941,15 @@ class RubyLexer
                         end
 
           if in_lex_state? :expr_fname, :expr_dot then
-            self.lex_state = :expr_arg
             if src.scan(/@/) then
-              self.yacc_value = "#{sign}@"
-              return utype
+              return result(:expr_arg, utype, "#{sign}@")
             else
-              self.yacc_value = sign
-              return type
+              return result(:expr_arg, type, sign)
             end
           end
 
           if src.scan(/\=/) then
-            self.lex_state = :expr_beg
-            self.yacc_value = sign
-            return :tOP_ASGN
+            return result(:expr_beg, :tOP_ASGN, sign)
           end
 
           if (is_beg? || (is_arg? && space_seen && !src.check(/\s/))) then
@@ -996,68 +963,53 @@ class RubyLexer
             if src.check(/\d/) then
               if utype == :tUPLUS then
                 return self.parse_number
+                # return result(:expr_beg, self.parse_number, sign) # HACK
               else
-                return :tUMINUS_NUM
+                return result(:expr_beg, :tUMINUS_NUM, sign)
               end
             end
 
             return utype
           end
 
-          self.lex_state = :expr_beg
-          self.yacc_value = sign
-          return type
+          return result(:expr_beg, type, sign)
         elsif src.check(/\*/) then
           if src.scan(/\*\*=/) then
-            self.lex_state = :expr_beg
-            self.yacc_value = "**"
-            return :tOP_ASGN
+            return result(:expr_beg, :tOP_ASGN, "**")
           elsif src.scan(/\*\*/) then
-            result = if is_space_arg? src.check(/./m) then
-                       warning "`**' interpreted as argument prefix"
-                       :tDSTAR
-                     elsif is_beg? then
-                       :tDSTAR
-                     else
-                       # TODO: warn_balanced("**", "argument prefix");
-                       :tPOW
-                     end
-            self.yacc_value = "**"
-            self.fix_arg_lex_state
-            return result
-          elsif src.scan(/\*\=/) then
-            self.lex_state = :expr_beg
-            self.yacc_value = "*"
-            return :tOP_ASGN
-          elsif src.scan(/\*/) then
-            result = if is_space_arg? src.check(/./m) then
-                       warning("`*' interpreted as argument prefix")
-                       :tSTAR
-                     elsif is_beg? then
-                       :tSTAR
-                     else
-                       # TODO: warn_balanced("*", "argument prefix");
-                       :tSTAR2 # TODO: rename
-                     end
+            token = if is_space_arg? src.check(/./m) then # REFACTOR
+                      warning "`**' interpreted as argument prefix"
+                      :tDSTAR
+                    elsif is_beg? then
+                      :tDSTAR
+                    else
+                      # TODO: warn_balanced("**", "argument prefix");
+                      :tPOW
+                    end
 
-            self.yacc_value = "*"
-            self.fix_arg_lex_state
-            return result
+            return result(:arg_state, token, "**")
+          elsif src.scan(/\*\=/) then
+            return result(:expr_beg, :tOP_ASGN, "*")
+          elsif src.scan(/\*/) then
+            token = if is_space_arg? src.check(/./m) then # REFACTOR
+                      warning("`*' interpreted as argument prefix")
+                      :tSTAR
+                    elsif is_beg? then
+                      :tSTAR
+                    else
+                      # TODO: warn_balanced("*", "argument prefix");
+                      :tSTAR2 # TODO: rename
+                    end
+
+            return result(:arg_state, token, "*")
           end
         elsif src.check(/\</) then
           if src.scan(/\<\=\>/) then
-            self.fix_arg_lex_state
-            self.yacc_value = "<=>"
-            return :tCMP
+            return result(:arg_state, :tCMP, "<=>")
           elsif src.scan(/\<\=/) then
-            self.fix_arg_lex_state
-            self.yacc_value = "<="
-            return :tLEQ
+            return result(:arg_state, :tLEQ, "<=")
           elsif src.scan(/\<\<\=/) then
-            self.fix_arg_lex_state
-            self.lex_state = :expr_beg
-            self.yacc_value = "\<\<"
-            return :tOP_ASGN
+            return result(:arg_state, :tOP_ASGN, "<<")
           elsif src.scan(/\<\</) then
             if (!in_lex_state?(:expr_dot, :expr_class) &&
                 !is_end? &&
@@ -1066,56 +1018,35 @@ class RubyLexer
               return tok if tok
             end
 
-            self.fix_arg_lex_state
-            self.yacc_value = "\<\<"
-            return :tLSHFT
+            return result(:arg_state, :tLSHFT, "\<\<")
           elsif src.scan(/\</) then
-            self.fix_arg_lex_state
-            self.yacc_value = "<"
-            return :tLT
+            return result(:arg_state, :tLT, "<")
           end
         elsif src.check(/\>/) then
           if src.scan(/\>\=/) then
-            self.fix_arg_lex_state
-            self.yacc_value = ">="
-            return :tGEQ
+            return result(:arg_state, :tGEQ, ">=")
           elsif src.scan(/\>\>=/) then
-            self.fix_arg_lex_state
-            self.lex_state = :expr_beg
-            self.yacc_value = ">>"
-            return :tOP_ASGN
+            return result(:arg_state, :tOP_ASGN, ">>")
           elsif src.scan(/\>\>/) then
-            self.fix_arg_lex_state
-            self.yacc_value = ">>"
-            return :tRSHFT
+            return result(:arg_state, :tRSHFT, ">>")
           elsif src.scan(/\>/) then
-            self.fix_arg_lex_state
-            self.yacc_value = ">"
-            return :tGT
+            return result(:arg_state, :tGT, ">")
           end
         elsif src.scan(/\`/) then
-          self.yacc_value = "`"
           case lex_state
           when :expr_fname then
-            self.lex_state = :expr_end
-            return :tBACK_REF2
+            return result(:expr_end, :tBACK_REF2, "`")
           when :expr_dot then
-            self.lex_state = if command_state then
-                               :expr_cmdarg
-                             else
-                               :expr_arg
-                             end
-            return :tBACK_REF2
+            state = command_state ? :expr_cmdarg : :expr_arg
+            return result(state, :tBACK_REF2, "`")
           end
           self.lex_strterm = [:strterm, STR_XQUOTE, '`', "\0"]
-          return :tXSTRING_BEG
+          return result(nil, :tXSTRING_BEG, "`")
         elsif src.scan(/\?/) then
-
           if is_end? then
-            self.lex_state = ruby18 ? :expr_beg : :expr_value # HACK?
+            state = ruby18 ? :expr_beg : :expr_value # HACK?
             self.tern.push true
-            self.yacc_value = "?"
-            return :tEH
+            return result(state, :tEH, "?")
           end
 
           if src.eos? then
@@ -1137,15 +1068,12 @@ class RubyLexer
             end
 
             # ternary
-            self.lex_state = ruby18 ? :expr_beg : :expr_value # HACK?
+            state = ruby18 ? :expr_beg : :expr_value # HACK?
             self.tern.push true
-            self.yacc_value = "?"
-            return :tEH
+            return result(state, :tEH, "?")
           elsif src.check(/\w(?=\w)/) then # ternary, also
-            self.lex_state = :expr_beg
             self.tern.push true
-            self.yacc_value = "?"
-            return :tEH
+            return result(:expr_beg, :tEH, "?")
           end
 
           c = if src.scan(/\\/) then
@@ -1153,31 +1081,21 @@ class RubyLexer
               else
                 src.getch
               end
-          self.lex_state = :expr_end
 
           if version == 18 then
-            self.yacc_value = c[0].ord & 0xff
-            return :tINTEGER
+            return result(:expr_end, :tINTEGER, c[0].ord & 0xff)
           else
-            self.yacc_value = c
-            return :tSTRING
+            return result(:expr_end, :tSTRING, c)
           end
         elsif src.check(/\&/) then
           if src.scan(/\&\&\=/) then
-            self.yacc_value = "&&"
-            self.lex_state = :expr_beg
-            return :tOP_ASGN
+            return result(:expr_beg, :tOP_ASGN, "&&")
           elsif src.scan(/\&\&/) then
-            self.lex_state = :expr_beg
-            self.yacc_value = "&&"
-            return :tANDOP
+            return result(:expr_beg, :tANDOP, "&&")
           elsif src.scan(/\&\=/) then
-            self.yacc_value = "&"
-            self.lex_state = :expr_beg
-            return :tOP_ASGN
+            return result(:expr_beg, :tOP_ASGN, "&")
           elsif src.scan(/&/) then
-            result = if is_arg? && space_seen &&
-                         !src.check(/\s/) then
+            token = if is_arg? && space_seen && !src.check(/\s/) then
                        warning("`&' interpreted as argument prefix")
                        :tAMPER
                      elsif in_lex_state? :expr_beg, :expr_mid then
@@ -1186,58 +1104,37 @@ class RubyLexer
                        :tAMPER2
                      end
 
-            self.fix_arg_lex_state
-            self.yacc_value = "&"
-            return result
+            return result(:arg_state, token, "&")
           end
         elsif src.scan(/\//) then
           if is_beg? then
             self.lex_strterm = [:strterm, STR_REGEXP, '/', "\0"]
-            self.yacc_value = "/"
-            return :tREGEXP_BEG
+            return result(nil, :tREGEXP_BEG, "/")
           end
 
           if src.scan(/\=/) then
-            self.yacc_value = "/"
-            self.lex_state = :expr_beg
-            return :tOP_ASGN
+            return result(:expr_beg, :tOP_ASGN, "/")
           end
 
           if is_arg? && space_seen then
             unless src.scan(/\s/) then
               arg_ambiguous
               self.lex_strterm = [:strterm, STR_REGEXP, '/', "\0"]
-              self.yacc_value = "/"
-              return :tREGEXP_BEG
+              return result(nil, :tREGEXP_BEG, "/")
             end
           end
 
-          self.fix_arg_lex_state
-          self.yacc_value = "/"
-
-          return :tDIVIDE
+          return result(:arg_state, :tDIVIDE, "/")
         elsif src.scan(/\^=/) then
-          self.lex_state = :expr_beg
-          self.yacc_value = "^"
-          return :tOP_ASGN
+          return result(:expr_beg, :tOP_ASGN, "^")
         elsif src.scan(/\^/) then
-          self.fix_arg_lex_state
-          self.yacc_value = "^"
-          return :tCARET
+          return result(:arg_state, :tCARET, "^")
         elsif src.scan(/\;/) then
           self.command_start = true
-          self.lex_state = :expr_beg
-          self.yacc_value = ";"
-          return :tSEMI
+          return result(:expr_beg, :tSEMI, ";")
         elsif src.scan(/\~/) then
-          if in_lex_state? :expr_fname, :expr_dot then
-            src.scan(/@/)
-          end
-
-          self.fix_arg_lex_state
-          self.yacc_value = "~"
-
-          return :tTILDE
+          src.scan(/@/) if in_lex_state? :expr_fname, :expr_dot
+          return result(:arg_state, :tTILDE, "~")
         elsif src.scan(/\\/) then
           if src.scan(/\r?\n/) then
             self.lineno = nil
@@ -1246,67 +1143,42 @@ class RubyLexer
           end
           rb_compile_error "bare backslash only allowed before newline"
         elsif src.scan(/\%/) then
-          if is_beg? then
-            return parse_quote
-          end
+          return parse_quote if is_beg?
 
-          if src.scan(/\=/) then
-            self.lex_state = :expr_beg
-            self.yacc_value = "%"
-            return :tOP_ASGN
-          end
+          return result(:expr_beg, :tOP_ASGN, "%") if src.scan(/\=/)
 
           return parse_quote if is_arg? && space_seen && ! src.check(/\s/)
 
-          self.fix_arg_lex_state
-          self.yacc_value = "%"
-
-          return :tPERCENT
+          return result(:arg_state, :tPERCENT, "%")
         elsif src.check(/\$/) then
           if src.scan(/(\$_)(\w+)/) then
-            self.lex_state = :expr_end
             self.token = src.matched
-            return process_token(command_state)
+            return result(:expr_end, process_token(command_state), src.matched)
           elsif src.scan(/\$_/) then
-            self.lex_state = :expr_end
-            self.token = src.matched
-            self.yacc_value = src.matched
-            return :tGVAR
+            return result(:expr_end, :tGVAR, src.matched)
           elsif src.scan(/\$[~*$?!@\/\\;,.=:<>\"]|\$-\w?/) then
-            self.lex_state = :expr_end
-            self.yacc_value = src.matched
-            return :tGVAR
+            return result(:expr_end, :tGVAR, src.matched)
           elsif src.scan(/\$([\&\`\'\+])/) then
-            self.lex_state = :expr_end
             # Explicit reference to these vars as symbols...
             if last_state == :expr_fname then
-              self.yacc_value = src.matched
-              return :tGVAR
+              return result(:expr_end, :tGVAR, src.matched)
             else
-              self.yacc_value = src[1].to_sym
-              return :tBACK_REF
+              return result(:expr_end, :tBACK_REF, src[1].to_sym)
             end
           elsif src.scan(/\$([1-9]\d*)/) then
-            self.lex_state = :expr_end
             if last_state == :expr_fname then
-              self.yacc_value = src.matched
-              return :tGVAR
+              return result(:expr_end, :tGVAR, src.matched)
             else
-              self.yacc_value = src[1].to_i
-              return :tNTH_REF
+              return result(:expr_end, :tNTH_REF, src[1].to_i)
             end
           elsif src.scan(/\$0/) then
-            self.lex_state = :expr_end
             self.token = src.matched
-            return process_token(command_state)
+            return result(:expr_end, process_token(command_state), src.matched)
           elsif src.scan(/\$\W|\$\z/) then # TODO: remove?
-            self.lex_state = :expr_end
-            self.yacc_value = "$"
-            return "$"
+            return result(:expr_end, "$", "$") # FIX: "$"??
           elsif src.scan(/\$\w+/)
-            self.lex_state = :expr_end
             self.token = src.matched
-            return process_token(command_state)
+            return result(:expr_end, process_token(command_state), src.matched)
           end
         elsif src.check(/\_/) then
           if src.beginning_of_line? && src.scan(/\__END__(\r?\n|\Z)/) then
@@ -1334,13 +1206,13 @@ class RubyLexer
 
   def yylex_paren18
     self.command_start = true
-    result = :tLPAREN2
+    token = :tLPAREN2
 
     if in_lex_state? :expr_beg, :expr_mid then
-      result = :tLPAREN
+      token = :tLPAREN
     elsif space_seen then
       if in_lex_state? :expr_cmdarg then
-        result = :tLPAREN_ARG
+        token = :tLPAREN_ARG
       elsif in_lex_state? :expr_arg then
         self.tern.push false
         warning "don't put space before argument parentheses"
@@ -1349,7 +1221,7 @@ class RubyLexer
       self.tern.push false
     end
 
-    result
+    token
   end
 
   def yylex_paren19
