@@ -324,7 +324,7 @@ module RubyParserStuff
                end
              end
 
-    self.env[id] ||= :lvar unless result.sexp_type == :cdecl # HACK? cdecl
+    self.env[id] ||= :lvar if result.sexp_type == :lasgn
 
     result << value if value
 
