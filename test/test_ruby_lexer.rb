@@ -2136,7 +2136,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_string_pct_i
-    util_lex_token("%i[s1 s2\ns3]",
+    util_lex_token("%i[ s1 s2\ns3]",
                    :tQSYMBOLS_BEG,   "%i[",
                    :tSTRING_CONTENT, "s1",
                    :tSPACE,              nil,
@@ -2148,7 +2148,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_string_pct_I
-    util_lex_token("%I[s1 s2\ns3]",
+    util_lex_token("%I[ s1 s2\ns3]",
                    :tSYMBOLS_BEG,    "%I[",
                    :tSTRING_CONTENT, "s1",
                    :tSPACE,              nil,
@@ -2167,7 +2167,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_string_pct_W
-    util_lex_token("%W[s1 s2\ns3]", # TODO: add interpolation to these
+    util_lex_token("%W[ s1 s2\ns3]", # TODO: add interpolation to these
                    :tWORDS_BEG,      "%W[",
                    :tSTRING_CONTENT, "s1",
                    :tSPACE,              nil,
@@ -2203,7 +2203,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_string_pct_w
-    util_bad_token("%w[s1 s2 ",
+    util_bad_token("%w[ s1 s2 ",
                    :tQWORDS_BEG,     "%w[",
                    :tSTRING_CONTENT, "s1",
                    :tSPACE,              nil,
