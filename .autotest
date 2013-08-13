@@ -28,8 +28,6 @@ Autotest.add_hook :initialize do |at|
   at.testlib = "minitest/autorun"
 
   at.add_mapping(/^lib\/.*\.y$/) do |f, _|
-    re = %r%^test/test_#{File.basename(f, '.y').gsub(/(\d+)/, '')}.rb$%
-    at.files_matching re
     at.files_matching %r%^test/.*#{File.basename(f, '.y').gsub '_', '_?'}.rb$%
   end
 
