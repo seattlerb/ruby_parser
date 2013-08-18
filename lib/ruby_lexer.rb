@@ -695,14 +695,6 @@ class RubyLexer
     end
   end
 
-  ##
-  # Returns the next token. Also sets yy_val is needed.
-  #
-  # @return Description of the Returned Value
-
-
-
-
   def in_arg_state?
     in_lex_state? :expr_fname, :expr_dot
   end
@@ -718,6 +710,11 @@ class RubyLexer
       fallback
     end
   end
+
+  ##
+  # Returns the next token. Also sets yy_val is needed.
+  #
+  # @return Description of the Returned Value
 
   def yylex # 461 lines
     c = ''
