@@ -54,7 +54,7 @@ class TestRubyLexer < Minitest::Test
     assert_lex(input, exp_sexp, *args, &block)
   end
 
-  def refute_lex input, *args
+  def refute_lex input, *args # TODO: re-sort
     args = args.each_slice(2).map { |a, b| [a, b, nil, nil, nil] }.flatten
 
     assert_raises RubyParser::SyntaxError do
@@ -99,7 +99,7 @@ class TestRubyLexer < Minitest::Test
     assert_equal expected, @lex.read_escape, input
   end
 
-  def assert_read_escape_bad input
+  def assert_read_escape_bad input # TODO: rename refute_read_escape
     @lex.src = input
     assert_raises RubyParser::SyntaxError do
       @lex.read_escape
@@ -1100,11 +1100,11 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_BEG,     "\"",    :expr_beg,
                 :tSTRING_CONTENT, "#x a ", :expr_beg,
                 :tSTRING_DVAR,    "\#@",   :expr_beg,
-                :tSTRING_CONTENT, "@a b ", :expr_beg,
+                :tSTRING_CONTENT, "@a b ", :expr_beg, # HUH?
                 :tSTRING_DVAR,    "\#$",   :expr_beg,
-                :tSTRING_CONTENT, "$b c ", :expr_beg,
+                :tSTRING_CONTENT, "$b c ", :expr_beg, # HUH?
                 :tSTRING_DBEG,    "\#{",   :expr_beg,
-                :tSTRING_CONTENT, "3} \n", :expr_beg,
+                :tSTRING_CONTENT, "3} \n", :expr_beg, # HUH?
                 :tSTRING_END,     "EOF",   :expr_end,
                 :tNL,             nil,     :expr_beg)
   end
