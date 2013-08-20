@@ -2394,12 +2394,30 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_END,     "\"",     :expr_end)
   end
 
+  def test_yylex_symbol_double_interp
+    assert_lex3(':"symbol#{1+1}"',
+                nil,
+                :tSYMBEG,         ":",      :expr_fname,
+                :tSTRING_CONTENT, "symbol", :expr_fname,
+                :tSTRING_DBEG,    nil,      :expr_fname,
+                :tSTRING_CONTENT, "1+1}",   :expr_fname, # HUH? this is BS
+                :tSTRING_END,     "\"",     :expr_end)
+  end
+
   def test_yylex_symbol_single
     assert_lex3(":'symbol'",
                 nil,
                 :tSYMBEG,         ":",      :expr_fname,
                 :tSTRING_CONTENT, "symbol", :expr_fname,
                 :tSTRING_END,     "'",      :expr_end)
+  end
+
+  def test_yylex_symbol_single_noninterp
+    assert_lex3(':\'symbol#{1+1}\'',
+                nil,
+                :tSYMBEG,         ":",            :expr_fname,
+                :tSTRING_CONTENT, 'symbol#{1+1}', :expr_fname,
+                :tSTRING_END,     "'",            :expr_end)
   end
 
   def test_yylex_ternary1
