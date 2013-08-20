@@ -688,11 +688,7 @@ class RubyLexer
   end
 
   def arg_state
-    if in_arg_state? then
-      :expr_arg
-    else
-      :expr_beg
-    end
+    in_arg_state? ? :expr_arg : :expr_beg
   end
 
   def in_arg_state?
@@ -1145,12 +1141,10 @@ class RubyLexer
               return result(:expr_end, :tNTH_REF, src[1].to_i)
             end
           elsif src.scan(/\$0/) then
-            self.token = src.matched
             return result(:expr_end, :tGVAR, src.matched)
           elsif src.scan(/\$\W|\$\z/) then # TODO: remove?
             return result(:expr_end, "$", "$") # FIX: "$"??
           elsif src.scan(/\$\w+/)
-            self.token = src.matched
             return result(:expr_end, :tGVAR, src.matched)
           end
         elsif src.check(/\_/) then
