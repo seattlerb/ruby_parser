@@ -2466,7 +2466,7 @@ class TestRubyLexer < Minitest::Test
 
   def test_yylex_underscore_end
     @lex.src = "__END__\n"
-    refute @lex.advance
+    refute_lexeme
   end
 
   def test_yylex_uplus
