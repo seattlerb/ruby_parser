@@ -847,6 +847,14 @@ class RubyLexer
         elsif ! is_end? && src.scan(/:([a-zA-Z_]#{IDENT_CHAR_RE}*(?:[?!]|=(?==>)|=(?![=>]))?)/) then
           # scanning shortcut to symbols
           return result(:expr_end, :tSYMBOL, src[1])
+        elsif ! is_end? && (src.scan(/\:\"(#{SIMPLE_STRING_RE})\"/) ||
+                            src.scan(/\:\'(#{SIMPLE_SSTRING_RE})\'/)) then
+          symbol = src[1].gsub(ESC_RE) { unescape $1 }
+
+          rb_compile_error "symbol cannot contain '\\0'" if
+            ruby18 && symbol =~ /\0/
+
+          return result(:expr_end, :tSYMBOL, symbol)
         elsif src.scan(/\:/) then
           # ?: / then / when
           if is_end? || src.check(/\s/) then

@@ -2382,16 +2382,21 @@ class TestRubyLexer < Minitest::Test
     assert_lex3(":symbol", nil, :tSYMBOL, "symbol", :expr_end)
   end
 
-  def test_yylex_symbol_bad_zero
-    refute_lex(":\"blah\0\"", :tSYMBEG, ":")
+  def test_yylex_symbol_zero_byte__18
+    setup_lexer_class Ruby18Parser
+
+    refute_lex(":\"symbol\0\"", :tSYMBEG, ":")
+  end
+
+  def test_yylex_symbol_zero_byte
+    assert_lex(":\"symbol\0\"", nil,
+                :tSYMBOL,         "symbol\0", :expr_end)
   end
 
   def test_yylex_symbol_double
     assert_lex3(":\"symbol\"",
                 nil,
-                :tSYMBEG,         ":",      :expr_fname,
-                :tSTRING_CONTENT, "symbol", :expr_fname,
-                :tSTRING_END,     "\"",     :expr_end)
+                :tSYMBOL,         "symbol", :expr_end)
   end
 
   def test_yylex_symbol_double_interp
@@ -2407,17 +2412,13 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_symbol_single
     assert_lex3(":'symbol'",
                 nil,
-                :tSYMBEG,         ":",      :expr_fname,
-                :tSTRING_CONTENT, "symbol", :expr_fname,
-                :tSTRING_END,     "'",      :expr_end)
+                :tSYMBOL,         "symbol", :expr_end)
   end
 
   def test_yylex_symbol_single_noninterp
     assert_lex3(':\'symbol#{1+1}\'',
                 nil,
-                :tSYMBEG,         ":",            :expr_fname,
-                :tSTRING_CONTENT, 'symbol#{1+1}', :expr_fname,
-                :tSTRING_END,     "'",            :expr_end)
+                :tSYMBOL,   'symbol#{1+1}', :expr_end)
   end
 
   def test_yylex_ternary1
