@@ -676,6 +676,19 @@ class TestRubyLexer < Minitest::Test
                 :tCONSTANT, "B",  :expr_arg)
   end
 
+  def test_yylex_colon2_argh
+    assert_lex3("module X::Y\n  c\nend",
+                nil,
+                :kMODULE,     "module", :expr_value,
+                :tCONSTANT,   "X",      :expr_arg,
+                :tCOLON2,     "::",     :expr_dot,
+                :tCONSTANT,   "Y",      :expr_arg,
+                :tNL,         nil,      :expr_beg,
+                :tIDENTIFIER, "c",      :expr_cmdarg,
+                :tNL,         nil,      :expr_beg,
+                :kEND,        "end",    :expr_end)
+  end
+
   def test_yylex_colon3
     assert_lex3("::Array",
                 nil,
