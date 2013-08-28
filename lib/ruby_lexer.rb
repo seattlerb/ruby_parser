@@ -94,6 +94,7 @@ class RubyLexer
 
   # Stream of data that yylex examines.
   attr_reader :src
+  alias :ss :src
 
   # Last token read via yylex.
   attr_accessor :token
@@ -134,7 +135,7 @@ class RubyLexer
     r = yylex
     self.token = r
 
-    raise "yylex returned nil, near #{src.rest[0,10].inspect}" unless r
+    raise "yylex returned nil, near #{ss.rest[0,10].inspect}" unless r
 
     return RubyLexer::EOF != r
   end
@@ -148,11 +149,11 @@ class RubyLexer
   end
 
   def beginning_of_line?
-    src.bol?
+    ss.bol?
   end
 
   def check re
-    src.check re
+    ss.check re
   end
 
   def comments # TODO: remove this... maybe comment_string + attr_accessor
@@ -162,7 +163,7 @@ class RubyLexer
   end
 
   def end_of_stream?
-    src.eos?
+    ss.eos?
   end
 
   def expr_result token, text
@@ -181,8 +182,8 @@ class RubyLexer
 
     rb_compile_error err_msg if end_of_stream?
 
-    if src.beginning_of_line? && scan(eos_re) then
-      src.unread_many last_line # TODO: figure out how to remove this
+    if beginning_of_line? && scan(eos_re) then
+      ss.unread_many last_line # TODO: figure out how to remove this
       self.yacc_value = eos
       return :tSTRING_END
     end
@@ -192,7 +193,7 @@ class RubyLexer
     if expand then
       case
       when scan(/#[$@]/) then
-        src.pos -= 1 # FIX omg stupid
+        ss.pos -= 1 # FIX omg stupid
         self.yacc_value = matched
         return :tSTRING_DVAR
       when scan(/#[{]/) then
@@ -263,7 +264,7 @@ class RubyLexer
     if scan(/.*\n/) then
       # TODO: think about storing off the char range instead
       line = matched
-      src.extra_lines_added += 1 # FIX: ugh
+      ss.extra_lines_added += 1 # FIX: ugh
     else
       line = nil
     end
@@ -315,11 +316,11 @@ class RubyLexer
   end
 
   def lineno
-    @lineno ||= src.lineno
+    @lineno ||= ss.lineno
   end
 
   def matched
-    src.matched
+    ss.matched
   end
 
   ##
@@ -364,10 +365,10 @@ class RubyLexer
     beg, nnd, short_hand, c = nil, nil, false, nil
 
     if scan(/[a-z0-9]{1,2}/i) then # Long-hand (e.g. %Q{}).
-      rb_compile_error "unknown type of %string" if src.matched_size == 2
-      c, beg, short_hand = matched, src.getch, false
+      rb_compile_error "unknown type of %string" if ss.matched_size == 2
+      c, beg, short_hand = matched, ss.getch, false
     else                               # Short-hand (e.g. %{, %., %!, etc)
-      c, beg, short_hand = 'Q', src.getch, true
+      c, beg, short_hand = 'Q', ss.getch, true
     end
 
     if end_of_stream? or c == RubyLexer::EOF or beg == RubyLexer::EOF then
@@ -494,7 +495,7 @@ class RubyLexer
       end
 
     if !ruby18 and is_label_possible?(command_state) and scan(/:(?!:)/) then
-      return result(:expr_beg, :tLABEL, [token, src.lineno]) # HACK: array?
+      return result(:expr_beg, :tLABEL, [token, ss.lineno]) # HACK: array? TODO: self.lineno
     end
 
     unless in_lex_state? :expr_dot then
@@ -531,7 +532,7 @@ class RubyLexer
 
   def process_token_keyword keyword
     state = keyword.state
-    value = [token, src.lineno]
+    value = [token, ss.lineno] # TODO: use self.lineno ?
 
     self.command_start = true if state == :expr_beg and lex_state != :expr_fname
 
@@ -563,7 +564,7 @@ class RubyLexer
   end
 
   def rb_compile_error msg
-    msg += ". near line #{self.lineno}: #{src.rest[/^.*/].inspect}"
+    msg += ". near line #{self.lineno}: #{ss.rest[/^.*/].inspect}"
     raise RubyParser::SyntaxError, msg
   end
 
@@ -592,17 +593,17 @@ class RubyLexer
     when scan(/[0-7]{1,3}/) then          # octal constant
       (matched.to_i(8) & 0xFF).chr
     when scan(/x([0-9a-fA-F]{1,2})/) then # hex constant
-      src[1].to_i(16).chr
-    when src.check(/M-\\[\\MCc]/) then
+      ss[1].to_i(16).chr
+    when check(/M-\\[\\MCc]/) then
       scan(/M-\\/) # eat it
       c = self.read_escape
       c[0] = (c[0].ord | 0x80).chr
       c
     when scan(/M-(.)/) then
-      c = src[1]
+      c = ss[1]
       c[0] = (c[0].ord | 0x80).chr
       c
-    when src.check(/(C-|c)\\[\\MCc]/) then
+    when check(/(C-|c)\\[\\MCc]/) then
       scan(/(C-|c)\\/) # eat it
       c = self.read_escape
       c[0] = (c[0].ord & 0x9f).chr
@@ -610,7 +611,7 @@ class RubyLexer
     when scan(/C-\?|c\?/) then
       127.chr
     when scan(/(C-|c)(.)/) then
-      c = src[2]
+      c = ss[2]
       c[0] = (c[0].ord & 0x9f).chr
       c
     when scan(/^[89]/i) then # bad octal or hex... MRI ignores them :(
@@ -618,7 +619,7 @@ class RubyLexer
     when scan(/[McCx0-9]/) || end_of_stream? then
       rb_compile_error("Invalid escape character syntax")
     else
-      src.getch
+      ss.getch
     end
   end
 
@@ -663,7 +664,7 @@ class RubyLexer
   end
 
   def scan re
-    src.scan re
+    ss.scan re
   end
 
   def space_vs_beginning space_type, beg_type, fallback
@@ -726,16 +727,16 @@ class RubyLexer
         self.string_nest += 1
       when scan(term_re) then
         if self.string_nest == 0 then
-          src.pos -= 1
+          ss.pos -= 1
           break
         else
           self.string_nest -= 1
         end
       when expand && scan(/#(?=[\$\@\{])/) then
-        src.pos -= 1
+        ss.pos -= 1
         break
       when qwords && scan(/\s/) then
-        src.pos -= 1
+        ss.pos -= 1
         break
       when expand && scan(/#(?!\n)/) then
         # do nothing
@@ -850,18 +851,18 @@ class RubyLexer
       if scan(/[\ \t\r\f\v]/) then # \s - \n + \v
         self.space_seen = true
         next
-      elsif src.check(/[^a-zA-Z]/) then
+      elsif check(/[^a-zA-Z]/) then
         if scan(/\n|\#/) then
           self.lineno = nil
           c = matched
           if c == '#' then
-            src.pos -= 1
+            ss.pos -= 1
 
             while scan(/\s*#.*(\n+|\z)/) do
               @comments << matched.gsub(/^ +#/, '#').gsub(/^ +$/, '')
             end
 
-            return RubyLexer::EOF if src.eos?
+            return RubyLexer::EOF if end_of_stream?
           end
 
           # Replace a string of newlines with a single one
@@ -873,8 +874,8 @@ class RubyLexer
           if scan(/([\ \t\r\f\v]*)\./) then
             self.space_seen = true unless src[1].empty?
 
-            src.pos -= 1
-            next unless src.check(/\.\./)
+            ss.pos -= 1
+            next unless check(/\.\./)
           end
 
           self.command_start = true
@@ -910,7 +911,7 @@ class RubyLexer
           return result(arg_state, TOKENS[text], text)
         elsif scan(/\.\.\.?|,|![=~]?/) then
           return result(:expr_beg, TOKENS[matched], matched)
-        elsif src.check(/\./) then
+        elsif check(/\./) then
           if scan(/\.\d/) then
             rb_compile_error "no .<digit> floating literal anymore put 0 before dot"
           elsif scan(/\./) then
@@ -926,7 +927,7 @@ class RubyLexer
           self.paren_nest += 1
 
           return expr_result(token, "(")
-        elsif src.check(/\=/) then
+        elsif check(/\=/) then
           if scan(/\=\=\=|\=\=|\=~|\=>|\=(?!begin\b)/) then
             tok = matched
             return result(:arg_state, TOKENS[tok], tok)
@@ -977,7 +978,7 @@ class RubyLexer
           return result(:expr_end, :tSYMBOL, symbol)
         elsif scan(/\:/) then
           # ?: / then / when
-          if is_end? || src.check(/\s/) then
+          if is_end? || check(/\s/) then
             # TODO warn_balanced(":", "symbol literal");
             return result(:expr_beg, :tCOLON, ":")
           end
@@ -990,7 +991,7 @@ class RubyLexer
           end
 
           return result(:expr_fname, :tSYMBEG, ":")
-        elsif src.check(/[0-9]/) then
+        elsif check(/[0-9]/) then
           return parse_number
         elsif scan(/\[/) then
           self.paren_nest += 1
@@ -1022,7 +1023,7 @@ class RubyLexer
         elsif scan(/\'#{SIMPLE_SSTRING_RE}\'/) then
           text = matched[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'") # "
           return result(:expr_end, :tSTRING, text)
-        elsif src.check(/\|/) then
+        elsif check(/\|/) then
           if scan(/\|\|\=/) then
             return result(:expr_beg, :tOP_ASGN, "||")
           elsif scan(/\|\|/) then
@@ -1073,10 +1074,10 @@ class RubyLexer
 
           return result(:expr_beg, :tOP_ASGN, sign) if scan(/\=/)
 
-          if (is_beg? || (is_arg? && space_seen && !src.check(/\s/))) then
+          if (is_beg? || (is_arg? && space_seen && !check(/\s/))) then
             arg_ambiguous if is_arg?
 
-            if src.check(/\d/) then
+            if check(/\d/) then
               return self.parse_number if utype == :tUPLUS
               return result(:expr_beg, :tUMINUS_NUM, sign)
             end
@@ -1085,7 +1086,7 @@ class RubyLexer
           end
 
           return result(:expr_beg, type, sign)
-        elsif src.check(/\*/) then
+        elsif check(/\*/) then
           if scan(/\*\*=/) then
             return result(:expr_beg, :tOP_ASGN, "**")
           elsif scan(/\*\*/) then
@@ -1099,7 +1100,7 @@ class RubyLexer
 
             return result(:arg_state, token, "*")
           end
-        elsif src.check(/\</) then
+        elsif check(/\</) then
           if scan(/\<\=\>/) then
             return result(:arg_state, :tCMP, "<=>")
           elsif scan(/\<\=/) then
@@ -1118,7 +1119,7 @@ class RubyLexer
           elsif scan(/\</) then
             return result(:arg_state, :tLT, "<")
           end
-        elsif src.check(/\>/) then
+        elsif check(/\>/) then
           if scan(/\>\=/) then
             return result(:arg_state, :tGEQ, ">=")
           elsif scan(/\>\>=/) then
@@ -1146,11 +1147,11 @@ class RubyLexer
             return result(state, :tEH, "?")
           end
 
-          if src.eos? then
+          if end_of_stream? then
             rb_compile_error "incomplete character syntax"
           end
 
-          if src.check(/\s|\v/) then
+          if check(/\s|\v/) then
             unless is_arg? then
               c2 = { " " => 's',
                     "\n" => 'n',
@@ -1168,7 +1169,7 @@ class RubyLexer
             state = ruby18 ? :expr_beg : :expr_value # HACK?
             self.tern.push true
             return result(state, :tEH, "?")
-          elsif src.check(/\w(?=\w)/) then # ternary, also
+          elsif check(/\w(?=\w)/) then # ternary, also
             self.tern.push true
             return result(:expr_beg, :tEH, "?")
           end
@@ -1176,7 +1177,7 @@ class RubyLexer
           c = if scan(/\\/) then
                 self.read_escape
               else
-                src.getch
+                ss.getch
               end
 
           if version == 18 then
@@ -1184,7 +1185,7 @@ class RubyLexer
           else
             return result(:expr_end, :tSTRING, c)
           end
-        elsif src.check(/\&/) then
+        elsif check(/\&/) then
           if scan(/\&\&\=/) then
             return result(:expr_beg, :tOP_ASGN, "&&")
           elsif scan(/\&\&/) then
@@ -1192,7 +1193,7 @@ class RubyLexer
           elsif scan(/\&\=/) then
             return result(:expr_beg, :tOP_ASGN, "&")
           elsif scan(/&/) then
-            token = if is_arg? && space_seen && !src.check(/\s/) then
+            token = if is_arg? && space_seen && !check(/\s/) then
                        warning("`&' interpreted as argument prefix")
                        :tAMPER
                      elsif in_lex_state? :expr_beg, :expr_mid then
@@ -1244,10 +1245,10 @@ class RubyLexer
 
           return result(:expr_beg, :tOP_ASGN, "%") if scan(/\=/)
 
-          return parse_quote if is_arg? && space_seen && ! src.check(/\s/)
+          return parse_quote if is_arg? && space_seen && ! check(/\s/)
 
           return result(:arg_state, :tPERCENT, "%")
-        elsif src.check(/\$/) then
+        elsif check(/\$/) then
           if scan(/(\$_)(\w+)/) then
             self.token = matched
             return result(:expr_end, :tGVAR, matched)
@@ -1275,8 +1276,8 @@ class RubyLexer
           elsif scan(/\$\w+/)
             return result(:expr_end, :tGVAR, matched)
           end
-        elsif src.check(/\_/) then
-          if src.beginning_of_line? && scan(/\__END__(\r?\n|\Z)/) then
+        elsif check(/\_/) then
+          if beginning_of_line? && scan(/\__END__(\r?\n|\Z)/) then
             self.lineno = nil
             return RubyLexer::EOF
           elsif scan(/\_\w*/) then
@@ -1286,11 +1287,11 @@ class RubyLexer
         end
       end # END OF CASE
 
-      if scan(/\004|\032|\000/) || src.eos? then # ^D, ^Z, EOF
+      if scan(/\004|\032|\000/) || end_of_stream? then # ^D, ^Z, EOF
         return RubyLexer::EOF
       else # alpha check
-        rb_compile_error "Invalid char #{src.rest[0].chr} in expression" unless
-          src.check IDENT_RE
+        rb_compile_error "Invalid char #{ss.rest[0].chr} in expression" unless
+          check IDENT_RE
       end
 
       self.token = matched if self.scan IDENT_RE
