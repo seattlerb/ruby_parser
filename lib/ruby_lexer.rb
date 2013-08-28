@@ -104,9 +104,6 @@ class RubyLexer
 
   attr_accessor :version
 
-  # What handles warnings. apparently unused TODO
-  attr_accessor :warnings
-
   # Value of last token which had a value associated with it.
   attr_accessor :yacc_value
 
@@ -150,10 +147,22 @@ class RubyLexer
     in_arg_state? ? :expr_arg : :expr_beg
   end
 
+  def beginning_of_line?
+    src.bol?
+  end
+
+  def check re
+    src.check re
+  end
+
   def comments # TODO: remove this... maybe comment_string + attr_accessor
     c = @comments.join
     @comments.clear
     c
+  end
+
+  def end_of_stream?
+    src.eos?
   end
 
   def expr_result token, text
@@ -170,8 +179,7 @@ class RubyLexer
     eos_re  = /#{indent}#{Regexp.escape eos}(\r*\n|\z)/
     err_msg = "can't match #{eos_re.inspect} anywhere in "
 
-    rb_compile_error err_msg if
-      src.eos?
+    rb_compile_error err_msg if end_of_stream?
 
     if src.beginning_of_line? && scan(eos_re) then
       src.unread_many last_line # TODO: figure out how to remove this
@@ -207,14 +215,12 @@ class RubyLexer
           string_buffer << scan(/\n/)
         end
 
-        rb_compile_error err_msg if
-          src.eos?
-      end until src.check(eos_re)
+        rb_compile_error err_msg if end_of_stream?
+      end until check(eos_re)
     else
-      until src.check(eos_re) do
+      until check(eos_re) do
         string_buffer << scan(/.*(\n|\z)/)
-        rb_compile_error err_msg if
-          src.eos?
+        rb_compile_error err_msg if end_of_stream?
       end
     end
 
@@ -257,7 +263,7 @@ class RubyLexer
     if scan(/.*\n/) then
       # TODO: think about storing off the char range instead
       line = matched
-      src.extra_lines_added += 1
+      src.extra_lines_added += 1 # FIX: ugh
     else
       line = nil
     end
@@ -364,7 +370,7 @@ class RubyLexer
       c, beg, short_hand = 'Q', src.getch, true
     end
 
-    if src.eos? or c == RubyLexer::EOF or beg == RubyLexer::EOF then
+    if end_of_stream? or c == RubyLexer::EOF or beg == RubyLexer::EOF then
       rb_compile_error "unterminated quoted string meets end of file"
     end
 
@@ -402,7 +408,9 @@ class RubyLexer
     rb_compile_error "Bad %string type. Expected [Qq\Wwxrs], found '#{c}'." if
       token_type.nil?
 
-    self.lex_strterm = [:strterm, string_type, nnd, beg]
+    raise "huh" unless string_type
+
+    string string_type, nnd, beg
 
     self.yacc_value = text
     return token_type
@@ -607,7 +615,7 @@ class RubyLexer
       c
     when scan(/^[89]/i) then # bad octal or hex... MRI ignores them :(
       matched
-    when scan(/[McCx0-9]/) || src.eos? then
+    when scan(/[McCx0-9]/) || end_of_stream? then
       rb_compile_error("Invalid escape character syntax")
     else
       src.getch
@@ -659,7 +667,7 @@ class RubyLexer
   end
 
   def space_vs_beginning space_type, beg_type, fallback
-    if is_space_arg? src.check(/./m) then
+    if is_space_arg? check(/./m) then
       warning "`**' interpreted as argument prefix"
       space_type
     elsif is_beg? then
@@ -709,7 +717,7 @@ class RubyLexer
     paren_re = @@regexp_cache[paren]
     term_re  = @@regexp_cache[term]
 
-    until src.eos? do
+    until end_of_stream? do
       c = nil
       handled = true
 
@@ -731,7 +739,7 @@ class RubyLexer
         break
       when expand && scan(/#(?!\n)/) then
         # do nothing
-      when src.check(/\\/) then
+      when check(/\\/) then
         case
         when qwords && scan(/\\\n/) then
           string_buffer << "\n"
@@ -740,7 +748,7 @@ class RubyLexer
           c = ' '
         when expand && scan(/\\\n/) then
           next
-        when regexp && src.check(/\\/) then
+        when regexp && check(/\\/) then
           self.tokadd_escape term
           next
         when expand && scan(/\\/) then
@@ -785,7 +793,7 @@ class RubyLexer
     end # until
 
     c ||= matched
-    c = RubyLexer::EOF if src.eos?
+    c = RubyLexer::EOF if end_of_stream?
 
     return c
   end
