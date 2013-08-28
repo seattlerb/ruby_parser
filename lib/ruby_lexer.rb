@@ -110,6 +110,8 @@ class RubyLexer
   # Value of last token which had a value associated with it.
   attr_accessor :yacc_value
 
+  attr_writer :lineno # reader is lazy initalizer
+
   def initialize v = 18
     self.brace_nest  = 0
     self.lpar_beg    = nil
@@ -271,7 +273,7 @@ class RubyLexer
     end
   end
 
-  def in_arg_state?
+  def in_arg_state? # TODO: rename is_after_operator?
     in_lex_state? :expr_fname, :expr_dot
   end
 
@@ -298,8 +300,6 @@ class RubyLexer
     in_lex_state? :expr_end, :expr_endarg, :expr_endfn
   end
 
-  # TODO #define IS_AFTER_OPERATOR() IS_lex_state(EXPR_FNAME | EXPR_DOT)
-
   def is_label_possible? command_state
     (in_lex_state?(:expr_beg) && !command_state) || is_arg?
   end
@@ -308,7 +308,6 @@ class RubyLexer
     is_arg? and space_seen and c !~ /\s/
   end
 
-  attr_writer :lineno
   def lineno
     @lineno ||= src.lineno
   end
