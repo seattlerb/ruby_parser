@@ -237,8 +237,8 @@ class RubyLexer
 
     case
     when scan(/(-?)([\'\"\`])(.*?)\2/) then
-      term = src[2]
-      func |= STR_FUNC_INDENT unless src[1].empty?
+      term = ss[2]
+      func |= STR_FUNC_INDENT unless ss[1].empty?
       func |= case term
               when "\'" then
                 STR_SQUOTE
@@ -247,16 +247,16 @@ class RubyLexer
               else
                 STR_XQUOTE
               end
-      string_buffer << src[3]
+      string_buffer << ss[3]
     when scan(/-?([\'\"\`])(?!\1*\Z)/) then
       rb_compile_error "unterminated here document identifier"
     when scan(/(-?)(#{IDENT_CHAR_RE}+)/) then
       term = '"'
       func |= STR_DQUOTE
-      unless src[1].empty? then
+      unless ss[1].empty? then
         func |= STR_FUNC_INDENT
       end
-      string_buffer << src[2]
+      string_buffer << ss[2]
     else
       return nil
     end
@@ -837,7 +837,7 @@ class RubyLexer
     c = ''
     self.space_seen = false
     command_state = false
-    src = self.src
+    ss = self.src
 
     self.token = nil
     self.yacc_value = nil
@@ -872,7 +872,7 @@ class RubyLexer
                                 :expr_fname, :expr_dot)
 
           if scan(/([\ \t\r\f\v]*)\./) then
-            self.space_seen = true unless src[1].empty?
+            self.space_seen = true unless ss[1].empty?
 
             ss.pos -= 1
             next unless check(/\.\./)
@@ -967,10 +967,10 @@ class RubyLexer
           return result(:expr_dot, :tCOLON2, "::")
         elsif ! is_end? && scan(/:([a-zA-Z_]#{IDENT_CHAR_RE}*(?:[?!]|=(?==>)|=(?![=>]))?)/) then
           # scanning shortcut to symbols
-          return result(:expr_end, :tSYMBOL, src[1])
+          return result(:expr_end, :tSYMBOL, ss[1])
         elsif ! is_end? && (scan(/\:\"(#{SIMPLE_STRING_RE})\"/) ||
                             scan(/\:\'(#{SIMPLE_SSTRING_RE})\'/)) then
-          symbol = src[1].gsub(ESC_RE) { unescape $1 }
+          symbol = ss[1].gsub(ESC_RE) { unescape $1 }
 
           rb_compile_error "symbol cannot contain '\\0'" if
             ruby18 && symbol =~ /\0/
@@ -1261,13 +1261,13 @@ class RubyLexer
             if lex_state == :expr_fname then
               return result(:expr_end, :tGVAR, matched)
             else
-              return result(:expr_end, :tBACK_REF, src[1].to_sym)
+              return result(:expr_end, :tBACK_REF, ss[1].to_sym)
             end
           elsif scan(/\$([1-9]\d*)/) then
             if lex_state == :expr_fname then
               return result(:expr_end, :tGVAR, matched)
             else
-              return result(:expr_end, :tNTH_REF, src[1].to_i)
+              return result(:expr_end, :tNTH_REF, ss[1].to_i)
             end
           elsif scan(/\$0/) then
             return result(:expr_end, :tGVAR, matched)
