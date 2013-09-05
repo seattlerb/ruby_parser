@@ -784,7 +784,7 @@ class TestRubyLexer < Minitest::Test
                 :tIDENTIFIER, "a", :expr_cmdarg,
                 :tDIVIDE,     "/", :expr_beg,
                 :tINTEGER,    2,   :expr_end)
-                end
+  end
 
   def test_yylex_div_equals
     assert_lex3("a /= 2",
@@ -1979,11 +1979,11 @@ class TestRubyLexer < Minitest::Test
 
   def test_yylex_regexp_escape_double_backslash
     regexp = '/[\\/\\\\]$/'
-    assert_lex3("/[\\/\\\\]$/",
+    assert_lex3(regexp.dup,
                 nil,
-                :tREGEXP_BEG,     "/",          :expr_beg,
+                :tREGEXP_BEG,     "/",        :expr_beg,
                 :tSTRING_CONTENT, "[\\/\\\\]$", :expr_beg,
-                :tREGEXP_END,     "",           :expr_end)
+                :tREGEXP_END,     "",         :expr_end)
   end
 
   def test_yylex_regexp_escape_hex

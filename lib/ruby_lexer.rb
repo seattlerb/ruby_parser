@@ -5,16 +5,16 @@ class RubyLexer
   # :stopdoc:
   RUBY19 = "".respond_to? :encoding
 
-  IDENT_CHAR_RE = if RUBY19 then
-                    /[\w\u0080-\u{10ffff}]/u
-                  else
-                    /[\w\x80-\xFF]/n
-                  end
+  IDENT_CHAR = if RUBY19 then
+                 /[\w\u0080-\u{10ffff}]/u
+               else
+                 /[\w\x80-\xFF]/n
+               end
 
-  IDENT_RE = /^#{IDENT_CHAR_RE}+/o
-  ESC_RE = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc]))/u
-  SIMPLE_STRING_RE = /(#{ESC_RE}|#(#{ESC_RE}|[^\{\#\@\$\"\\])|[^\"\\\#])*/o
-  SIMPLE_SSTRING_RE = /(\\.|[^\'])*/
+  IDENT = /^#{IDENT_CHAR}+/o
+  ESC = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc]))/u
+  SIMPLE_STRING = /(#{ESC}|#(#{ESC}|[^\{\#\@\$\"\\])|[^\"\\\#])*/o
+  SIMPLE_SSTRING = /(\\.|[^\'])*/
 
   EOF = :eof_haha!
 
@@ -110,18 +110,10 @@ class RubyLexer
 
   attr_writer :lineno # reader is lazy initalizer
 
+  attr_writer :comments
+
   def initialize v = 18
-    self.brace_nest  = 0
-    self.lpar_beg    = nil
-    self.paren_nest  = 0
-    self.string_nest = 0
-    self.version     = v
-
-    self.cmdarg = RubyParserStuff::StackState.new(:cmdarg)
-    self.cond   = RubyParserStuff::StackState.new(:cond)
-    self.tern   = RubyParserStuff::StackState.new(:tern)
-
-    @comments = []
+    self.version = v
 
     reset
   end
@@ -250,7 +242,7 @@ class RubyLexer
       string_buffer << ss[3]
     when scan(/-?([\'\"\`])(?!\1*\Z)/) then
       rb_compile_error "unterminated here document identifier"
-    when scan(/(-?)(#{IDENT_CHAR_RE}+)/) then
+    when scan(/(-?)(#{IDENT_CHAR}+)/) then
       term = '"'
       func |= STR_DQUOTE
       unless ss[1].empty? then
@@ -639,13 +631,24 @@ class RubyLexer
   end
 
   def reset
+    self.brace_nest    = 0
     self.command_start = true
+    self.comments      = []
+    self.lex_state     = nil
     self.lex_strterm   = nil
+    self.lineno        = 1
+    self.lpar_beg      = nil
+    self.paren_nest    = 0
+    self.space_seen    = false
+    self.string_nest   = 0
     self.token         = nil
     self.yacc_value    = nil
 
-    @src       = nil
-    @lex_state = nil
+    self.cmdarg = RubyParserStuff::StackState.new(:cmdarg)
+    self.cond   = RubyParserStuff::StackState.new(:cond)
+    self.tern   = RubyParserStuff::StackState.new(:tern)
+
+    @src = nil
   end
 
   def result lex_state, token, text # :nodoc:
@@ -945,13 +948,13 @@ class RubyLexer
           else
             raise "you shouldn't be able to get here"
           end
-        elsif scan(/\"(#{SIMPLE_STRING_RE})\"/o) then
-          string = matched[1..-2].gsub(ESC_RE) { unescape $1 }
+        elsif scan(/\"(#{SIMPLE_STRING})\"/o) then
+          string = matched[1..-2].gsub(ESC) { unescape $1 }
           return result(:expr_end, :tSTRING, string)
         elsif scan(/\"/) then # FALLBACK
           string STR_DQUOTE, '"' # TODO: question this
           return result(nil, :tSTRING_BEG, '"')
-        elsif scan(/\@\@?#{IDENT_CHAR_RE}+/o) then
+        elsif scan(/\@\@?#{IDENT_CHAR}+/o) then
           self.token = matched
 
           rb_compile_error "`#{self.token}` is not allowed as a variable name" if
@@ -965,12 +968,12 @@ class RubyLexer
           end
 
           return result(:expr_dot, :tCOLON2, "::")
-        elsif ! is_end? && scan(/:([a-zA-Z_]#{IDENT_CHAR_RE}*(?:[?!]|=(?==>)|=(?![=>]))?)/) then
+        elsif ! is_end? && scan(/:([a-zA-Z_]#{IDENT_CHAR}*(?:[?!]|=(?==>)|=(?![=>]))?)/) then
           # scanning shortcut to symbols
           return result(:expr_end, :tSYMBOL, ss[1])
-        elsif ! is_end? && (scan(/\:\"(#{SIMPLE_STRING_RE})\"/) ||
-                            scan(/\:\'(#{SIMPLE_SSTRING_RE})\'/)) then
-          symbol = ss[1].gsub(ESC_RE) { unescape $1 }
+        elsif ! is_end? && (scan(/\:\"(#{SIMPLE_STRING})\"/) ||
+                            scan(/\:\'(#{SIMPLE_SSTRING})\'/)) then
+          symbol = ss[1].gsub(ESC) { unescape $1 }
 
           rb_compile_error "symbol cannot contain '\\0'" if
             ruby18 && symbol =~ /\0/
@@ -1020,7 +1023,7 @@ class RubyLexer
           end
 
           return expr_result(token, "[")
-        elsif scan(/\'#{SIMPLE_SSTRING_RE}\'/) then
+        elsif scan(/\'#{SIMPLE_SSTRING}\'/) then
           text = matched[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'") # "
           return result(:expr_end, :tSTRING, text)
         elsif check(/\|/) then
@@ -1291,10 +1294,10 @@ class RubyLexer
         return RubyLexer::EOF
       else # alpha check
         rb_compile_error "Invalid char #{ss.rest[0].chr} in expression" unless
-          check IDENT_RE
+          check IDENT
       end
 
-      self.token = matched if self.scan IDENT_RE
+      self.token = matched if self.scan IDENT
 
       return process_token command_state
     end

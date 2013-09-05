@@ -378,7 +378,6 @@ module TestRubyParserShared
   def test_lasgn_ivar_env
     rb = '@a = 42'
     pt = s(:iasgn, :@a, s(:lit, 42))
-    expected_env = {}
 
     assert_parse rb, pt
     assert_empty processor.env.all
