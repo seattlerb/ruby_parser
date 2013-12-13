@@ -786,7 +786,9 @@ module RubyParserStuff
       }[c]
       raise "unknown regexp option: #{c}" unless v
       o += v
-      k = c if c =~ /[esu]/
+
+      # encoding options are ignored on 1.9+
+      k = c if c =~ /[esu]/ if RUBY_VERSION < "1.9"
     end
 
     case node[0]
