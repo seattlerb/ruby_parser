@@ -2817,6 +2817,21 @@ class TestRuby20Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
+  def test_defn_kwarg_lvar
+    rb = "def fun(kw: :val); kw; end"
+    pt = s(:defn, :fun, s(:args, s(:kwarg, :kw, s(:lit, :val))), s(:lvar, :kw))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_kwarg_lvar
+    rb = "bl { |kw: :val| kw }"
+    pt = s(:iter, s(:call, nil, :bl), s(:args, s(:kwarg, :kw, s(:lit, :val))),
+           s(:lvar, :kw))
+
+    assert_parse rb, pt
+  end
+
   def test_defn_powarg
     rb = "def f(**opts) end"
     pt = s(:defn, :f, s(:args, :"**opts"), s(:nil))
