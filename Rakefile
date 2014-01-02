@@ -13,7 +13,7 @@ Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.spec 'ruby_parser' do
   developer 'Ryan Davis', 'ryand-ruby@zenspider.com'
 
-  self.rubyforge_name = 'parsetree'
+  license "MIT"
 
   dependency 'sexp_processor', '~> 4.1'
   dependency 'rake', '< 11', :developer
