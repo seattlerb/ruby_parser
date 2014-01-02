@@ -16,7 +16,7 @@ Hoe.spec 'ruby_parser' do
   self.rubyforge_name = 'parsetree'
 
   dependency 'sexp_processor', '~> 4.1'
-  dependency 'rake', '< 10', :developer
+  dependency 'rake', '< 11', :developer
 
   if plugin? :perforce then
     self.perforce_ignore << "lib/ruby18_parser.rb"
@@ -27,6 +27,7 @@ Hoe.spec 'ruby_parser' do
   self.racc_flags << " -t" if plugin?(:racc) && ENV["DEBUG"]
 end
 
+task :parser => :isolate
 file "lib/ruby18_parser.rb" => "lib/ruby18_parser.y"
 file "lib/ruby19_parser.rb" => "lib/ruby19_parser.y"
 file "lib/ruby20_parser.rb" => "lib/ruby20_parser.y"
@@ -112,10 +113,6 @@ def (task(:phony)).timestamp
 end
 
 task :isolate => :phony
-
-file "lib/ruby18_parser.rb" => :isolate
-file "lib/ruby19_parser.rb" => :isolate
-file "lib/ruby20_parser.rb" => :isolate
 
 task :compare18 do
   sh "./yack.rb lib/ruby18_parser.output > racc18.txt"
