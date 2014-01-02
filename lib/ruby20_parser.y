@@ -2127,14 +2127,20 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       # TODO: call_args
                       label, _ = val[0] # TODO: fix lineno?
-                      result = s(:array, s(:kwarg, label.to_sym, val[1]))
+                      identifier = label.to_sym
+                      self.env[identifier] = :lvar
+
+                      result = s(:array, s(:kwarg, identifier, val[1]))
                     }
 
       f_block_kw: tLABEL primary_value
                     {
                       # TODO: call_args
                       label, _ = val[0] # TODO: fix lineno?
-                      result = s(:array, s(:kwarg, label.to_sym, val[1]))
+                      identifier = label.to_sym
+                      self.env[identifier] = :lvar
+
+                      result = s(:array, s(:kwarg, identifier, val[1]))
                     }
 
    f_block_kwarg: f_block_kw
