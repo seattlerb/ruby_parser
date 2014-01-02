@@ -1972,13 +1972,14 @@ keyword_variable: kNIL      { result = s(:nil)   }
        f_arglist: tLPAREN2 f_args rparen
                     {
                       result = val[1]
-                      lexer.lex_state = :expr_beg
+                      self.lexer.lex_state = :expr_beg
                       self.lexer.command_start = true
                     }
                 | f_args term
                     {
-                      self.lexer.lex_state = :expr_beg
                       result = val[0]
+                      self.lexer.lex_state = :expr_beg
+                      self.lexer.command_start = true
                     }
 
        args_tail: f_kwarg tCOMMA f_kwrest opt_f_block_arg
