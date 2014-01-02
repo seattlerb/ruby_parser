@@ -2800,6 +2800,13 @@ class TestRuby20Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
+  def test_defn_kwarg_no_parens
+    rb = "def f a: 1\nend"
+    pt = s(:defn, :f, s(:args, s(:kwarg, :a, s(:lit, 1))), s(:nil))
+
+    assert_parse rb, pt
+  end
+
   def test_args_kw_block
     rb = "def f(a: 1, &b); end"
     pt = s(:defn, :f, s(:args, s(:kwarg, :a, s(:lit, 1)), :"&b"), s(:nil))
