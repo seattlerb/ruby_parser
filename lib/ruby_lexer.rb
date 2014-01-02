@@ -300,7 +300,7 @@ class RubyLexer
   end
 
   def is_label_possible? command_state
-    (in_lex_state?(:expr_beg) && !command_state) || is_arg?
+    (in_lex_state?(:expr_beg, :expr_endfn) && !command_state) || is_arg?
   end
 
   def is_space_arg? c = "x"
