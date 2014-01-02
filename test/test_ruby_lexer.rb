@@ -2300,6 +2300,32 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_END,     nil,   :expr_end)
   end
 
+  def test_yylex_string_pct_i_extra_space
+    assert_lex3("%i[ s1 s2\ns3 ]",
+                nil,
+                :tQSYMBOLS_BEG,   "%i[", :expr_beg,
+                :tSTRING_CONTENT, "s1",  :expr_beg,
+                :tSPACE,          nil,   :expr_beg,
+                :tSTRING_CONTENT, "s2",  :expr_beg,
+                :tSPACE,          nil,   :expr_beg,
+                :tSTRING_CONTENT, "s3",  :expr_beg,
+                :tSPACE,          nil,   :expr_beg,
+                :tSTRING_END,     nil,   :expr_end)
+  end
+
+  def test_yylex_string_pct_I_extra_space
+    assert_lex3("%I[ s1 s2\ns3 ]",
+                nil,
+                :tSYMBOLS_BEG,    "%I[", :expr_beg,
+                :tSTRING_CONTENT, "s1",  :expr_beg,
+                :tSPACE,          nil,   :expr_beg,
+                :tSTRING_CONTENT, "s2",  :expr_beg,
+                :tSPACE,          nil,   :expr_beg,
+                :tSTRING_CONTENT, "s3",  :expr_beg,
+                :tSPACE,          nil,   :expr_beg,
+                :tSTRING_END,     nil,   :expr_end)
+  end
+
   def test_yylex_string_pct_Q
     assert_lex3("%Q[s1 s2]",
                 nil,
