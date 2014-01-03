@@ -12,7 +12,7 @@ class RubyLexer
                end
 
   IDENT = /^#{IDENT_CHAR}+/o
-  ESC = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc]))/u
+  ESC = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|u[0-9a-fA-F]+|u\{[0-9a-fA-F]+\}|[^0-7xMCc]))/u
   SIMPLE_STRING = /(#{ESC}|#(#{ESC}|[^\{\#\@\$\"\\])|[^\"\\\#])*/o
   SIMPLE_SSTRING = /(\\.|[^\'])*/
 
@@ -609,6 +609,8 @@ class RubyLexer
       c
     when scan(/^[89]/i) then # bad octal or hex... MRI ignores them :(
       matched
+    when scan(/u([0-9a-fA-F]+|\{[0-9a-fA-F]+\})/) then
+      [ss[1].delete("{}").to_i(16)].pack("U")
     when scan(/[McCx0-9]/) || end_of_stream? then
       rb_compile_error("Invalid escape character syntax")
     else
@@ -820,6 +822,8 @@ class RubyLexer
           s
         when /^[McCx0-9]/ then
           rb_compile_error("Invalid escape character syntax")
+        when /u([0-9a-fA-F]+|\{[0-9a-fA-F]+\})/ then
+          [$1.delete("{}").to_i(16)].pack("U")
         else
           s
         end

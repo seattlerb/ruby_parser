@@ -2166,6 +2166,25 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("\"\\C-?\"", nil, :tSTRING, "\177", :expr_end)
   end
 
+  def test_yylex_string_utf8_simple
+    chr = [0x3024].pack("U")
+
+    assert_lex3('"\u{3024}"',
+                s(:str, chr),
+                :tSTRING, chr, :expr_end)
+  end
+
+  def test_yylex_string_utf8_complex
+    chr = [0x3024].pack("U")
+
+    assert_lex3('"#@a\u{3024}"',
+                s(:dstr, "", s(:evstr, s(:ivar, :@a)), s(:str, chr)),
+                :tSTRING_BEG,     '"',      :expr_beg,
+                :tSTRING_DVAR,    nil,      :expr_beg,
+                :tSTRING_CONTENT, "@a"+chr, :expr_beg,
+                :tSTRING_END,     '"',      :expr_end)
+  end
+
   def test_yylex_string_double_escape_M
     chr = "\341"
     chr.force_encoding("UTF-8") if RubyLexer::RUBY19
