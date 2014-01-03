@@ -254,7 +254,7 @@ rule
                     }
                     opt_block_param
                     {
-                      result = self.env.dynamic.keys
+                      result = nil # self.env.dynamic.keys
                     }
                     compstmt tRCURLY
                     {
@@ -763,7 +763,6 @@ rule
                     }
                 | arg tEH arg opt_nl tCOLON arg
                     {
-                      lexer.tern.pop
                       result = s(:if, val[0], val[2], val[5])
                     }
                 | primary
@@ -1411,7 +1410,7 @@ rule
                     }
                     opt_block_param
                     {
-                      result = self.env.dynamic.keys
+                      result = nil # self.env.dynamic.keys
                     }
                     compstmt kEND
                     {
@@ -1492,7 +1491,7 @@ rule
                     }
                     opt_block_param
                     {
-                      result = self.env.dynamic.keys
+                      result = nil # self.env.dynamic.keys
                     }
                     compstmt tRCURLY
                     {
@@ -1510,7 +1509,7 @@ rule
                     }
                  opt_block_param
                     {
-                      result = self.env.dynamic.keys
+                      result = nil # self.env.dynamic.keys
                     }
                     compstmt kEND
                     {
