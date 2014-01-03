@@ -90,7 +90,6 @@ class RubyLexer
   attr_accessor :space_seen
   attr_accessor :string_buffer
   attr_accessor :string_nest
-  attr_accessor :tern # TODO: rename ternary damnit... wtf
 
   # Stream of data that yylex examines.
   attr_reader :src
@@ -648,7 +647,6 @@ class RubyLexer
 
     self.cmdarg = RubyParserStuff::StackState.new(:cmdarg)
     self.cond   = RubyParserStuff::StackState.new(:cond)
-    self.tern   = RubyParserStuff::StackState.new(:tern)
 
     @src = nil
   end
@@ -895,7 +893,6 @@ class RubyLexer
 
           cond.lexpop
           cmdarg.lexpop
-          tern.lexpop
 
           text  = matched
           state = text == ")" ? :expr_endfn : :expr_endarg
@@ -1015,10 +1012,8 @@ class RubyLexer
               rb_compile_error "unexpected '['"
             end
           elsif is_beg? then
-            self.tern.push false
             token = :tLBRACK
           elsif is_arg? && space_seen then
-            self.tern.push false
             token = :tLBRACK
           else
             token = :tLBRACK2
@@ -1052,7 +1047,6 @@ class RubyLexer
                    elsif in_lex_state?(:expr_endarg) then
                      :tLBRACE_ARG  #  block (expr)
                    else
-                     self.tern.push false
                      :tLBRACE      #  hash
                    end
 
@@ -1148,7 +1142,6 @@ class RubyLexer
         elsif scan(/\?/) then
           if is_end? then
             state = ruby18 ? :expr_beg : :expr_value # HACK?
-            self.tern.push true
             return result(state, :tEH, "?")
           end
 
@@ -1172,10 +1165,8 @@ class RubyLexer
 
             # ternary
             state = ruby18 ? :expr_beg : :expr_value # HACK?
-            self.tern.push true
             return result(state, :tEH, "?")
           elsif check(/\w(?=\w)/) then # ternary, also
-            self.tern.push true
             return result(:expr_beg, :tEH, "?")
           end
 
@@ -1315,11 +1306,10 @@ class RubyLexer
       if in_lex_state? :expr_cmdarg then
         token = :tLPAREN_ARG
       elsif in_lex_state? :expr_arg then
-        self.tern.push false
         warning "don't put space before argument parentheses"
       end
     else
-      self.tern.push false
+      # not a ternary -- do nothing?
     end
 
     token
