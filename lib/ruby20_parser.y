@@ -1428,7 +1428,9 @@ opt_block_args_tail: tCOMMA block_args_tail
                 | f_bad_arg
 
           lambda:   {
-                      # TODO: dyna_push ? hrm
+                      self.env.extend :dynamic
+                      result = self.lexer.lineno
+
                       result = lexer.lpar_beg
                       lexer.paren_nest += 1
                       lexer.lpar_beg = lexer.paren_nest
@@ -1442,6 +1444,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       call = new_call nil, :lambda
                       result = new_iter call, args, body
+                      self.env.unextend
                     }
 
      f_larglist: tLPAREN2 f_args opt_bv_decl rparen
