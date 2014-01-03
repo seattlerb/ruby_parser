@@ -282,7 +282,7 @@ module RubyParserStuff
 
   def aryset receiver, index
     index ||= []
-    s(:attrasgn, receiver, :"[]=", *index[1..-1])
+    s(:attrasgn, receiver, :"[]=", *index[1..-1]).compact # [][1..-1] => nil
   end
 
   def assignable(lhs, value = nil)
@@ -929,7 +929,9 @@ module RubyParserStuff
     case lhs[0]
     when :gasgn, :iasgn, :lasgn, :masgn, :cdecl, :cvdecl, :cvasgn then
       lhs << rhs
-    when :attrasgn, :call then
+    when :attrasgn then
+      lhs << rhs
+    when :call then
       args = lhs.pop unless Symbol === lhs.last
       lhs.concat arg_add(args, rhs)[1..-1]
     when :const then
