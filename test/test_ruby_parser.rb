@@ -152,8 +152,6 @@ module TestRubyParserShared
   end
 
   def test_attrasgn_array_arg
-    skip "not yet"
-
     rb = "a[[1, 2]] = 3"
     pt = s(:attrasgn,
            s(:call, nil, :a),
@@ -162,7 +160,7 @@ module TestRubyParserShared
              s(:lit, 1),
              s(:lit, 2)),
            s(:lit, 3))
-  
+
     assert_parse rb, pt
   end
 
