@@ -6,10 +6,8 @@
 require 'rubygems'
 require 'minitest/autorun'
 require 'ruby_parser'
-
-$: << File.expand_path('~/Work/p4/zss/src/sexp_processor/dev/lib')
-
-require 'pt_testcase'
+require 'sexp_processor'
+require File.join(Gem.loaded_specs['sexp_processor'].gem_dir, 'lib', 'pt_testcase')
 
 class Sexp
   alias oldeq2 ==
