@@ -468,7 +468,7 @@ class RubyLexer
     return :tSTRING_CONTENT
   end
 
-  def process_token command_state
+  def process_token command_state, last_state
     token = self.token
     token << matched if scan(/[\!\?](?!=)/)
 
@@ -505,20 +505,18 @@ class RubyLexer
     # TODO:
     # if (mb == ENC_CODERANGE_7BIT && lex_state != EXPR_DOT) {
 
-    state =
-      if is_beg? || is_arg? || in_lex_state?(:expr_dot) then
-        if !self.in_arg_state? && self.parser.env[token.to_sym] == :lvar then
-          :expr_end
-        elsif command_state then
-          :expr_cmdarg
-        else
-          :expr_arg
-        end
-      elsif !ruby18 && in_lex_state?(:expr_fname) then
-        :expr_endfn
-      else
-        :expr_end
-      end
+    state = if is_beg? or is_arg? or in_lex_state? :expr_dot then
+              command_state ? :expr_cmdarg : :expr_arg
+            elsif not ruby18 and in_lex_state? :expr_fname then
+              :expr_endfn
+            else
+              :expr_end
+            end
+
+    if not [:expr_dot, :expr_fname].include? last_state and
+        self.parser.env[token.to_sym] == :lvar then
+      state = :expr_end
+    end
 
     return result(state, tok_id, token)
   end
@@ -853,6 +851,8 @@ class RubyLexer
 
     command_state = self.command_start
     self.command_start = false
+
+    last_state = lex_state
 
     loop do # START OF CASE
       if scan(/[\ \t\r\f\v]/) then # \s - \n + \v
@@ -1282,7 +1282,7 @@ class RubyLexer
             return RubyLexer::EOF
           elsif scan(/\_\w*/) then
             self.token = matched
-            return process_token command_state
+            return process_token command_state, last_state
           end
         end
       end # END OF CASE
@@ -1296,7 +1296,7 @@ class RubyLexer
 
       self.token = matched if self.scan IDENT
 
-      return process_token command_state
+      return process_token command_state, last_state
     end
   end
 
