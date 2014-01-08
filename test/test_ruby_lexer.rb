@@ -71,19 +71,22 @@ class TestRubyLexer < Minitest::Test
   end
 
   def assert_next_lexeme token=nil, value=nil, state=nil, paren=nil, brace=nil
-    assert @lex.advance, "no more tokens"
+    adv = @lex.advance
+
+    assert adv, "no more tokens"
+
+    act_token, act_value = @lex.token, @lex.yacc_value
 
     msg = message {
-      act = [@lex.token, @lex.yacc_value, @lex.lex_state,
+      act = [act_token, act_value, @lex.lex_state,
              @lex.paren_nest, @lex.brace_nest]
       exp = [token, value, state, paren, brace]
       "#{exp.inspect} vs #{act.inspect}"
     }
 
-    act_value = @lex.yacc_value
     act_value = act_value.first if Array === act_value
 
-    assert_equal token, @lex.token,      msg
+    assert_equal token, act_token,       msg
     assert_equal value, act_value,       msg
     assert_equal state, @lex.lex_state,  msg if state
     assert_equal paren, @lex.paren_nest, msg if paren
@@ -107,7 +110,9 @@ class TestRubyLexer < Minitest::Test
   end
 
   def refute_lexeme
-    refute @lex.advance, "not empty: #{[@lex.token, @lex.yacc_value].inspect}"
+    x = @lex.advance
+    y = [@lex.token, @lex.yacc_value]
+    refute x, "not empty: #{y.inspect}"
   end
 
   ## Utility Methods:
@@ -720,6 +725,7 @@ class TestRubyLexer < Minitest::Test
 
   def test_yylex_comment_begin_bad
     refute_lex("=begin\nblah\nblah\n")
+
     assert_equal "", @lex.comments
   end
 
@@ -1981,9 +1987,9 @@ class TestRubyLexer < Minitest::Test
     regexp = '/[\\/\\\\]$/'
     assert_lex3(regexp.dup,
                 nil,
-                :tREGEXP_BEG,     "/",        :expr_beg,
+                :tREGEXP_BEG,     "/",          :expr_beg,
                 :tSTRING_CONTENT, "[\\/\\\\]$", :expr_beg,
-                :tREGEXP_END,     "",         :expr_end)
+                :tREGEXP_END,     "",           :expr_end)
   end
 
   def test_yylex_regexp_escape_hex
