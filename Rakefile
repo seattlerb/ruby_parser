@@ -27,7 +27,6 @@ Hoe.spec 'ruby_parser' do
   self.racc_flags << " -t" if plugin?(:racc) && ENV["DEBUG"]
 end
 
-task :parser => :isolate
 file "lib/ruby18_parser.rb" => "lib/ruby18_parser.y"
 file "lib/ruby19_parser.rb" => "lib/ruby19_parser.y"
 file "lib/ruby20_parser.rb" => "lib/ruby20_parser.y"
