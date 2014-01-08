@@ -551,7 +551,8 @@ module RubyParserStuff
 
     if elsebody and not resbody then
       warning("else without rescue is useless")
-      result = block_append(s(:begin, result), elsebody)
+      result = s(:begin, result) if result
+      result = block_append(result, elsebody)
     end
 
     result = s(:ensure, result, ensurebody).compact if ensurebody
