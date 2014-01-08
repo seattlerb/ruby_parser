@@ -432,9 +432,11 @@ module RubyParserStuff
   def initialize(options = {})
     super()
 
-    v = self.class.name[/1[89]/]
+    v = self.class.name[/1[89]|20/]
+
     self.lexer = RubyLexer.new v && v.to_i
     self.lexer.parser = self
+
     @env = RubyParserStuff::Environment.new
     @comments = []
 
