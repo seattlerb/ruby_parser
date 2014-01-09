@@ -399,7 +399,7 @@ class RubyLexer
                                 [:tQSYMBOLS_BEG, STR_SQUOTE | STR_FUNC_QWORDS]
                               end
 
-    rb_compile_error "Bad %string type. Expected [Qq\Wwxrs], found '#{c}'." if
+    rb_compile_error "Bad %string type. Expected [QqWwIixrs], found '#{c}'." if
       token_type.nil?
 
     raise "huh" unless string_type
@@ -422,7 +422,7 @@ class RubyLexer
     regexp = (func & STR_FUNC_REGEXP) != 0
     expand = (func & STR_FUNC_EXPAND) != 0
 
-    if func == STR_FUNC_BORING then
+    unless func then # nil'ed from qwords below. *sigh*
       self.lineno = nil
       return :tSTRING_END
     end
@@ -431,7 +431,7 @@ class RubyLexer
 
     if self.string_nest == 0 && scan(/#{term_re}/) then
       if qwords then
-        quote[1] = STR_FUNC_BORING
+        quote[1] = nil
         return :tSPACE
       elsif regexp then
         self.lineno = nil
@@ -866,6 +866,7 @@ class RubyLexer
             ss.pos -= 1
 
             while scan(/\s*#.*(\n+|\z)/) do
+              self.lineno += matched.lines.to_a.size
               @comments << matched.gsub(/^ +#/, '#').gsub(/^ +$/, '')
             end
 
@@ -937,7 +938,7 @@ class RubyLexer
           if scan(/\=\=\=|\=\=|\=~|\=>|\=(?!begin\b)/) then
             tok = matched
             return result(:arg_state, TOKENS[tok], tok)
-          elsif scan(/\=begin(?=\s)/) then
+          elsif beginning_of_line? and scan(/\=begin(?=\s)/) then
             @comments << matched
 
             unless scan(/.*?\n=end( |\t|\f)*[^\n]*(\n|\z)/m) then
@@ -948,6 +949,9 @@ class RubyLexer
             @comments << matched
 
             next
+          elsif scan(/\=(?=begin\b)/) then # h[k]=begin ... end
+            tok = matched
+            return result(:arg_state, TOKENS[tok], tok)
           else
             raise "you shouldn't be able to get here"
           end

@@ -2351,6 +2351,14 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_END,     nil,   :expr_end)
   end
 
+  def test_yylex_string_pct_q
+    assert_lex3("%q[s1 s2]",
+                nil,
+                :tSTRING_BEG,     "%q[",   :expr_beg,
+                :tSTRING_CONTENT, "s1 s2", :expr_beg,
+                :tSTRING_END,     "]",     :expr_end)
+  end
+
   def test_yylex_string_pct_Q
     assert_lex3("%Q[s1 s2]",
                 nil,

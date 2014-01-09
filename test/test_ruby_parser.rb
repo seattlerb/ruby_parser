@@ -310,6 +310,13 @@ module TestRubyParserShared
     assert_equal exp, processor.lexer.comments
   end
 
+  def test_eq_begin_why_wont_people_use_their_spacebar?
+    rb = "h[k]=begin\n       42\n     end"
+    pt = s(:attrasgn, s(:call, nil, :h), :[]=, s(:call, nil, :k), s(:lit, 42))
+
+    assert_parse rb, pt
+  end
+
   def test_bug_call_arglist_parens
     rb = 'g ( 1), 2'
     pt = s(:call, nil, :g, s(:lit, 1), s(:lit, 2))
@@ -563,6 +570,13 @@ module TestRubyParserShared
   def test_str_pct_Q_nested
     rb = "%Q[before [#\{nest}] after]"
     pt = s(:dstr, "before [", s(:evstr, s(:call, nil, :nest)), s(:str, "] after"))
+
+    assert_parse rb, pt
+  end
+
+  def test_str_pct_q
+    rb = "%q{a b c}"
+    pt = s(:str, "a b c")
 
     assert_parse rb, pt
   end
@@ -1441,7 +1455,6 @@ module TestRubyParserShared
   end
 
   def test___ENCODING__
-    # skip "lexer bug" if ruby18
     rb = "__ENCODING__"
     pt = if Ruby18Parser === processor then
            s(:call, nil, :__ENCODING__)
