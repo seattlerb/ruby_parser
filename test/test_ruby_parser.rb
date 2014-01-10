@@ -632,6 +632,19 @@ module TestRubyParserShared
     assert_same result.file, result.call.file
   end
 
+  def test_parse_line_block_inline_comment
+    rb = "a\nb # Comment\nc"
+    pt = s(:block,
+           s(:call, nil, :a),
+           s(:call, nil, :b),
+           s(:call, nil, :c))
+
+    assert_parse_line rb, pt, 1
+    assert_equal 1, result[1].line
+    assert_equal 2, result[2].line
+    assert_equal 3, result[3].line
+  end
+
   def test_parse_line_call_no_args
     rb = "f do |x, y|\n  x + y\nend"
 
