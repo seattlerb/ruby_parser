@@ -556,7 +556,7 @@ module RubyParserStuff
   end
 
   def argl x
-    x = s(:arglist, x) if x and x[0] != :arglist
+    x = s(:arglist, x) if x and x[0] == :array
     x
   end
 
