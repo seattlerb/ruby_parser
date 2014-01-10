@@ -660,8 +660,10 @@ module RubyParserStuff
       end
     end
 
+    args.line line
     result.line = line
     result.comments = self.comments.pop
+
     result
   end
 

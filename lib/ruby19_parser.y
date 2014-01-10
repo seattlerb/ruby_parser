@@ -1102,7 +1102,7 @@ rule
                     }
                 | kDEF fname
                     {
-                      result = [lexer.lineno, self.in_def]
+                      result = self.in_def
 
                       self.comments.push self.lexer.comments
                       self.in_def = true
@@ -1110,10 +1110,9 @@ rule
                     }
                     f_arglist bodystmt kEND
                     {
-                      line, in_def = val[2]
+                      in_def = val[2]
 
                       result = new_defn val
-                      result[2].line line
 
                       self.env.unextend
                       self.in_def = in_def

@@ -652,6 +652,8 @@ module TestRubyParserShared
     rb = "def f\nend"
     assert_parse_line rb, pt, 1
 
+    processor.reset
+
     rb = "def f\n\nend"
     assert_parse_line rb, pt, 1
   end
