@@ -140,15 +140,6 @@ module RubyParserStuff
     raise RubyParser::SyntaxError, msg
   end
 
-  def arg_add(node1, node2) # TODO: nuke
-    return s(:arglist, node2) unless node1
-
-    node1[0] = :arglist if node1[0] == :array
-    return node1 << node2 if node1[0] == :arglist
-
-    return s(:arglist, node1, node2)
-  end
-
   def arg_blk_pass node1, node2 # TODO: nuke
     node1 = s(:arglist, node1) unless [:arglist, :call_args, :array, :args].include? node1.first
     node1 << node2 if node2
@@ -935,8 +926,17 @@ module RubyParserStuff
     when :attrasgn then
       lhs << rhs
     when :call then
-      args = lhs.pop unless Symbol === lhs.last
-      lhs.concat arg_add(args, rhs)[1..-1]
+      if Symbol == lhs.last
+        lhs << rhs
+      else
+        args = lhs.pop
+
+        if args.nil?
+          lhs << rhs
+        else
+          lhs << args << rhs
+        end
+      end
     when :const then
       lhs[0] = :cdecl
       lhs << rhs
