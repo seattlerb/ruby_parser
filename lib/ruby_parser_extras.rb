@@ -580,12 +580,15 @@ module RubyParserStuff
     # TODO: need a test with f(&b) to produce block_pass
     # TODO: need a test with f(&b) { } to produce warning
 
-    args ||= s(:arglist)
-    args[0] = :arglist if [:args, :array, :call_args].include? args.first
-    args = s(:arglist, args) unless args.first == :arglist
 
-    # HACK quick hack to make this work quickly... easy to clean up above
-    result.concat args[1..-1]
+    if args
+      if [:arglist, :args, :array, :call_args].include? args.first
+        args.shift
+        result.concat args
+      else
+        result << args
+      end
+    end
 
     line = result.grep(Sexp).map(&:line).compact.min
     result.line = line if line
