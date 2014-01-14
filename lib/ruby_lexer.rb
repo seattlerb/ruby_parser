@@ -866,7 +866,7 @@ class RubyLexer
             ss.pos -= 1
 
             while scan(/\s*#.*(\n+|\z)/) do
-              self.lineno += matched.lines.to_a.size
+              # TODO: self.lineno += matched.lines.to_a.size
               @comments << matched.gsub(/^ +#/, '#').gsub(/^ +$/, '')
             end
 

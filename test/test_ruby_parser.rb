@@ -632,6 +632,41 @@ module TestRubyParserShared
     assert_same result.file, result.call.file
   end
 
+  def test_parse_line_block_inline_comment
+    rb = "a\nb # comment\nc"
+    pt = s(:block,
+           s(:call, nil, :a).line(1),
+           s(:call, nil, :b).line(2),
+           s(:call, nil, :c).line(3))
+
+    # see skipped test: test_parse_line_block_inline_comment2
+    assert_parse rb, pt
+  end
+
+  def test_parse_line_block_inline_comment2
+    skip "I can't fix this yet. Very involved. (process_token to return lineno)"
+
+    rb = "a\nb # comment\n# another comment\nc"
+    pt = s(:block,
+           s(:call, nil, :a).line(1),
+           s(:call, nil, :b).line(2),
+           s(:call, nil, :c).line(4)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_line_block_inline_comment3
+    skip "not yet"
+
+    rb = "\n\n\na\nb # comment\n# another comment\nc"
+    pt = s(:block,
+           s(:call, nil, :a).line(4),
+           s(:call, nil, :b).line(6),
+           s(:call, nil, :c).line(8)).line(1)
+
+    assert_parse rb, pt
+  end
+
   def test_parse_line_call_no_args
     rb = "f do |x, y|\n  x + y\nend"
 
