@@ -1,7 +1,9 @@
 # -*- ruby -*-
 
-require 'rubygems'
-require 'hoe'
+$:.unshift "../../hoe/dev/lib"
+
+require "rubygems"
+require "hoe"
 
 Hoe.plugin :seattlerb
 Hoe.plugin :racc
@@ -10,18 +12,23 @@ Hoe.plugin :isolate
 Hoe.add_include_dirs "../../sexp_processor/dev/lib"
 Hoe.add_include_dirs "../../minitest/dev/lib"
 
-Hoe.spec 'ruby_parser' do
-  developer 'Ryan Davis', 'ryand-ruby@zenspider.com'
+$:.unshift "../../oedipus_lex/dev/lib"
+Rake.application.rake_require "oedipus_lex"
+
+Hoe.spec "ruby_parser" do
+  developer "Ryan Davis", "ryand-ruby@zenspider.com"
 
   license "MIT"
 
-  dependency 'sexp_processor', '~> 4.1'
-  dependency 'rake', '< 11', :developer
+  dependency "sexp_processor", "~> 4.1"
+  dependency "rake", "< 11", :developer
+  dependency "oedipus_lex", "~> 2.0", :developer
 
   if plugin? :perforce then
     self.perforce_ignore << "lib/ruby18_parser.rb"
     self.perforce_ignore << "lib/ruby19_parser.rb"
     self.perforce_ignore << "lib/ruby20_parser.rb"
+    self.perforce_ignore << "lib/ruby_lexer.rex.rb"
   end
 
   self.racc_flags << " -t" if plugin?(:racc) && ENV["DEBUG"]
@@ -30,10 +37,13 @@ end
 file "lib/ruby18_parser.rb" => "lib/ruby18_parser.y"
 file "lib/ruby19_parser.rb" => "lib/ruby19_parser.y"
 file "lib/ruby20_parser.rb" => "lib/ruby20_parser.y"
+file "lib/ruby_lexer.rex.rb" => "lib/ruby_lexer.rex"
+
+$rex_option[:do_parse] = false
 
 task :clean do
   rm_rf(Dir["**/*~"] +
-        Dir["**/*.diff"] +
+        Dir["diff.diff"] + # not all diffs. bit me too many times
         Dir["coverage.info"] +
         Dir["coverage"] +
         Dir["lib/*.output"])
@@ -51,12 +61,12 @@ task :compare do
     puts file
     system "./cmp.rb -q #{file} && rm #{file}"
   end
-  system 'find -d unit -type d -empty -exec rmdir {} \;'
+  system "find -d unit -type d -empty -exec rmdir {} \;"
 end
 
 task :sort do
-  sh 'grepsort "^ +def" lib/ruby_lexer.rb'
-  sh 'grepsort "^ +def (test|util)" test/test_ruby_lexer.rb'
+  sh "grepsort '^ +def' lib/ruby_lexer.rb"
+  sh "grepsort '^ +def (test|util)' test/test_ruby_lexer.rb"
 end
 
 task :loc do
@@ -78,7 +88,7 @@ task :validate do
 end
 
 def run_and_log cmd, prefix
-  files = ENV['FILES'] || 'unit/*.rb'
+  files = ENV["FILES"] || "unit/*.rb"
   p, x = prefix, "txt"
   n = Dir["#{p}.*.#{x}"].map { |s| s[/\d+/].to_i }.max + 1 rescue 1
   f = "#{p}.#{n}.#{x}"
@@ -142,8 +152,8 @@ task :debug => :isolate do
   Rake.application[:parser].invoke # this way we can have DEBUG set
 
   $: << "lib"
-  require 'ruby_parser'
-  require 'pp'
+  require "ruby_parser"
+  require "pp"
 
   parser = case ENV["V"]
            when "18" then
@@ -169,7 +179,7 @@ task :debug => :isolate do
     pp parser.process(ruby, file, time)
   rescue Racc::ParseError => e
     p e
-    ss = parser.lexer.src
+    ss = parser.lexer.ss
     src = ss.string
     lines = src[0..ss.pos].split(/\n/)
     abort "on #{file}:#{lines.size}"

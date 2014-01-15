@@ -20,7 +20,7 @@ class TestRubyLexer < Minitest::Test
 
   def setup_lexer input, exp_sexp = nil
     setup_new_parser
-    lex.src = input
+    lex.ss = RPStringScanner.new(input)
     lex.lex_state = self.lex_state
   end
 
@@ -71,11 +71,11 @@ class TestRubyLexer < Minitest::Test
   end
 
   def assert_next_lexeme token=nil, value=nil, state=nil, paren=nil, brace=nil
-    adv = @lex.advance
+    adv = @lex.next_token
 
     assert adv, "no more tokens"
 
-    act_token, act_value = @lex.token, @lex.yacc_value
+    act_token, act_value = adv
 
     msg = message {
       act = [act_token, act_value, @lex.lex_state,
@@ -98,20 +98,20 @@ class TestRubyLexer < Minitest::Test
   end
 
   def assert_read_escape expected, input
-    @lex.src = input
+    @lex.ss.string = input
     assert_equal expected, @lex.read_escape, input
   end
 
   def assert_read_escape_bad input # TODO: rename refute_read_escape
-    @lex.src = input
+    @lex.ss.string = input
     assert_raises RubyParser::SyntaxError do
       @lex.read_escape
     end
   end
 
   def refute_lexeme
-    x = @lex.advance
-    y = [@lex.token, @lex.yacc_value]
+    x = y = @lex.next_token
+
     refute x, "not empty: #{y.inspect}"
   end
 
@@ -146,10 +146,10 @@ class TestRubyLexer < Minitest::Test
 
   ## Tests:
 
-  def test_advance
-    assert @lex.advance # blah
-    assert @lex.advance # blah
-    refute @lex.advance # nada
+  def test_next_token
+    assert_equal [:tIDENTIFIER, "blah"], @lex.next_token
+    assert_equal [:tIDENTIFIER, "blah"], @lex.next_token
+    assert_nil @lex.next_token
   end
 
   def test_unicode_ident
@@ -2538,8 +2538,9 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_underscore_end
-    @lex.src = "__END__\n"
-    refute_lexeme
+    assert_lex3("__END__\n",
+                nil,
+                RubyLexer::EOF, RubyLexer::EOF, nil)
   end
 
   def test_yylex_uplus

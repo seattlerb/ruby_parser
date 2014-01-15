@@ -37,7 +37,7 @@ ARGV.push "-" if ARGV.empty?
 
 class Racc::Parser
   def extract_defs
-    ss = lexer.src
+    ss = lexer.ss
 
     raise "can't access source. possible encoding issue" unless ss
 

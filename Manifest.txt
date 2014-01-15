@@ -5,7 +5,7 @@ README.txt
 Rakefile
 bin/ruby_parse
 bin/ruby_parse_extract_error
-lib/gauntlet_rubyparser.rb
+lib/.document
 lib/ruby18_parser.rb
 lib/ruby18_parser.y
 lib/ruby19_parser.rb
@@ -13,6 +13,8 @@ lib/ruby19_parser.y
 lib/ruby20_parser.rb
 lib/ruby20_parser.y
 lib/ruby_lexer.rb
+lib/ruby_lexer.rex
+lib/ruby_lexer.rex.rb
 lib/ruby_parser.rb
 lib/ruby_parser_extras.rb
 test/test_ruby_lexer.rb

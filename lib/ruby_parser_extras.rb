@@ -59,20 +59,12 @@ class RPStringScanner < StringScanner
     end
   end
 
-  def current_line # HAHA fuck you (HACK)
-    string_to_pos[/\A.*__LINE__/m].split(/\n/).size
-  end
-
   def extra_lines_added
     @extra_lines_added ||= 0
   end
 
   def extra_lines_added= val
     @extra_lines_added = val
-  end
-
-  def lineno
-    string[0...charpos].count("\n") + 1 - extra_lines_added
   end
 
   # TODO: once we get rid of these, we can make things like
@@ -411,7 +403,7 @@ module RubyParserStuff
                end
              end
 
-    result.line(result.line - 1) if result.line and lexer.src.bol?
+    result.line(result.line - 1) if result.line and lexer.beginning_of_line?
 
     raise "identifier #{id.inspect} is not valid" unless result
 
@@ -919,8 +911,10 @@ module RubyParserStuff
   end
 
   def next_token
-    if self.lexer.advance then
-      return self.lexer.token, self.lexer.yacc_value
+    token = self.lexer.next_token
+
+    if token and token.first != RubyLexer::EOF then
+      return token
     else
       return [false, '$end']
     end
@@ -1033,9 +1027,11 @@ module RubyParserStuff
       str = handle_encoding str
 
       self.file = file.dup
-      self.lexer.src = str
 
       @yydebug = ENV.has_key? 'DEBUG'
+
+      # HACK -- need to get tests passing more than have graceful code
+      self.lexer.ss = RPStringScanner.new str
 
       do_parse
     end
@@ -1086,7 +1082,7 @@ module RubyParserStuff
 
   def s(*args)
     result = Sexp.new(*args)
-    result.line ||= lexer.lineno if lexer.src          # otherwise...
+    result.line ||= lexer.lineno if lexer.ss          # otherwise...
     result.file = self.file
     result
   end

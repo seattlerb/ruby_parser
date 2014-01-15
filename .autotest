@@ -7,20 +7,17 @@ require 'autotest/rcov' if ENV['RCOV']
 Autotest.add_hook :initialize do |at|
   at.extra_files << "../../sexp_processor/dev/lib/pt_testcase.rb"
   at.libs << ":../../sexp_processor/dev/lib"
-  at.add_exception 'unit'
-  at.add_exception 'coverage'
-  at.add_exception 'coverage.info'
-  at.add_exception '.diff'
-  at.add_exception '.output'
-  at.add_exception 'rubycorpus'
+  at.add_exception "unit"
+  at.add_exception "coverage"
+  at.add_exception "coverage.info"
+  at.add_exception ".diff"
+  at.add_exception ".output"
   at.add_exception "lib/ruby18_parser.rb"
   at.add_exception "lib/ruby19_parser.rb"
   at.add_exception "lib/ruby20_parser.rb"
-  at.add_exception "lib/gauntlet_rubyparser.rb"
+  at.add_exception "lib/ruby_lexer.rex.rb"
 
-  dirs = Dir["corpus*"] + Dir["gauntlet*"]
-
-  dirs.each do |f|
+  Dir["gauntlet*"].each do |f|
     at.add_exception f
   end
 
@@ -28,7 +25,17 @@ Autotest.add_hook :initialize do |at|
   at.testlib = "minitest/autorun"
 
   at.add_mapping(/^lib\/.*\.y$/) do |f, _|
-    at.files_matching %r%^test/.*#{File.basename(f, '.y').gsub '_', '_?'}.rb$%
+    g = File.basename(f, ".y").gsub("_", "_?").gsub(/1[89]|20/, '')
+    at.files_matching %r%^test/.*#{g}.rb$%
+  end
+
+  at.add_mapping(/^lib\/ruby_lexer\.rex\.rb$/) do |f, _|
+    at.files_matching %r%^test/.*ruby_lexer\.rb$%
+  end
+
+  at.add_mapping(/^lib\/.*\.rex$/) do |f, _|
+    g = File.basename(f, ".rex").gsub("_", "_?")
+    at.files_matching %r%^test/.*#{g}.rb$%
   end
 
   at.add_mapping(/pt_testcase.rb/) do |f, _|
@@ -45,17 +52,17 @@ Autotest.add_hook :initialize do |at|
 end
 
 Autotest.add_hook :run_command do |at, _|
-  system "rake parser DEBUG=1"
+  system "rake parser lexer DEBUG=1"
 end
 
 class Autotest
   def ruby
     File.expand_path "~/.multiruby/install/1.9.3-p194/bin/ruby"
   end
-end if ENV['R19']
+end if ENV["R19"]
 
 class Autotest
   def ruby
     File.expand_path "~/.multiruby/install/2.0.0-p195/bin/ruby"
   end
-end if ENV['R20']
+end if ENV["R20"]

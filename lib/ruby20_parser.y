@@ -1916,7 +1916,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                 | kTRUE     { result = s(:true)  }
                 | kFALSE    { result = s(:false) }
                 | k__FILE__ { result = s(:str, self.file) }
-                | k__LINE__ { result = s(:lit, lexer.src.current_line) }
+                | k__LINE__ { result = s(:lit, lexer.lineno) }
                 | k__ENCODING__
                     {
                       result =

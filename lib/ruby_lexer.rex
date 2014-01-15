@@ -1,0 +1,191 @@
+# encoding: UTF-8
+# TODO: this needs to be put on the first line
+#
+# new_ruby_parser.rex
+# lexical scanner definition for ruby
+
+class RubyLexer
+
+macro
+
+  IDENT         /^#{IDENT_CHAR}+/o
+
+  ESC           /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|u[0-9a-fA-F]+|u\{[0-9a-fA-F]+\}|[^0-7xMCc]))/
+  SIMPLE_STRING /(#{ESC}|\#(#{ESC}|[^\{\#\@\$\"\\])|[^\"\\\#])*/o
+  SSTRING       /(\\.|[^\'])*/
+
+  INT_DEC       /[+]?(?:(?:[1-9][\d_]*|0)(?!\.\d)\b|0d[0-9_]+)/i
+  INT_HEX       /[+]?0x[a-f0-9_]+/i
+  INT_BIN       /[+]?0b[01_]+/i
+  INT_OCT       /[+]?0o?[0-7_]+|0o/i
+  FLOAT         /[+]?\d[\d_]*\.[\d_]+(e[+-]?[\d_]+)?\b|[+]?[\d_]+e[+-]?[\d_]+\b/i
+  INT_DEC2      /[+]?\d[0-9_]*(?![e])/i
+
+  NUM_BAD       /[+]?0[xbd]\b/i
+  INT_OCT_BAD   /[+]?0o?[0-7_]*[89]/i
+  FLOAT_BAD     /[+]?\d[\d_]*_(e|\.)/i
+
+start
+
+  return process_string if lex_strterm
+
+  self.command_state = self.command_start
+  self.command_start = false
+  self.space_seen    = false
+  self.last_state    = lex_state
+
+rule
+
+# [:state]      pattern                 [actions]
+
+                # \s - \n + \v
+                /[\ \t\r\f\v]/          { self.space_seen = true; next }
+
+                /\n|\#/                 process_newline_or_comment
+
+                /[\]\)\}]/              process_bracing
+                /\!/                    process_bang
+
+                /\.\.\.?|,|![=~]?/      { result :expr_beg, TOKENS[text], text }
+
+                /\.\d/                  { rb_compile_error "no .<digit> floating literal anymore put 0 before dot" }
+
+                /\./                    { result :expr_dot, :tDOT, "." }
+
+                /\(/                    process_paren
+
+                /\=\=\=|\=\=|\=~|\=>|\=(?!begin\b)/ { result arg_state, TOKENS[text], text }
+
+bol?            /\=begin(?=\s)/         process_begin
+                /\=(?=begin\b)/         { result arg_state, TOKENS[text], text }
+
+                /\"(#{SIMPLE_STRING})\"/o { result :expr_end, :tSTRING, text[1..-2].gsub(ESC) { unescape $1 } }
+                /\"/                    { string STR_DQUOTE; result nil, :tSTRING_BEG, text }
+
+                /\@\@?\d/                  { rb_compile_error "`#{text}` is not allowed as a variable name" }
+                /\@\@?#{IDENT_CHAR}+/o { tok_id = text =~ /^@@/ ? :tCVAR : :tIVAR; result(:expr_end, tok_id, text) }
+
+#               /\:\:/ : happy?         { result :expr_beg, :tCOLON3, text }
+#                      |                { result :expr_beg, :tCOLON3, text }
+#               /\:/   : trinary?       { result :expr_beg, :tCOLON, text }
+#                      | /\'/           { string STR_SSYM; result :expr_fname, :tSYMBEG, text }
+#                      | /\"/           { string STR_DSYM; result :expr_fname, :tSYMBEG, text }
+
+  not_end?      /:([a-zA-Z_]#{IDENT_CHAR}*(?:[?!]|=(?==>)|=(?![=>]))?)/o process_symbol
+  not_end?      /\:\"(#{SIMPLE_STRING})\"/o process_symbol
+  not_end?      /\:\'(#{SSTRING})\'/o       process_symbol
+
+                /\:\:/                      process_colon2
+                /\:/                        process_colon1
+
+  # numbers:
+
+# : /\d/
+# |             /#{NUM_BAD}/o           { rb_compile_error "Invalid numeric format"  }
+# |             /#{INT_DEC}/o           { int_with_base 10                           }
+# |             /#{INT_HEX}/o           { int_with_base 16                           }
+# |             /#{INT_BIN}/o           { int_with_base 2                            }
+# |             /#{INT_OCT_BAD}/o       { rb_compile_error "Illegal octal digit."    }
+# |             /#{INT_OCT}/o           { int_with_base 8                            }
+# |             /#{FLOAT_BAD}/o         { rb_compile_error "Trailing '_' in number." }
+# |             /#{FLOAT}/o             process_float
+# |             /#{INT_DEC2}/o          { int_with_base 10                           }
+
+                /->/                    { result :expr_endfn, :tLAMBDA, nil }
+
+                /[+-]/                  process_plus_minus
+
+                /#{NUM_BAD}/o           { rb_compile_error "Invalid numeric format"  }
+                /#{INT_DEC}/o           { int_with_base 10                           }
+                /#{INT_HEX}/o           { int_with_base 16                           }
+                /#{INT_BIN}/o           { int_with_base 2                            }
+                /#{INT_OCT_BAD}/o       { rb_compile_error "Illegal octal digit."    }
+                /#{INT_OCT}/o           { int_with_base 8                            }
+                /#{FLOAT_BAD}/o         { rb_compile_error "Trailing '_' in number." }
+                /#{FLOAT}/o             process_float
+                /#{INT_DEC2}/o          { int_with_base 10                           }
+                /[0-9]/                 { rb_compile_error "Bad number format" }
+
+                /\[/                    process_square_bracket
+
+                /\'#{SSTRING}\'/o       { result :expr_end, :tSTRING, matched[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'") } # " stupid emacs
+
+                /\|\|\=/                { result :expr_beg, :tOP_ASGN, "||" }
+                /\|\|/                  { result :expr_beg, :tOROP,    "||" }
+                /\|\=/                  { result :expr_beg, :tOP_ASGN, "|" }
+                /\|/                    { result :arg_state, :tPIPE,    "|" }
+
+                /\{/                    process_curly_brace
+
+                /\*\*=/                 { result :expr_beg, :tOP_ASGN, "**" }
+                /\*\*/                  { result(:arg_state, space_vs_beginning(:tDSTAR, :tDSTAR, :tPOW), "**") }
+                /\*\=/                  { result(:expr_beg, :tOP_ASGN, "*") }
+                /\*/                    { result(:arg_state, space_vs_beginning(:tSTAR, :tSTAR, :tSTAR2), "*") }
+
+                /\<\=\>/                { result :arg_state, :tCMP, "<=>"    }
+                /\<\=/                  { result :arg_state, :tLEQ, "<="     }
+                /\<\<\=/                { result :arg_state, :tOP_ASGN, "<<" }
+                /\<\</                  process_lchevron
+                /\</                    { result :arg_state, :tLT, "<"       }
+
+# : /\>/
+# |             /\>\=/                  { result :arg_state, :tGEQ, ">="     }
+# |             /\>\>=/                 { result :arg_state, :tOP_ASGN, ">>" }
+# |             /\>\>/                  { result :arg_state, :tRSHFT, ">>"   }
+# |             /\>/                    { result :arg_state, :tGT, ">"       }
+
+                /\>\=/                  { result :arg_state, :tGEQ, ">="     }
+                /\>\>=/                 { result :arg_state, :tOP_ASGN, ">>" }
+                /\>\>/                  { result :arg_state, :tRSHFT, ">>"   }
+                /\>/                    { result :arg_state, :tGT, ">"       }
+
+                /\`/                    process_backtick
+
+#               /\`/    : expr_fname?   { result(:expr_end, :tBACK_REF2, "`") }
+#                       | expr_dot?     { result((command_state ? :expr_cmdarg : :expr_arg), :tBACK_REF2, "`")
+#                       |               { string STR_XQUOTE, '`'; result(nil, :tXSTRING_BEG, "`") }
+
+                /\?/                    process_questionmark
+
+                /\&\&\=/                { result(:expr_beg, :tOP_ASGN, "&&") }
+                /\&\&/                  { result(:expr_beg, :tANDOP,   "&&") }
+                /\&\=/                  { result(:expr_beg, :tOP_ASGN, "&" ) }
+                /\&/                    process_amper
+
+                /\//                    process_slash
+
+                /\^=/                   { result(:expr_beg, :tOP_ASGN, "^") }
+                /\^/                    { result(:arg_state, :tCARET, "^") }
+
+                /\;/                    { self.command_start = true; result(:expr_beg, :tSEMI, ";") }
+
+  in_arg_state? /\~@/                   { result(:arg_state, :tTILDE, "~") }
+                /\~/                    { result(:arg_state, :tTILDE, "~") }
+
+                /\\\r?\n/               { self.space_seen = true; next }
+                /\\/                    { rb_compile_error "bare backslash only allowed before newline" }
+
+                /\%/                    process_percent
+
+                /\$_\w+/                { self.token = text; result(:expr_end, :tGVAR, text) }
+                /\$_/                   { result(:expr_end, :tGVAR, matched) }
+                /\$[~*$?!@\/\\;,.=:<>\"]|\$-\w?/ { result(:expr_end, :tGVAR, matched) }
+                /\$([\&\`\'\+])/        { lex_state == :expr_fname ? result(:expr_end, :tGVAR, matched) : result(:expr_end, :tBACK_REF, ss[1].to_sym) }
+                /\$([1-9]\d*)/          { lex_state == :expr_fname ? result(:expr_end, :tGVAR, matched) : result(:expr_end, :tNTH_REF, ss[1].to_i) }
+# expr_fname?   /\$([\&\`\'\+])/        { result :expr_end, :tGVAR, text }
+#               /\$([\&\`\'\+])/        { result :expr_end, :tBACK_REF, ss[1].to_sym }
+# expr_fname?   /\$([1-9]\d*)/          { result :expr_end, :tGVAR, text }
+#               /\$([1-9]\d*)/          { result :expr_end, :tNTH_REF, ss[1].to_i }
+                /\$0/                   { result :expr_end, :tGVAR, text }
+                /\$\W|\$\z/             { result :expr_end, "$", "$" }
+                /\$\w+/                 { result :expr_end, :tGVAR, text }
+
+                /\_/                    process_underscore
+
+                /#{IDENT}/o             { self.token = matched; process_token(command_state, last_state) }
+
+                /\004|\032|\000|\Z/     { [RubyLexer::EOF, RubyLexer::EOF] }
+
+                /./                     { rb_compile_error "Invalid char #{text.inspect} in expression" }
+
+end

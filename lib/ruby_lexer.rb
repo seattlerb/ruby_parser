@@ -11,10 +11,7 @@ class RubyLexer
                  /[\w\x80-\xFF]/n
                end
 
-  IDENT = /^#{IDENT_CHAR}+/o
-  ESC = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|u[0-9a-fA-F]+|u\{[0-9a-fA-F]+\}|[^0-7xMCc]))/u
-  SIMPLE_STRING = /(#{ESC}|#(#{ESC}|[^\{\#\@\$\"\\])|[^\"\\\#])*/o
-  SIMPLE_SSTRING = /(\\.|[^\'])*/
+  ESC_RE = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc]))/u
 
   EOF = :eof_haha!
 
@@ -75,6 +72,8 @@ class RubyLexer
   attr_accessor :brace_nest
   attr_accessor :cmdarg
   attr_accessor :command_start
+  attr_accessor :command_state
+  attr_accessor :last_state
   attr_accessor :cond
 
   ##
@@ -91,11 +90,7 @@ class RubyLexer
   attr_accessor :string_buffer
   attr_accessor :string_nest
 
-  # Stream of data that yylex examines.
-  attr_reader :src
-  alias :ss :src
-
-  # Last token read via yylex.
+  # Last token read via next_token.
   attr_accessor :token
 
   ##
@@ -104,31 +99,12 @@ class RubyLexer
 
   attr_accessor :version
 
-  # Value of last token which had a value associated with it.
-  attr_accessor :yacc_value
-
-  attr_writer :lineno # reader is lazy initalizer
-
   attr_writer :comments
 
   def initialize v = 18
     self.version = v
 
     reset
-  end
-
-  ##
-  # How the parser advances to the next token.
-  #
-  # @return true if not at end of file (EOF).
-
-  def advance
-    r = yylex
-    self.token = r
-
-    raise "yylex returned nil, near #{ss.rest[0,10].inspect}" unless r
-
-    return RubyLexer::EOF != r
   end
 
   def arg_ambiguous
@@ -142,6 +118,7 @@ class RubyLexer
   def beginning_of_line?
     ss.bol?
   end
+  alias :bol? :beginning_of_line? # to make .rex file more readable
 
   def check re
     ss.check re
@@ -174,9 +151,9 @@ class RubyLexer
     rb_compile_error err_msg if end_of_stream?
 
     if beginning_of_line? && scan(eos_re) then
+      self.lineno += 1
       ss.unread_many last_line # TODO: figure out how to remove this
-      self.yacc_value = eos
-      return :tSTRING_END
+      return :tSTRING_END, eos
     end
 
     self.string_buffer = []
@@ -185,11 +162,9 @@ class RubyLexer
       case
       when scan(/#[$@]/) then
         ss.pos -= 1 # FIX omg stupid
-        self.yacc_value = matched
-        return :tSTRING_DVAR
+        return :tSTRING_DVAR, matched
       when scan(/#[{]/) then
-        self.yacc_value = matched
-        return :tSTRING_DBEG
+        return :tSTRING_DBEG, matched
       when scan(/#/) then
         string_buffer << '#'
       end
@@ -201,9 +176,9 @@ class RubyLexer
           c == RubyLexer::EOF
 
         if c != "\n" then
-          self.yacc_value = string_buffer.join.delete("\r")
-          return :tSTRING_CONTENT
+          return :tSTRING_CONTENT, string_buffer.join.delete("\r")
         else
+          self.lineno += 1
           string_buffer << scan(/\n/)
         end
 
@@ -218,8 +193,7 @@ class RubyLexer
 
     self.lex_strterm = [:heredoc, eos, func, last_line]
 
-    self.yacc_value = string_buffer.join.delete("\r")
-    return :tSTRING_CONTENT
+    return :tSTRING_CONTENT, string_buffer.join.delete("\r")
   end
 
   def heredoc_identifier # TODO: remove / rewrite
@@ -263,11 +237,9 @@ class RubyLexer
     self.lex_strterm = [:heredoc, string_buffer.join, func, line]
 
     if term == '`' then
-      self.yacc_value = "`"
-      return :tXSTRING_BEG
+      result nil, :tXSTRING_BEG, "`"
     else
-      self.yacc_value = "\""
-      return :tSTRING_BEG
+      result nil, :tSTRING_BEG, "\""
     end
   end
 
@@ -281,9 +253,7 @@ class RubyLexer
 
   def int_with_base base
     rb_compile_error "Invalid numeric format" if matched =~ /__/
-
-    self.yacc_value = matched.to_i(base)
-    return :tINTEGER
+    return result(:expr_end, :tINTEGER, matched.to_i(base))
   end
 
   def is_arg?
@@ -306,50 +276,17 @@ class RubyLexer
     is_arg? and space_seen and c !~ /\s/
   end
 
-  def lineno
-    @lineno ||= ss.lineno
+  def process_float text
+    rb_compile_error "Invalid numeric format" if matched =~ /__/
+    return result(:expr_end, :tFLOAT, matched.to_f)
   end
 
   def matched
     ss.matched
   end
 
-  ##
-  #  Parse a number from the input stream.
-  #
-  # @param c The first character of the number.
-  # @return A int constant wich represents a token.
-
-  def parse_number
-    self.lex_state = :expr_end
-
-    case
-    when scan(/[+-]?0[xXbBdD]\b/) then
-      rb_compile_error "Invalid numeric format"
-    when scan(/[+-]?(?:(?:[1-9][\d_]*|0)(?!\.\d)\b|0[Dd][0-9_]+)/) then
-      int_with_base(10)
-    when scan(/[+-]?0x[a-f0-9_]+/i) then
-      int_with_base(16)
-    when scan(/[+-]?0[Bb][01_]+/) then
-      int_with_base(2)
-    when scan(/[+-]?0[Oo]?[0-7_]*[89]/) then
-      rb_compile_error "Illegal octal digit."
-    when scan(/[+-]?0[Oo]?[0-7_]+|0[Oo]/) then
-      int_with_base(8)
-    when scan(/[+-]?[\d_]+_(e|\.)/) then
-      rb_compile_error "Trailing '_' in number."
-    when scan(/[+-]?[\d_]+\.[\d_]+(e[+-]?[\d_]+)?\b|[+-]?[\d_]+e[+-]?[\d_]+\b/i) then
-      number = matched
-      if number =~ /__/ then
-        rb_compile_error "Invalid numeric format"
-      end
-      self.yacc_value = number.to_f
-      :tFLOAT
-    when scan(/[+-]?[0-9_]+(?![e])/) then
-      int_with_base(10)
-    else
-      rb_compile_error "Bad number format"
-    end
+  def not_end?
+    not is_end?
   end
 
   def parse_quote # TODO: remove / rewrite
@@ -392,10 +329,10 @@ class RubyLexer
                                 self.lex_state  = :expr_fname
                                 [:tSYMBEG,       STR_SSYM]
                               when 'I' then
-                                src.scan(/\s*/)
+                                scan(/\s*/)
                                 [:tSYMBOLS_BEG, STR_DQUOTE | STR_FUNC_QWORDS]
                               when 'i' then
-                                src.scan(/\s*/)
+                                scan(/\s*/)
                                 [:tQSYMBOLS_BEG, STR_SQUOTE | STR_FUNC_QWORDS]
                               end
 
@@ -406,8 +343,7 @@ class RubyLexer
 
     string string_type, nnd, beg
 
-    self.yacc_value = text
-    return token_type
+    return token_type, text
   end
 
   def parse_string quote # TODO: rewrite / remove
@@ -423,8 +359,7 @@ class RubyLexer
     expand = (func & STR_FUNC_EXPAND) != 0
 
     unless func then # nil'ed from qwords below. *sigh*
-      self.lineno = nil
-      return :tSTRING_END
+      return :tSTRING_END, nil
     end
 
     space = true if qwords and scan(/\s+/)
@@ -432,28 +367,24 @@ class RubyLexer
     if self.string_nest == 0 && scan(/#{term_re}/) then
       if qwords then
         quote[1] = nil
-        return :tSPACE
+        return :tSPACE, nil
       elsif regexp then
-        self.lineno = nil
-        self.yacc_value = self.regx_options
-        return :tREGEXP_END
+        return :tREGEXP_END, self.regx_options
       else
-        self.lineno = nil
-        self.yacc_value = term
-        return :tSTRING_END
+        return :tSTRING_END, term
       end
     end
 
-    return :tSPACE if space
+    return :tSPACE, nil if space
 
     self.string_buffer = []
 
     if expand
       case
       when scan(/#(?=[$@])/) then
-        return :tSTRING_DVAR
+        return :tSTRING_DVAR, nil
       when scan(/#[{]/) then
-        return :tSTRING_DBEG
+        return :tSTRING_DBEG, nil
       when scan(/#/) then
         string_buffer << '#'
       end
@@ -463,12 +394,326 @@ class RubyLexer
       rb_compile_error "unterminated string meets end of file"
     end
 
-    self.yacc_value = string_buffer.join
-
-    return :tSTRING_CONTENT
+    return :tSTRING_CONTENT, string_buffer.join
   end
 
-  def process_token command_state, last_state
+  def process_amper text
+    token = if is_arg? && space_seen && !check(/\s/) then
+               warning("`&' interpreted as argument prefix")
+               :tAMPER
+             elsif in_lex_state? :expr_beg, :expr_mid then
+               :tAMPER
+             else
+               :tAMPER2
+             end
+
+    return result(:arg_state, token, "&")
+  end
+
+  def process_backtick text
+    case lex_state
+    when :expr_fname then
+      result :expr_end, :tBACK_REF2, "`"
+    when :expr_dot then
+      result((command_state ? :expr_cmdarg : :expr_arg), :tBACK_REF2, "`")
+    else
+      string STR_XQUOTE
+      result nil, :tXSTRING_BEG, "`"
+    end
+  end
+
+  def process_bang text
+    if in_arg_state? then
+      return result(:expr_arg, :tUBANG, "!@") if scan(/@/)
+    end
+
+    text = scan(/[=~]/) ? "!#{matched}" : "!"
+
+    return result(arg_state, TOKENS[text], text)
+  end
+
+  def process_begin text
+    @comments << matched
+
+    unless scan(/.*?\n=end( |\t|\f)*[^\n]*(\n|\z)/m) then
+      @comments.clear
+      rb_compile_error("embedded document meets end of file")
+    end
+
+    @comments << matched
+
+    nil # TODO
+  end
+
+  def process_bracing text
+    cond.lexpop
+    cmdarg.lexpop
+
+    case matched
+    when "}" then
+      self.brace_nest -= 1
+      self.lex_state   = :expr_endarg
+      return :tRCURLY, matched
+    when "]" then
+      self.paren_nest -= 1
+      self.lex_state   = :expr_endarg
+      return :tRBRACK, matched
+    when ")" then
+      self.paren_nest -= 1
+      self.lex_state   = :expr_endfn
+      return :tRPAREN, matched
+    else
+      raise "Unknown bracing: #{matched.inspect}"
+    end
+  end
+
+  def process_colon1 text
+    # ?: / then / when
+    if is_end? || check(/\s/) then
+      return result :expr_beg, :tCOLON, text
+    end
+
+    case
+    when scan(/\'/) then
+      string STR_SSYM
+    when scan(/\"/) then
+      string STR_DSYM
+    end
+
+    result :expr_fname, :tSYMBEG, text
+  end
+
+  def process_colon2 text
+    if is_beg? || in_lex_state?(:expr_class) || is_space_arg? then
+      result :expr_beg, :tCOLON3, text
+    else
+      result :expr_dot, :tCOLON2, text
+    end
+  end
+
+  def process_curly_brace text
+    self.brace_nest += 1
+    if lpar_beg && lpar_beg == paren_nest then
+      self.lpar_beg = nil
+      self.paren_nest -= 1
+
+      return expr_result(:tLAMBEG, "{")
+    end
+
+    token = if is_arg? || in_lex_state?(:expr_end, :expr_endfn) then
+               :tLCURLY      #  block (primary)
+             elsif in_lex_state?(:expr_endarg) then
+               :tLBRACE_ARG  #  block (expr)
+             else
+               :tLBRACE      #  hash
+             end
+
+    self.command_start = true unless token == :tLBRACE
+
+    return expr_result(token, "{")
+  end
+
+  def process_lchevron text
+    if (!in_lex_state?(:expr_dot, :expr_class) &&
+        !is_end? &&
+        (!is_arg? || space_seen)) then
+      tok = self.heredoc_identifier
+      return tok if tok
+    end
+
+    return result(:arg_state, :tLSHFT, "\<\<")
+  end
+
+  def process_newline_or_comment text
+    c = matched
+    if c == '#' then
+      ss.pos -= 1
+
+      while scan(/\s*\#.*(\n+|\z)/) do
+        # TODO self.lineno += matched.lines.to_a.size
+        @comments << matched.gsub(/^ +#/, '#').gsub(/^ +$/, '')
+      end
+
+      return nil if end_of_stream?
+      # HACK return RubyLexer::EOF, RubyLexer::EOF if end_of_stream?
+    end
+
+    # Replace a string of newlines with a single one
+    scan(/\n+/)
+
+    return if in_lex_state?(:expr_beg, :expr_value, :expr_class,
+                            :expr_fname, :expr_dot)
+
+    if scan(/([\ \t\r\f\v]*)\./) then
+      self.space_seen = true unless ss[1].empty?
+
+      ss.pos -= 1
+      return unless check(/\.\./)
+    end
+
+    self.command_start = true
+
+    return result(:expr_beg, :tNL, nil)
+  end
+
+  def process_paren text
+    token = if ruby18 then
+              process_paren18
+            else
+              process_paren19
+            end
+
+    self.paren_nest += 1
+
+    return expr_result(token, "(")
+  end
+
+  def process_percent text
+    return parse_quote if is_beg?
+
+    return result(:expr_beg, :tOP_ASGN, "%") if scan(/\=/)
+
+    return parse_quote if is_arg? && space_seen && ! check(/\s/)
+
+    return result(:arg_state, :tPERCENT, "%")
+  end
+
+  def process_plus_minus text
+    sign = matched
+    utype, type = if sign == "+" then
+                    [:tUPLUS, :tPLUS]
+                  else
+                    [:tUMINUS, :tMINUS]
+                  end
+
+    if in_arg_state? then
+      if scan(/@/) then
+        return result(:expr_arg, utype, "#{sign}@")
+      else
+        return result(:expr_arg, type, sign)
+      end
+    end
+
+    return result(:expr_beg, :tOP_ASGN, sign) if scan(/\=/)
+
+    if (is_beg? || (is_arg? && space_seen && !check(/\s/))) then
+      arg_ambiguous if is_arg?
+
+      if check(/\d/) then
+        return nil if utype == :tUPLUS
+        return result(:expr_beg, :tUMINUS_NUM, sign)
+      end
+
+      return result(:expr_beg, utype, sign)
+    end
+
+    return result(:expr_beg, type, sign)
+  end
+
+  def process_questionmark text
+    if is_end? then
+      state = ruby18 ? :expr_beg : :expr_value # HACK?
+      return result(state, :tEH, "?")
+    end
+
+    if end_of_stream? then
+      rb_compile_error "incomplete character syntax: parsed #{text.inspect}"
+    end
+
+    if check(/\s|\v/) then
+      unless is_arg? then
+        c2 = { " " => 's',
+              "\n" => 'n',
+              "\t" => 't',
+              "\v" => 'v',
+              "\r" => 'r',
+              "\f" => 'f' }[matched]
+
+        if c2 then
+          warning("invalid character syntax; use ?\\" + c2)
+        end
+      end
+
+      # ternary
+      state = ruby18 ? :expr_beg : :expr_value # HACK?
+      return result(state, :tEH, "?")
+    elsif check(/\w(?=\w)/) then # ternary, also
+      return result(:expr_beg, :tEH, "?")
+    end
+
+    c = if scan(/\\/) then
+          self.read_escape
+        else
+          ss.getch
+        end
+
+    if version == 18 then
+      return result(:expr_end, :tINTEGER, c[0].ord & 0xff)
+    else
+      return result(:expr_end, :tSTRING, c)
+    end
+  end
+
+  def process_slash text
+    if is_beg? then
+      string STR_REGEXP
+
+      return result(nil, :tREGEXP_BEG, "/")
+    end
+
+    if scan(/\=/) then
+      return result(:expr_beg, :tOP_ASGN, "/")
+    end
+
+    if is_arg? && space_seen then
+      unless scan(/\s/) then
+        arg_ambiguous
+        string STR_REGEXP, "/"
+        return result(nil, :tREGEXP_BEG, "/")
+      end
+    end
+
+    return result(:arg_state, :tDIVIDE, "/")
+  end
+
+  def process_square_bracket text
+    self.paren_nest += 1
+
+    token = nil
+
+    if in_arg_state? then
+      case
+      when scan(/\]\=/) then
+        self.paren_nest -= 1 # HACK? I dunno, or bug in MRI
+        return result(:expr_arg, :tASET, "[]=")
+      when scan(/\]/) then
+        self.paren_nest -= 1 # HACK? I dunno, or bug in MRI
+        return result(:expr_arg, :tAREF, "[]")
+      else
+        rb_compile_error "unexpected '['"
+      end
+    elsif is_beg? then
+      token = :tLBRACK
+    elsif is_arg? && space_seen then
+      token = :tLBRACK
+    else
+      token = :tLBRACK2
+    end
+
+    return expr_result(token, "[")
+  end
+
+  def process_symbol text
+    symbol = match[1].gsub(ESC_RE) { unescape $1 }
+
+    rb_compile_error "symbol cannot contain '\\0'" if
+      ruby18 && symbol =~ /\0/
+
+    return result(:expr_end, :tSYMBOL, symbol)
+  end
+
+  def process_token command_state, last_state # TODO: remove last_state, ivar
+    # TODO: make this always return [token, lineno]
     token = self.token
     token << matched if scan(/[\!\?](?!=)/)
 
@@ -488,7 +733,7 @@ class RubyLexer
       end
 
     if !ruby18 and is_label_possible?(command_state) and scan(/:(?!:)/) then
-      return result(:expr_beg, :tLABEL, [token, ss.lineno]) # HACK: array? TODO: self.lineno
+      return result(:expr_beg, :tLABEL, [token, self.lineno])
     end
 
     unless in_lex_state? :expr_dot then
@@ -523,7 +768,8 @@ class RubyLexer
 
   def process_token_keyword keyword
     state = keyword.state
-    value = [token, ss.lineno] # TODO: use self.lineno ?
+
+    value = [token, self.lineno]
 
     self.command_start = true if state == :expr_beg and lex_state != :expr_fname
 
@@ -551,6 +797,17 @@ class RubyLexer
       result(:expr_beg, keyword.id1, value)
     else
       result(state, keyword.id1, value)
+    end
+  end
+
+  def process_underscore text
+    ss.unscan # put back "_"
+
+    if beginning_of_line? && scan(/\__END__(\r?\n|\Z)/) then
+      return [RubyLexer::EOF, RubyLexer::EOF]
+    elsif scan(/\_\w*/) then
+      self.token = matched
+      return process_token command_state, last_state
     end
   end
 
@@ -643,19 +900,15 @@ class RubyLexer
     self.space_seen    = false
     self.string_nest   = 0
     self.token         = nil
-    self.yacc_value    = nil
 
     self.cmdarg = RubyParserStuff::StackState.new(:cmdarg)
     self.cond   = RubyParserStuff::StackState.new(:cond)
-
-    @src = nil
   end
 
   def result lex_state, token, text # :nodoc:
     lex_state = self.arg_state if lex_state == :arg_state
     self.lex_state = lex_state if lex_state
-    self.yacc_value = text
-    token
+    [token, text]
   end
 
   def ruby18
@@ -668,6 +921,10 @@ class RubyLexer
 
   def scan re
     ss.scan re
+  end
+
+  def scanner_class # TODO: design this out of oedipus_lex. or something.
+    RPStringScanner
   end
 
   def space_vs_beginning space_type, beg_type, fallback
@@ -686,10 +943,11 @@ class RubyLexer
     self.lex_strterm = [:strterm, type, beg, nnd]
   end
 
-  def src= src
-    raise "bad src: #{src.inspect}" unless String === src
-    @src = RPStringScanner.new(src)
-  end
+  # TODO: consider
+  # def src= src
+  #   raise "bad src: #{src.inspect}" unless String === src
+  #   @src = RPStringScanner.new(src)
+  # end
 
   def tokadd_escape term # TODO: rewrite / remove
     case
@@ -833,478 +1091,7 @@ class RubyLexer
     # do nothing for now
   end
 
-  ##
-  # Returns the next token. Also sets yy_val is needed.
-  #
-  # @return Description of the Returned Value
-
-  def yylex # 461 lines
-    c = ''
-    self.space_seen = false
-    command_state = false
-    ss = self.src
-
-    self.token = nil
-    self.yacc_value = nil
-
-    return yylex_string if lex_strterm
-
-    command_state = self.command_start
-    self.command_start = false
-
-    last_state = lex_state
-
-    loop do # START OF CASE
-      if scan(/[\ \t\r\f\v]/) then # \s - \n + \v
-        self.space_seen = true
-        next
-      elsif check(/[^a-zA-Z]/) then
-        if scan(/\n|\#/) then
-          self.lineno = nil
-          c = matched
-          if c == '#' then
-            ss.pos -= 1
-
-            while scan(/\s*#.*(\n+|\z)/) do
-              # TODO: self.lineno += matched.lines.to_a.size
-              @comments << matched.gsub(/^ +#/, '#').gsub(/^ +$/, '')
-            end
-
-            return RubyLexer::EOF if end_of_stream?
-          end
-
-          # Replace a string of newlines with a single one
-          scan(/\n+/)
-
-          next if in_lex_state?(:expr_beg, :expr_value, :expr_class,
-                                :expr_fname, :expr_dot)
-
-          if scan(/([\ \t\r\f\v]*)\./) then
-            self.space_seen = true unless ss[1].empty?
-
-            ss.pos -= 1
-            next unless check(/\.\./)
-          end
-
-          self.command_start = true
-
-          return result(:expr_beg, :tNL, nil)
-        elsif scan(/[\]\)\}]/) then
-          if matched == "}" then
-            self.brace_nest -= 1
-          else
-            self.paren_nest -= 1
-          end
-
-          cond.lexpop
-          cmdarg.lexpop
-
-          text  = matched
-          state = text == ")" ? :expr_endfn : :expr_endarg
-          token = {
-            ")" => :tRPAREN,
-            "]" => :tRBRACK,
-            "}" => :tRCURLY
-          }[text]
-
-          return result(state, token, text)
-        elsif scan(/\!/) then
-          if in_arg_state? then
-            return result(:expr_arg, :tUBANG, "!@") if scan(/@/)
-          end
-
-          text = scan(/[=~]/) ? "!#{matched}" : "!"
-
-          return result(arg_state, TOKENS[text], text)
-        elsif scan(/\.\.\.?|,|![=~]?/) then
-          return result(:expr_beg, TOKENS[matched], matched)
-        elsif check(/\./) then
-          if scan(/\.\d/) then
-            rb_compile_error "no .<digit> floating literal anymore put 0 before dot"
-          elsif scan(/\./) then
-            return result(:expr_dot, :tDOT, ".")
-          end
-        elsif scan(/\(/) then
-          token = if ruby18 then
-                     yylex_paren18
-                   else
-                     yylex_paren19
-                   end
-
-          self.paren_nest += 1
-
-          return expr_result(token, "(")
-        elsif check(/\=/) then
-          if scan(/\=\=\=|\=\=|\=~|\=>|\=(?!begin\b)/) then
-            tok = matched
-            return result(:arg_state, TOKENS[tok], tok)
-          elsif beginning_of_line? and scan(/\=begin(?=\s)/) then
-            @comments << matched
-
-            unless scan(/.*?\n=end( |\t|\f)*[^\n]*(\n|\z)/m) then
-              @comments.clear
-              rb_compile_error("embedded document meets end of file")
-            end
-
-            @comments << matched
-
-            next
-          elsif scan(/\=(?=begin\b)/) then # h[k]=begin ... end
-            tok = matched
-            return result(:arg_state, TOKENS[tok], tok)
-          else
-            raise "you shouldn't be able to get here"
-          end
-        elsif scan(/\"(#{SIMPLE_STRING})\"/o) then
-          string = matched[1..-2].gsub(ESC) { unescape $1 }
-          return result(:expr_end, :tSTRING, string)
-        elsif scan(/\"/) then # FALLBACK
-          string STR_DQUOTE, '"' # TODO: question this
-          return result(nil, :tSTRING_BEG, '"')
-        elsif scan(/\@\@?#{IDENT_CHAR}+/o) then
-          self.token = matched
-
-          rb_compile_error "`#{self.token}` is not allowed as a variable name" if
-            self.token =~ /\@\d/
-
-          tok_id = matched =~ /^@@/ ? :tCVAR : :tIVAR
-          return result(:expr_end, tok_id, self.token)
-        elsif scan(/\:\:/) then
-          if is_beg? || in_lex_state?(:expr_class) || is_space_arg? then
-            return result(:expr_beg, :tCOLON3, "::")
-          end
-
-          return result(:expr_dot, :tCOLON2, "::")
-        elsif ! is_end? && scan(/:([a-zA-Z_]#{IDENT_CHAR}*(?:[?!]|=(?==>)|=(?![=>]))?)/) then
-          # scanning shortcut to symbols
-          return result(:expr_end, :tSYMBOL, ss[1])
-        elsif ! is_end? && (scan(/\:\"(#{SIMPLE_STRING})\"/) ||
-                            scan(/\:\'(#{SIMPLE_SSTRING})\'/)) then
-          symbol = ss[1].gsub(ESC) { unescape $1 }
-
-          rb_compile_error "symbol cannot contain '\\0'" if
-            ruby18 && symbol =~ /\0/
-
-          return result(:expr_end, :tSYMBOL, symbol)
-        elsif scan(/\:/) then
-          # ?: / then / when
-          if is_end? || check(/\s/) then
-            # TODO warn_balanced(":", "symbol literal");
-            return result(:expr_beg, :tCOLON, ":")
-          end
-
-          case
-          when scan(/\'/) then
-            string STR_SSYM, matched
-          when scan(/\"/) then
-            string STR_DSYM, matched
-          end
-
-          return result(:expr_fname, :tSYMBEG, ":")
-        elsif check(/[0-9]/) then
-          return parse_number
-        elsif scan(/\[/) then
-          self.paren_nest += 1
-
-          token = nil
-
-          if in_lex_state? :expr_fname, :expr_dot then
-            case
-            when scan(/\]\=/) then
-              self.paren_nest -= 1 # HACK? I dunno, or bug in MRI
-              return result(:expr_arg, :tASET, "[]=")
-            when scan(/\]/) then
-              self.paren_nest -= 1 # HACK? I dunno, or bug in MRI
-              return result(:expr_arg, :tAREF, "[]")
-            else
-              rb_compile_error "unexpected '['"
-            end
-          elsif is_beg? then
-            token = :tLBRACK
-          elsif is_arg? && space_seen then
-            token = :tLBRACK
-          else
-            token = :tLBRACK2
-          end
-
-          return expr_result(token, "[")
-        elsif scan(/\'#{SIMPLE_SSTRING}\'/) then
-          text = matched[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'") # "
-          return result(:expr_end, :tSTRING, text)
-        elsif check(/\|/) then
-          if scan(/\|\|\=/) then
-            return result(:expr_beg, :tOP_ASGN, "||")
-          elsif scan(/\|\|/) then
-            return result(:expr_beg, :tOROP, "||")
-          elsif scan(/\|\=/) then
-            return result(:expr_beg, :tOP_ASGN, "|")
-          elsif scan(/\|/) then
-            return result(:arg_state, :tPIPE, "|")
-          end
-        elsif scan(/\{/) then
-          self.brace_nest += 1
-          if lpar_beg && lpar_beg == paren_nest then
-            self.lpar_beg = nil
-            self.paren_nest -= 1
-
-            return expr_result(:tLAMBEG, "{")
-          end
-
-          token = if is_arg? || in_lex_state?(:expr_end, :expr_endfn) then
-                     :tLCURLY      #  block (primary)
-                   elsif in_lex_state?(:expr_endarg) then
-                     :tLBRACE_ARG  #  block (expr)
-                   else
-                     :tLBRACE      #  hash
-                   end
-
-          self.command_start = true unless token == :tLBRACE
-
-          return expr_result(token, "{")
-        elsif scan(/->/) then
-          return result(:expr_endfn, :tLAMBDA, nil)
-        elsif scan(/[+-]/) then
-          sign = matched
-          utype, type = if sign == "+" then
-                          [:tUPLUS, :tPLUS]
-                        else
-                          [:tUMINUS, :tMINUS]
-                        end
-
-          if in_arg_state? then
-            if scan(/@/) then
-              return result(:expr_arg, utype, "#{sign}@")
-            else
-              return result(:expr_arg, type, sign)
-            end
-          end
-
-          return result(:expr_beg, :tOP_ASGN, sign) if scan(/\=/)
-
-          if (is_beg? || (is_arg? && space_seen && !check(/\s/))) then
-            arg_ambiguous if is_arg?
-
-            if check(/\d/) then
-              return self.parse_number if utype == :tUPLUS
-              return result(:expr_beg, :tUMINUS_NUM, sign)
-            end
-
-            return result(:expr_beg, utype, sign)
-          end
-
-          return result(:expr_beg, type, sign)
-        elsif check(/\*/) then
-          if scan(/\*\*=/) then
-            return result(:expr_beg, :tOP_ASGN, "**")
-          elsif scan(/\*\*/) then
-            token = space_vs_beginning :tDSTAR, :tDSTAR, :tPOW
-
-            return result(:arg_state, token, "**")
-          elsif scan(/\*\=/) then
-            return result(:expr_beg, :tOP_ASGN, "*")
-          elsif scan(/\*/) then
-            token = space_vs_beginning :tSTAR, :tSTAR, :tSTAR2
-
-            return result(:arg_state, token, "*")
-          end
-        elsif check(/\</) then
-          if scan(/\<\=\>/) then
-            return result(:arg_state, :tCMP, "<=>")
-          elsif scan(/\<\=/) then
-            return result(:arg_state, :tLEQ, "<=")
-          elsif scan(/\<\<\=/) then
-            return result(:arg_state, :tOP_ASGN, "<<")
-          elsif scan(/\<\</) then
-            if (!in_lex_state?(:expr_dot, :expr_class) &&
-                !is_end? &&
-                (!is_arg? || space_seen)) then
-              tok = self.heredoc_identifier
-              return tok if tok
-            end
-
-            return result(:arg_state, :tLSHFT, "\<\<")
-          elsif scan(/\</) then
-            return result(:arg_state, :tLT, "<")
-          end
-        elsif check(/\>/) then
-          if scan(/\>\=/) then
-            return result(:arg_state, :tGEQ, ">=")
-          elsif scan(/\>\>=/) then
-            return result(:arg_state, :tOP_ASGN, ">>")
-          elsif scan(/\>\>/) then
-            return result(:arg_state, :tRSHFT, ">>")
-          elsif scan(/\>/) then
-            return result(:arg_state, :tGT, ">")
-          end
-        elsif scan(/\`/) then
-          case lex_state
-          when :expr_fname then
-            return result(:expr_end, :tBACK_REF2, "`")
-          when :expr_dot then
-            state = command_state ? :expr_cmdarg : :expr_arg
-            return result(state, :tBACK_REF2, "`")
-          else
-            string STR_XQUOTE, '`'
-            return result(nil, :tXSTRING_BEG, "`")
-          end
-        elsif scan(/\?/) then
-          if is_end? then
-            state = ruby18 ? :expr_beg : :expr_value # HACK?
-            return result(state, :tEH, "?")
-          end
-
-          if end_of_stream? then
-            rb_compile_error "incomplete character syntax"
-          end
-
-          if check(/\s|\v/) then
-            unless is_arg? then
-              c2 = { " " => 's',
-                    "\n" => 'n',
-                    "\t" => 't',
-                    "\v" => 'v',
-                    "\r" => 'r',
-                    "\f" => 'f' }[matched]
-
-              if c2 then
-                warning("invalid character syntax; use ?\\" + c2)
-              end
-            end
-
-            # ternary
-            state = ruby18 ? :expr_beg : :expr_value # HACK?
-            return result(state, :tEH, "?")
-          elsif check(/\w(?=\w)/) then # ternary, also
-            return result(:expr_beg, :tEH, "?")
-          end
-
-          c = if scan(/\\/) then
-                self.read_escape
-              else
-                ss.getch
-              end
-
-          if version == 18 then
-            return result(:expr_end, :tINTEGER, c[0].ord & 0xff)
-          else
-            return result(:expr_end, :tSTRING, c)
-          end
-        elsif check(/\&/) then
-          if scan(/\&\&\=/) then
-            return result(:expr_beg, :tOP_ASGN, "&&")
-          elsif scan(/\&\&/) then
-            return result(:expr_beg, :tANDOP, "&&")
-          elsif scan(/\&\=/) then
-            return result(:expr_beg, :tOP_ASGN, "&")
-          elsif scan(/&/) then
-            token = if is_arg? && space_seen && !check(/\s/) then
-                       warning("`&' interpreted as argument prefix")
-                       :tAMPER
-                     elsif in_lex_state? :expr_beg, :expr_mid then
-                       :tAMPER
-                     else
-                       :tAMPER2
-                     end
-
-            return result(:arg_state, token, "&")
-          end
-        elsif scan(/\//) then
-          if is_beg? then
-            string STR_REGEXP, '/'
-            return result(nil, :tREGEXP_BEG, "/")
-          end
-
-          if scan(/\=/) then
-            return result(:expr_beg, :tOP_ASGN, "/")
-          end
-
-          if is_arg? && space_seen then
-            unless scan(/\s/) then
-              arg_ambiguous
-              string STR_REGEXP, '/'
-              return result(nil, :tREGEXP_BEG, "/")
-            end
-          end
-
-          return result(:arg_state, :tDIVIDE, "/")
-        elsif scan(/\^=/) then
-          return result(:expr_beg, :tOP_ASGN, "^")
-        elsif scan(/\^/) then
-          return result(:arg_state, :tCARET, "^")
-        elsif scan(/\;/) then
-          self.command_start = true
-          return result(:expr_beg, :tSEMI, ";")
-        elsif scan(/\~/) then
-          scan(/@/) if in_lex_state? :expr_fname, :expr_dot
-          return result(:arg_state, :tTILDE, "~")
-        elsif scan(/\\/) then
-          if scan(/\r?\n/) then
-            self.lineno = nil
-            self.space_seen = true
-            next
-          end
-          rb_compile_error "bare backslash only allowed before newline"
-        elsif scan(/\%/) then
-          return parse_quote if is_beg?
-
-          return result(:expr_beg, :tOP_ASGN, "%") if scan(/\=/)
-
-          return parse_quote if is_arg? && space_seen && ! check(/\s/)
-
-          return result(:arg_state, :tPERCENT, "%")
-        elsif check(/\$/) then
-          if scan(/(\$_)(\w+)/) then
-            self.token = matched
-            return result(:expr_end, :tGVAR, matched)
-          elsif scan(/\$_/) then
-            return result(:expr_end, :tGVAR, matched)
-          elsif scan(/\$[~*$?!@\/\\;,.=:<>\"]|\$-\w?/) then
-            return result(:expr_end, :tGVAR, matched)
-          elsif scan(/\$([\&\`\'\+])/) then
-            # Explicit reference to these vars as symbols...
-            if lex_state == :expr_fname then
-              return result(:expr_end, :tGVAR, matched)
-            else
-              return result(:expr_end, :tBACK_REF, ss[1].to_sym)
-            end
-          elsif scan(/\$([1-9]\d*)/) then
-            if lex_state == :expr_fname then
-              return result(:expr_end, :tGVAR, matched)
-            else
-              return result(:expr_end, :tNTH_REF, ss[1].to_i)
-            end
-          elsif scan(/\$0/) then
-            return result(:expr_end, :tGVAR, matched)
-          elsif scan(/\$\W|\$\z/) then # TODO: remove?
-            return result(:expr_end, "$", "$") # FIX: "$"??
-          elsif scan(/\$\w+/)
-            return result(:expr_end, :tGVAR, matched)
-          end
-        elsif check(/\_/) then
-          if beginning_of_line? && scan(/\__END__(\r?\n|\Z)/) then
-            self.lineno = nil
-            return RubyLexer::EOF
-          elsif scan(/\_\w*/) then
-            self.token = matched
-            return process_token command_state, last_state
-          end
-        end
-      end # END OF CASE
-
-      if scan(/\004|\032|\000/) || end_of_stream? then # ^D, ^Z, EOF
-        return RubyLexer::EOF
-      else # alpha check
-        rb_compile_error "Invalid char #{ss.rest[0].chr} in expression" unless
-          check IDENT
-      end
-
-      self.token = matched if self.scan IDENT
-
-      return process_token command_state, last_state
-    end
-  end
-
-  def yylex_paren18
+  def process_paren18
     self.command_start = true
     token = :tLPAREN2
 
@@ -1323,7 +1110,7 @@ class RubyLexer
     token
   end
 
-  def yylex_paren19
+  def process_paren19
     if is_beg? then
       :tLPAREN
     elsif is_space_arg? then
@@ -1333,15 +1120,16 @@ class RubyLexer
     end
   end
 
-  def yylex_string # TODO: rewrite / remove
+  def process_string # TODO: rewrite / remove
     token = if lex_strterm[0] == :heredoc then
               self.heredoc lex_strterm
             else
               self.parse_string lex_strterm
             end
 
-    if token == :tSTRING_END || token == :tREGEXP_END then
-      self.lineno      = nil
+    token_type, _ = token
+
+    if token_type == :tSTRING_END || token_type == :tREGEXP_END then
       self.lex_strterm = nil
       self.lex_state   = :expr_end
     end
@@ -1349,3 +1137,5 @@ class RubyLexer
     return token
   end
 end
+
+require "ruby_lexer.rex"
