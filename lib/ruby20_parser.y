@@ -1143,7 +1143,7 @@ rule
                     }
                     f_arglist bodystmt kEND
                     {
-                      in_def = val[3]
+                      in_def = val[2]
 
                       result = new_defn val
 
