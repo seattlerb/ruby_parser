@@ -268,7 +268,7 @@ class RubyLexer
     in_lex_state? :expr_end, :expr_endarg, :expr_endfn
   end
 
-  def is_label_possible? command_state
+  def is_label_possible?
     (in_lex_state?(:expr_beg, :expr_endfn) && !command_state) || is_arg?
   end
 
@@ -652,7 +652,7 @@ class RubyLexer
         :tIDENTIFIER
       end
 
-    if !ruby18 and is_label_possible?(command_state) and scan(/:(?!:)/) then
+    if !ruby18 and is_label_possible? and scan(/:(?!:)/) then
       return result(:expr_beg, :tLABEL, [token, self.lineno])
     end
 
