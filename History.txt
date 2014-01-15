@@ -1,3 +1,41 @@
+=== 3.3.0 / 2014-01-14
+
+* Notes:
+
+39 files failed to parse out of ~834k files makes this 99.9953% or 4.07σ.
+
+* 15 minor enhancements:
+
+  * 2.0: Parse kwarg as lvars. (chastell)
+  * Added RubyLexer#beginning_of_line?, check(re), end_of_stream?
+  * Added RubyLexer#process_token_keyword.
+  * Added RubyLexer#scan, #matched, #beginning_of_line? and others to decouple from internals.
+  * Added lexing of \u### and \u{###}."
+  * Added optimizations for simple quoted symbols.
+  * Aliased Lexer#src to ss (since that is what it is).
+  * Allow for 20 in parser class name.
+  * Modified parsers line number calculations for defn nodes.
+  * Removed Env#dynamic, #dynamic?, #use, #used?
+  * Removed RubyLexer#tern. Introduced and disused during 3.0 alpha. (whitequark)
+  * Removed unused RubyLexer#warnings.
+  * Renamed *_RE consts to just * (IDENT_CHAR, ESC, etc).
+  * new_defn now sets arg node line number directly.
+  * zero byte is allowed in symbols for 1.9 / 2.0.
+
+* 11 bug fixes:
+
+  * 2.0: Fixed paren-less kwargs in defn.
+  * Don't bother with regexp encoding options on 1.9+ to avoid warnings.
+  * Fix constant re-build on ruby 2.0 + rake 10.
+  * Fix lexing of %i with extra whitespace. (flori)
+  * Fixed RubyParserStuff#new_body to deal with nonsensical code better (begin-empty+else). (snatchev)
+  * Fixed bug lexing h[k]=begin ... end. Use your space bars people!
+  * Fixed env scoping in new lambdas.
+  * Fixed handling of single array arg in attrasgn.
+  * Fixed test to call RubyLexer#reset between assertions.
+  * No longer assigning ivar/cvars to env. Only locals should be in env.
+  * Refactored initialize and reset to more properly re-initialize as needed.
+
 === 3.2.2 / 2013-07-11
 
 * 5 bug fixes:
