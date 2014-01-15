@@ -1211,6 +1211,14 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_call_space_before_paren_args
+    # This only parses in Ruby 1.8, with a warning
+    rb = "a (:b, :c, :d => :e)"
+    pt = s(:call, nil, :a, s(:lit, :b), s(:lit, :c), s(:hash, s(:lit, :d), s(:lit, :e)))
+
+    assert_parse rb, pt
+  end
+
   def test_call_bang_squiggle
     rb = "1 !~ 2"
     pt = s(:not, s(:call, s(:lit, 1), :=~, s(:lit, 2))) # TODO: check for 1.9+
