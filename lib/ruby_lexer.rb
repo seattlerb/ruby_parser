@@ -276,125 +276,12 @@ class RubyLexer
     is_arg? and space_seen and c !~ /\s/
   end
 
-  def process_float text
-    rb_compile_error "Invalid numeric format" if matched =~ /__/
-    return result(:expr_end, :tFLOAT, matched.to_f)
-  end
-
   def matched
     ss.matched
   end
 
   def not_end?
     not is_end?
-  end
-
-  def parse_quote # TODO: remove / rewrite
-    beg, nnd, short_hand, c = nil, nil, false, nil
-
-    if scan(/[a-z0-9]{1,2}/i) then # Long-hand (e.g. %Q{}).
-      rb_compile_error "unknown type of %string" if ss.matched_size == 2
-      c, beg, short_hand = matched, ss.getch, false
-    else                               # Short-hand (e.g. %{, %., %!, etc)
-      c, beg, short_hand = 'Q', ss.getch, true
-    end
-
-    if end_of_stream? or c == RubyLexer::EOF or beg == RubyLexer::EOF then
-      rb_compile_error "unterminated quoted string meets end of file"
-    end
-
-    # Figure nnd-char.  "\0" is special to indicate beg=nnd and that no nesting?
-    nnd = { "(" => ")", "[" => "]", "{" => "}", "<" => ">" }[beg]
-    nnd, beg = beg, "\0" if nnd.nil?
-
-    token_type, text = nil, "%#{c}#{beg}"
-    token_type, string_type = case c
-                              when 'Q' then
-                                ch = short_hand ? nnd : c + beg
-                                text = "%#{ch}"
-                                [:tSTRING_BEG,   STR_DQUOTE]
-                              when 'q' then
-                                [:tSTRING_BEG,   STR_SQUOTE]
-                              when 'W' then
-                                scan(/\s*/)
-                                [:tWORDS_BEG,    STR_DQUOTE | STR_FUNC_QWORDS]
-                              when 'w' then
-                                scan(/\s*/)
-                                [:tQWORDS_BEG,   STR_SQUOTE | STR_FUNC_QWORDS]
-                              when 'x' then
-                                [:tXSTRING_BEG,  STR_XQUOTE]
-                              when 'r' then
-                                [:tREGEXP_BEG,   STR_REGEXP]
-                              when 's' then
-                                self.lex_state  = :expr_fname
-                                [:tSYMBEG,       STR_SSYM]
-                              when 'I' then
-                                scan(/\s*/)
-                                [:tSYMBOLS_BEG, STR_DQUOTE | STR_FUNC_QWORDS]
-                              when 'i' then
-                                scan(/\s*/)
-                                [:tQSYMBOLS_BEG, STR_SQUOTE | STR_FUNC_QWORDS]
-                              end
-
-    rb_compile_error "Bad %string type. Expected [QqWwIixrs], found '#{c}'." if
-      token_type.nil?
-
-    raise "huh" unless string_type
-
-    string string_type, nnd, beg
-
-    return token_type, text
-  end
-
-  def parse_string quote # TODO: rewrite / remove
-    _, string_type, term, open = quote
-
-    space = false # FIX: remove these
-    func = string_type
-    paren = open
-    term_re = @@regexp_cache[term]
-
-    qwords = (func & STR_FUNC_QWORDS) != 0
-    regexp = (func & STR_FUNC_REGEXP) != 0
-    expand = (func & STR_FUNC_EXPAND) != 0
-
-    unless func then # nil'ed from qwords below. *sigh*
-      return :tSTRING_END, nil
-    end
-
-    space = true if qwords and scan(/\s+/)
-
-    if self.string_nest == 0 && scan(/#{term_re}/) then
-      if qwords then
-        quote[1] = nil
-        return :tSPACE, nil
-      elsif regexp then
-        return :tREGEXP_END, self.regx_options
-      else
-        return :tSTRING_END, term
-      end
-    end
-
-    return :tSPACE, nil if space
-
-    self.string_buffer = []
-
-    if expand
-      case
-      when scan(/#(?=[$@])/) then
-        return :tSTRING_DVAR, nil
-      when scan(/#[{]/) then
-        return :tSTRING_DBEG, nil
-      when scan(/#/) then
-        string_buffer << '#'
-      end
-    end
-
-    if tokadd_string(func, term, paren) == RubyLexer::EOF then
-      rb_compile_error "unterminated string meets end of file"
-    end
-
-    return :tSTRING_CONTENT, string_buffer.join
   end
 
   def process_amper text
@@ -513,6 +400,11 @@ class RubyLexer
     return expr_result(token, "{")
   end
 
+  def process_float text
+    rb_compile_error "Invalid numeric format" if text =~ /__/
+    return result(:expr_end, :tFLOAT, text.to_f)
+  end
+
   def process_lchevron text
     if (!in_lex_state?(:expr_dot, :expr_class) &&
         !is_end? &&
@@ -535,7 +427,6 @@ class RubyLexer
       end
 
       return nil if end_of_stream?
-      # HACK return RubyLexer::EOF, RubyLexer::EOF if end_of_stream?
     end
 
     # Replace a string of newlines with a single one
@@ -566,6 +457,35 @@ class RubyLexer
     self.paren_nest += 1
 
     return expr_result(token, "(")
+  end
+
+  def process_paren18
+    self.command_start = true
+    token = :tLPAREN2
+
+    if in_lex_state? :expr_beg, :expr_mid then
+      token = :tLPAREN
+    elsif space_seen then
+      if in_lex_state? :expr_cmdarg then
+        token = :tLPAREN_ARG
+      elsif in_lex_state? :expr_arg then
+        warning "don't put space before argument parentheses"
+      end
+    else
+      # not a ternary -- do nothing?
+    end
+
+    token
+  end
+
+  def process_paren19
+    if is_beg? then
+      :tLPAREN
+    elsif is_space_arg? then
+      :tLPAREN_ARG
+    else
+      :tLPAREN2 # plain '(' in parse.y
+    end
   end
 
   def process_percent text
@@ -1091,35 +1011,6 @@ class RubyLexer
     # do nothing for now
   end
 
-  def process_paren18
-    self.command_start = true
-    token = :tLPAREN2
-
-    if in_lex_state? :expr_beg, :expr_mid then
-      token = :tLPAREN
-    elsif space_seen then
-      if in_lex_state? :expr_cmdarg then
-        token = :tLPAREN_ARG
-      elsif in_lex_state? :expr_arg then
-        warning "don't put space before argument parentheses"
-      end
-    else
-      # not a ternary -- do nothing?
-    end
-
-    token
-  end
-
-  def process_paren19
-    if is_beg? then
-      :tLPAREN
-    elsif is_space_arg? then
-      :tLPAREN_ARG
-    else
-      :tLPAREN2 # plain '(' in parse.y
-    end
-  end
-
   def process_string # TODO: rewrite / remove
     token = if lex_strterm[0] == :heredoc then
               self.heredoc lex_strterm
@@ -1135,6 +1026,114 @@ class RubyLexer
     end
 
     return token
+  end
+
+  def parse_quote # TODO: remove / rewrite
+    beg, nnd, short_hand, c = nil, nil, false, nil
+
+    if scan(/[a-z0-9]{1,2}/i) then # Long-hand (e.g. %Q{}).
+      rb_compile_error "unknown type of %string" if ss.matched_size == 2
+      c, beg, short_hand = matched, ss.getch, false
+    else                               # Short-hand (e.g. %{, %., %!, etc)
+      c, beg, short_hand = 'Q', ss.getch, true
+    end
+
+    if end_of_stream? or c == RubyLexer::EOF or beg == RubyLexer::EOF then
+      rb_compile_error "unterminated quoted string meets end of file"
+    end
+
+    # Figure nnd-char.  "\0" is special to indicate beg=nnd and that no nesting?
+    nnd = { "(" => ")", "[" => "]", "{" => "}", "<" => ">" }[beg]
+    nnd, beg = beg, "\0" if nnd.nil?
+
+    token_type, text = nil, "%#{c}#{beg}"
+    token_type, string_type = case c
+                              when 'Q' then
+                                ch = short_hand ? nnd : c + beg
+                                text = "%#{ch}"
+                                [:tSTRING_BEG,   STR_DQUOTE]
+                              when 'q' then
+                                [:tSTRING_BEG,   STR_SQUOTE]
+                              when 'W' then
+                                scan(/\s*/)
+                                [:tWORDS_BEG,    STR_DQUOTE | STR_FUNC_QWORDS]
+                              when 'w' then
+                                scan(/\s*/)
+                                [:tQWORDS_BEG,   STR_SQUOTE | STR_FUNC_QWORDS]
+                              when 'x' then
+                                [:tXSTRING_BEG,  STR_XQUOTE]
+                              when 'r' then
+                                [:tREGEXP_BEG,   STR_REGEXP]
+                              when 's' then
+                                self.lex_state  = :expr_fname
+                                [:tSYMBEG,       STR_SSYM]
+                              when 'I' then
+                                scan(/\s*/)
+                                [:tSYMBOLS_BEG, STR_DQUOTE | STR_FUNC_QWORDS]
+                              when 'i' then
+                                scan(/\s*/)
+                                [:tQSYMBOLS_BEG, STR_SQUOTE | STR_FUNC_QWORDS]
+                              end
+
+    rb_compile_error "Bad %string type. Expected [QqWwIixrs], found '#{c}'." if
+      token_type.nil?
+
+    raise "huh" unless string_type
+
+    string string_type, nnd, beg
+
+    return token_type, text
+  end
+
+  def parse_string quote # TODO: rewrite / remove
+    _, string_type, term, open = quote
+
+    space = false # FIX: remove these
+    func = string_type
+    paren = open
+    term_re = @@regexp_cache[term]
+
+    qwords = (func & STR_FUNC_QWORDS) != 0
+    regexp = (func & STR_FUNC_REGEXP) != 0
+    expand = (func & STR_FUNC_EXPAND) != 0
+
+    unless func then # nil'ed from qwords below. *sigh*
+      return :tSTRING_END, nil
+    end
+
+    space = true if qwords and scan(/\s+/)
+
+    if self.string_nest == 0 && scan(/#{term_re}/) then
+      if qwords then
+        quote[1] = nil
+        return :tSPACE, nil
+      elsif regexp then
+        return :tREGEXP_END, self.regx_options
+      else
+        return :tSTRING_END, term
+      end
+    end
+
+    return :tSPACE, nil if space
+
+    self.string_buffer = []
+
+    if expand
+      case
+      when scan(/#(?=[$@])/) then
+        return :tSTRING_DVAR, nil
+      when scan(/#[{]/) then
+        return :tSTRING_DBEG, nil
+      when scan(/#/) then
+        string_buffer << '#'
+      end
+    end
+
+    if tokadd_string(func, term, paren) == RubyLexer::EOF then
+      rb_compile_error "unterminated string meets end of file"
+    end
+
+    return :tSTRING_CONTENT, string_buffer.join
   end
 end
 
