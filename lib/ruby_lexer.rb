@@ -632,9 +632,9 @@ class RubyLexer
     return result(:expr_end, :tSYMBOL, symbol)
   end
 
-  def process_token command_state, last_state # TODO: remove last_state, ivar
+  def process_token text
     # TODO: make this always return [token, lineno]
-    token = self.token
+    token = self.token = text
     token << matched if scan(/[\!\?](?!=)/)
 
     tok_id =
@@ -726,8 +726,7 @@ class RubyLexer
     if beginning_of_line? && scan(/\__END__(\r?\n|\Z)/) then
       return [RubyLexer::EOF, RubyLexer::EOF]
     elsif scan(/\_\w*/) then
-      self.token = matched
-      return process_token command_state, last_state
+      return process_token matched
     end
   end
 

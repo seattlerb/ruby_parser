@@ -182,7 +182,7 @@ bol?            /\=begin(?=\s)/         process_begin
 
                 /\_/                    process_underscore
 
-                /#{IDENT}/o             { self.token = matched; process_token(command_state, last_state) }
+                /#{IDENT}/o             process_token
 
                 /\004|\032|\000|\Z/     { [RubyLexer::EOF, RubyLexer::EOF] }
 
