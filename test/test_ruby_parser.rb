@@ -2844,6 +2844,38 @@ class TestRuby20Parser < RubyParserTestCase
     self.processor = Ruby20Parser.new
   end
 
+  def test_block_call_dot_op2_brace_block
+    rb = "a.b c() do d end.e do |f| g end"
+    pt = s(:iter,
+           s(:call,
+             s(:iter,
+               s(:call, s(:call, nil, :a), :b, s(:call, nil, :c)),
+               s(:args),
+               s(:call, nil, :d)),
+             :e),
+           s(:args, :f),
+           s(:call, nil, :g))
+
+
+    assert_parse rb, pt
+  end
+
+  def test_block_call_dot_op2_cmd_args_do_block
+    rb = "a.b c() do d end.e f do |g| h end"
+    pt = s(:iter,
+           s(:call,
+             s(:iter,
+               s(:call, s(:call, nil, :a), :b, s(:call, nil, :c)),
+               s(:args),
+               s(:call, nil, :d)),
+             :e,
+             s(:call, nil, :f)),
+           s(:args, :g),
+           s(:call, nil, :h))
+
+    assert_parse rb, pt
+  end
+
   def test_defn_kwarg_val
     rb = "def f(a, b:1) end"
     pt = s(:defn, :f, s(:args, :a, s(:kwarg, :b, s(:lit, 1))), s(:nil))

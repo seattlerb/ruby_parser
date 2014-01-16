@@ -1501,11 +1501,21 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | block_call dot_or_colon operation2 opt_paren_args brace_block
                     {
-                      debug20 21, val, result
+                      iter1, _, name, args, iter2 = val
+
+                      call = new_call iter1, name.to_sym, args
+                      iter2.insert 1, call
+
+                      result = iter2
                     }
                 | block_call dot_or_colon operation2 command_args do_block
                     {
-                      debug20 22, val, result
+                      iter1, _, name, args, iter2 = val
+
+                      call = new_call iter1, name.to_sym, args
+                      iter2.insert 1, call
+
+                      result = iter2
                     }
 
      method_call: fcall
