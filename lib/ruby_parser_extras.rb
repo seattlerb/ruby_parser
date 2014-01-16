@@ -140,15 +140,6 @@ module RubyParserStuff
     raise RubyParser::SyntaxError, msg
   end
 
-  def arg_add(node1, node2) # TODO: nuke
-    return s(:arglist, node2) unless node1
-
-    node1[0] = :arglist if node1[0] == :array
-    return node1 << node2 if node1[0] == :arglist
-
-    return s(:arglist, node1, node2)
-  end
-
   def arg_blk_pass node1, node2 # TODO: nuke
     node1 = s(:arglist, node1) unless [:arglist, :call_args, :array, :args].include? node1.first
     node1 << node2 if node2
@@ -556,7 +547,7 @@ module RubyParserStuff
   end
 
   def argl x
-    x = s(:arglist, x) if x and x[0] != :arglist
+    x = s(:arglist, x) if x and x[0] == :array
     x
   end
 
@@ -580,12 +571,15 @@ module RubyParserStuff
     # TODO: need a test with f(&b) to produce block_pass
     # TODO: need a test with f(&b) { } to produce warning
 
-    args ||= s(:arglist)
-    args[0] = :arglist if [:args, :array, :call_args].include? args.first
-    args = s(:arglist, args) unless args.first == :arglist
 
-    # HACK quick hack to make this work quickly... easy to clean up above
-    result.concat args[1..-1]
+    if args
+      if [:arglist, :args, :array, :call_args].include? args.first
+        args.shift
+        result.concat args
+      else
+        result << args
+      end
+    end
 
     line = result.grep(Sexp).map(&:line).compact.min
     result.line = line if line
@@ -932,8 +926,17 @@ module RubyParserStuff
     when :attrasgn then
       lhs << rhs
     when :call then
-      args = lhs.pop unless Symbol === lhs.last
-      lhs.concat arg_add(args, rhs)[1..-1]
+      if Symbol == lhs.last
+        lhs << rhs
+      else
+        args = lhs.pop
+
+        if args.nil?
+          lhs << rhs
+        else
+          lhs << args << rhs
+        end
+      end
     when :const then
       lhs[0] = :cdecl
       lhs << rhs
