@@ -639,7 +639,6 @@ module TestRubyParserShared
            s(:call, nil, :b).line(2),
            s(:call, nil, :c).line(3))
 
-    # see skipped test: test_parse_line_block_inline_comment2
     assert_parse rb, pt
   end
 
