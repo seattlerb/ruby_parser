@@ -924,19 +924,6 @@ module RubyParserStuff
     when :const then
       lhs[0] = :cdecl
       lhs << rhs
-    when :call then
-      # TODO: prove this can happen. I don't think it can and gauntlet/a agrees.
-      if Symbol === lhs.last
-        lhs << rhs
-      else
-        args = lhs.pop
-
-        if args.nil?
-          lhs << rhs
-        else
-          lhs << args << rhs
-        end
-      end
     else
       raise "unknown lhs #{lhs.inspect} w/ #{rhs.inspect}"
     end
