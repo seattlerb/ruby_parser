@@ -677,6 +677,22 @@ module TestRubyParserShared
     assert_equal 2, result[3].line,   "call should have line number"
   end
 
+  def test_parse_line_call_ivar_line_break_paren
+    rb = "a(@b\n)"
+    pt = s(:call, nil, :a, s(:ivar, :@b))
+
+    assert_parse rb, pt
+    assert_equal 1, result[3].line
+  end
+
+  def test_parse_line_call_ivar_arg_no_parens_line_break
+    rb = "a @b\n"
+    pt = s(:call, nil, :a, s(:ivar, :@b))
+
+    assert_parse rb, pt
+    assert_equal 1, result[3].line
+  end
+
   def test_parse_line_defn_no_parens
     pt = s(:defn, :f, s(:args), s(:nil))
 
