@@ -422,7 +422,7 @@ class RubyLexer
       ss.pos -= 1
 
       while scan(/\s*\#.*(\n+|\z)/) do
-        # TODO self.lineno += matched.lines.to_a.size
+        self.lineno += matched.lines.to_a.size
         @comments << matched.gsub(/^ +#/, '#').gsub(/^ +$/, '')
       end
 
@@ -430,7 +430,7 @@ class RubyLexer
     end
 
     # Replace a string of newlines with a single one
-    scan(/\n+/)
+    self.lineno += matched.lines.to_a.size if scan(/\n+/)
 
     return if in_lex_state?(:expr_beg, :expr_value, :expr_class,
                             :expr_fname, :expr_dot)
@@ -682,6 +682,8 @@ class RubyLexer
         self.parser.env[token.to_sym] == :lvar then
       state = :expr_end
     end
+
+    token.lineno = self.lineno # yes, on a string. I know... I know...
 
     return result(state, tok_id, token)
   end

@@ -633,8 +633,6 @@ module TestRubyParserShared
   end
 
   def test_parse_line_block_inline_comment
-    skip "I also can't fix this yet"
-
     rb = "a\nb # comment\nc"
     pt = s(:block,
            s(:call, nil, :a).line(1),
@@ -645,9 +643,7 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  def test_parse_line_block_inline_comment2
-    skip "I can't fix this yet. Very involved. (process_token to return lineno)"
-
+  def test_parse_line_block_inline_multiline_comment
     rb = "a\nb # comment\n# another comment\nc"
     pt = s(:block,
            s(:call, nil, :a).line(1),
@@ -657,14 +653,12 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  def test_parse_line_block_inline_comment3
-    skip "not yet"
-
+  def test_parse_line_block_inline_comment_leading_newlines
     rb = "\n\n\na\nb # comment\n# another comment\nc"
     pt = s(:block,
            s(:call, nil, :a).line(4),
-           s(:call, nil, :b).line(6),
-           s(:call, nil, :c).line(8)).line(1)
+           s(:call, nil, :b).line(5),
+           s(:call, nil, :c).line(7)).line(4)
 
     assert_parse rb, pt
   end
@@ -1046,7 +1040,7 @@ module TestRubyParserShared
                s(:call, nil, :p, s(:str, "a").line(2)).line(2),
                s(:lasgn, :b, s(:lit, 1).line(3)).line(3),
                s(:call, nil, :p, s(:lvar, :b).line(4)).line(4),
-               s(:lasgn, :c, s(:lit, 1).line(5)).line(5)).line(2), # TODO line 2?
+               s(:lasgn, :c, s(:lit, 1).line(5)).line(5)).line(2),
              nil).line(1),
            s(:call, nil, :a).line(7)).line(1)
 

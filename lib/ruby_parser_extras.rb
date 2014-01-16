@@ -383,6 +383,7 @@ module RubyParserStuff
   end
 
   def gettable(id)
+    lineno = id.lineno if id.respond_to? :lineno
     id = id.to_sym if String === id
 
     result = case id.to_s
@@ -403,7 +404,7 @@ module RubyParserStuff
                end
              end
 
-    result.line(result.line - 1) if result.line and lexer.beginning_of_line?
+    result.line lineno if lineno
 
     raise "identifier #{id.inspect} is not valid" unless result
 
@@ -1363,6 +1364,16 @@ unless "".respond_to?(:grep) then
       lines.grep re
     end
   end
+end
+
+class String
+  ##
+  # This is a hack used by the lexer to sneak in line numbers at the
+  # identifier level. This should be MUCH smaller than making
+  # process_token return [value, lineno] and modifying EVERYTHING that
+  # reduces tIDENTIFIER.
+
+  attr_accessor :lineno
 end
 
 class Sexp
