@@ -12,9 +12,6 @@ Hoe.plugin :isolate
 Hoe.add_include_dirs "../../sexp_processor/dev/lib"
 Hoe.add_include_dirs "../../minitest/dev/lib"
 
-$:.unshift "../../oedipus_lex/dev/lib"
-Rake.application.rake_require "oedipus_lex"
-
 Hoe.spec "ruby_parser" do
   developer "Ryan Davis", "ryand-ruby@zenspider.com"
 
@@ -38,8 +35,6 @@ file "lib/ruby18_parser.rb" => "lib/ruby18_parser.y"
 file "lib/ruby19_parser.rb" => "lib/ruby19_parser.y"
 file "lib/ruby20_parser.rb" => "lib/ruby20_parser.y"
 file "lib/ruby_lexer.rex.rb" => "lib/ruby_lexer.rex"
-
-$rex_option[:do_parse] = false
 
 task :clean do
   rm_rf(Dir["**/*~"] +
