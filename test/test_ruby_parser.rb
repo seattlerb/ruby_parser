@@ -717,6 +717,15 @@ module TestRubyParserShared
     assert_equal 4, body.return.line, "return should have line number"
   end
 
+  def test_parse_line_evstr_after_break
+    rb = "\"a\"\\\n\"\#{b}\""
+    pt = s(:dstr, "a",
+           s(:evstr,
+             s(:call, nil, :b).line(2)).line(2))
+
+    assert_parse rb, pt
+  end
+
   def test_parse_line_iter_call_parens
     rb = "f(a) do |x, y|\n  x + y\nend"
 
