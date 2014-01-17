@@ -441,7 +441,7 @@ module RubyParserStuff
     list
   end
 
-  def literal_concat head, tail
+  def literal_concat head, tail # TODO: ugh. rewrite
     return tail unless head
     return head unless tail
 
@@ -460,8 +460,10 @@ module RubyParserStuff
       end
     when :dstr then
       if htype == :str then
+        lineno = head.line
         tail[1] = head[-1] + tail[1]
         head = tail
+        head.line = lineno
       else
         tail[0] = :array
         tail[1] = s(:str, tail[1])
