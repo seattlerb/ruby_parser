@@ -63,7 +63,7 @@ bol?            /\=begin(?=\s)/         process_begin
                 /\"/                    { string STR_DQUOTE; result nil, :tSTRING_BEG, text }
 
                 /\@\@?\d/                  { rb_compile_error "`#{text}` is not allowed as a variable name" }
-                /\@\@?#{IDENT_CHAR}+/o { tok_id = text =~ /^@@/ ? :tCVAR : :tIVAR; result(:expr_end, tok_id, text) }
+                /\@\@?#{IDENT_CHAR}+/o  process_ivar
 
 #               /\:\:/ : happy?         { result :expr_beg, :tCOLON3, text }
 #                      |                { result :expr_beg, :tCOLON3, text }
@@ -167,18 +167,16 @@ bol?            /\=begin(?=\s)/         process_begin
 
                 /\%/                    process_percent
 
-                /\$_\w+/                { self.token = text; result(:expr_end, :tGVAR, text) }
-                /\$_/                   { result(:expr_end, :tGVAR, matched) }
-                /\$[~*$?!@\/\\;,.=:<>\"]|\$-\w?/ { result(:expr_end, :tGVAR, matched) }
-                /\$([\&\`\'\+])/        { lex_state == :expr_fname ? result(:expr_end, :tGVAR, matched) : result(:expr_end, :tBACK_REF, ss[1].to_sym) }
-                /\$([1-9]\d*)/          { lex_state == :expr_fname ? result(:expr_end, :tGVAR, matched) : result(:expr_end, :tNTH_REF, ss[1].to_i) }
-# expr_fname?   /\$([\&\`\'\+])/        { result :expr_end, :tGVAR, text }
-#               /\$([\&\`\'\+])/        { result :expr_end, :tBACK_REF, ss[1].to_sym }
-# expr_fname?   /\$([1-9]\d*)/          { result :expr_end, :tGVAR, text }
-#               /\$([1-9]\d*)/          { result :expr_end, :tNTH_REF, ss[1].to_i }
-                /\$0/                   { result :expr_end, :tGVAR, text }
-                /\$\W|\$\z/             { result :expr_end, "$", "$" }
-                /\$\w+/                 { result :expr_end, :tGVAR, text }
+                /\$_\w+/                         process_gvar
+                /\$_/                            process_gvar
+                /\$[~*$?!@\/\\;,.=:<>\"]|\$-\w?/ process_gvar
+  in_fname?     /\$([\&\`\'\+])/                 process_gvar
+                /\$([\&\`\'\+])/                 process_backref
+  in_fname?     /\$([1-9]\d*)/                   process_gvar
+                /\$([1-9]\d*)/                   process_nthref
+                /\$0/                            process_gvar
+                /\$\W|\$\z/                      process_gvar_oddity
+                /\$\w+/                          process_gvar
 
                 /\_/                    process_underscore
 

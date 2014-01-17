@@ -243,6 +243,10 @@ class RubyLexer
     end
   end
 
+  def in_fname?
+    in_lex_state? :expr_fname
+  end
+
   def in_arg_state? # TODO: rename is_after_operator?
     in_lex_state? :expr_fname, :expr_dot
   end
@@ -295,6 +299,12 @@ class RubyLexer
              end
 
     return result(:arg_state, token, "&")
+  end
+
+  def process_backref text
+    token = ss[1].to_sym
+    # TODO: can't do lineno hack w/ symbol
+    result :expr_end, :tBACK_REF, token
   end
 
   def process_backtick text
@@ -405,6 +415,21 @@ class RubyLexer
     return result(:expr_end, :tFLOAT, text.to_f)
   end
 
+  def process_gvar text
+    text.lineno = self.lineno
+    result(:expr_end, :tGVAR, text)
+  end
+
+  def process_gvar_oddity text
+    result :expr_end, "$", "$" # TODO: wtf is this?
+  end
+
+  def process_ivar text
+    tok_id = text =~ /^@@/ ? :tCVAR : :tIVAR
+    text.lineno = self.lineno
+    return result(:expr_end, tok_id, text)
+  end
+
   def process_lchevron text
     if (!in_lex_state?(:expr_dot, :expr_class) &&
         !is_end? &&
@@ -445,6 +470,11 @@ class RubyLexer
     self.command_start = true
 
     return result(:expr_beg, :tNL, nil)
+  end
+
+  def process_nthref text
+    # TODO: can't do lineno hack w/ number
+    result :expr_end, :tNTH_REF, ss[1].to_i
   end
 
   def process_paren text
