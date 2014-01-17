@@ -162,7 +162,7 @@ bol?            /\=begin(?=\s)/         process_begin
   in_arg_state? /\~@/                   { result(:arg_state, :tTILDE, "~") }
                 /\~/                    { result(:arg_state, :tTILDE, "~") }
 
-                /\\\r?\n/               { self.space_seen = true; next }
+                /\\\r?\n/               { self.lineno += 1; self.space_seen = true; next }
                 /\\/                    { rb_compile_error "bare backslash only allowed before newline" }
 
                 /\%/                    process_percent
