@@ -1380,12 +1380,10 @@ class Sexp
     self.value.to_sym
   end
 
-  def add x
-    concat x
-  end
+  alias :add :<<
 
   def add_all x
-    raise "no: #{self.inspect}.add_all #{x.inspect}" # TODO: need a test to trigger this
+    self.concat x.sexp_body
   end
 
   def block_pass?

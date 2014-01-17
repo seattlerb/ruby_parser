@@ -829,12 +829,14 @@ rule
                     }
                 | arg_value tCOMMA args tCOMMA assocs opt_block_arg
                     {
-                      result = s(:array, val[0]).add_all(val[2]).add(s(:hash, *val[4].values))
-                      result = arg_blk_pass result, val[5]
+                      arg_value, _, args, _, assocs, opt_block = val
+                      result = s(:array, arg_value).add_all(args)
+                      result.add(s(:hash, *assocs.sexp_body))
+                      result = arg_blk_pass result, opt_block
                     }
                 | arg_value tCOMMA assocs tCOMMA tSTAR arg_value opt_block_arg
                     {
-                      result = arg_concat s(:array, val[0]).add(s(:hash, *val[2].values)), val[5]
+                      result = arg_concat s(:array, val[0]).add(s(:hash, *val[2].sexp_body)), val[5]
                       result = arg_blk_pass result, val[6]
                     }
                 | arg_value tCOMMA args tCOMMA assocs tCOMMA tSTAR arg_value opt_block_arg

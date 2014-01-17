@@ -2060,6 +2060,16 @@ class TestRuby18Parser < RubyParserTestCase
     self.processor = Ruby18Parser.new
   end
 
+  def test_call_space_before_paren_args
+    rb = "a (:b, :c, :d => :e)"
+    pt = s(:call, nil, :a,
+           s(:lit, :b),
+           s(:lit, :c),
+           s(:hash, s(:lit, :d), s(:lit, :e)))
+
+    assert_parse rb, pt
+  end
+
   def test_flip2_env_lvar
     rb = "if a..b then end"
     pt = s(:if, s(:flip2, s(:call, nil, :a), s(:call, nil, :b)), nil, nil)
