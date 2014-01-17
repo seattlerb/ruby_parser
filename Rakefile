@@ -145,6 +145,7 @@ end
 task :debug => :isolate do
   ENV["V"] ||= "20"
   Rake.application[:parser].invoke # this way we can have DEBUG set
+  Rake.application[:lexer].invoke # this way we can have DEBUG set
 
   $: << "lib"
   require "ruby_parser"
