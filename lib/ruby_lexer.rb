@@ -1169,3 +1169,19 @@ class RubyLexer
 end
 
 require "ruby_lexer.rex"
+
+if ENV["DEBUG"] then
+  class RubyLexer
+    alias :old_lineno= :lineno=
+
+    def d o
+      $stderr.puts o.inspect
+    end
+
+    def lineno= n
+      self.old_lineno= n
+      where = caller.first.split(/:/).first(2).join(":")
+      d :lineno => [n, where, ss && ss.rest]
+    end
+  end
+end
