@@ -815,6 +815,15 @@ module TestRubyParserShared
     assert_equal 3, result.if.return.lit.line
   end
 
+  def test_parse_line_trailing_newlines
+    rb = "a \nb"
+    pt = s(:block,
+           s(:call, nil, :a).line(1),
+           s(:call, nil, :b).line(2))
+
+    assert_parse rb, pt
+  end
+
   def test_bug_and
     rb = "true and []"
     pt = s(:and, s(:true), s(:array))
