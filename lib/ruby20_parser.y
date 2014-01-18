@@ -1058,11 +1058,13 @@ rule
                     }
                 | kCASE expr_value opt_terms case_body kEND
                     {
-                      result = new_case val[1], val[3]
+                      (_, line), expr, _, body, _ = val
+                      result = new_case expr, body, line
                     }
                 | kCASE            opt_terms case_body kEND
                     {
-                      result = new_case nil, val[2]
+                      (_, line), _, body, _ = val
+                      result = new_case nil, body, line
                     }
                 | kFOR for_var kIN
                     {

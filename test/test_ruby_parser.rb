@@ -603,14 +603,8 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  STARTING_LINE = {
-    "case_no_expr"                       => 2, # TODO this should be 1
-    "structure_unused_literal_wwtt"      => 3, # yes, 3... odd test
-  }
-
   def after_process_hook klass, node, data, input_name, output_name
-    expected = STARTING_LINE[node] || 1
-    assert_equal expected, @result.line, "should have proper line number"
+    assert_equal 1, @result.line, "should have proper line number"
   end
 
   def test_parse_line_block
@@ -745,15 +739,12 @@ module TestRubyParserShared
     rb = "f a do |x, y|\n  x + y\nend"
 
     pt = s(:iter,
-           s(:call, nil, :f, s(:call, nil, :a)),
-           s(:args, :x, :y),
-           s(:call, s(:lvar, :x), :+, s(:lvar, :y)))
+           s(:call, nil, :f, s(:call, nil, :a).line(1)).line(1),
+           s(:args, :x, :y).line(1),
+           s(:call, s(:lvar, :x).line(2), :+,
+             s(:lvar, :y).line(2)).line(2)).line(1)
 
-    assert_parse_line rb, pt, 1
-
-    assert_equal 1, result[1].line,   "call should have line number"
-    assert_equal 1, result[2].line,   "masgn should have line number"
-    assert_equal 2, result[3].line,   "call should have line number"
+    assert_parse rb, pt
   end
 
   def test_parse_line_heredoc
@@ -813,6 +804,15 @@ module TestRubyParserShared
 
     assert_equal 3, result.if.return.line
     assert_equal 3, result.if.return.lit.line
+  end
+
+  def test_parse_line_trailing_newlines
+    rb = "a \nb"
+    pt = s(:block,
+           s(:call, nil, :a).line(1),
+           s(:call, nil, :b).line(2)).line(1)
+
+    assert_parse rb, pt
   end
 
   def test_bug_and

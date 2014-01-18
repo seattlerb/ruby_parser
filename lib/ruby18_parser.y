@@ -1044,15 +1044,18 @@ rule
                     }
                 | kCASE expr_value opt_terms case_body kEND
                     {
-                      result = new_case val[1], val[3]
+                      (_, line), expr, _, body, _ = val
+                      result = new_case expr, body, line
                     }
                 | kCASE            opt_terms case_body kEND
                     {
-                      result = new_case nil, val[2]
+                      (_, line), _, body, _ = val
+                      result = new_case nil, body, line
                     }
                 | kCASE opt_terms kELSE compstmt kEND # TODO: need a test
                     {
-                      result = new_case nil, val[3]
+                      (_, line), _, _, elsebody, _ = val
+                      result = new_case nil, elsebody, line
                     }
                 | kFOR for_var kIN
                     {

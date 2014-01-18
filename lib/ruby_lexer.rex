@@ -6,6 +6,10 @@
 
 class RubyLexer
 
+options
+
+# TODO: nolineno
+
 macro
 
   IDENT         /^#{IDENT_CHAR}+/o
@@ -33,6 +37,7 @@ start
   self.command_start = false
   self.space_seen    = false
   self.last_state    = lex_state
+  self.lineno -= 1 if ss.peek(1) == "\n" # Undo built in to experiment
 
 rule
 

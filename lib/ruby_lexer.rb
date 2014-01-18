@@ -229,7 +229,6 @@ class RubyLexer
     if scan(/.*\n/) then
       # TODO: think about storing off the char range instead
       line = matched
-      ss.extra_lines_added += 1 # FIX: ugh
     else
       line = nil
     end
@@ -443,16 +442,21 @@ class RubyLexer
 
   def process_newline_or_comment text
     c = matched
+    hit = false
+
     if c == '#' then
       ss.pos -= 1
 
       while scan(/\s*\#.*(\n+|\z)/) do
+        hit = true
         self.lineno += matched.lines.to_a.size
         @comments << matched.gsub(/^ +#/, '#').gsub(/^ +$/, '')
       end
 
       return nil if end_of_stream?
     end
+
+    self.lineno += 1 unless hit
 
     # Replace a string of newlines with a single one
     self.lineno += matched.lines.to_a.size if scan(/\n+/)

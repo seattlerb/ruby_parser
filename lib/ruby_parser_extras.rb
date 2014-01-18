@@ -59,20 +59,8 @@ class RPStringScanner < StringScanner
     end
   end
 
-  def extra_lines_added
-    @extra_lines_added ||= 0
-  end
-
-  def extra_lines_added= val
-    @extra_lines_added = val
-  end
-
-  # TODO: once we get rid of these, we can make things like
-  # TODO: current_line and lineno much more accurate and easy to do
-
   def unread_many str # TODO: remove this entirely - we should not need it
     warn({:unread_many => caller[0]}.inspect) if ENV['TALLY']
-    self.extra_lines_added += str.count("\n") - 1
     begin
       string[charpos, 0] = str
     rescue IndexError
@@ -587,9 +575,8 @@ module RubyParserStuff
     result
   end
 
-  def new_case expr, body
+  def new_case expr, body, line
     result = s(:case, expr)
-    line = (expr || body).line
 
     while body and body.node_type == :when
       result << body
