@@ -11,8 +11,6 @@ class RubyLexer
                  /[\w\x80-\xFF]/n
                end
 
-  ESC_RE = /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|[^0-7xMCc]))/u
-
   EOF = :eof_haha!
 
   # ruby constants for strings (should this be moved somewhere else?)
@@ -658,7 +656,7 @@ class RubyLexer
   end
 
   def process_symbol text
-    symbol = match[1].gsub(ESC_RE) { unescape $1 }
+    symbol = match[1].gsub(ESC) { unescape $1 }
 
     rb_compile_error "symbol cannot contain '\\0'" if
       ruby18 && symbol =~ /\0/
@@ -819,7 +817,7 @@ class RubyLexer
       c
     when scan(/^[89]/i) then # bad octal or hex... MRI ignores them :(
       matched
-    when scan(/u([0-9a-fA-F]+|\{[0-9a-fA-F]+\})/) then
+    when scan(/u([0-9a-fA-F]{2,4}|\{[0-9a-fA-F]{2,6}\})/) then
       [ss[1].delete("{}").to_i(16)].pack("U")
     when scan(/[McCx0-9]/) || end_of_stream? then
       rb_compile_error("Invalid escape character syntax")
@@ -1033,7 +1031,7 @@ class RubyLexer
           s
         when /^[McCx0-9]/ then
           rb_compile_error("Invalid escape character syntax")
-        when /u([0-9a-fA-F]+|\{[0-9a-fA-F]+\})/ then
+        when /u([0-9a-fA-F]{2,4}|\{[0-9a-fA-F]{2,6}\})/ then
           [$1.delete("{}").to_i(16)].pack("U")
         else
           s
@@ -1185,7 +1183,7 @@ if ENV["DEBUG"] then
     def lineno= n
       self.old_lineno= n
       where = caller.first.split(/:/).first(2).join(":")
-      d :lineno => [n, where, ss && ss.rest]
+      d :lineno => [n, where, ss && ss.rest[0,40]]
     end
   end
 end

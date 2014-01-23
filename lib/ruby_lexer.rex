@@ -6,10 +6,6 @@
 
 class RubyLexer
 
-options
-
-# TODO: nolineno
-
 macro
 
   IDENT         /^#{IDENT_CHAR}+/o
@@ -37,7 +33,6 @@ start
   self.command_start = false
   self.space_seen    = false
   self.last_state    = lex_state
-  self.lineno -= 1 if ss.peek(1) == "\n" # Undo built in to experiment
 
 rule
 
@@ -76,7 +71,7 @@ bol?            /\=begin(?=\s)/         process_begin
 #                      | /\'/           { string STR_SSYM; result :expr_fname, :tSYMBEG, text }
 #                      | /\"/           { string STR_DSYM; result :expr_fname, :tSYMBEG, text }
 
-  not_end?      /:([a-zA-Z_]#{IDENT_CHAR}*(?:[?!]|=(?==>)|=(?![=>]))?)/o process_symbol
+  not_end?      /:([a-zA-Z_]#{IDENT_CHAR}*(?:[?]|[!](?!=)|=(?==>)|=(?![=>]))?)/o process_symbol
   not_end?      /\:\"(#{SIMPLE_STRING})\"/o process_symbol
   not_end?      /\:\'(#{SSTRING})\'/o       process_symbol
 

@@ -9,6 +9,7 @@ $m ||= ENV["MOVE_TIMEOUT"]
 $q ||= false
 $q ||= ENV["QUIET"]
 $v ||= ENV["V"] || "20"
+$s ||= ENV["SPEED"] || false
 
 require 'rubygems'
 require 'ruby_parser'
@@ -113,8 +114,13 @@ def process file
 
   $stderr.print "# Validating #{file}: "
   parser = $parser_class.new
+  t0 = Time.now if $s
   parser.process(ruby, file, time)
-  warn "good"
+  if $s then
+    warn "good: #{Time.now - t0}"
+  else
+    warn "good"
+  end
   File.unlink file if $d
 rescue Timeout::Error
   $exit = 1

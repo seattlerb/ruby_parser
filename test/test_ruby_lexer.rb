@@ -834,6 +834,14 @@ class TestRubyLexer < Minitest::Test
                 :kEND,      "end", :expr_end)
   end
 
+  def test_yylex_is_your_spacebar_broken?
+    assert_lex3(":a!=:b",
+                nil,
+                :tSYMBOL, "a",  :expr_end,
+                :tNEQ,    "!=", :expr_beg,
+                :tSYMBOL, "b",  :expr_end)
+  end
+
   def test_yylex_do_cond
     assert_lex3("x do 42 end",
                 nil,

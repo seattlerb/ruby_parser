@@ -768,8 +768,14 @@ module RubyParserStuff
                   begin
                     Regexp.new(node[1], o)
                   rescue RegexpError => e
-                    warn "Ignoring: #{e.message}"
-                    Regexp.new(node[1], Regexp::ENC_NONE)
+                    warn "WA\RNING: #{e.message} for #{node[1].inspect} #{options.inspect}"
+                    begin
+                      warn "WA\RNING: trying to recover with ENC_UTF8"
+                      Regexp.new(node[1], Regexp::ENC_UTF8)
+                    rescue RegexpError => e
+                      warn "WA\RNING: trying to recover with ENC_NONE"
+                      Regexp.new(node[1], Regexp::ENC_NONE)
+                    end
                   end
                 end
     when :dstr then

@@ -19,7 +19,7 @@ Hoe.spec "ruby_parser" do
 
   dependency "sexp_processor", "~> 4.1"
   dependency "rake", "< 11", :developer
-  dependency "oedipus_lex", "~> 2.0", :developer
+  dependency "oedipus_lex", "~> 2.1", :developer
 
   if plugin? :perforce then
     self.perforce_ignore << "lib/ruby18_parser.rb"
