@@ -1,3 +1,53 @@
+=== 3.4.0 / 2014-02-04
+
+* 1 major enhancement:
+
+  * Replaced hand-written/optimized f'd-up lexer with an oedipus_lex
+    generated lexer. This makes it roughly 40-50% faster.
+
+* 30 minor enhancements:
+
+  * 2.0: Added support for a.b c() do d end.e do |f| g end
+  * 2.0: Added support for a.b c() do d end.e f do |g| h end
+  * Added -s flag to ruby_parse_extract_error to output timings.
+  * Added RubyLexer #command_state and #last_state to deal with oedipus_lex differences.
+  * Added String#lineno and #lineno= because I'm a bad bad person.
+  * Added a bunch of RubyLexer scanning methods: beginning_of_line?, check, scan, etc.
+  * Added a bunch of process_* methods extracted from old yylex. process_amper, etc.
+  * Added lib/.document to save my laptop's battery from pain and suffering
+  * Adjust lineno when we lex a bunch of blank lines.
+  * Attach lineno to tIDENTIFIER values (strings, ugh)
+  * Cleaned up and re-ordered node_assign to be faster (ordered by actual occurrance).
+  * Extend RubyParserStuff#gettable to set the lineno if it comes in with the id.
+  * Extended RubyParserStuff#new_case to take line number.
+  * Finally dropped RPStringScanner's BS #current_line.
+  * Finally dropped RPStringScanner's BS line number calculation (lineno). 
+  * Implemented Sexp#add_all since we now have a test case for it.
+  * Removed :call case of node_assign. I don't think it is possible.
+  * Removed RubyLexer #extra_lines_added. No longer used. Complex heredoc lineno's possible screwed up.
+  * Removed RubyLexer#parse_number. Handled by oedipus_lex.
+  * Removed RubyLexer#yacc_value now that next_token returns pairs.
+  * Removed RubyLexer's @src. Now taken care of by oedipus_lex.
+  * Removed RubyParser#advance. RubyParser#next_token takes care of everything now.
+  * Removed RubyParserExtras#arg_add. (presidentbeef! YAY!)
+  * Removed lib/gauntlet_rubyparser.rb. I just don't use it anymore. Too slow.
+  * RubyLexer#is_label_possible? doesn't need an arg
+  * RubyLexer#process_token is now a normal oedipal lexer method.
+  * RubyParser#next_token now expects RubyLexer#next_token to return a pair (type, val).
+  * TRYING a new scheme to figure out encodings... but I'm about to throw in the towel. I hate this stuff so much.
+  * Turned off oedipus_lex's automatic line counting. (pushing to oedipus_lex soon).
+  * Updated to oedipus_lex 2.1+.
+
+* 7 bug fixes:
+
+  * 1.8: Properly parse `a (:b, :c, :d => :e)`. (presidentbeef)
+  * Fixed lexing symbol!= vs symbol!. Please use your spacebar. Think of the children.
+  * Fixed line for dstr spanning multiple lines via backslash. (presidentbeef)
+  * Fixed line numbers for odd cases with trailing whitespace. (presidentbeef)
+  * Fixed line numbers on ambiguous calls w/ gvar/ivar args. (presidentbeef)
+  * Max out unicode hex values to 2-4 or 2-6 chars or pack will overflow and puke.
+  * Removed ESC_RE from RubyLexer. Must have slipped through.
+
 === 3.3.0 / 2014-01-14
 
 * Notes:
