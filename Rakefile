@@ -188,7 +188,7 @@ end
 
 task :debug_ruby do
   file = ENV["F"] || ENV["FILE"]
-  sh "#{ruby20} -cwy #{file} 2>&1 | ./yuck.rb"
+  sh "/Users/ryan/Desktop/DVDs/debugparser/miniruby -cwy #{file} 2>&1 | ./yuck.rb"
 end
 
 task :extract => :isolate do

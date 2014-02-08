@@ -1277,6 +1277,16 @@ module RubyParserStuff
       p :stack_push => [name, @stack, caller.first] if debug
       nil
     end
+
+    def store
+      result = @stack.dup
+      @stack.replace [false]
+      result
+    end
+
+    def restore oldstate
+      @stack.replace oldstate
+    end
   end
 end
 

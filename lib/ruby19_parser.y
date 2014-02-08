@@ -1694,14 +1694,15 @@ regexp_contents: none
                     }
                 | tSTRING_DBEG
                     {
-                      result = [lexer.lex_strterm, lexer.brace_nest, lexer.string_nest]
+                      result = [lexer.lex_strterm, 
+                                lexer.brace_nest, 
+                                lexer.string_nest, # TODO: remove
+                                lexer.cond.store, 
+                                lexer.cmdarg.store]
 
                       lexer.lex_strterm = nil
                       lexer.brace_nest  = 0
                       lexer.string_nest = 0
-
-                      lexer.cond.push false
-                      lexer.cmdarg.push false
 
                       lexer.lex_state   = :expr_beg
                     }
@@ -1709,14 +1710,14 @@ regexp_contents: none
                     {
                       _, memo, stmt, _ = val
 
-                      lex_strterm, brace_nest, string_nest = memo
+                      lex_strterm, brace_nest, string_nest, oldcond, oldcmdarg = memo
 
                       lexer.lex_strterm = lex_strterm
                       lexer.brace_nest  = brace_nest
                       lexer.string_nest = string_nest
 
-                      lexer.cond.lexpop
-                      lexer.cmdarg.lexpop
+                      lexer.cond.restore oldcond
+                      lexer.cmdarg.restore oldcmdarg
 
                       case stmt
                       when Sexp then
