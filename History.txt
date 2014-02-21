@@ -1,5 +1,7 @@
 === 3.4.1 / 2014-02-14
 
+21 files failed to parse out of ~834k files makes this 99.9975% or 4.21σ.
+
 * 1 minor enhancement:
 
   * Added StackState#store and #restore.
@@ -9,6 +11,8 @@
   * 1.8/1.9/2.0: Fixed tSTRING_DBEG w/ f'd up amounts of nesting + braces + do/end. yeah. I'm as confused as you are.
 
 === 3.4.0 / 2014-02-04
+
+31 files failed to parse out of ~834k files makes this 99.9963% or 4.12σ.
 
 * 1 major enhancement:
 
