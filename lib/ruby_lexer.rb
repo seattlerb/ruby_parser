@@ -132,6 +132,14 @@ class RubyLexer
     ss.eos?
   end
 
+  def expr_dot?
+    lex_state == :expr_dot
+  end
+
+  def expr_fname?
+    lex_state == :expr_fname
+  end
+
   def expr_result token, text
     cond.push false
     cmdarg.push false

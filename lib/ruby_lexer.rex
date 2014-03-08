@@ -46,137 +46,122 @@ rule
                 /[\]\)\}]/              process_bracing
                 /\!/                    process_bang
 
+# TODO: group below
                 /\.\.\.?|,|![=~]?/      { result :expr_beg, TOKENS[text], text }
 
-                /\.\d/                  { rb_compile_error "no .<digit> floating literal anymore put 0 before dot" }
-
-                /\./                    { result :expr_dot, :tDOT, "." }
+: /\./
+|               /\.\d/                  { rb_compile_error "no .<digit> floating literal anymore put 0 before dot" }
+|               /\./                    { result :expr_dot, :tDOT, "." }
 
                 /\(/                    process_paren
 
-                /\=\=\=|\=\=|\=~|\=>|\=(?!begin\b)/ { result arg_state, TOKENS[text], text }
-
-bol?            /\=begin(?=\s)/         process_begin
-                /\=(?=begin\b)/         { result arg_state, TOKENS[text], text }
+: /=/
+|               /\=\=\=|\=\=|\=~|\=>|\=(?!begin\b)/ { result arg_state, TOKENS[text], text }
+| bol?          /\=begin(?=\s)/         process_begin
+|               /\=(?=begin\b)/         { result arg_state, TOKENS[text], text }
 
                 /\"(#{SIMPLE_STRING})\"/o { result :expr_end, :tSTRING, text[1..-2].gsub(ESC) { unescape $1 } }
                 /\"/                    { string STR_DQUOTE; result nil, :tSTRING_BEG, text }
 
-                /\@\@?\d/                  { rb_compile_error "`#{text}` is not allowed as a variable name" }
+                /\@\@?\d/               { rb_compile_error "`#{text}` is not allowed as a variable name" }
                 /\@\@?#{IDENT_CHAR}+/o  process_ivar
 
-#               /\:\:/ : happy?         { result :expr_beg, :tCOLON3, text }
-#                      |                { result :expr_beg, :tCOLON3, text }
-#               /\:/   : trinary?       { result :expr_beg, :tCOLON, text }
-#                      | /\'/           { string STR_SSYM; result :expr_fname, :tSYMBEG, text }
-#                      | /\"/           { string STR_DSYM; result :expr_fname, :tSYMBEG, text }
-
-  not_end?      /:([a-zA-Z_]#{IDENT_CHAR}*(?:[?]|[!](?!=)|=(?==>)|=(?![=>]))?)/o process_symbol
-  not_end?      /\:\"(#{SIMPLE_STRING})\"/o process_symbol
-  not_end?      /\:\'(#{SSTRING})\'/o       process_symbol
-
-                /\:\:/                      process_colon2
-                /\:/                        process_colon1
-
-  # numbers:
-
-# : /\d/
-# |             /#{NUM_BAD}/o           { rb_compile_error "Invalid numeric format"  }
-# |             /#{INT_DEC}/o           { int_with_base 10                           }
-# |             /#{INT_HEX}/o           { int_with_base 16                           }
-# |             /#{INT_BIN}/o           { int_with_base 2                            }
-# |             /#{INT_OCT_BAD}/o       { rb_compile_error "Illegal octal digit."    }
-# |             /#{INT_OCT}/o           { int_with_base 8                            }
-# |             /#{FLOAT_BAD}/o         { rb_compile_error "Trailing '_' in number." }
-# |             /#{FLOAT}/o             process_float
-# |             /#{INT_DEC2}/o          { int_with_base 10                           }
+: /:/
+| not_end?      /:([a-zA-Z_]#{IDENT_CHAR}*(?:[?]|[!](?!=)|=(?==>)|=(?![=>]))?)/o process_symbol
+| not_end?      /\:\"(#{SIMPLE_STRING})\"/o process_symbol
+| not_end?      /\:\'(#{SSTRING})\'/o       process_symbol
+|               /\:\:/                      process_colon2
+|               /\:/                        process_colon1
 
                 /->/                    { result :expr_endfn, :tLAMBDA, nil }
 
                 /[+-]/                  process_plus_minus
 
-                /#{NUM_BAD}/o           { rb_compile_error "Invalid numeric format"  }
-                /#{INT_DEC}/o           { int_with_base 10                           }
-                /#{INT_HEX}/o           { int_with_base 16                           }
-                /#{INT_BIN}/o           { int_with_base 2                            }
-                /#{INT_OCT_BAD}/o       { rb_compile_error "Illegal octal digit."    }
-                /#{INT_OCT}/o           { int_with_base 8                            }
-                /#{FLOAT_BAD}/o         { rb_compile_error "Trailing '_' in number." }
-                /#{FLOAT}/o             process_float
-                /#{INT_DEC2}/o          { int_with_base 10                           }
-                /[0-9]/                 { rb_compile_error "Bad number format" }
+: /[+\d]/
+|               /#{NUM_BAD}/o           { rb_compile_error "Invalid numeric format"  }
+|               /#{INT_DEC}/o           { int_with_base 10                           }
+|               /#{INT_HEX}/o           { int_with_base 16                           }
+|               /#{INT_BIN}/o           { int_with_base 2                            }
+|               /#{INT_OCT_BAD}/o       { rb_compile_error "Illegal octal digit."    }
+|               /#{INT_OCT}/o           { int_with_base 8                            }
+|               /#{FLOAT_BAD}/o         { rb_compile_error "Trailing '_' in number." }
+|               /#{FLOAT}/o             process_float
+|               /#{INT_DEC2}/o          { int_with_base 10                           }
+|               /[0-9]/                 { rb_compile_error "Bad number format" }
 
                 /\[/                    process_square_bracket
 
                 /\'#{SSTRING}\'/o       { result :expr_end, :tSTRING, matched[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'") } # " stupid emacs
 
-                /\|\|\=/                { result :expr_beg, :tOP_ASGN, "||" }
-                /\|\|/                  { result :expr_beg, :tOROP,    "||" }
-                /\|\=/                  { result :expr_beg, :tOP_ASGN, "|" }
-                /\|/                    { result :arg_state, :tPIPE,    "|" }
+: /\|/
+|               /\|\|\=/                { result :expr_beg, :tOP_ASGN, "||" }
+|               /\|\|/                  { result :expr_beg, :tOROP,    "||" }
+|               /\|\=/                  { result :expr_beg, :tOP_ASGN, "|" }
+|               /\|/                    { result :arg_state, :tPIPE,    "|" }
 
                 /\{/                    process_curly_brace
 
-                /\*\*=/                 { result :expr_beg, :tOP_ASGN, "**" }
-                /\*\*/                  { result(:arg_state, space_vs_beginning(:tDSTAR, :tDSTAR, :tPOW), "**") }
-                /\*\=/                  { result(:expr_beg, :tOP_ASGN, "*") }
-                /\*/                    { result(:arg_state, space_vs_beginning(:tSTAR, :tSTAR, :tSTAR2), "*") }
+: /\*/
+|               /\*\*=/                 { result :expr_beg, :tOP_ASGN, "**" }
+|               /\*\*/                  { result(:arg_state, space_vs_beginning(:tDSTAR, :tDSTAR, :tPOW), "**") }
+|               /\*\=/                  { result(:expr_beg, :tOP_ASGN, "*") }
+|               /\*/                    { result(:arg_state, space_vs_beginning(:tSTAR, :tSTAR, :tSTAR2), "*") }
 
-                /\<\=\>/                { result :arg_state, :tCMP, "<=>"    }
-                /\<\=/                  { result :arg_state, :tLEQ, "<="     }
-                /\<\<\=/                { result :arg_state, :tOP_ASGN, "<<" }
-                /\<\</                  process_lchevron
-                /\</                    { result :arg_state, :tLT, "<"       }
+: /</
+|               /\<\=\>/                { result :arg_state, :tCMP, "<=>"    }
+|               /\<\=/                  { result :arg_state, :tLEQ, "<="     }
+|               /\<\<\=/                { result :arg_state, :tOP_ASGN, "<<" }
+|               /\<\</                  process_lchevron
+|               /\</                    { result :arg_state, :tLT, "<"       }
 
-# : /\>/
-# |             /\>\=/                  { result :arg_state, :tGEQ, ">="     }
-# |             /\>\>=/                 { result :arg_state, :tOP_ASGN, ">>" }
-# |             /\>\>/                  { result :arg_state, :tRSHFT, ">>"   }
-# |             /\>/                    { result :arg_state, :tGT, ">"       }
+: />/
+|               /\>\=/                  { result :arg_state, :tGEQ, ">="     }
+|               /\>\>=/                 { result :arg_state, :tOP_ASGN, ">>" }
+|               /\>\>/                  { result :arg_state, :tRSHFT, ">>"   }
+|               /\>/                    { result :arg_state, :tGT, ">"       }
 
-                /\>\=/                  { result :arg_state, :tGEQ, ">="     }
-                /\>\>=/                 { result :arg_state, :tOP_ASGN, ">>" }
-                /\>\>/                  { result :arg_state, :tRSHFT, ">>"   }
-                /\>/                    { result :arg_state, :tGT, ">"       }
-
-                /\`/                    process_backtick
-
-#               /\`/    : expr_fname?   { result(:expr_end, :tBACK_REF2, "`") }
-#                       | expr_dot?     { result((command_state ? :expr_cmdarg : :expr_arg), :tBACK_REF2, "`")
-#                       |               { string STR_XQUOTE, '`'; result(nil, :tXSTRING_BEG, "`") }
+: /`/
+| expr_fname?   /\`/                   { result(:expr_end, :tBACK_REF2, "`") }
+| expr_dot?     /\`/                   { result((command_state ? :expr_cmdarg : :expr_arg), :tBACK_REF2, "`") }
+|               /\`/                   { string STR_XQUOTE, '`'; result(nil, :tXSTRING_BEG, "`") }
 
                 /\?/                    process_questionmark
 
-                /\&\&\=/                { result(:expr_beg, :tOP_ASGN, "&&") }
-                /\&\&/                  { result(:expr_beg, :tANDOP,   "&&") }
-                /\&\=/                  { result(:expr_beg, :tOP_ASGN, "&" ) }
-                /\&/                    process_amper
+: /&/
+|               /\&\&\=/                { result(:expr_beg, :tOP_ASGN, "&&") }
+|               /\&\&/                  { result(:expr_beg, :tANDOP,   "&&") }
+|               /\&\=/                  { result(:expr_beg, :tOP_ASGN, "&" ) }
+|               /\&/                    process_amper
 
                 /\//                    process_slash
 
-                /\^=/                   { result(:expr_beg, :tOP_ASGN, "^") }
-                /\^/                    { result(:arg_state, :tCARET, "^") }
+: /\^/
+|               /\^=/                   { result(:expr_beg, :tOP_ASGN, "^") }
+|               /\^/                    { result(:arg_state, :tCARET, "^") }
 
                 /\;/                    { self.command_start = true; result(:expr_beg, :tSEMI, ";") }
 
-  in_arg_state? /\~@/                   { result(:arg_state, :tTILDE, "~") }
-                /\~/                    { result(:arg_state, :tTILDE, "~") }
+: /~/
+| in_arg_state? /\~@/                   { result(:arg_state, :tTILDE, "~") }
+|               /\~/                    { result(:arg_state, :tTILDE, "~") }
 
-                /\\\r?\n/               { self.lineno += 1; self.space_seen = true; next }
-                /\\/                    { rb_compile_error "bare backslash only allowed before newline" }
+: /\\/
+|               /\\\r?\n/               { self.lineno += 1; self.space_seen = true; next }
+|               /\\/                    { rb_compile_error "bare backslash only allowed before newline" }
 
                 /\%/                    process_percent
 
-                /\$_\w+/                         process_gvar
-                /\$_/                            process_gvar
-                /\$[~*$?!@\/\\;,.=:<>\"]|\$-\w?/ process_gvar
-  in_fname?     /\$([\&\`\'\+])/                 process_gvar
-                /\$([\&\`\'\+])/                 process_backref
-  in_fname?     /\$([1-9]\d*)/                   process_gvar
-                /\$([1-9]\d*)/                   process_nthref
-                /\$0/                            process_gvar
-                /\$\W|\$\z/                      process_gvar_oddity
-                /\$\w+/                          process_gvar
+: /\$/
+|               /\$_\w+/                         process_gvar
+|               /\$_/                            process_gvar
+|               /\$[~*$?!@\/\\;,.=:<>\"]|\$-\w?/ process_gvar
+| in_fname?     /\$([\&\`\'\+])/                 process_gvar
+|               /\$([\&\`\'\+])/                 process_backref
+| in_fname?     /\$([1-9]\d*)/                   process_gvar
+|               /\$([1-9]\d*)/                   process_nthref
+|               /\$0/                            process_gvar
+|               /\$\W|\$\z/                      process_gvar_oddity
+|               /\$\w+/                          process_gvar
 
                 /\_/                    process_underscore
 
