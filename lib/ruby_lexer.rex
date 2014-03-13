@@ -49,14 +49,14 @@ rule
 | in_arg_state? /\!\@/                  { result :expr_arg, :tUBANG, "!@" }
 |               /\![=~]?/               { result :arg_state, TOKENS[text], text }
 
-# TODO: group below
-                /\.\.\.?|,|![=~]?/      { result :expr_beg, TOKENS[text], text }
-
 : /\./
+|               /\.\.\.?/               { result :expr_beg, TOKENS[text], text }
 |               /\.\d/                  { rb_compile_error "no .<digit> floating literal anymore put 0 before dot" }
 |               /\./                    { result :expr_dot, :tDOT, "." }
 
                 /\(/                    process_paren
+
+                /\,/                    { result :expr_beg, TOKENS[text], text }
 
 : /=/
 |               /\=\=\=|\=\=|\=~|\=>|\=(?!begin\b)/ { result arg_state, TOKENS[text], text }
