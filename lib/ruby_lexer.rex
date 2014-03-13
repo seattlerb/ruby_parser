@@ -44,7 +44,10 @@ rule
                 /\n|\#/                 process_newline_or_comment
 
                 /[\]\)\}]/              process_bracing
-                /\!/                    process_bang
+
+: /\!/
+| in_arg_state? /\!\@/                  { result :expr_arg, :tUBANG, "!@" }
+|               /\![=~]?/               { result :arg_state, TOKENS[text], text }
 
 # TODO: group below
                 /\.\.\.?|,|![=~]?/      { result :expr_beg, TOKENS[text], text }

@@ -312,28 +312,6 @@ class RubyLexer
     result :expr_end, :tBACK_REF, token
   end
 
-  def process_backtick text
-    case lex_state
-    when :expr_fname then
-      result :expr_end, :tBACK_REF2, "`"
-    when :expr_dot then
-      result((command_state ? :expr_cmdarg : :expr_arg), :tBACK_REF2, "`")
-    else
-      string STR_XQUOTE
-      result nil, :tXSTRING_BEG, "`"
-    end
-  end
-
-  def process_bang text
-    if in_arg_state? then
-      return result(:expr_arg, :tUBANG, "!@") if scan(/@/)
-    end
-
-    text = scan(/[=~]/) ? "!#{matched}" : "!"
-
-    return result(arg_state, TOKENS[text], text)
-  end
-
   def process_begin text
     @comments << matched
 
