@@ -2611,4 +2611,27 @@ class TestRubyLexer < Minitest::Test
                  :tSTRING_END,     nil,   :expr_end, 0, 0)
     end
   end
+
+  def test_ruby21_new_numbers
+    skip "Don't have imaginary and rational literal lexing yet"
+
+    setup_lexer_class Ruby21Parser
+
+    assert_lex3("10r",      nil, :tRATIONAL, "10r", :expr_end)
+    assert_lex3("1.5r",     nil, :tRATIONAL, "1.5r", :expr_end)
+
+    assert_lex3("1i",       nil, :tIMAGINARY, "1i", :expr_end)
+    assert_lex3("1+2i",     nil, :tIMAGINARY, "1+2i", :expr_end)
+    assert_lex3("1.2+3.4i", nil, :tIMAGINARY, "1.2+3.4i", :expr_end)
+    assert_lex3("4r+3i",    nil, :tIMAGINARY, "4r+3i", :expr_end)
+    assert_lex3("4r+3ri",   nil, :tIMAGINARY, "4r+3i", :expr_end)
+
+    assert_lex3("4i+3r",    nil, :tIMAGINARY, "4r+3i", :expr_end) # HACK
+    assert_lex3("1i+2ri",   nil, :tIMAGINARY, "4r+3i", :expr_end) # HACK
+
+    assert_lex3("1+2ri",    nil, :tIMAGINARY, "1+3ri", :expr_end)
+    refute_lex("1+2ir", :tINTEGER, 1)
+
+    flunk
+  end
 end

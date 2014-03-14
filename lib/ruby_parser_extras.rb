@@ -404,7 +404,7 @@ module RubyParserStuff
   def initialize(options = {})
     super()
 
-    v = self.class.name[/1[89]|20/]
+    v = self.class.name[/1[89]|2[01]/]
 
     self.lexer = RubyLexer.new v && v.to_i
     self.lexer.parser = self
@@ -686,6 +686,12 @@ module RubyParserStuff
     args[0] = :args unless args == 0
 
     result
+  end
+
+  def new_masgn_arg rhs, wrap = false
+    rhs = value_expr(rhs)
+    rhs = s(:to_ary, rhs) if wrap # HACK: could be array if lhs isn't right
+    rhs
   end
 
   def new_masgn lhs, rhs, wrap = false
@@ -1290,6 +1296,10 @@ module RubyParserStuff
   end
 end
 
+class Ruby21Parser < Racc::Parser
+  include RubyParserStuff
+end
+
 class Ruby20Parser < Racc::Parser
   include RubyParserStuff
 end
@@ -1314,16 +1324,19 @@ class RubyParser
     @p18 = Ruby18Parser.new
     @p19 = Ruby19Parser.new
     @p20 = Ruby20Parser.new
+    @p21 = Ruby21Parser.new
   end
 
-  def process(s, f = "(string)", t = 10) # parens for emacs *sigh*
-    @p20.process s, f, t
-  rescue Racc::ParseError, RubyParser::SyntaxError
-    begin
-      @p19.process s, f, t
-    rescue Racc::ParseError, RubyParser::SyntaxError
-      @p18.process s, f, t
+  def process s, f = "(string)", t = 10
+    e = nil
+    [@p21, @p20, @p19, @p18].each do |parser|
+      begin
+        return parser.process s, f, t
+      rescue Racc::ParseError, RubyParser::SyntaxError => exc
+        e = exc
+      end
     end
+    raise e
   end
 
   alias :parse :process
@@ -1331,6 +1344,8 @@ class RubyParser
   def reset
     @p18.reset
     @p19.reset
+    @p20.reset
+    @p21.reset
   end
 
   def self.for_current_ruby
@@ -1341,6 +1356,8 @@ class RubyParser
       Ruby19Parser.new
     when /^2.0/ then
       Ruby20Parser.new
+    when /^2.1/ then
+      Ruby21Parser.new
     else
       raise "unrecognized RUBY_VERSION #{RUBY_VERSION}"
     end

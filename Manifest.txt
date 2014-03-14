@@ -12,6 +12,8 @@ lib/ruby19_parser.rb
 lib/ruby19_parser.y
 lib/ruby20_parser.rb
 lib/ruby20_parser.y
+lib/ruby21_parser.rb
+lib/ruby21_parser.y
 lib/ruby_lexer.rb
 lib/ruby_lexer.rex
 lib/ruby_lexer.rex.rb

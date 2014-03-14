@@ -26,6 +26,7 @@ Hoe.spec "ruby_parser" do
     self.perforce_ignore << "lib/ruby18_parser.rb"
     self.perforce_ignore << "lib/ruby19_parser.rb"
     self.perforce_ignore << "lib/ruby20_parser.rb"
+    self.perforce_ignore << "lib/ruby21_parser.rb"
     self.perforce_ignore << "lib/ruby_lexer.rex.rb"
   end
 
@@ -35,6 +36,7 @@ end
 file "lib/ruby18_parser.rb" => "lib/ruby18_parser.y"
 file "lib/ruby19_parser.rb" => "lib/ruby19_parser.y"
 file "lib/ruby20_parser.rb" => "lib/ruby20_parser.y"
+file "lib/ruby21_parser.rb" => "lib/ruby21_parser.y"
 file "lib/ruby_lexer.rex.rb" => "lib/ruby_lexer.rex"
 
 task :clean do
@@ -45,63 +47,9 @@ task :clean do
         Dir["lib/*.output"])
 end
 
-def next_num(glob)
-  num = Dir[glob].max[/\d+/].to_i + 1
-end
-
-desc "Compares PT to RP and deletes all files that match"
-task :compare do
-  files = Dir["unit/**/*.rb"]
-  puts "Parsing #{files.size} files"
-  files.each do |file|
-    puts file
-    system "./cmp.rb -q #{file} && rm #{file}"
-  end
-  system "find -d unit -type d -empty -exec rmdir {} \;"
-end
-
 task :sort do
   sh "grepsort '^ +def' lib/ruby_lexer.rb"
   sh "grepsort '^ +def (test|util)' test/test_ruby_lexer.rb"
-end
-
-task :loc do
-  loc1  = `wc -l ../1.0.0/lib/ruby_lexer.rb`[/\d+/]
-  flog1 = `flog -s ../1.0.0/lib/ruby_lexer.rb`[/\d+\.\d+/]
-  loc2  = `cat lib/ruby_lexer.rb lib/ruby_parser_extras.rb | wc -l`[/\d+/]
-  flog2 = `flog -s lib/ruby_lexer.rb lib/ruby_parser_extras.rb`[/\d+\.\d+/]
-
-  loc1, loc2, flog1, flog2 = loc1.to_i, loc2.to_i, flog1.to_f, flog2.to_f
-
-  puts "1.0.0: loc = #{loc1} flog = #{flog1}"
-  puts "dev  : loc = #{loc2} flog = #{flog2}"
-  puts "delta: loc = #{loc2-loc1} flog = #{flog2-flog1}"
-end
-
-desc "Validate against all normal files in unit dir"
-task :validate do
-  sh "./cmp.rb unit/*.rb"
-end
-
-def run_and_log cmd, prefix
-  files = ENV["FILES"] || "unit/*.rb"
-  p, x = prefix, "txt"
-  n = Dir["#{p}.*.#{x}"].map { |s| s[/\d+/].to_i }.max + 1 rescue 1
-  f = "#{p}.#{n}.#{x}"
-
-  sh "#{cmd} #{Hoe::RUBY_FLAGS} bin/ruby_parse -q -g #{files} &> #{f}"
-
-  puts File.read(f)
-end
-
-desc "Benchmark against all normal files in unit dir"
-task :benchmark do
-  run_and_log "ruby", "benchmark"
-end
-
-desc "Profile against all normal files in unit dir"
-task :profile do
-  run_and_log "zenprofile", "profile"
 end
 
 desc "what was that command again?"
@@ -119,28 +67,22 @@ end
 
 task :isolate => :phony
 
-task :compare18 do
-  sh "./yack.rb lib/ruby18_parser.output > racc18.txt"
-  sh "./yack.rb parse18.output > yacc18.txt"
-  sh "diff -du racc18.txt yacc18.txt || true"
-  puts
-  sh "diff -du racc18.txt yacc18.txt | wc -l"
-end
+# to create parseXX.output:
+#
+# 1) check out the XX version of ruby
+# 2) Edit uncommon.mk, find the ".y.c" rule and remove the RM lines
+# 3) run `rm -f parse.c; make parse.c`
+# 4) run `bison -r all parse.tmp.y`
+# 5) mv parse.tmp.output parseXX.output
 
-task :compare19 do
-  sh "./yack.rb lib/ruby19_parser.output > racc19.txt"
-  sh "./yack.rb parse19.output > yacc19.txt"
-  sh "diff -du racc19.txt yacc19.txt || true"
-  puts
-  sh "diff -du racc19.txt yacc19.txt | wc -l"
-end
-
-task :compare20 do
-  sh "./yack.rb lib/ruby20_parser.output > racc20.txt"
-  sh "./yack.rb parse20.output > yacc20.txt"
-  sh "diff -du racc20.txt yacc20.txt || true"
-  puts
-  sh "diff -du racc20.txt yacc20.txt | wc -l"
+%w[18 19 20 21].each do |v|
+  task "compare#{v}" do
+    sh "./yack.rb lib/ruby#{v}_parser.output > racc#{v}.txt"
+    sh "./yack.rb parse#{v}.output > yacc#{v}.txt"
+    sh "diff -du racc#{v}.txt yacc#{v}.txt || true"
+    puts
+    sh "diff -du racc#{v}.txt yacc#{v}.txt | wc -l"
+  end
 end
 
 task :debug => :isolate do
@@ -157,8 +99,12 @@ task :debug => :isolate do
              Ruby18Parser.new
            when "19" then
              Ruby19Parser.new
-           else
+           when "20" then
              Ruby20Parser.new
+           when "21" then
+             Ruby21Parser.new
+           else
+             raise "Unsupported version #{ENV["V"]}"
            end
 
   time = (ENV["RP_TIMEOUT"] || 10).to_i
@@ -181,10 +127,6 @@ task :debug => :isolate do
     lines = src[0..ss.pos].split(/\n/)
     abort "on #{file}:#{lines.size}"
   end
-end
-
-def ruby20
-  "/Users/ryan/.multiruby/install/2.0.0-p195/bin/ruby"
 end
 
 task :debug_ruby do

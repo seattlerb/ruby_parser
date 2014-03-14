@@ -874,13 +874,15 @@ module TestRubyParserShared
     Ruby20Parser === self.processor
   end
 
+  def ruby21
+    Ruby21Parser === self.processor
+  end
+
   def test_bug_comma
     val = if ruby18 then
             s(:lit, 100)
-          elsif ruby19  or ruby20 then
-            s(:str, "d")
           else
-            raise "wtf"
+            s(:str, "d")
           end
 
     rb = "if test ?d, dir then end"
@@ -931,7 +933,7 @@ module TestRubyParserShared
     rb = "not(a)"
     pt = if ruby18 then
            s(:not, s(:call, nil, :a))
-         elsif ruby19 or ruby20 then
+         elsif ruby19 or ruby20 or ruby21 then
            s(:call, s(:call, nil, :a), :"!")
          else
            raise "wtf"
@@ -1333,15 +1335,6 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  def test_aref_args_lit_assocs
-    skip if ruby18
-
-    rb = "[1, 2 => 3]"
-    pt = s(:array, s(:lit, 1), s(:hash, s(:lit, 2), s(:lit, 3)))
-
-    assert_parse rb, pt
-  end
-
   def test_BEGIN
     rb = "BEGIN { 42 }"
     pt = s(:iter, s(:preexe), s(:args), s(:lit, 42))
@@ -1398,15 +1391,6 @@ module TestRubyParserShared
     pt = s(:masgn,
            s(:array, s(:splat, s(:lasgn, :a))),
            s(:array, s(:lit, 1), s(:lit, 2), s(:lit, 3)))
-
-    assert_parse rb, pt
-  end
-
-  def test_block_decomp_arg_splat
-    skip "not that smart yet" if ruby18 # HACK
-
-    rb = "a { |(b, *)| }"
-    pt = s(:iter, s(:call, nil, :a), s(:args, s(:masgn, :b, :*)))
 
     assert_parse rb, pt
   end
@@ -1543,7 +1527,21 @@ module TestRubyParserShared
   end
 end
 
-module TestRubyParserShared1920
+module TestRubyParserShared19to21
+  def test_aref_args_lit_assocs
+    rb = "[1, 2 => 3]"
+    pt = s(:array, s(:lit, 1), s(:hash, s(:lit, 2), s(:lit, 3)))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_decomp_arg_splat
+    rb = "a { |(b, *)| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, s(:masgn, :b, :*)))
+
+    assert_parse rb, pt
+  end
+
   def test_block_call_operation_dot
     rb = "a.b c do end.d"
     pt = s(:call,
@@ -2015,9 +2013,8 @@ module TestRubyParserShared1920
   end
 
   def test_mlhs_keyword
-    skip "Breaks on 1.9 and 2.0 parser but valid" # HACK
     rb = "a.!=(true, true)"
-    pt = 42
+    pt = s(:call, s(:call, nil, :a), :"!=", s(:true), s(:true))
 
     assert_parse rb, pt
   end
@@ -2268,7 +2265,7 @@ end
 
 class TestRuby19Parser < RubyParserTestCase
   include TestRubyParserShared
-  include TestRubyParserShared1920
+  include TestRubyParserShared19to21
 
   def setup
     super
@@ -2868,7 +2865,7 @@ end
 
 class TestRuby20Parser < RubyParserTestCase
   include TestRubyParserShared
-  include TestRubyParserShared1920
+  include TestRubyParserShared19to21
 
   def setup
     super
@@ -3027,8 +3024,7 @@ class TestRuby20Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
-  def test_defn_unary_not # TODO: this needs to work on 1.9
-    skip "Not yet"
+  def test_defn_unary_not
     rb = "def !@; true; end" # I seriously HATE this
     pt = s(:defn, :"!@", s(:args), s(:true))
 
@@ -3075,6 +3071,45 @@ class TestRuby20Parser < RubyParserTestCase
     pt = s(:iter,
            s(:call, nil, :f, s(:lit, :a), s(:array, s(:lit, :b))),
            s(:args, :c, :d))
+
+    assert_parse rb, pt
+  end
+end
+
+class TestRuby21Parser < RubyParserTestCase
+  include TestRubyParserShared
+  include TestRubyParserShared19to21
+
+  def setup
+    super
+
+    self.processor = Ruby21Parser.new
+  end
+
+  def test_f_kw
+    rb = "def x k:42; end"
+    pt = s(:defn, :x, s(:args, s(:kwarg, :k, s(:lit, 42))), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_f_kw__required
+    rb = "def x k:; end"
+    pt = s(:defn, :x, s(:args, s(:kwarg, :k)), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_kw
+    rb = "-> (k:42) { }"
+    pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k, s(:lit, 42))))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_kw__required
+    rb = "-> (k:) { }"
+    pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k)))
 
     assert_parse rb, pt
   end
