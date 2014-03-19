@@ -720,6 +720,16 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_parse_line_heredoc_evstr
+    rb = "<<-A\na\n\#{b}\nA"
+    pt = s(:dstr, "a\n",
+           s(:evstr,
+             s(:call, nil, :b).line(3)),
+             s(:str, "\n")).line(1)
+
+    assert_parse rb, pt
+  end
+
   def test_parse_line_iter_call_parens
     rb = "f(a) do |x, y|\n  x + y\nend"
 
