@@ -2039,6 +2039,62 @@ module TestRubyParserShared19to21
   end
 end
 
+module TestRubyParserShared20to21
+  def test_defn_kwarg_kwsplat
+    rb = "def a(b: 1, **c) end"
+    pt = s(:defn, :a, s(:args, s(:kwarg, :b, s(:lit, 1)), :"**c"), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_arg_kwsplat
+    rb = "a(b, **1)"
+    pt = s(:call, nil, :a, s(:call, nil, :b), s(:kwsplat, s(:lit, 1)))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_kwsplat
+    rb = "a(**1)"
+    pt = s(:call, nil, :a, s(:kwsplat, s(:lit, 1)))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_kwarg
+    rb = "a { |b: 1| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, s(:kwarg, :b, s(:lit, 1))))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_kwarg_kwsplat
+    rb = "a { |b: 1, **c| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, s(:kwarg, :b, s(:lit, 1)), :"**c"))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_kwarg_lvar
+    rb = "bl { |kw: :val| kw }"
+    pt = s(:iter, s(:call, nil, :bl), s(:args, s(:kwarg, :kw, s(:lit, :val))),
+           s(:lvar, :kw))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_kwarg_lvar_multiple
+    rb = "bl { |kw: :val, kw2: :val2 | kw }"
+    pt = s(:iter, s(:call, nil, :bl),
+           s(:args,
+             s(:kwarg, :kw, s(:lit, :val)),
+             s(:kwarg, :kw2, s(:lit, :val2))),
+           s(:lvar, :kw))
+
+    assert_parse rb, pt
+  end
+end
+
 class TestRubyParser < Minitest::Test
   def test_parse
     processor = RubyParser.new
@@ -2877,6 +2933,7 @@ end
 
 class TestRuby20Parser < RubyParserTestCase
   include TestRubyParserShared
+  include TestRubyParserShared20to21
   include TestRubyParserShared19to21
 
   def setup
@@ -2951,23 +3008,6 @@ class TestRuby20Parser < RubyParserTestCase
   def test_defn_kwarg_no_parens
     rb = "def f a: 1\nend"
     pt = s(:defn, :f, s(:args, s(:kwarg, :a, s(:lit, 1))), s(:nil))
-
-    assert_parse rb, pt
-  end
-
-  def test_block_kwarg_lvar
-    rb = "bl { |kw: :val| kw }"
-    pt = s(:iter, s(:call, nil, :bl), s(:args, s(:kwarg, :kw, s(:lit, :val))),
-           s(:lvar, :kw))
-
-    assert_parse rb, pt
-  end
-
-  def test_block_kwarg_lvar_multiple
-    rb = "bl { |kw: :val, kw2: :val2 | kw }"
-    pt = s(:iter, s(:call, nil, :bl), s(:args, s(:kwarg, :kw, s(:lit, :val)),
-                                               s(:kwarg, :ks2, s(:lit, :val2))),
-           s(:lvar, :kw))
 
     assert_parse rb, pt
   end
@@ -3052,41 +3092,6 @@ class TestRuby20Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
-  def test_defn_kwarg_kwsplat
-    rb = "def a(b: 1, **c) end"
-    pt = s(:defn, :a, s(:args, s(:kwarg, :b, s(:lit, 1)), :"**c"), s(:nil))
-
-    assert_parse rb, pt
-  end
-
-  def test_call_arg_kwsplat
-    rb = "a(b, **1)"
-    pt = s(:call, nil, :a, s(:call, nil, :b), s(:kwsplat, s(:lit, 1)))
-
-    assert_parse rb, pt
-  end
-
-  def test_call_kwsplat
-    rb = "a(**1)"
-    pt = s(:call, nil, :a, s(:kwsplat, s(:lit, 1)))
-
-    assert_parse rb, pt
-  end
-
-  def test_iter_kwarg
-    rb = "a { |b: 1| }"
-    pt = s(:iter, s(:call, nil, :a), s(:args, s(:kwarg, :b, s(:lit, 1))))
-
-    assert_parse rb, pt
-  end
-
-  def test_iter_kwarg_kwsplat
-    rb = "a { |b: 1, **c| }"
-    pt = s(:iter, s(:call, nil, :a), s(:args, s(:kwarg, :b, s(:lit, 1)), :"**c"))
-
-    assert_parse rb, pt
-  end
-
   def test_iter_array_curly
     rb = "f :a, [:b] { |c, d| }" # yes, this is bad code... that's their problem
     pt = s(:iter,
@@ -3100,6 +3105,7 @@ end
 class TestRuby21Parser < RubyParserTestCase
   include TestRubyParserShared
   include TestRubyParserShared19to21
+  include TestRubyParserShared20to21
 
   def setup
     super
