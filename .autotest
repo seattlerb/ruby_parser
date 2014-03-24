@@ -25,7 +25,7 @@ Autotest.add_hook :initialize do |at|
   at.testlib = "minitest/autorun"
 
   at.add_mapping(/^lib\/.*\.y$/) do |f, _|
-    g = File.basename(f, ".y").gsub("_", "_?").gsub(/1[89]|20/, '')
+    g = File.basename(f, ".y").gsub("_", "_?").gsub(/1[89]|2[01]/, '')
     at.files_matching %r%^test/.*#{g}.rb$%
   end
 
@@ -46,7 +46,7 @@ Autotest.add_hook :initialize do |at|
     at.extra_class_map[klass] = "test/test_ruby_parser_extras.rb"
   end
 
-  %w(TestRuby18Parser TestRuby19Parser TestRuby20Parser TestParseTree).each do |klass| # HACK
+  %w(TestRuby18Parser TestRuby19Parser TestRuby20Parser TestRuby21Parser TestParseTree).each do |klass| # HACK
     at.extra_class_map[klass] = "test/test_ruby_parser.rb"
   end
 end
