@@ -2161,7 +2161,8 @@ keyword_variable: kNIL      { result = s(:nil)   }
    f_block_kwarg: f_block_kw
                 | f_block_kwarg tCOMMA f_block_kw
                     {
-                      debug20 35, val, result
+                      list, _, item = val
+                      result = list << item.last
                     }
 
          f_kwarg: f_kw
