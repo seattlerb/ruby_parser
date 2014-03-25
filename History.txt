@@ -1,3 +1,19 @@
+=== 3.5.0 / 2014-03-24
+
+* 1 major enhancement:
+
+  * Added initial support for ruby 2.1 syntax. Doesn't have numeric extensions yet.
+
+* 2 minor enhancements:
+
+  * Converted ruby_lexer.rex to use new grouping mechanism. ~15% improvement in speed.
+  * Various lexer cleanup.
+
+* 2 bug fixes:
+
+  * 2.0/2.1: Fixed block kw args.
+  * Fixed env for kwargs and friends.
+
 === 3.4.1 / 2014-02-14
 
 21 files failed to parse out of ~834k files makes this 99.9975% or 4.21σ.
