@@ -123,7 +123,7 @@ rule
 |               /\>\>/                  { result :arg_state, :tRSHFT, ">>"   }
 |               /\>/                    { result :arg_state, :tGT, ">"       }
 
-: /`/
+: /\`/
 | expr_fname?   /\`/                   { result(:expr_end, :tBACK_REF2, "`") }
 | expr_dot?     /\`/                   { result((command_state ? :expr_cmdarg : :expr_arg), :tBACK_REF2, "`") }
 |               /\`/                   { string STR_XQUOTE, '`'; result(nil, :tXSTRING_BEG, "`") }
