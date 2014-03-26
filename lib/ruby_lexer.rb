@@ -184,7 +184,6 @@ class RubyLexer
         if c != "\n" then
           return :tSTRING_CONTENT, string_buffer.join.delete("\r")
         else
-          self.lineno += 1
           string_buffer << scan(/\n/)
         end
 

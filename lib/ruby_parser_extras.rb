@@ -830,6 +830,13 @@ module RubyParserStuff
     result
   end
 
+  def new_string val
+    str = val[0]
+    result = s(:str, str)
+    self.lexer.lineno += str.count("\n")
+    result
+  end
+
   def new_super args
     if args && args.node_type == :block_pass then
       s(:super, args)

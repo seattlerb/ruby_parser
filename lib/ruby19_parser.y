@@ -1593,7 +1593,7 @@ rule
                     }
                 | tSTRING
                     {
-                      result = s(:str, val[0])
+                      result = new_string val
                     }
 
          xstring: tXSTRING_BEG xstring_contents tSTRING_END
@@ -1678,7 +1678,7 @@ regexp_contents: none
 
   string_content: tSTRING_CONTENT
                     {
-                      result = s(:str, val[0])
+                      result = new_string val
                     }
                 | tSTRING_DVAR
                     {

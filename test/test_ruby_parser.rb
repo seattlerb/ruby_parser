@@ -732,6 +732,15 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_parse_line_multiline_str
+    rb = "\"a\nb\"\n1"
+    pt = s(:block,
+           s(:str, "a\nb").line(1),
+           s(:lit, 1).line(3)).line(1)
+
+    assert_parse rb, pt
+  end
+
   def test_parse_line_iter_call_parens
     rb = "f(a) do |x, y|\n  x + y\nend"
 
