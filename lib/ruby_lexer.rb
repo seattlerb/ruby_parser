@@ -73,6 +73,7 @@ class RubyLexer
   attr_accessor :command_state
   attr_accessor :last_state
   attr_accessor :cond
+  attr_accessor :extra_lineno
 
   ##
   # Additional context surrounding tokens that both the lexer and
@@ -838,6 +839,7 @@ class RubyLexer
     self.space_seen    = false
     self.string_nest   = 0
     self.token         = nil
+    self.extra_lineno  = 0
 
     self.cmdarg = RubyParserStuff::StackState.new(:cmdarg)
     self.cond   = RubyParserStuff::StackState.new(:cond)
@@ -1000,6 +1002,8 @@ class RubyLexer
 
   def unescape s
     r = ESCAPES[s]
+
+    self.extra_lineno -= 1 if r && s == "n"
 
     return r if r
 

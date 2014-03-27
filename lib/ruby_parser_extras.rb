@@ -833,7 +833,8 @@ module RubyParserStuff
   def new_string val
     str = val[0]
     result = s(:str, str)
-    self.lexer.lineno += str.count("\n")
+    self.lexer.lineno += str.count("\n") + self.lexer.extra_lineno
+    self.lexer.extra_lineno = 0
     result
   end
 
