@@ -827,6 +827,17 @@ module TestRubyParserShared
     assert_equal 3, result.if.return.lit.line
   end
 
+  def test_parse_line_str_with_newline_escape
+    rb = 'a("\n", true)'
+    pt = s(:call,
+           nil,
+           :a,
+           s(:str, "\n").line(1),
+           s(:true).line(1))
+
+    assert_parse rb, pt
+  end
+
   def test_parse_line_trailing_newlines
     rb = "a \nb"
     pt = s(:block,
