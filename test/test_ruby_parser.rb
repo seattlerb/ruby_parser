@@ -720,6 +720,21 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_parse_line_dstr_newline
+    rb = <<-'CODE'
+            "a\n#{
+            }"
+            true
+    CODE
+
+    pt = s(:block,
+           s(:dstr, "a\n",
+             s(:evstr)).line(1),
+           s(:true).line(3))
+
+    assert_parse rb, pt
+  end
+
   def test_parse_line_heredoc_evstr
     skip "heredoc line numbers are just gonna be screwed for a while..."
 
