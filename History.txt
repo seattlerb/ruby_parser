@@ -1,3 +1,13 @@
+=== 3.6.0 / 2014-04-23
+
+* 1 minor enhancement:
+
+  * Added new_string and switched all parsers to it.
+
+* 1 bug fix:
+
+  * Fixed line numbers of nodes following multi-line strings. (presidentbeef)
+
 === 3.5.0 / 2014-03-24
 
 * 1 major enhancement:
