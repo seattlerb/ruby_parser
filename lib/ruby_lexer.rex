@@ -1,7 +1,5 @@
 # encoding: UTF-8
-# TODO: this needs to be put on the first line
 #
-# new_ruby_parser.rex
 # lexical scanner definition for ruby
 
 class RubyLexer
