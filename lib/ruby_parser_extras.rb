@@ -1061,6 +1061,18 @@ module RubyParserStuff
       block and call_or_args.block_pass?
   end
 
+  def inverted? val
+    [:return, :next, :break, :yield].include? val[0].sexp_type
+  end
+
+  def invert_block_call val
+    (type, call), iter = val
+
+    iter.insert 1, call
+
+    [iter, s(type)]
+  end
+
   def ret_args node
     if node then
       raise "write a test 5" if node[0] == :block_pass

@@ -1494,6 +1494,8 @@ opt_block_args_tail: tCOMMA block_args_tail
                       syntax_error "Both block arg and actual block given." if
                         val[0].block_pass?
 
+                      val = invert_block_call val if inverted? val
+
                       result = val[1]
                       result.insert 1, val[0]
                     }

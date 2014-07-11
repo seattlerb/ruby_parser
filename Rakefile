@@ -86,7 +86,7 @@ task :isolate => :phony
 end
 
 task :debug => :isolate do
-  ENV["V"] ||= "20"
+  ENV["V"] ||= "21"
   Rake.application[:parser].invoke # this way we can have DEBUG set
   Rake.application[:lexer].invoke # this way we can have DEBUG set
 

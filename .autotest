@@ -1,7 +1,7 @@
 # -*- ruby -*-
 
 require 'autotest/restart'
-require 'autotest/isolate'
+# require 'autotest/isolate'
 require 'autotest/rcov' if ENV['RCOV']
 
 Autotest.add_hook :initialize do |at|

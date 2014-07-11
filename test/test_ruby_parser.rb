@@ -1643,6 +1643,46 @@ module TestRubyParserShared19to21
     assert_parse rb, pt
   end
 
+  def test_block_return
+    rb = "return foo arg do |bar| end"
+    pt = s(:return,
+           s(:iter,
+             s(:call, nil, :foo, s(:call, nil, :arg)),
+             s(:args, :bar)))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_next
+    rb = "next foo arg do |bar| end"
+    pt = s(:next,
+           s(:iter,
+             s(:call, nil, :foo, s(:call, nil, :arg)),
+             s(:args, :bar)))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_yield
+    rb = "yield foo arg do |bar| end"
+    pt = s(:yield,
+           s(:iter,
+             s(:call, nil, :foo, s(:call, nil, :arg)),
+             s(:args, :bar)))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_break
+    rb = "break foo arg do |bar| end"
+    pt = s(:break,
+           s(:iter,
+             s(:call, nil, :foo, s(:call, nil, :arg)),
+             s(:args, :bar)))
+
+    assert_parse rb, pt
+  end
+
   def test_block_splat_reg
     rb = "a { |*b, c| }"
     pt = s(:iter, s(:call, nil, :a), s(:args, :"*b", :c))
