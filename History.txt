@@ -1,3 +1,9 @@
+=== 3.6.2 / 2014-07-18
+
+* 1 bug fix:
+
+  * Handle return/next/break/yield w/ block call (WHY).
+
 === 3.6.1 / 2014-05-12
 
 * 1 bug fix:
