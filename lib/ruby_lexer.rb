@@ -67,6 +67,7 @@ class RubyLexer
 
   # :startdoc:
 
+  attr_accessor :lineno # we're bypassing oedipus' lineno handling.
   attr_accessor :brace_nest
   attr_accessor :cmdarg
   attr_accessor :command_start
