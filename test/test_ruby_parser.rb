@@ -1,4 +1,3 @@
-#!/usr/local/bin/ruby
 # encoding: utf-8
 
 # ENV['VERBOSE'] = "1"

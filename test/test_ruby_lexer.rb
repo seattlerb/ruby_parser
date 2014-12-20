@@ -1,4 +1,3 @@
-#!/usr/local/bin/ruby
 # encoding: US-ASCII
 
 require 'rubygems'
