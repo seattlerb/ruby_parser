@@ -1,10 +1,10 @@
-= ruby_parser
+# ruby_parser
 
-home :: https://github.com/seattlerb/ruby_parser
-bugs :: https://github.com/seattlerb/ruby_parser/issues
-rdoc :: http://docs.seattlerb.org/ruby_parser
+[home](https://github.com/seattlerb/ruby_parser)  
+[bugs](https://github.com/seattlerb/ruby_parser/issues)  
+[rdoc](http://docs.seattlerb.org/ruby_parser)
 
-== DESCRIPTION:
+## DESCRIPTION:
 
 ruby_parser (RP) is a ruby parser written in pure ruby (utilizing
 racc--which does by default use a C extension). RP's output is
@@ -33,7 +33,7 @@ Tested against 801,039 files from the latest of all rubygems (as of 2013-05):
 * 1.9 parser is at 99.9940% accuracy, 4.013 sigma
 * 2.0 parser is at 99.9939% accuracy, 4.008 sigma
 
-== FEATURES/PROBLEMS:
+## FEATURES/PROBLEMS:
 
 * Pure ruby, no compiles.
 * Includes preceding comment data for defn/defs/class/module nodes!
@@ -47,7 +47,7 @@ Tested against 801,039 files from the latest of all rubygems (as of 2013-05):
 * Known Issue: Totally awesome.
 * Known Issue: line number values can be slightly off. Parsing LR sucks.
 
-== SYNOPSIS:
+## SYNOPSIS:
 
   RubyParser.new.parse "1+1"
   # => s(:call, s(:lit, 1), :+, s(:lit, 1))
@@ -57,17 +57,17 @@ You can also use Ruby19Parser, Ruby18Parser, or RubyParser.for_current_ruby:
   RubyParser.for_current_ruby.parse "1+1"
   # => s(:call, s(:lit, 1), :+, s(:lit, 1))
 
-== REQUIREMENTS:
+## REQUIREMENTS:
 
 * ruby. woot.
 * sexp_processor for Sexp and SexpProcessor classes, and testing.
 * racc full package for parser development (compiling .y to .rb).
 
-== INSTALL:
+## INSTALL:
 
 * sudo gem install ruby_parser
 
-== LICENSE:
+## LICENSE:
 
 (The MIT License)
 
