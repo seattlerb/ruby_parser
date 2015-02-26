@@ -322,6 +322,7 @@ class RubyLexer
     end
 
     @comments << matched
+    self.lineno += matched.count("\n")
 
     nil # TODO
   end
