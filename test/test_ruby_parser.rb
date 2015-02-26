@@ -316,6 +316,15 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_eq_begin_line_numbers
+    rb = "1\n=begin\ncomment\ncomment\n=end\n2"
+    pt = s(:block,
+           s(:lit, 1).line(1),
+           s(:lit, 2).line(6))
+
+    assert_parse rb, pt
+  end
+
   def test_bug_call_arglist_parens
     rb = 'g ( 1), 2'
     pt = s(:call, nil, :g, s(:lit, 1), s(:lit, 2))
