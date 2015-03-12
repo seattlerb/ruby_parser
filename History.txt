@@ -1,3 +1,9 @@
+=== 3.6.5 / 2015-03-12
+
+* 1 minor enhancement:
+
+  * Add line numbers from block comments =begin/=end. (presidentbeef)
+
 === 3.6.4 / 2015-01-16
 
 * 1 bug fix:
