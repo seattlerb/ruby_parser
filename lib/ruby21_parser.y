@@ -2172,7 +2172,11 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     }
                 | f_label
                     {
-                      raise "fuck 11"
+                      label, _ = val[0] # TODO: fix lineno?
+                      identifier = label.to_sym
+                      self.env[identifier] = :lvar
+
+                      result = s(:array, s(:kwarg, identifier))
                     }
 
    f_block_kwarg: f_block_kw

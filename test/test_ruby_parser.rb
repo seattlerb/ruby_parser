@@ -3228,13 +3228,33 @@ class TestRuby21Parser < RubyParserTestCase
   end
 
   def test_block_kw
+    rb = "blah { |k:42| }"
+    pt = s(:iter, s(:call, nil, :blah), s(:args, s(:kwarg, :k, s(:lit, 42))))
+
+    assert_parse rb, pt
+
+    rb = "blah { |k:42| }"
+    assert_parse rb, pt
+  end
+
+  def test_block_kw__required
+    rb = "blah do |k:| end"
+    pt = s(:iter, s(:call, nil, :blah), s(:args, s(:kwarg, :k)))
+
+    assert_parse rb, pt
+
+    rb = "blah do |k:| end"
+    assert_parse rb, pt
+  end
+
+  def test_stabby_block_kw
     rb = "-> (k:42) { }"
     pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k, s(:lit, 42))))
 
     assert_parse rb, pt
   end
 
-  def test_block_kw__required
+  def test_stabby_block_kw__required
     rb = "-> (k:) { }"
     pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k)))
 
