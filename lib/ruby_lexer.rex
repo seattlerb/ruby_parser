@@ -92,6 +92,7 @@ rule
 
                 /\[/                    process_square_bracket
 
+# 2.2:          /\'#{SSTRING}\':/o      process_symbol
                 /\'#{SSTRING}\'/o       { result :expr_end, :tSTRING, matched[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'") } # " stupid emacs
 
 : /\|/

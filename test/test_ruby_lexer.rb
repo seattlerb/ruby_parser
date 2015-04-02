@@ -298,7 +298,7 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("{a:",
                 nil,
                 :tLBRACE, "{", :expr_beg,
-                :tLABEL,  "a", :expr_beg)
+                :tLABEL,  "a", :expr_labelarg)
   end
 
   def test_yylex_label_in_params__19
@@ -308,7 +308,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "foo", :expr_cmdarg,
                 :tLPAREN2,    "(",   :expr_beg,
-                :tLABEL,      "a",   :expr_beg)
+                :tLABEL,      "a",   :expr_labelarg)
   end
 
   def test_yylex_paren_string_parens_interpolated
@@ -2609,6 +2609,35 @@ class TestRubyLexer < Minitest::Test
                  :tSPACE,          nil,   :expr_beg, 0, 0,
                  :tSTRING_END,     nil,   :expr_end, 0, 0)
     end
+  end
+
+  def test_yylex_sym_quoted
+    assert_lex(":'a'",
+               s(:lit, :a),
+
+               :tSYMBOL, "a", :expr_end, 0, 0)
+  end
+
+  def test_yylex_hash_colon
+    assert_lex("{a:1}",
+               s(:hash, s(:lit, :a), s(:lit, 1)),
+
+               :tLBRACE, "{", :expr_beg,      0, 1,
+               :tLABEL,  "a", :expr_labelarg, 0, 1,
+               :tINTEGER, 1,  :expr_end,      0, 1,
+               :tRCURLY, "}", :expr_endarg,   0, 0)
+  end
+
+  def test_yylex_hash_colon_quoted_22
+    skip "Waiting for 2.2 parser"
+
+    assert_lex("{'a':1}",
+               s(:hash, s(:lit, :a), s(:lit, 1)),
+
+               :tLBRACE, "{", :expr_beg,    0, 1,
+               :tSYMBOL, "a", :expr_end,    0, 1,
+               :tINTEGER, 1,  :expr_end,    0, 1,
+               :tRCURLY, "}", :expr_endarg, 0, 0)
   end
 
   def test_ruby21_new_numbers

@@ -79,9 +79,9 @@ task :isolate => :phony
   task "compare#{v}" do
     sh "./yack.rb lib/ruby#{v}_parser.output > racc#{v}.txt"
     sh "./yack.rb parse#{v}.output > yacc#{v}.txt"
-    sh "diff -du racc#{v}.txt yacc#{v}.txt || true"
+    sh "diff -du yacc#{v}.txt racc#{v}.txt || true"
     puts
-    sh "diff -du racc#{v}.txt yacc#{v}.txt | wc -l"
+    sh "diff -du yacc#{v}.txt racc#{v}.txt | wc -l"
   end
 end
 

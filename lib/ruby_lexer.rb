@@ -271,7 +271,7 @@ class RubyLexer
   end
 
   def is_beg?
-    in_lex_state? :expr_beg, :expr_value, :expr_mid, :expr_class
+    in_lex_state? :expr_beg, :expr_value, :expr_mid, :expr_class, :expr_labelarg
   end
 
   def is_end?
@@ -673,7 +673,7 @@ class RubyLexer
       end
 
     if !ruby18 and is_label_possible? and scan(/:(?!:)/) then
-      return result(:expr_beg, :tLABEL, [token, self.lineno])
+      return result(:expr_labelarg, :tLABEL, [token, self.lineno])
     end
 
     unless in_lex_state? :expr_dot then

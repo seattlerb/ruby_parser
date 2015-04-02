@@ -3260,4 +3260,23 @@ class TestRuby21Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  def test_parse_line_heredoc_hardnewline
+    skip "not yet"
+
+    rb = <<-'CODE'.gsub(/^      /, '')
+      <<-EOFOO
+      \n\n\n\n\n\n\n\n\n
+      EOFOO
+
+      class Foo
+      end
+    CODE
+
+    pt = s(:block,
+           s(:str, "\n\n\n\n\n\n\n\n\n\n").line(1),
+           s(:class, :Foo, nil).line(5)).line(1)
+
+    assert_parse rb, pt
+  end
 end
