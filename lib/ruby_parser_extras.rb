@@ -79,7 +79,7 @@ class RPStringScanner < StringScanner
     alias :old_scan :scan
     def scan re
       s = old_scan re
-      where = caller.first.split(/:/).first(2).join(":")
+      where = caller[1].split(/:/).first(2).join(":")
       d :scan => [s, where] if s
       s
     end

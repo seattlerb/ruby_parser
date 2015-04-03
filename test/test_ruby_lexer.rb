@@ -852,9 +852,13 @@ class TestRubyLexer < Minitest::Test
     end
   end
 
-  def test_yylex_dollar
-    assert_lex3("$", nil, "$", "$", :expr_end)
-    # FIX: wtf is this?!?
+  def test_yylex_dollar_bad
+    e = refute_lex("$%")
+    assert_includes(e.message, "is not allowed as a global variable name")
+  end
+
+  def test_yylex_dollar_eos
+    assert_lex3("$", nil, "$", "$", :expr_end) # FIX: wtf is this?!?
   end
 
   def test_yylex_dot # HINT message sends
@@ -2287,6 +2291,14 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_DBEG,    nil,          :expr_beg,
                 :tSTRING_CONTENT, "3} # ",      :expr_beg,
                 :tSTRING_END,     "\"",         :expr_end)
+  end
+
+  def test_yylex_string_double_pound_dollar_bad
+    assert_lex3('"#$%"', nil,
+
+                :tSTRING_BEG,     "\"",  :expr_beg,
+                :tSTRING_CONTENT, "#$%", :expr_beg,
+                :tSTRING_END,     "\"",  :expr_end)
   end
 
   def test_yylex_string_double_nested_curlies

@@ -406,7 +406,8 @@ class RubyLexer
   end
 
   def process_gvar_oddity text
-    result :expr_end, "$", "$" # TODO: wtf is this?
+    return result :expr_end, "$", "$" if text == "$" # TODO: wtf is this?
+    rb_compile_error "#{text.inspect} is not allowed as a global variable name"
   end
 
   def process_ivar text
@@ -1144,7 +1145,12 @@ class RubyLexer
 
     if expand
       case
-      when scan(/#(?=[$@])/) then
+      when scan(/#(?=\$(-.|[a-zA-Z_0-9~\*\$\?!@\/\\;,\.=:<>\"\&\`\'+]))/) then
+        # TODO: !ISASCII
+        # ?! see parser_peek_variable_name
+        return :tSTRING_DVAR, nil
+      when scan(/#(?=\@\@?[a-zA-Z_])/) then
+        # TODO: !ISASCII
         return :tSTRING_DVAR, nil
       when scan(/#[{]/) then
         return :tSTRING_DBEG, nil
