@@ -2292,7 +2292,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     }
                 | tDSTAR arg_value
                     {
-                      result = s(:kwsplat, val[1])
+                      result = s(:array, s(:kwsplat, val[1]))
                     }
 
        operation: tIDENTIFIER | tCONSTANT | tFID

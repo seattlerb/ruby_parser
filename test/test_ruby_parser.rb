@@ -2142,21 +2142,30 @@ module TestRubyParserShared20to21
   def test_defn_kwarg_env
     rb = "def test(**testing) test_splat(**testing) end"
     pt = s(:defn, :test, s(:args, :"**testing"),
-           s(:call, nil, :test_splat, s(:kwsplat, s(:lvar, :testing))))
+           s(:call, nil, :test_splat, s(:hash, s(:kwsplat, s(:lvar, :testing)))))
 
     assert_parse rb, pt
   end
 
   def test_call_arg_kwsplat
     rb = "a(b, **1)"
-    pt = s(:call, nil, :a, s(:call, nil, :b), s(:kwsplat, s(:lit, 1)))
+    pt = s(:call, nil, :a, s(:call, nil, :b), s(:hash, s(:kwsplat, s(:lit, 1))))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_arg_assoc_kwsplat
+    rb = "f(1, kw: 2, **3)"
+    pt = s(:call, nil, :f,
+           s(:lit, 1),
+           s(:hash, s(:lit, :kw), s(:lit, 2), s(:kwsplat, s(:lit, 3))))
 
     assert_parse rb, pt
   end
 
   def test_call_kwsplat
     rb = "a(**1)"
-    pt = s(:call, nil, :a, s(:kwsplat, s(:lit, 1)))
+    pt = s(:call, nil, :a, s(:hash, s(:kwsplat, s(:lit, 1))))
 
     assert_parse rb, pt
   end
