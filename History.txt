@@ -1,3 +1,17 @@
+=== 3.6.6 / 2015-04-13
+
+* 1 minor enhancement:
+
+  * Added expr_labelarg state (eg: a:1)
+
+* 5 bug fixes:
+
+  * Fix scan logging backtrace when DEBUG=1
+  * Fixed kwsplat on 2.0 & 2.1.
+  * Fixed mandatory keyword block args. (cvortmann)
+  * Handle #$<x> in expanded strings/regexps where x is NOT a valid gvar name.
+  * Invalid gvar names raise a compile error.
+
 === 3.6.5 / 2015-03-12
 
 * 1 minor enhancement:
