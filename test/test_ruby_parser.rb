@@ -2129,6 +2129,14 @@ module TestRubyParserShared19to21
 
     assert_parse rb, pt
   end
+
+  def test_multiline_hash_declaration
+    pt = s(:call, nil, :f, s(:hash, s(:lit, :state), s(:hash)))
+
+    assert_parse "f(state: {})",     pt
+    assert_parse "f(state: {\n})",   pt
+    assert_parse "f(state:\n {\n})", pt
+  end
 end
 
 module TestRubyParserShared20to21
