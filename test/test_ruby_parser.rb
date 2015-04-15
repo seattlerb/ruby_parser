@@ -3288,4 +3288,23 @@ class TestRuby21Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  def test_multiline_hash_declaration
+    rb = <<-'CODE'.gsub(/^      /, '')
+     enum(
+        state:
+        {
+          CREATED_STATE => CREATED_STATE,
+          CLAIMED_STATE => CLAIMED_STATE
+        },
+        identifier_type:
+        {
+          ORCID_IDENTIFIER_TYPE => ORCID_IDENTIFIER_TYPE,
+          NETID_IDENTIFIER_TYPE => NETID_IDENTIFIER_TYPE
+        }
+      )
+    CODE
+
+    processor.class.new.parse(rb)
+  end
 end
