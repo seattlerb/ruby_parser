@@ -75,6 +75,12 @@ task :isolate => :phony
 # 4) run `bison -r all parse.tmp.y`
 # 5) mv parse.tmp.output parseXX.output
 
+# possibly new instructions:
+#
+# 1) check out the XX version of ruby
+# 2) YFLAGS="-r all" make parse.c
+# 3) mv y.output parseXX.output
+
 %w[18 19 20 21].each do |v|
   task "compare#{v}" do
     sh "./yack.rb lib/ruby#{v}_parser.output > racc#{v}.txt"
@@ -109,7 +115,8 @@ task :debug => :isolate do
 
   time = (ENV["RP_TIMEOUT"] || 10).to_i
 
-  file = ENV["F"] || ENV["FILE"]
+  n = ENV["BUG"]
+  file = (n && "bug#{n}.rb") || ENV["F"] || ENV["FILE"]
 
   ruby = if file then
            File.read(file)

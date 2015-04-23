@@ -1137,18 +1137,20 @@ rule
                     }
                 | kDEF fname
                     {
-                      result = self.in_def
+                      result = [self.in_def, self.lexer.cmdarg.stack.dup]
 
                       self.comments.push self.lexer.comments
                       self.in_def = true
                       self.env.extend
+                      lexer.cmdarg.stack.replace [false]
                     }
                     f_arglist bodystmt kEND
                     {
-                      in_def = val[2]
+                      in_def, cmdarg = val[2]
 
                       result = new_defn val
 
+                      lexer.cmdarg.stack.replace cmdarg
                       self.env.unextend
                       self.in_def = in_def
                       self.lexer.comments # we don't care about comments in the body

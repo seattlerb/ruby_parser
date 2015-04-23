@@ -1138,18 +1138,22 @@ rule
                     }
                 | kDEF fname
                     {
-                      result = self.in_def
+                      result = [self.in_def, self.lexer.cmdarg.stack.dup]
 
                       self.comments.push self.lexer.comments
                       self.in_def = true
                       self.env.extend
+                      # TODO: local->cmdargs = cmdarg_stack;
+                      # TODO: port local_push_gen and local_pop_gen
+                      lexer.cmdarg.stack.replace [false]
                     }
                     f_arglist bodystmt kEND
                     {
-                      in_def = val[2]
+                      in_def, cmdarg = val[2]
 
                       result = new_defn val
 
+                      lexer.cmdarg.stack.replace cmdarg
                       self.env.unextend
                       self.in_def = in_def
                       self.lexer.comments # we don't care about comments in the body
@@ -1592,7 +1596,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       result = nil # self.env.dynamic.keys
                     }
-                    compstmt kEND
+                 compstmt kEND
                     {
                       _, line, args, _, body, _ = val
 
@@ -1991,9 +1995,14 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       result = val[1]
                       self.lexer.lex_state = :expr_beg
                       self.lexer.command_start = true
+                      # TODO:
+                      # $<num>$ = parser->parser_in_kwarg;
+                      # parser->parser_in_kwarg = 1;
+
                     }
                 | f_args term
                     {
+                      # TODO: parser->parser_in_kwarg = $<num>1;
                       result = val[0]
                       self.lexer.lex_state = :expr_beg
                       self.lexer.command_start = true

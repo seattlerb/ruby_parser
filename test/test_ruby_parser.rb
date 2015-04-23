@@ -1707,6 +1707,17 @@ module TestRubyParserShared19to21
     assert_parse rb, pt
   end
 
+  def test_bug_187
+    rb = "private def f\na.b do end\nend"
+    pt = s(:call,
+           nil,
+           :private,
+           s(:defn, :f, s(:args),
+             s(:iter, s(:call, s(:call, nil, :a), :b), s(:args))))
+
+    assert_parse rb, pt
+  end
+
   def test_defn_opt_reg
     rb = "def f(a=nil, b) end"
     pt = s(:defn, :f, s(:args, s(:lasgn, :a, s(:nil)), :b), s(:nil))
