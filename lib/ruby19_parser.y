@@ -1382,8 +1382,6 @@ rule
                       lpar, args, body = val
                       lexer.lpar_beg = lpar
 
-                      args = 0 if args == s(:args)
-
                       call = new_call nil, :lambda
                       result = new_iter call, args, body
                     }

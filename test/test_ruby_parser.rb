@@ -2019,9 +2019,9 @@ module TestRubyParserShared19to22
     assert_parse rb, pt
   end
 
-  def test_do_lambda
+  def test_do_lambda_no_args
     rb = "->() do end"
-    pt = s(:iter, s(:call, nil, :lambda), 0)
+    pt = s(:iter, s(:call, nil, :lambda), s(:args))
 
     assert_parse rb, pt
   end
@@ -3036,7 +3036,7 @@ class TestRuby19Parser < RubyParserTestCase
   end
 
   def test_lambda_do_vs_brace
-    pt = s(:call, nil, :f, s(:iter, s(:call, nil, :lambda), 0))
+    pt = s(:call, nil, :f, s(:iter, s(:call, nil, :lambda), s(:args)))
 
     rb = "f ->() {}"
     assert_parse rb, pt
