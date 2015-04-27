@@ -579,7 +579,7 @@ rule
                 |   tMATCH   | tNMATCH | tGT      | tGEQ  | tLT    | tLEQ
                 |   tNEQ     | tLSHFT  | tRSHFT   | tPLUS | tMINUS | tSTAR2
                 |   tSTAR    | tDIVIDE | tPERCENT | tPOW  | tDSTAR | tBANG   | tTILDE
-                |   tUPLUS   | tUMINUS | tAREF | tASET  | tBACK_REF2
+                |   tUPLUS   | tUMINUS | tAREF    | tASET | tBACK_REF2
 
         reswords: k__LINE__ | k__FILE__ | k__ENCODING__ | klBEGIN | klEND
                 | kALIAS    | kAND      | kBEGIN        | kBREAK  | kCASE
@@ -683,7 +683,7 @@ rule
                     {
                       result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
                     }
-               | tUPLUS arg
+                | tUPLUS arg
                     {
                       result = new_call val[1], :"+@"
                     }
@@ -1493,8 +1493,8 @@ opt_block_args_tail: tCOMMA block_args_tail
       block_call: command do_block
                     {
                       # TODO:
-                      # if (nd_type($1) == NODE_YIELD) {
-                      #     compile_error(PARSER_ARG "block given to yield");
+                      ## if (nd_type($1) == NODE_YIELD) {
+                      ##     compile_error(PARSER_ARG "block given to yield");
 
                       syntax_error "Both block arg and actual block given." if
                         val[0].block_pass?
@@ -1592,11 +1592,11 @@ opt_block_args_tail: tCOMMA block_args_tail
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                 opt_block_param
+                    opt_block_param
                     {
                       result = nil # self.env.dynamic.keys
                     }
-                 compstmt kEND
+                    compstmt kEND
                     {
                       _, line, args, _, body, _ = val
 
@@ -1840,7 +1840,9 @@ regexp_contents: none
                                 lexer.brace_nest, 
                                 lexer.string_nest, # TODO: remove
                                 lexer.cond.store, 
-                                lexer.cmdarg.store]
+                                lexer.cmdarg.store,
+                                lexer.lex_state,
+                               ]
 
                       lexer.lex_strterm = nil
                       lexer.brace_nest  = 0
@@ -1853,7 +1855,7 @@ regexp_contents: none
                       # TODO: tRCURLY -> tSTRING_END
                       _, memo, stmt, _ = val
 
-                      lex_strterm, brace_nest, string_nest, oldcond, oldcmdarg = memo
+                      lex_strterm, brace_nest, string_nest, oldcond, oldcmdarg, oldlex_state = memo
 
                       lexer.lex_strterm = lex_strterm
                       lexer.brace_nest  = brace_nest
@@ -1861,6 +1863,8 @@ regexp_contents: none
 
                       lexer.cond.restore oldcond
                       lexer.cmdarg.restore oldcmdarg
+
+                      lexer.lex_state = oldlex_state
 
                       case stmt
                       when Sexp then
@@ -1917,7 +1921,7 @@ regexp_contents: none
          numeric: simple_numeric
                 | tUMINUS_NUM simple_numeric
                     {
-                      result = -val[1]
+                      result = -val[1] # TODO: pt_testcase
                     }
 
   simple_numeric: tINTEGER
@@ -1998,7 +2002,6 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       # TODO:
                       # $<num>$ = parser->parser_in_kwarg;
                       # parser->parser_in_kwarg = 1;
-
                     }
                 | f_args term
                     {

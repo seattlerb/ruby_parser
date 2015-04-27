@@ -2294,6 +2294,8 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_string_double_pound_dollar_bad
+    skip if Ruby18Parser === lexer.parser
+
     assert_lex3('"#$%"', nil,
 
                 :tSTRING_BEG,     "\"",  :expr_beg,
@@ -2641,13 +2643,13 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_hash_colon_quoted_22
-    skip "Waiting for 2.2 parser"
+    setup_lexer_class Ruby22Parser
 
     assert_lex("{'a':1}",
                s(:hash, s(:lit, :a), s(:lit, 1)),
 
                :tLBRACE, "{", :expr_beg,    0, 1,
-               :tSYMBOL, "a", :expr_end,    0, 1,
+               :tLABEL,  "a", :expr_end,    0, 1,
                :tINTEGER, 1,  :expr_end,    0, 1,
                :tRCURLY, "}", :expr_endarg, 0, 0)
   end

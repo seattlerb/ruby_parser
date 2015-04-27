@@ -582,7 +582,8 @@ rule
                 |   tMATCH   | tNMATCH | tGT      | tGEQ  | tLT    | tLEQ
                 |   tNEQ     | tLSHFT  | tRSHFT   | tPLUS | tMINUS | tSTAR2
                 |   tSTAR    | tDIVIDE | tPERCENT | tPOW  | tDSTAR | tBANG   | tTILDE
-                |   tUPLUS   | tUMINUS | tUBANG   | tAREF | tASET  | tBACK_REF2
+                |   tUPLUS   | tUMINUS | tAREF    | tASET | tBACK_REF2
+                |   tUBANG
 
         reswords: k__LINE__ | k__FILE__ | k__ENCODING__ | klBEGIN | klEND
                 | kALIAS    | kAND      | kBEGIN        | kBREAK  | kCASE
@@ -689,9 +690,10 @@ rule
                 | tUMINUS_NUM tFLOAT tPOW arg
                     {
                       result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
+                      ## TODO: why is this 2.0 only?
                       debug20 12, val, result
                     }
-               | tUPLUS arg
+                | tUPLUS arg
                     {
                       result = new_call val[1], :"+@"
                     }
@@ -1142,6 +1144,8 @@ rule
                       self.comments.push self.lexer.comments
                       self.in_def = true
                       self.env.extend
+                      # TODO: local->cmdargs = cmdarg_stack;
+                      # TODO: port local_push_gen and local_pop_gen
                       lexer.cmdarg.stack.replace [false]
                     }
                     f_arglist bodystmt kEND
@@ -1490,8 +1494,8 @@ opt_block_args_tail: tCOMMA block_args_tail
       block_call: command do_block
                     {
                       # TODO:
-                      # if (nd_type($1) == NODE_YIELD) {
-                      #     compile_error(PARSER_ARG "block given to yield");
+                      ## if (nd_type($1) == NODE_YIELD) {
+                      ##     compile_error(PARSER_ARG "block given to yield");
 
                       syntax_error "Both block arg and actual block given." if
                         val[0].block_pass?
@@ -1589,7 +1593,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                 opt_block_param
+                    opt_block_param
                     {
                       result = nil # self.env.dynamic.keys
                     }
@@ -1837,7 +1841,9 @@ regexp_contents: none
                                 lexer.brace_nest, 
                                 lexer.string_nest, # TODO: remove
                                 lexer.cond.store, 
-                                lexer.cmdarg.store]
+                                lexer.cmdarg.store,
+                                lexer.lex_state,
+                               ]
 
                       lexer.lex_strterm = nil
                       lexer.brace_nest  = 0
@@ -1850,7 +1856,7 @@ regexp_contents: none
                       # TODO: tRCURLY -> tSTRING_DEND
                       _, memo, stmt, _ = val
 
-                      lex_strterm, brace_nest, string_nest, oldcond, oldcmdarg = memo
+                      lex_strterm, brace_nest, string_nest, oldcond, oldcmdarg, oldlex_state = memo
 
                       lexer.lex_strterm = lex_strterm
                       lexer.brace_nest  = brace_nest
@@ -1858,6 +1864,8 @@ regexp_contents: none
 
                       lexer.cond.restore oldcond
                       lexer.cmdarg.restore oldcmdarg
+
+                      lexer.lex_state = oldlex_state
 
                       case stmt
                       when Sexp then
@@ -1992,9 +2000,13 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       result = val[1]
                       self.lexer.lex_state = :expr_beg
                       self.lexer.command_start = true
+                      # TODO:
+                      # $<num>$ = parser->parser_in_kwarg;
+                      # parser->parser_in_kwarg = 1;
                     }
                 | f_args term
                     {
+                      # TODO: parser->parser_in_kwarg = $<num>1;
                       result = val[0]
                       self.lexer.lex_state = :expr_beg
                       self.lexer.command_start = true

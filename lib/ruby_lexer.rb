@@ -81,7 +81,6 @@ class RubyLexer
   # grammar use.
 
   attr_accessor :lex_state
-
   attr_accessor :lex_strterm
   attr_accessor :lpar_beg
   attr_accessor :paren_nest
@@ -119,10 +118,6 @@ class RubyLexer
     ss.bol?
   end
   alias :bol? :beginning_of_line? # to make .rex file more readable
-
-  def check re
-    ss.check re
-  end
 
   def comments # TODO: remove this... maybe comment_string + attr_accessor
     c = @comments.join
@@ -282,6 +277,10 @@ class RubyLexer
     (in_lex_state?(:expr_beg, :expr_endfn) && !command_state) || is_arg?
   end
 
+  def is_label_suffix?
+    check(/:(?!:)/)
+  end
+
   def is_space_arg? c = "x"
     is_arg? and space_seen and c !~ /\s/
   end
@@ -335,6 +334,12 @@ class RubyLexer
     when "}" then
       self.brace_nest -= 1
       self.lex_state   = :expr_endarg
+
+      # TODO
+      # if (c == '}') {
+      #     if (!brace_nest--) c = tSTRING_DEND;
+      # }
+
       return :tRCURLY, matched
     when "]" then
       self.paren_nest -= 1
@@ -653,6 +658,12 @@ class RubyLexer
     return result(:expr_end, :tSYMBOL, symbol)
   end
 
+  def process_label text
+    result = process_symbol text
+    result[0] = :tLABEL
+    result
+  end
+
   def process_token text
     # TODO: make this always return [token, lineno]
     token = self.token = text
@@ -673,7 +684,8 @@ class RubyLexer
         :tIDENTIFIER
       end
 
-    if !ruby18 and is_label_possible? and scan(/:(?!:)/) then
+    if !ruby18 and is_label_possible? and is_label_suffix? then
+      scan(/:/)
       return result(:expr_labelarg, :tLABEL, [token, self.lineno])
     end
 
@@ -866,6 +878,10 @@ class RubyLexer
     ss.scan re
   end
 
+  def check re
+    ss.check re
+  end
+
   def scanner_class # TODO: design this out of oedipus_lex. or something.
     RPStringScanner
   end
@@ -1036,6 +1052,10 @@ class RubyLexer
     # do nothing for now
   end
 
+  def ruby22?
+    Ruby22Parser === parser
+  end
+
   def process_string # TODO: rewrite / remove
     token = if lex_strterm[0] == :heredoc then
               self.heredoc lex_strterm
@@ -1043,11 +1063,20 @@ class RubyLexer
               self.parse_string lex_strterm
             end
 
-    token_type, _ = token
+    token_type, c = token
 
-    if token_type == :tSTRING_END || token_type == :tREGEXP_END then
+    if ruby22? && token_type == :tSTRING_END && ["'", '"'].include?(c) then
+      if (([:expr_beg, :expr_endfn].include?(lex_state) &&
+           !cond.is_in_state) || is_arg?) &&
+          is_label_suffix? then
+        scan(/:/)
+        token_type = token[0] = :tLABEL_END
+      end
+    end
+
+    if [:tSTRING_END, :tREGEXP_END, :tLABEL_END].include? token_type then
       self.lex_strterm = nil
-      self.lex_state   = :expr_end
+      self.lex_state   = (token_type == :tLABEL_END) ? :expr_labelarg : :expr_end
     end
 
     return token

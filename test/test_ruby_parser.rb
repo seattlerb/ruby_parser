@@ -942,6 +942,10 @@ module TestRubyParserShared
     Ruby21Parser === self.processor
   end
 
+  def ruby22
+    Ruby22Parser === self.processor
+  end
+
   def test_bug_comma
     val = if ruby18 then
             s(:lit, 100)
@@ -997,7 +1001,7 @@ module TestRubyParserShared
     rb = "not(a)"
     pt = if ruby18 then
            s(:not, s(:call, nil, :a))
-         elsif ruby19 or ruby20 or ruby21 then
+         elsif ruby19 or ruby20 or ruby21 or ruby22 then
            s(:call, s(:call, nil, :a), :"!")
          else
            raise "wtf"
@@ -1591,7 +1595,7 @@ module TestRubyParserShared
   end
 end
 
-module TestRubyParserShared19to21
+module TestRubyParserShared19to22
   def test_aref_args_lit_assocs
     rb = "[1, 2 => 3]"
     pt = s(:array, s(:lit, 1), s(:hash, s(:lit, 2), s(:lit, 3)))
@@ -2150,7 +2154,7 @@ module TestRubyParserShared19to21
   end
 end
 
-module TestRubyParserShared20to21
+module TestRubyParserShared20to22
   def test_defn_kwarg_kwsplat
     rb = "def a(b: 1, **c) end"
     pt = s(:defn, :a, s(:args, s(:kwarg, :b, s(:lit, 1)), :"**c"), s(:nil))
@@ -2461,7 +2465,7 @@ end
 
 class TestRuby19Parser < RubyParserTestCase
   include TestRubyParserShared
-  include TestRubyParserShared19to21
+  include TestRubyParserShared19to22
 
   def setup
     super
@@ -3061,8 +3065,8 @@ end
 
 class TestRuby20Parser < RubyParserTestCase
   include TestRubyParserShared
-  include TestRubyParserShared20to21
-  include TestRubyParserShared19to21
+  include TestRubyParserShared20to22
+  include TestRubyParserShared19to22
 
   def setup
     super
@@ -3232,8 +3236,8 @@ end
 
 class TestRuby21Parser < RubyParserTestCase
   include TestRubyParserShared
-  include TestRubyParserShared19to21
-  include TestRubyParserShared20to21
+  include TestRubyParserShared19to22
+  include TestRubyParserShared20to22
 
   def setup
     super
@@ -3304,6 +3308,33 @@ class TestRuby21Parser < RubyParserTestCase
     pt = s(:block,
            s(:str, "\n\n\n\n\n\n\n\n\n\n").line(1),
            s(:class, :Foo, nil).line(5)).line(1)
+
+    assert_parse rb, pt
+  end
+end
+
+class TestRuby22Parser < RubyParserTestCase
+  include TestRubyParserShared
+  include TestRubyParserShared19to22
+  include TestRubyParserShared20to22
+
+  def setup
+    super
+
+    self.processor = Ruby22Parser.new
+  end
+
+  def test_call_args_assoc_quoted
+    pt = s(:call, nil, :x, s(:hash, s(:lit, :k), s(:lit, 42)))
+
+    rb = "x 'k':42"
+    assert_parse rb, pt
+
+    rb = 'x "k":42'
+    assert_parse rb, pt
+
+    rb = 'x "#{k}":42'
+    pt = s(:call, nil, :x, s(:hash, s(:dsym, "", s(:evstr, s(:call, nil, :k))), s(:lit, 42)))
 
     assert_parse rb, pt
   end

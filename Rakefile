@@ -27,16 +27,30 @@ Hoe.spec "ruby_parser" do
     self.perforce_ignore << "lib/ruby19_parser.rb"
     self.perforce_ignore << "lib/ruby20_parser.rb"
     self.perforce_ignore << "lib/ruby21_parser.rb"
+    self.perforce_ignore << "lib/ruby22_parser.rb"
     self.perforce_ignore << "lib/ruby_lexer.rex.rb"
   end
 
   self.racc_flags << " -t" if plugin?(:racc) && ENV["DEBUG"]
 end
 
+file "lib/ruby20_parser.y" => "lib/ruby_parser.yy" do |t|
+  sh "unifdef -tk -DRUBY20 -URUBY21 -URUBY22 -UDEAD #{t.source} > #{t.name} || true"
+end
+
+file "lib/ruby21_parser.y" => "lib/ruby_parser.yy" do |t|
+  sh "unifdef -tk -URUBY20 -DRUBY21 -URUBY22 -UDEAD #{t.source} > #{t.name} || true"
+end
+
+file "lib/ruby22_parser.y" => "lib/ruby_parser.yy" do |t|
+  sh "unifdef -tk -URUBY20 -URUBY21 -DRUBY22 -UDEAD #{t.source} > #{t.name} || true"
+end
+
 file "lib/ruby18_parser.rb" => "lib/ruby18_parser.y"
 file "lib/ruby19_parser.rb" => "lib/ruby19_parser.y"
 file "lib/ruby20_parser.rb" => "lib/ruby20_parser.y"
 file "lib/ruby21_parser.rb" => "lib/ruby21_parser.y"
+file "lib/ruby22_parser.rb" => "lib/ruby22_parser.y"
 file "lib/ruby_lexer.rex.rb" => "lib/ruby_lexer.rex"
 
 task :clean do
@@ -44,6 +58,7 @@ task :clean do
         Dir["diff.diff"] + # not all diffs. bit me too many times
         Dir["coverage.info"] +
         Dir["coverage"] +
+        Dir["lib/ruby2*_parser.y"] +
         Dir["lib/*.output"])
 end
 
@@ -81,18 +96,18 @@ task :isolate => :phony
 # 2) YFLAGS="-r all" make parse.c
 # 3) mv y.output parseXX.output
 
-%w[18 19 20 21].each do |v|
+%w[18 19 20 21 22].each do |v|
   task "compare#{v}" do
     sh "./yack.rb lib/ruby#{v}_parser.output > racc#{v}.txt"
     sh "./yack.rb parse#{v}.output > yacc#{v}.txt"
-    sh "diff -du yacc#{v}.txt racc#{v}.txt || true"
+    sh "diff -du racc#{v}.txt yacc#{v}.txt || true"
     puts
-    sh "diff -du yacc#{v}.txt racc#{v}.txt | wc -l"
+    sh "diff -du racc#{v}.txt yacc#{v}.txt | wc -l"
   end
 end
 
 task :debug => :isolate do
-  ENV["V"] ||= "21"
+  ENV["V"] ||= "22"
   Rake.application[:parser].invoke # this way we can have DEBUG set
   Rake.application[:lexer].invoke # this way we can have DEBUG set
 
@@ -109,6 +124,8 @@ task :debug => :isolate do
              Ruby20Parser.new
            when "21" then
              Ruby21Parser.new
+           when "22" then
+             Ruby22Parser.new
            else
              raise "Unsupported version #{ENV["V"]}"
            end
