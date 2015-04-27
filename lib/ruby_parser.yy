@@ -1,6 +1,12 @@
 # -*- racc -*-
 
+#if defined(RUBY20)
 class Ruby20Parser
+#elif defined(RUBY21)
+class Ruby21Parser
+#elif defined(RUBY22)
+class Ruby22Parser
+#endif
 
 token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       kTHEN kELSIF kELSE kCASE kWHEN kWHILE kUNTIL kFOR kBREAK kNEXT
@@ -19,6 +25,12 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END
       tSTRING tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAMBDA
       tLAMBEG tDSTAR tCHAR tSYMBOLS_BEG tQSYMBOLS_BEG tSTRING_DEND tUBANG
+#if defined(RUBY21) || defined(RUBY22)
+      tRATIONAL tIMAGINARY
+#endif
+#if defined(RUBY22)
+      tLABEL_END
+#endif
 
 prechigh
   right    tBANG tTILDE tUPLUS
@@ -204,11 +216,15 @@ rule
                     {
                       result = self.node_assign val[0], s(:svalue, val[2])
                     }
+#if defined(RUBY20)
                 | mlhs tEQL arg_value
                     {
                       result = new_masgn val[0], val[2], :wrap
                     }
                 | mlhs tEQL mrhs
+#elif defined(RUBY21) || defined(RUBY22)
+                | mlhs tEQL mrhs_arg
+#endif
                     {
                       result = new_masgn val[0], val[2]
                     }
@@ -583,7 +599,9 @@ rule
                 |   tNEQ     | tLSHFT  | tRSHFT   | tPLUS | tMINUS | tSTAR2
                 |   tSTAR    | tDIVIDE | tPERCENT | tPOW  | tDSTAR | tBANG   | tTILDE
                 |   tUPLUS   | tUMINUS | tAREF    | tASET | tBACK_REF2
+#if defined(RUBY20)
                 |   tUBANG
+#endif
 
         reswords: k__LINE__ | k__FILE__ | k__ENCODING__ | klBEGIN | klEND
                 | kALIAS    | kAND      | kBEGIN        | kBREAK  | kCASE
@@ -683,15 +701,21 @@ rule
                     {
                       result = new_call val[0], :**, argl(val[2])
                     }
+#if defined(RUBY20)
                 | tUMINUS_NUM tINTEGER tPOW arg
                     {
                       result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
                     }
                 | tUMINUS_NUM tFLOAT tPOW arg
+#elif defined(RUBY21) || defined(RUBY22)
+                | tUMINUS_NUM simple_numeric tPOW arg
+#endif
                     {
                       result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
+#if defined(RUBY20)
                       ## TODO: why is this 2.0 only?
                       debug20 12, val, result
+#endif
                     }
                 | tUPLUS arg
                     {
@@ -902,6 +926,17 @@ rule
                       result = self.list_append val[0], s(:splat, val[3])
                     }
 
+#if defined(RUBY21) || defined(RUBY22)
+        mrhs_arg: mrhs
+                    {
+                      result = new_masgn_arg val[0]
+                    }
+                | arg_value
+                    {
+                      result = new_masgn_arg val[0], :wrap
+                    }
+
+#endif
             mrhs: args tCOMMA arg_value
                     {
                       result = val[0] << val[2]
@@ -1853,7 +1888,11 @@ regexp_contents: none
                     }
                     compstmt tRCURLY
                     {
+#if defined(RUBY20)
                       # TODO: tRCURLY -> tSTRING_DEND
+#elif defined(RUBY21) || defined(RUBY22)
+                      # TODO: tRCURLY -> tSTRING_END
+#endif
                       _, memo, stmt, _ = val
 
                       lex_strterm, brace_nest, string_nest, oldcond, oldcmdarg, oldlex_state = memo
@@ -1919,17 +1958,31 @@ regexp_contents: none
                       end
                     }
 
+#if defined(RUBY20)
          numeric: tINTEGER
                 | tFLOAT
                 | tUMINUS_NUM tINTEGER =tLOWEST
+#elif defined(RUBY21) || defined(RUBY22)
+         numeric: simple_numeric
+                | tUMINUS_NUM simple_numeric
+#endif
                     {
                       result = -val[1] # TODO: pt_testcase
+#if defined(RUBY20)
                     }
                 | tUMINUS_NUM tFLOAT   =tLOWEST
                     {
                       result = -val[1] # TODO: pt_testcase
+#endif
                     }
 
+#if defined(RUBY21) || defined(RUBY22)
+  simple_numeric: tINTEGER
+                | tFLOAT
+                | tRATIONAL
+                | tIMAGINARY
+
+#endif
    user_variable: tIDENTIFIER
                 | tIVAR
                 | tGVAR
@@ -2122,11 +2175,21 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       result = identifier
                     }
 
+#if defined(RUBY22)
+      f_arg_asgn: f_norm_arg
+
+      f_arg_item: f_arg_asgn
+                | tLPAREN f_margs rparen
+                    {
+                      result = val[1]
+                    }
+#else
       f_arg_item: f_norm_arg
                 | tLPAREN f_margs rparen
                     {
                       result = val[1]
                     }
+#endif
 
            f_arg: f_arg_item
                     {
@@ -2154,7 +2217,13 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       result << item
                     }
 
+#if defined(RUBY20)
             f_kw: tLABEL arg_value
+#elif defined(RUBY21) || defined(RUBY22)
+         f_label: tLABEL
+
+            f_kw: f_label arg_value
+#endif
                     {
                       # TODO: call_args
                       label, _ = val[0] # TODO: fix lineno?
@@ -2163,8 +2232,22 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
                       result = s(:array, s(:kwarg, identifier, val[1]))
                     }
+#if defined(RUBY21) || defined(RUBY22)
+                | f_label
+                    {
+                      label, _ = val[0] # TODO: fix lineno?
+                      identifier = label.to_sym
+                      self.env[identifier] = :lvar
 
+                      result = s(:array, s(:kwarg, identifier))
+                    }
+#endif
+
+#if defined(RUBY20)
       f_block_kw: tLABEL primary_value
+#elif defined(RUBY21) || defined(RUBY22)
+      f_block_kw: f_label primary_value
+#endif
                     {
                       # TODO: call_args
                       label, _ = val[0] # TODO: fix lineno?
@@ -2173,6 +2256,16 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
                       result = s(:array, s(:kwarg, identifier, val[1]))
                     }
+#if defined(RUBY21) || defined(RUBY22)
+                | f_label
+                    {
+                      label, _ = val[0] # TODO: fix lineno?
+                      identifier = label.to_sym
+                      self.env[identifier] = :lvar
+
+                      result = s(:array, s(:kwarg, identifier))
+                    }
+#endif
 
    f_block_kwarg: f_block_kw
                 | f_block_kwarg tCOMMA f_block_kw
@@ -2199,13 +2292,25 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       debug20 36, val, result
                     }
 
+#if defined(RUBY20)
            f_opt: tIDENTIFIER tEQL arg_value
+#elif defined(RUBY21)
+           f_opt: f_norm_arg tEQL arg_value
+#elif defined(RUBY22)
+           f_opt: f_arg_asgn tEQL arg_value
+#endif
                     {
                       result = self.assignable val[0], val[2]
                       # TODO: detect duplicate names
                     }
 
+#if defined(RUBY20)
      f_block_opt: tIDENTIFIER tEQL primary_value
+#elif defined(RUBY21)
+     f_block_opt: f_norm_arg tEQL primary_value
+#elif defined(RUBY22)
+     f_block_opt: f_arg_asgn tEQL primary_value
+#endif
                     {
                       result = self.assignable val[0], val[2]
                     }
@@ -2304,6 +2409,19 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result = s(:array, s(:lit, val[0][0].to_sym), val[1])
                     }
+#if defined(RUBY22)
+                | tSTRING_BEG string_contents tLABEL_END arg_value
+                    {
+                      _, sym, _, value = val
+                      sym[0] = :dsym
+                      result = s(:array, sym, value)
+                    }
+                | tSYMBOL arg_value
+                    {
+                      raise "not yet: #{val.inspect}"
+                      # result = s(:array, s(:lit, val[1].to_sym), val[1])
+                    }
+#endif
                 | tDSTAR arg_value
                     {
                       result = s(:array, s(:kwsplat, val[1]))
