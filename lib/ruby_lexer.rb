@@ -273,6 +273,10 @@ class RubyLexer
     in_lex_state? :expr_end, :expr_endarg, :expr_endfn
   end
 
+  def ruby22_label?
+    ruby22? and is_label_possible?
+  end
+
   def is_label_possible?
     (in_lex_state?(:expr_beg, :expr_endfn) && !command_state) || is_arg?
   end

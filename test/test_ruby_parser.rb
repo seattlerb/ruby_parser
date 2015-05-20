@@ -3338,4 +3338,14 @@ class TestRuby22Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  def test_bug191
+    pt = s(:if, s(:call, nil, :a), s(:str, ""), s(:call, nil, :b))
+
+    rb = "a ? '': b"
+    assert_parse rb, pt
+
+    rb = "a ? \"\": b"
+    assert_parse rb, pt
+  end
 end

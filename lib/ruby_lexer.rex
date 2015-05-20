@@ -61,7 +61,7 @@ rule
 | bol?          /\=begin(?=\s)/         process_begin
 |               /\=(?=begin\b)/         { result arg_state, TOKENS[text], text }
 
-ruby22?         /\"(#{SIMPLE_STRING})\":/o process_label
+ruby22_label?   /\"(#{SIMPLE_STRING})\":/o process_label
                 /\"(#{SIMPLE_STRING})\"/o { result :expr_end, :tSTRING, text[1..-2].gsub(ESC) { unescape $1 } }
                 /\"/                    { string STR_DQUOTE; result nil, :tSTRING_BEG, text }
 
@@ -94,7 +94,7 @@ ruby22?         /\"(#{SIMPLE_STRING})\":/o process_label
                 /\[/                    process_square_bracket
 
 # TODO: make this conditional on ruby 2.2
-ruby22?         /\'#{SSTRING}\':/o      process_label
+ruby22_label?   /\'#{SSTRING}\':/o      process_label
                 /\'#{SSTRING}\'/o       { result :expr_end, :tSTRING, matched[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'") } # " stupid emacs
 
 : /\|/
