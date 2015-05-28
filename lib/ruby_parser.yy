@@ -175,7 +175,7 @@ rule
                         debug20 3
                         yyerror "END in method; use at_exit"
                       end
-                      result = new_iter s(:postexe), nil, val[2]
+                      result = new_iter s(:postexe), 0, val[2]
                     }
                 | command_asgn
                 | mlhs tEQL command_call
@@ -1430,18 +1430,17 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result = args val
                     }
 
- opt_block_param: none
+ opt_block_param: none { result = 0 }
                 | block_param_def
 
  block_param_def: tPIPE opt_bv_decl tPIPE
                     {
                       result = args val
-                      result = 0 if result == s(:args)
                     }
                 | tOROP
                     {
-                      result = 0
                       self.lexer.command_start = true
+                      result = s(:args)
                     }
                 | tPIPE block_param opt_bv_decl tPIPE
                     {
@@ -1482,8 +1481,6 @@ opt_block_args_tail: tCOMMA block_args_tail
                       lpar, args, body = val
                       lexer.lpar_beg = lpar
 
-                      args = 0 if args == s(:args)
-
                       call = new_call nil, :lambda
                       result = new_iter call, args, body
                       self.env.unextend
@@ -1496,6 +1493,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                 | f_args
                     {
                       result = val[0]
+                      result = 0 if result == s(:args)
                     }
 
      lambda_body: tLAMBEG compstmt tRCURLY

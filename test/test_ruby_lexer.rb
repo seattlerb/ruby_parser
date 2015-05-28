@@ -518,10 +518,10 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_const_call_same_name
     assert_lex("X = a { }; b { f :c }",
                s(:block,
-                 s(:cdecl, :X, s(:iter, s(:call, nil, :a), s(:args))),
+                 s(:cdecl, :X, s(:iter, s(:call, nil, :a), 0)),
                  s(:iter,
                    s(:call, nil, :b),
-                   s(:args),
+                   0,
                    s(:call, nil, :f, s(:lit, :c)))),
 
                :tCONSTANT,   "X", :expr_cmdarg, 0, 0,
@@ -539,10 +539,10 @@ class TestRubyLexer < Minitest::Test
 
     assert_lex("X = a { }; b { X :c }",
                s(:block,
-                 s(:cdecl, :X, s(:iter, s(:call, nil, :a), s(:args))),
+                 s(:cdecl, :X, s(:iter, s(:call, nil, :a), 0)),
                  s(:iter,
                    s(:call, nil, :b),
-                   s(:args),
+                   0,
                    s(:call, nil, :X, s(:lit, :c)))),
 
                :tCONSTANT,   "X", :expr_cmdarg, 0, 0,
@@ -2299,7 +2299,7 @@ class TestRubyLexer < Minitest::Test
     assert_lex3('"#$%"', nil,
 
                 :tSTRING_BEG,     "\"",  :expr_beg,
-                :tSTRING_CONTENT, "#$%", :expr_beg,
+                :tSTRING_CONTENT, '#$%', :expr_beg,
                 :tSTRING_END,     "\"",  :expr_end)
   end
 

@@ -135,7 +135,7 @@ rule
                       if (in_def || in_single > 0) then
                         yyerror "END in method; use at_exit"
                       end
-                      result = new_iter s(:postexe), nil, val[2]
+                      result = new_iter s(:postexe), 0, val[2]
                     }
                 | lhs tEQL command_call
                     {
@@ -1271,15 +1271,15 @@ rule
                     }
                 ;
 
-   opt_block_var: none
+   opt_block_var: none { result = 0 }
                 | tPIPE tPIPE
                     {
-                      result = 0
+                      result = s(:args)
                       self.lexer.command_start = true
                     }
                 | tOROP
                     {
-                      result = 0
+                      result = s(:args)
                       self.lexer.command_start = true
                     }
                 | tPIPE block_var tPIPE

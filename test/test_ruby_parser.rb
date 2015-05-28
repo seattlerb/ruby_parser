@@ -121,7 +121,7 @@ module TestRubyParserShared
     rb = "a.b (1) {c}"
     pt = s(:iter,
            s(:call, s(:call, nil, :a), :b, s(:lit, 1)),
-           s(:args),
+           0,
            s(:call, nil, :c))
 
     assert_parse rb, pt
@@ -131,7 +131,7 @@ module TestRubyParserShared
     rb = "a::b (1) {c}"
     pt =  s(:iter,
             s(:call, s(:call, nil, :a), :b, s(:lit, 1)),
-            s(:args),
+            0,
             s(:call, nil, :c))
 
     assert_parse rb, pt
@@ -226,7 +226,7 @@ module TestRubyParserShared
     rb = "a do\n  v = nil\n  begin\n    yield\n  rescue Exception => v\n    break\n  end\nend"
     pt = s(:iter,
            s(:call, nil, :a),
-           s(:args),
+           0,
            s(:block,
              s(:lasgn, :v, s(:nil)),
              s(:rescue,
@@ -1012,7 +1012,7 @@ module TestRubyParserShared
 
   def test_pipe_space
     rb = "a.b do | | end"
-    pt = s(:iter, s(:call, s(:call, nil, :a), :b), 0)
+    pt = s(:iter, s(:call, s(:call, nil, :a), :b), s(:args))
 
     assert_parse rb, pt
   end
@@ -1614,7 +1614,7 @@ module TestRubyParserShared19to22
     rb = "a.b c do end.d"
     pt = s(:call,
            s(:iter,
-             s(:call, s(:call, nil, :a), :b, s(:call, nil, :c)), s(:args)),
+             s(:call, s(:call, nil, :a), :b, s(:call, nil, :c)), 0),
            :d)
 
     assert_parse rb, pt
@@ -1624,7 +1624,7 @@ module TestRubyParserShared19to22
     rb = "a.b c do end::d"
     pt = s(:call,
            s(:iter,
-             s(:call, s(:call, nil, :a), :b, s(:call, nil, :c)), s(:args)),
+             s(:call, s(:call, nil, :a), :b, s(:call, nil, :c)), 0),
            :d)
 
     assert_parse rb, pt
@@ -1633,7 +1633,7 @@ module TestRubyParserShared19to22
   def test_block_command_operation_dot
     rb = "a :b do end.c :d"
     pt = s(:call,
-           s(:iter, s(:call, nil, :a, s(:lit, :b)), s(:args)),
+           s(:iter, s(:call, nil, :a, s(:lit, :b)), 0),
            :c,
            s(:lit, :d))
 
@@ -1643,7 +1643,7 @@ module TestRubyParserShared19to22
   def test_block_command_operation_colon
     rb = "a :b do end::c :d"
     pt = s(:call,
-           s(:iter, s(:call, nil, :a, s(:lit, :b)), s(:args)),
+           s(:iter, s(:call, nil, :a, s(:lit, :b)), 0),
            :c,
            s(:lit, :d))
 
@@ -1717,7 +1717,7 @@ module TestRubyParserShared19to22
            nil,
            :private,
            s(:defn, :f, s(:args),
-             s(:iter, s(:call, s(:call, nil, :a), :b), s(:args))))
+             s(:iter, s(:call, s(:call, nil, :a), :b), 0)))
 
     assert_parse rb, pt
   end
@@ -2021,7 +2021,7 @@ module TestRubyParserShared19to22
 
   def test_do_lambda
     rb = "->() do end"
-    pt = s(:iter, s(:call, nil, :lambda), 0)
+    pt = s(:iter, s(:call, nil, :lambda), s(:args))
 
     assert_parse rb, pt
   end
@@ -2155,6 +2155,15 @@ module TestRubyParserShared19to22
 end
 
 module TestRubyParserShared20to22
+  def test_defs_kwarg
+    skip "not yet"
+
+    rb = "def self.a b: 1\nend"
+    pt = s(:defs, s(:self), :a, s(:args, s(:kwarg, :b, s(:lit, 1))), s(:nil))
+
+    assert_parse rb, pt
+  end
+
   def test_defn_kwarg_kwsplat
     rb = "def a(b: 1, **c) end"
     pt = s(:defn, :a, s(:args, s(:kwarg, :b, s(:lit, 1)), :"**c"), s(:nil))
@@ -2704,7 +2713,7 @@ class TestRuby19Parser < RubyParserTestCase
            s(:lit, :a),
            s(:iter,
              s(:call, nil, :lambda),
-             s(:args),
+             0,
              s(:if, s(:call, nil, :b), s(:call, nil, :c), s(:call, nil, :d))),
 
            s(:lit, :e),
@@ -2713,12 +2722,14 @@ class TestRuby19Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
-  # def test_pipe_semicolon # HACK
-  #   rb = "a.b do | ; c | end"
-  #   pt = s(:iter, s(:call, s(:call, nil, :a), :b), 0)
-  #
-  #   assert_parse rb, pt
-  # end
+  def test_pipe_semicolon
+    skip "not yet"
+
+    rb = "a.b do | ; c | end"
+    pt = s(:iter, s(:call, s(:call, nil, :a), :b), 0)
+
+    assert_parse rb, pt
+  end
 
   def test_wtf
     # lambda -> f_larglist lambda_body
@@ -2822,12 +2833,14 @@ class TestRuby19Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
-  # def test_kill_me5
-  #   rb = "f ->() { g do end }"
-  #   pt = 42
-  #
-  #   assert_parse rb, pt
-  # end
+  def test_kill_me5
+    skip "not yet"
+
+    rb = "f ->() { g do end }"
+    pt = 42
+
+    assert_parse rb, pt
+  end
 
   def test_iter_args_4
     rb = "f { |a, *b, c| }"
@@ -2837,6 +2850,8 @@ class TestRuby19Parser < RubyParserTestCase
   end
 
   def test_iter_args_5
+    skip "not yet"
+
     rb = "f { |a, &b| }"
     pt = s(:iter, s(:call, nil, :f), s(:args, :a, :"&b"))
 
@@ -3036,12 +3051,20 @@ class TestRuby19Parser < RubyParserTestCase
   end
 
   def test_lambda_do_vs_brace
-    pt = s(:call, nil, :f, s(:iter, s(:call, nil, :lambda), 0))
+    pt = s(:call, nil, :f, s(:iter, s(:call, nil, :lambda), s(:args)))
 
     rb = "f ->() {}"
     assert_parse rb, pt
 
     rb = "f ->() do end"
+    assert_parse rb, pt
+
+    pt = s(:call, nil, :f, s(:iter, s(:call, nil, :lambda), 0))
+
+    rb = "f -> {}"
+    assert_parse rb, pt
+
+    rb = "f -> do end"
     assert_parse rb, pt
   end
 
@@ -3080,7 +3103,7 @@ class TestRuby20Parser < RubyParserTestCase
            s(:call,
              s(:iter,
                s(:call, s(:call, nil, :a), :b, s(:call, nil, :c)),
-               s(:args),
+               0,
                s(:call, nil, :d)),
              :e),
            s(:args, :f),
@@ -3096,7 +3119,7 @@ class TestRuby20Parser < RubyParserTestCase
            s(:call,
              s(:iter,
                s(:call, s(:call, nil, :a), :b, s(:call, nil, :c)),
-               s(:args),
+               0,
                s(:call, nil, :d)),
              :e,
              s(:call, nil, :f)),
@@ -3347,5 +3370,40 @@ class TestRuby22Parser < RubyParserTestCase
 
     rb = "a ? \"\": b"
     assert_parse rb, pt
+  end
+end
+
+[18, 19, 20, 21, 22].each do |v|
+  describe "block args arity #{v}" do
+    attr_accessor :parser
+
+    before do
+      self.parser = Object.const_get("Ruby#{v}Parser").new
+    end
+
+    {
+     "->       {    }" => s(:iter, s(:call, nil, :lambda),           0),
+     "lambda   {    }" => s(:iter, s(:call, nil, :lambda),           0),
+     "proc     {    }" => s(:iter, s(:call, nil, :proc),             0),
+     "Proc.new {    }" => s(:iter, s(:call, s(:const, :Proc), :new), 0),
+
+     "-> ()    {    }" => s(:iter, s(:call, nil, :lambda),           s(:args)),
+     "lambda   { || }" => s(:iter, s(:call, nil, :lambda),           s(:args)),
+     "proc     { || }" => s(:iter, s(:call, nil, :proc),             s(:args)),
+     "Proc.new { || }" => s(:iter, s(:call, s(:const, :Proc), :new), s(:args)),
+
+    }.each do |input, expected|
+      next if v == 18 and input =~ /->/
+      next if v == 19 and input =~ /-> \(\)/
+
+      it "parses '#{input}'" do
+        assert_equal expected, parser.parse(input)
+      end
+
+      input = input.sub(/\{/, "do").sub(/\}/, "end")
+      it "parses '#{input}'" do
+        assert_equal expected, parser.parse(input)
+      end
+    end
   end
 end
