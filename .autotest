@@ -15,6 +15,11 @@ Autotest.add_hook :initialize do |at|
   at.add_exception "lib/ruby18_parser.rb"
   at.add_exception "lib/ruby19_parser.rb"
   at.add_exception "lib/ruby20_parser.rb"
+  at.add_exception "lib/ruby21_parser.rb"
+  at.add_exception "lib/ruby22_parser.rb"
+  at.add_exception "lib/ruby20_parser.y"
+  at.add_exception "lib/ruby21_parser.y"
+  at.add_exception "lib/ruby22_parser.y"
   at.add_exception "lib/ruby_lexer.rex.rb"
 
   Dir["gauntlet*"].each do |f|
@@ -25,7 +30,12 @@ Autotest.add_hook :initialize do |at|
   at.testlib = "minitest/autorun"
 
   at.add_mapping(/^lib\/.*\.y$/) do |f, _|
-    g = File.basename(f, ".y").gsub("_", "_?").gsub(/1[89]|2[01]/, '')
+    g = File.basename(f, ".y").gsub("_", "_?").gsub(/1[89]|2[012]/, '')
+    at.files_matching %r%^test/.*#{g}.rb$%
+  end
+
+  at.add_mapping(/^lib\/.*\.yy$/) do |f, _|
+    g = File.basename(f, ".yy").gsub("_", "_?").gsub(/1[89]|2[012]/, '')
     at.files_matching %r%^test/.*#{g}.rb$%
   end
 
@@ -46,7 +56,7 @@ Autotest.add_hook :initialize do |at|
     at.extra_class_map[klass] = "test/test_ruby_parser_extras.rb"
   end
 
-  %w(TestRuby18Parser TestRuby19Parser TestRuby20Parser TestRuby21Parser TestParseTree).each do |klass| # HACK
+  %w(TestRuby18Parser TestRuby19Parser TestRuby20Parser TestRuby21Parser TestRuby22Parser TestParseTree).each do |klass| # HACK
     at.extra_class_map[klass] = "test/test_ruby_parser.rb"
   end
 end
