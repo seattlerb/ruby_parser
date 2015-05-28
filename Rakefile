@@ -22,12 +22,15 @@ Hoe.spec "ruby_parser" do
   dependency "rake", "< 11", :developer
   dependency "oedipus_lex", "~> 2.1", :developer
 
-  if plugin? :perforce then
+  if plugin? :perforce then     # generated files
     self.perforce_ignore << "lib/ruby18_parser.rb"
     self.perforce_ignore << "lib/ruby19_parser.rb"
     self.perforce_ignore << "lib/ruby20_parser.rb"
+    self.perforce_ignore << "lib/ruby20_parser.y"
     self.perforce_ignore << "lib/ruby21_parser.rb"
+    self.perforce_ignore << "lib/ruby21_parser.y"
     self.perforce_ignore << "lib/ruby22_parser.rb"
+    self.perforce_ignore << "lib/ruby22_parser.y"
     self.perforce_ignore << "lib/ruby_lexer.rex.rb"
   end
 
