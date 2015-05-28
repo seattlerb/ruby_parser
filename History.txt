@@ -1,3 +1,21 @@
+=== 3.7.0 / 2015-05-28
+
+* 2 major enhancements:
+
+  * Added preliminary support for ruby 2.2 syntax.
+  * Now writing all 2.x parsers from one source, generating racc files.
+
+* 1 minor enhancement:
+
+  * Added RubyLexer#process_label and hooked it up to "x": and 'x': productions.
+
+* 4 bug fixes:
+
+  * Fixed handling of block_args to be consistent across all parse versions.
+  * Fixed lexing of label assoc args w/ newlines in between k/v. (jeremyf)
+  * Fixed lexing of x?'':y for ruby22 (not a label). (presidentbeef)
+  * clear and restore cmdarg stack around def args and body.
+
 === 3.6.6 / 2015-04-13
 
 * 1 minor enhancement:
