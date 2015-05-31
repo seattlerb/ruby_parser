@@ -2019,7 +2019,7 @@ module TestRubyParserShared19to22
     assert_parse rb, pt
   end
 
-  def test_do_lambda
+  def test_do_lambda_no_args
     rb = "->() do end"
     pt = s(:iter, s(:call, nil, :lambda), s(:args))
 
