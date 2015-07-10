@@ -1202,7 +1202,7 @@ end
 
 require "ruby_lexer.rex"
 
-if ENV["DEBUG"] then
+if ENV["RP_LINENO_DEBUG"] then
   class RubyLexer
     alias :old_lineno= :lineno=
 
