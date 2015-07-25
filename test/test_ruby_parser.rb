@@ -575,6 +575,14 @@ module TestRubyParserShared
     # TODO: add more including interpolation etc
   end
 
+  def test_str_backslashes
+    long_string = '\n' * 100
+    rb = "x '#{long_string}'"
+    pt = s(:call, nil, :x, s(:str, long_string))
+
+    assert_parse rb, pt
+  end
+
   def test_str_pct_Q_nested
     rb = "%Q[before [#\{nest}] after]"
     pt = s(:dstr, "before [", s(:evstr, s(:call, nil, :nest)), s(:str, "] after"))
