@@ -1,3 +1,14 @@
+=== 3.7.1 / 2015-08-06
+
+* 1 minor enhancement:
+
+  * Improved understandability of lexing postfix symbols.
+
+* 2 bug fixes:
+
+  * Fixed timeout caused by regexp backtracking bug w/ long strings in 2.2 parser. (presidentbeef)
+  * Rename DEBUG env toggle to RB_LINENO_DEBUG. (tenderlove)
+
 === 3.7.0 / 2015-05-28
 
 * 2 major enhancements:
