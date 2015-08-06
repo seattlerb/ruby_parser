@@ -10,7 +10,7 @@ macro
 
   ESC           /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|u[0-9a-fA-F]+|u\{[0-9a-fA-F]+\}|[^0-7xMCc]))/
   SIMPLE_STRING /(#{ESC}|\#(#{ESC}|[^\{\#\@\$\"\\])|[^\"\\\#])*/o
-  SSTRING       /((?>\\.|[^\'])*)/
+  SSTRING       /(\\.|[^\'])*/
 
   INT_DEC       /[+]?(?:(?:[1-9][\d_]*|0)(?!\.\d)\b|0d[0-9_]+)/i
   INT_HEX       /[+]?0x[a-f0-9_]+/i
@@ -93,9 +93,7 @@ ruby22_label?   /\"(#{SIMPLE_STRING})\":/o process_label
 
                 /\[/                    process_square_bracket
 
-# TODO: make this conditional on ruby 2.2
-ruby22_label?   /\'#{SSTRING}\':/o      process_label
-                /\'#{SSTRING}\'/o       { result :expr_end, :tSTRING, matched[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'") } # " stupid emacs
+was_label?        /\'#{SSTRING}\':?/o   process_label_or_string
 
 : /\|/
 |               /\|\|\=/                { result :expr_beg, :tOP_ASGN, "||" }

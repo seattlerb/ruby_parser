@@ -662,6 +662,23 @@ class RubyLexer
     return result(:expr_end, :tSYMBOL, symbol)
   end
 
+  def was_label?
+    @was_label = ruby22_label?
+    true
+  end
+
+  def process_label_or_string text
+    if @was_label && text =~ /:$/ then
+      @was_label = nil
+      return process_label text
+    elsif text =~ /:$/ then
+      ss.pos -= 1 # put back ":"
+      text = text[0..-2]
+    end
+
+    result :expr_end, :tSTRING, text[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'")
+  end
+
   def process_label text
     result = process_symbol text
     result[0] = :tLABEL
