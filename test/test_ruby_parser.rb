@@ -575,6 +575,13 @@ module TestRubyParserShared
     # TODO: add more including interpolation etc
   end
 
+  def test_label_vs_string
+    rb = "_buf << ':\n'"
+    pt = s(:call, s(:call, nil, :_buf), :<<, s(:str, ":\n"))
+
+    assert_parse rb, pt
+  end
+
   def test_str_backslashes
     long_string = '\n' * 100
     rb = "x '#{long_string}'"

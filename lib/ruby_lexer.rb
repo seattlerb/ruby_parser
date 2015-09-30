@@ -668,10 +668,10 @@ class RubyLexer
   end
 
   def process_label_or_string text
-    if @was_label && text =~ /:$/ then
+    if @was_label && text =~ /:\Z/ then
       @was_label = nil
       return process_label text
-    elsif text =~ /:$/ then
+    elsif text =~ /:\Z/ then
       ss.pos -= 1 # put back ":"
       text = text[0..-2]
     end
