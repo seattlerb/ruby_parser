@@ -86,7 +86,12 @@ class TestRubyLexer < Minitest::Test
     act_value = act_value.first if Array === act_value
 
     assert_equal token, act_token,       msg
-    assert_equal value, act_value,       msg
+    case value
+    when Float then
+      assert_in_epsilon value, act_value, 0.001, msg
+    else
+      assert_equal value, act_value,       msg
+    end
     assert_equal state, @lex.lex_state,  msg if state
     assert_equal paren, @lex.paren_nest, msg if paren
     assert_equal brace, @lex.brace_nest, msg if brace
