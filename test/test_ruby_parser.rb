@@ -269,7 +269,7 @@ module TestRubyParserShared
 
   def test_defs_comments
     rb = "# blah 1\n# blah 2\n\ndef self.blah\nend"
-    pt = s(:defs, s(:self), :blah, s(:args))
+    pt = s(:defs, s(:self), :blah, s(:args), s(:nil))
 
     assert_parse rb, pt
     assert_equal "# blah 1\n# blah 2\n\n", result.comments
@@ -1330,7 +1330,7 @@ module TestRubyParserShared
 
   def test_defns_reserved
     rb = "def self.return; end"
-    pt = s(:defs, s(:self), :return, s(:args))
+    pt = s(:defs, s(:self), :return, s(:args), s(:nil))
 
     assert_parse rb, pt
   end
@@ -2172,7 +2172,7 @@ end
 module TestRubyParserShared20to22
   def test_defs_kwarg
     rb = "def self.a b: 1\nend"
-    pt = s(:defs, s(:self), :a, s(:args, s(:kwarg, :b, s(:lit, 1))))
+    pt = s(:defs, s(:self), :a, s(:args, s(:kwarg, :b, s(:lit, 1))), s(:nil))
 
     assert_parse rb, pt
   end
