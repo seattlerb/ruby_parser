@@ -2171,10 +2171,8 @@ end
 
 module TestRubyParserShared20to22
   def test_defs_kwarg
-    skip "not yet"
-
     rb = "def self.a b: 1\nend"
-    pt = s(:defs, s(:self), :a, s(:args, s(:kwarg, :b, s(:lit, 1))), s(:nil))
+    pt = s(:defs, s(:self), :a, s(:args, s(:kwarg, :b, s(:lit, 1))))
 
     assert_parse rb, pt
   end
