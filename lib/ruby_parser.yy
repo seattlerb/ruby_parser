@@ -1203,7 +1203,7 @@ rule
                     {
                       self.in_single += 1
                       self.env.extend
-                      lexer.lex_state = :expr_end # force for args
+                      lexer.lex_state = :expr_endfn # force for args
                       result = lexer.lineno
                     }
                     f_arglist bodystmt kEND
