@@ -133,6 +133,7 @@ was_label?        /\'#{SSTRING}\':?/o   process_label_or_string
 |               /\&\&\=/                { result(:expr_beg, :tOP_ASGN, "&&") }
 |               /\&\&/                  { result(:expr_beg, :tANDOP,   "&&") }
 |               /\&\=/                  { result(:expr_beg, :tOP_ASGN, "&" ) }
+|               /\&\./                  { result(:expr_dot, :tLONELY,  "&.") }
 |               /\&/                    process_amper
 
                 /\//                    process_slash

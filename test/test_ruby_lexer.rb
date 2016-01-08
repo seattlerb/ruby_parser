@@ -245,6 +245,21 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("&&=", nil, :tOP_ASGN, "&&", :expr_beg)
   end
 
+  def test_yylex_and_dot
+    setup_lexer_class Ruby23Parser
+
+    assert_lex3("&.", nil, :tLONELY, "&.", :expr_dot)
+  end
+
+  def test_yylex_and_dot_call
+    setup_lexer_class Ruby23Parser
+
+    assert_lex3("x&.y", nil,
+                :tIDENTIFIER, "x", :expr_cmdarg,
+                :tLONELY, "&.", :expr_dot,
+                :tIDENTIFIER, "y")
+  end
+
   def test_yylex_and_arg
     self.lex_state = :expr_arg
 
