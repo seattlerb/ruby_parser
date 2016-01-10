@@ -3384,6 +3384,20 @@ class TestRuby22Parser < RubyParserTestCase
     rb = "a ? \"\": b"
     assert_parse rb, pt
   end
+
+  def test_quoted_symbol_keys
+    rb = "{ 'a': :b }"
+    pt = s(:hash, s(:lit, :a), s(:lit, :b))
+
+    assert_parse rb, pt
+  end
+
+  def test_quoted_symbol_hash_arg
+    rb = "puts 'a': {}"
+    pt = s(:call, nil, :puts, s(:hash, s(:lit, :a), s(:hash)))
+
+    assert_parse rb, pt
+  end
 end
 
 [18, 19, 20, 21, 22].each do |v|

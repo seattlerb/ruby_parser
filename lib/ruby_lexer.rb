@@ -680,9 +680,9 @@ class RubyLexer
   end
 
   def process_label text
-    result = process_symbol text
-    result[0] = :tLABEL
-    result
+    symbol = match[1].gsub(ESC) { unescape $1 }
+
+    result(:expr_labelarg, :tLABEL, symbol)
   end
 
   def process_token text
