@@ -1074,7 +1074,8 @@ class RubyLexer
   end
 
   def ruby22?
-    Ruby22Parser === parser
+    Ruby22Parser === parser or
+      Ruby23Parser === parser
   end
 
   def process_string # TODO: rewrite / remove

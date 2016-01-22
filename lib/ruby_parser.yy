@@ -6,6 +6,8 @@ class Ruby20Parser
 class Ruby21Parser
 #elif defined(RUBY22)
 class Ruby22Parser
+#elif defined(RUBY23)
+class Ruby23Parser
 #endif
 
 token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
@@ -25,11 +27,14 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END
       tSTRING tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAMBDA
       tLAMBEG tDSTAR tCHAR tSYMBOLS_BEG tQSYMBOLS_BEG tSTRING_DEND tUBANG
-#if defined(RUBY21) || defined(RUBY22)
+#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23))
       tRATIONAL tIMAGINARY
 #endif
-#if defined(RUBY22)
+#if defined(RUBY22 || defined(RUBY23))
       tLABEL_END
+#endif
+#if defined(RUBY23)
+       tLONELY
 #endif
 
 prechigh
@@ -222,7 +227,7 @@ rule
                       result = new_masgn val[0], val[2], :wrap
                     }
                 | mlhs tEQL mrhs
-#elif defined(RUBY21) || defined(RUBY22)
+#elif defined(RUBY21) || defined(RUBY22 || defined(RUBY23))
                 | mlhs tEQL mrhs_arg
 #endif
                     {
@@ -707,7 +712,7 @@ rule
                       result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
                     }
                 | tUMINUS_NUM tFLOAT tPOW arg
-#elif defined(RUBY21) || defined(RUBY22)
+#elif defined(RUBY21) || defined(RUBY22 || defined(RUBY23))
                 | tUMINUS_NUM simple_numeric tPOW arg
 #endif
                     {
@@ -926,7 +931,7 @@ rule
                       result = self.list_append val[0], s(:splat, val[3])
                     }
 
-#if defined(RUBY21) || defined(RUBY22)
+#if defined(RUBY21) || defined(RUBY22 || defined(RUBY23))
         mrhs_arg: mrhs
                     {
                       result = new_masgn_arg val[0]
@@ -1574,6 +1579,13 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       result = new_call val[0], val[2].to_sym, val[3]
                     }
+#if defined(RUBY23)
+                | primary_value tLONELY operation2 opt_paren_args
+                    {
+                      result = new_call val[0], val[2].to_sym, val[3]
+                      result[0] = :safe_call
+                    }
+#endif
                 | primary_value tCOLON2 operation2 paren_args
                     {
                       result = new_call val[0], val[2].to_sym, val[3]
@@ -1888,7 +1900,7 @@ regexp_contents: none
                     {
 #if defined(RUBY20)
                       # TODO: tRCURLY -> tSTRING_DEND
-#elif defined(RUBY21) || defined(RUBY22)
+#elif defined(RUBY21) || defined(RUBY22 || defined(RUBY23))
                       # TODO: tRCURLY -> tSTRING_END
 #endif
                       _, memo, stmt, _ = val
@@ -1960,7 +1972,7 @@ regexp_contents: none
          numeric: tINTEGER
                 | tFLOAT
                 | tUMINUS_NUM tINTEGER =tLOWEST
-#elif defined(RUBY21) || defined(RUBY22)
+#elif defined(RUBY21) || defined(RUBY22 || defined(RUBY23))
          numeric: simple_numeric
                 | tUMINUS_NUM simple_numeric
 #endif
@@ -1974,7 +1986,7 @@ regexp_contents: none
 #endif
                     }
 
-#if defined(RUBY21) || defined(RUBY22)
+#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23))
   simple_numeric: tINTEGER
                 | tFLOAT
                 | tRATIONAL
@@ -2173,7 +2185,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       result = identifier
                     }
 
-#if defined(RUBY22)
+#if defined(RUBY22) || defined(RUBY23))
       f_arg_asgn: f_norm_arg
 
       f_arg_item: f_arg_asgn
@@ -2217,7 +2229,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
 #if defined(RUBY20)
             f_kw: tLABEL arg_value
-#elif defined(RUBY21) || defined(RUBY22)
+#elif defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
          f_label: tLABEL
 
             f_kw: f_label arg_value
@@ -2230,7 +2242,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
                       result = s(:array, s(:kwarg, identifier, val[1]))
                     }
-#if defined(RUBY21) || defined(RUBY22)
+#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
                 | f_label
                     {
                       label, _ = val[0] # TODO: fix lineno?
@@ -2243,7 +2255,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
 #if defined(RUBY20)
       f_block_kw: tLABEL primary_value
-#elif defined(RUBY21) || defined(RUBY22)
+#elif defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
       f_block_kw: f_label primary_value
 #endif
                     {
@@ -2254,7 +2266,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
                       result = s(:array, s(:kwarg, identifier, val[1]))
                     }
-#if defined(RUBY21) || defined(RUBY22)
+#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
                 | f_label
                     {
                       label, _ = val[0] # TODO: fix lineno?
@@ -2294,7 +2306,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
            f_opt: tIDENTIFIER tEQL arg_value
 #elif defined(RUBY21)
            f_opt: f_norm_arg tEQL arg_value
-#elif defined(RUBY22)
+#elif defined(RUBY22) || defined(RUBY23)
            f_opt: f_arg_asgn tEQL arg_value
 #endif
                     {
@@ -2306,7 +2318,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
      f_block_opt: tIDENTIFIER tEQL primary_value
 #elif defined(RUBY21)
      f_block_opt: f_norm_arg tEQL primary_value
-#elif defined(RUBY22)
+#elif defined(RUBY22) || defined(RUBY23)
      f_block_opt: f_arg_asgn tEQL primary_value
 #endif
                     {
@@ -2407,7 +2419,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result = s(:array, s(:lit, val[0][0].to_sym), val[1])
                     }
-#if defined(RUBY22)
+#if defined(RUBY22) || defined(RUBY23)
                 | tSTRING_BEG string_contents tLABEL_END arg_value
                     {
                       _, sym, _, value = val

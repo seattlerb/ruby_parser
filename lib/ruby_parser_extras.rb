@@ -1320,6 +1320,10 @@ module RubyParserStuff
   end
 end
 
+class Ruby23Parser < Racc::Parser
+  include RubyParserStuff
+end
+
 class Ruby22Parser < Racc::Parser
   include RubyParserStuff
 end
@@ -1354,11 +1358,12 @@ class RubyParser
     @p20 = Ruby20Parser.new
     @p21 = Ruby21Parser.new
     @p22 = Ruby22Parser.new
+    @p23 = Ruby23Parser.new
   end
 
   def process s, f = "(string)", t = 10
     e = nil
-    [@p22, @p21, @p20, @p19, @p18].each do |parser|
+    [@p23, @p22, @p21, @p20, @p19, @p18].each do |parser|
       begin
         return parser.process s, f, t
       rescue Racc::ParseError, RubyParser::SyntaxError => exc
@@ -1376,6 +1381,7 @@ class RubyParser
     @p20.reset
     @p21.reset
     @p22.reset
+    @p23.reset
   end
 
   def self.for_current_ruby
@@ -1390,6 +1396,8 @@ class RubyParser
       Ruby21Parser.new
     when /^2.2/ then
       Ruby22Parser.new
+    when /^2.3/ then
+      Ruby23Parser.new
     else
       raise "unrecognized RUBY_VERSION #{RUBY_VERSION}"
     end
