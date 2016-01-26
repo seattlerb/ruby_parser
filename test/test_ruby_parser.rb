@@ -961,6 +961,10 @@ module TestRubyParserShared
     Ruby22Parser === self.processor
   end
 
+  def ruby23
+    Ruby23Parser === self.processor
+  end
+
   def test_bug_comma
     val = if ruby18 then
             s(:lit, 100)
@@ -1016,7 +1020,7 @@ module TestRubyParserShared
     rb = "not(a)"
     pt = if ruby18 then
            s(:not, s(:call, nil, :a))
-         elsif ruby19 or ruby20 or ruby21 or ruby22 then
+         elsif ruby19 or ruby20 or ruby21 or ruby22 or ruby23 then
            s(:call, s(:call, nil, :a), :"!")
          else
            raise "wtf"
@@ -3386,7 +3390,34 @@ class TestRuby22Parser < RubyParserTestCase
   end
 end
 
-[18, 19, 20, 21, 22].each do |v|
+class TestRuby23Parser < RubyParserTestCase
+  include TestRubyParserShared
+  include TestRubyParserShared19to22
+  include TestRubyParserShared20to22
+
+  def setup
+    super
+
+    self.processor = Ruby23Parser.new
+  end
+
+  def test_safe_call
+    rb = "a&.b"
+    pt = s(:safe_call, s(:call, nil, :a), :b)
+
+    assert_parse rb, pt
+  end
+
+  def test_safe_calls
+    rb = "a&.b&.c(1)"
+    pt = s(:safe_call, s(:safe_call, s(:call, nil, :a), :b), :c, s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+end
+
+
+[18, 19, 20, 21, 22, 23].each do |v|
   describe "block args arity #{v}" do
     attr_accessor :parser
 
