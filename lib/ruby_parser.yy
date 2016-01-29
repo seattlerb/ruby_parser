@@ -317,6 +317,13 @@ rule
                     {
                       result = new_call val[0], val[2].to_sym, val[3]
                     }
+#if defined(RUBY23)
+                | primary_value tLONELY operation2 command_args =tLOWEST
+                    {
+                      result = new_call val[0], val[2].to_sym, val[3]
+                      result[0] = :safe_call
+                    }
+#endif
                 | primary_value tDOT operation2 command_args cmd_brace_block
                     {
                       recv, _, msg, args, block = val
@@ -1598,6 +1605,13 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       result = new_call val[0], :call, val[2]
                     }
+#if defined(RUBY23)
+                | primary_value tLONELY paren_args
+                    {
+                      result = new_call val[0], :call, val[2]
+                      result[0] = :safe_call
+                    }
+#endif
                 | primary_value tCOLON2 paren_args
                     {
                       result = new_call val[0], :call, val[2]
