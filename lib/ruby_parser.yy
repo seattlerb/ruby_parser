@@ -1598,6 +1598,13 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       result = new_call val[0], :call, val[2]
                     }
+#if defined(RUBY23)
+                | primary_value tLONELY paren_args
+                    {
+                      result = new_call val[0], :call, val[2]
+                      result[0] = :safe_call
+                    }
+#endif
                 | primary_value tCOLON2 paren_args
                     {
                       result = new_call val[0], :call, val[2]

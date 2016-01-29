@@ -3428,6 +3428,13 @@ class TestRuby23Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  def test_safe_call_dot_parens
+    rb = "a&.()"
+    pt = s(:safe_call, s(:call, nil, :a), :call)
+
+    assert_parse rb, pt
+  end
 end
 
 
