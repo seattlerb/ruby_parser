@@ -932,7 +932,7 @@ module RubyParserStuff
     rhs = value_expr rhs
 
     case lhs[0]
-    when :lasgn, :iasgn, :cdecl, :cvdecl, :gasgn, :cvasgn, :attrasgn then
+    when :lasgn, :iasgn, :cdecl, :cvdecl, :gasgn, :cvasgn, :attrasgn, :safe_attrasgn then
       lhs << rhs
     when :const then
       lhs[0] = :cdecl
