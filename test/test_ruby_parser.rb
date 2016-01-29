@@ -3428,6 +3428,20 @@ class TestRuby23Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  def test_safe_attrasgn
+    rb = "a&.b = 1"
+    pt = s(:safe_attrasgn, s(:call, nil, :a), :"b=", s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+
+  def test_safe_attrasgn_constant
+    rb = "a&.B = 1"
+    pt = s(:safe_attrasgn, s(:call, nil, :a), :"B=", s(:lit, 1))
+
+    assert_parse rb, pt
+  end
 end
 
 
