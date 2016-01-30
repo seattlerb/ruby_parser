@@ -514,6 +514,16 @@ rule
                     {
                       result = s(:attrasgn, val[0], :"#{val[2]}=")
                     }
+#if defined(RUBY23)
+                | primary_value tLONELY tIDENTIFIER
+                    {
+                      result = s(:safe_attrasgn, val[0], :"#{val[2]}=")
+                    }
+                | primary_value tLONELY tCONSTANT
+                    {
+                      result = s(:safe_attrasgn, val[0], :"#{val[2]}=")
+                    }
+#endif
                 | primary_value tCOLON2 tIDENTIFIER
                     {
                       result = s(:attrasgn, val[0], :"#{val[2]}=")
