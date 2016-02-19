@@ -1,3 +1,18 @@
+=== 3.8.0 / 2016-02-18
+
+* 1 major enhancement:
+
+  * Added support for Ruby 2.3.0 and the &. operator. (presidentbeef)
+
+* 2 minor enhancements:
+
+  * Add support for safe attr assign. (presidentbeef)
+  * Added support for safe call. (presidentbeef)
+
+* 1 bug fix:
+
+  * Fixed parsing of { 'a': :b }. (presidentbeef)
+
 === 3.7.3 / 2016-01-21
 
 * 2 bug fixes:
