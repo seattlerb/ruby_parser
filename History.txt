@@ -1,3 +1,9 @@
+=== 3.8.1 / 2016-02-19
+
+* 1 bug fix:
+
+  * Fixed problems with tLONELY in mlhs_node.
+
 === 3.8.0 / 2016-02-18
 
 * 1 major enhancement:
