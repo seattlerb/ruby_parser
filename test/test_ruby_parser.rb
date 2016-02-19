@@ -3422,6 +3422,13 @@ class TestRuby23Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
+  def test_safe_call_newline
+    rb = "a&.b\n"
+    pt = s(:safe_call, s(:call, nil, :a), :b)
+
+    assert_parse rb, pt
+  end
+
   def test_safe_calls
     rb = "a&.b&.c(1)"
     pt = s(:safe_call, s(:safe_call, s(:call, nil, :a), :b), :c, s(:lit, 1))
