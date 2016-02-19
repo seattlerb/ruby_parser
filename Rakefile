@@ -107,7 +107,7 @@ task :isolate => :phony
 # 2) YFLAGS="-r all" make parse.c
 # 3) mv y.output parseXX.output
 
-%w[18 19 20 21 22].each do |v|
+%w[18 19 20 21 22 23].each do |v|
   task "compare#{v}" do
     sh "./yack.rb lib/ruby#{v}_parser.output > racc#{v}.txt"
     sh "./yack.rb parse#{v}.output > yacc#{v}.txt"
@@ -118,7 +118,7 @@ task :isolate => :phony
 end
 
 task :debug => :isolate do
-  ENV["V"] ||= "22"
+  ENV["V"] ||= "23"
   Rake.application[:parser].invoke # this way we can have DEBUG set
   Rake.application[:lexer].invoke # this way we can have DEBUG set
 
