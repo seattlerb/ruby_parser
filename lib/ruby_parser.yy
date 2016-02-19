@@ -473,6 +473,12 @@ rule
                     {
                       result = s(:attrasgn, val[0], :"#{val[2]}=")
                     }
+#if defined(RUBY23)
+                | primary_value tLONELY tIDENTIFIER
+                    {
+                      result = s(:attrasgnx, val[0], :"#{val[2]}=")
+                    }
+#endif
                 | primary_value tCOLON2 tIDENTIFIER
                     {
                       result = s(:attrasgn, val[0], :"#{val[2]}=")
@@ -481,6 +487,12 @@ rule
                     {
                       result = s(:attrasgn, val[0], :"#{val[2]}=")
                     }
+#if defined(RUBY23)
+                | primary_value tLONELY tCONSTANT
+                    {
+                      result = s(:attrasgnx, val[0], :"#{val[2]}=")
+                    }
+#endif
                 | primary_value tCOLON2 tCONSTANT
                     {
                       if (self.in_def || self.in_single > 0) then
@@ -526,10 +538,6 @@ rule
                     {
                       result = s(:safe_attrasgn, val[0], :"#{val[2]}=")
                     }
-                | primary_value tLONELY tCONSTANT
-                    {
-                      result = s(:safe_attrasgn, val[0], :"#{val[2]}=")
-                    }
 #endif
                 | primary_value tCOLON2 tIDENTIFIER
                     {
@@ -539,6 +547,12 @@ rule
                     {
                       result = s(:attrasgn, val[0], :"#{val[2]}=")
                     }
+#if defined(RUBY23)
+                | primary_value tLONELY tCONSTANT
+                    {
+                      result = s(:safe_attrasgn, val[0], :"#{val[2]}=")
+                    }
+#endif
                 | primary_value tCOLON2 tCONSTANT
                     {
                       if (self.in_def || self.in_single > 0) then
