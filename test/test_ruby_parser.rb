@@ -1401,6 +1401,19 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_qwords_line_breaks
+    skip "not yet"
+
+    rb = "%w(\na\nb\n)\n1"
+    pt = s(:block,
+           s(:array,
+             s(:str, "a").line(2),
+             s(:str, "b").line(3)).line(1),
+           s(:lit, 1).line(5))
+
+    assert_parse rb, pt
+  end
+
   def test_qWords_space
     rb = "%W( )"
     pt = s(:array)
