@@ -1911,7 +1911,7 @@ regexp_contents: none
                       result = lexer.lex_strterm
 
                       lexer.lex_strterm = nil
-                      lexer.lex_state = :expr_beg
+                      lexer.lex_state = :expr_beg # TODO: expr_value ?
                     }
                     string_dvar
                     {
@@ -1932,7 +1932,7 @@ regexp_contents: none
                       lexer.brace_nest  = 0
                       lexer.string_nest = 0
 
-                      lexer.lex_state   = :expr_beg
+                      lexer.lex_state   = :expr_value
                     }
                     compstmt tRCURLY
                     {

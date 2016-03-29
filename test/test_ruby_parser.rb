@@ -2209,6 +2209,13 @@ module TestRubyParserShared20to22
     assert_parse rb, pt
   end
 
+  def test_dstr_lex_state
+    rb = '"#{p:a}"'
+    pt = s(:dstr, "", s(:evstr, s(:call, nil, :p, s(:lit, :a))))
+
+    assert_parse rb, pt
+  end
+
   def test_call_arg_kwsplat
     rb = "a(b, **1)"
     pt = s(:call, nil, :a, s(:call, nil, :b), s(:hash, s(:kwsplat, s(:lit, 1))))
