@@ -195,13 +195,21 @@ rule
                     {
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
                     }
-                | primary_value tDOT tIDENTIFIER tOP_ASGN command_call
+                | primary_value call_op tIDENTIFIER tOP_ASGN command_call
                     {
                       result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
+                      if val[1] == '&.'
+                        result[0] = :safe_op_asgn
+                      end
+                      result.line = val[0].line
                     }
-                | primary_value tDOT tCONSTANT tOP_ASGN command_call
+                | primary_value call_op tCONSTANT tOP_ASGN command_call
                     {
                       result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
+                      if val[1] == '&.'
+                        result[0] = :safe_op_asgn
+                      end
+                      result.line = val[0].line
                     }
                 | primary_value tCOLON2 tCONSTANT tOP_ASGN command_call
                     {
@@ -313,21 +321,14 @@ rule
                         result.insert 1, operation
                       end
                     }
-                | primary_value tDOT operation2 command_args =tLOWEST
+                | primary_value call_op operation2 command_args =tLOWEST
                     {
-                      result = new_call val[0], val[2].to_sym, val[3]
+                      result = new_call val[0], val[2].to_sym, val[3], val[1]
                     }
-#if defined(RUBY23)
-                | primary_value tLONELY operation2 command_args =tLOWEST
-                    {
-                      result = new_call val[0], val[2].to_sym, val[3]
-                      result[0] = :safe_call
-                    }
-#endif
-                | primary_value tDOT operation2 command_args cmd_brace_block
+                | primary_value call_op operation2 command_args cmd_brace_block
                     {
                       recv, _, msg, args, block = val
-                      call = new_call recv, msg.to_sym, args
+                      call = new_call recv, msg.to_sym, args, val[1]
 
                       block_dup_check call, block
 
@@ -469,30 +470,18 @@ rule
                     {
                       result = self.aryset val[0], val[2]
                     }
-                | primary_value tDOT tIDENTIFIER
+                | primary_value call_op tIDENTIFIER
                     {
-                      result = s(:attrasgn, val[0], :"#{val[2]}=")
+                      result = new_attrasgn val[0], val[2], val[1]
                     }
-#if defined(RUBY23)
-                | primary_value tLONELY tIDENTIFIER
-                    {
-                      result = s(:attrasgnx, val[0], :"#{val[2]}=")
-                    }
-#endif
                 | primary_value tCOLON2 tIDENTIFIER
                     {
                       result = s(:attrasgn, val[0], :"#{val[2]}=")
                     }
-                | primary_value tDOT tCONSTANT
+                | primary_value call_op tCONSTANT
                     {
-                      result = s(:attrasgn, val[0], :"#{val[2]}=")
+                      result = new_attrasgn val[0], val[2], val[1]
                     }
-#if defined(RUBY23)
-                | primary_value tLONELY tCONSTANT
-                    {
-                      result = s(:attrasgnx, val[0], :"#{val[2]}=")
-                    }
-#endif
                 | primary_value tCOLON2 tCONSTANT
                     {
                       if (self.in_def || self.in_single > 0) then
@@ -529,30 +518,18 @@ rule
                     {
                       result = self.aryset val[0], val[2]
                     }
-                | primary_value tDOT tIDENTIFIER # REFACTOR
+                | primary_value call_op tIDENTIFIER # REFACTOR
                     {
-                      result = s(:attrasgn, val[0], :"#{val[2]}=")
+                      result = new_attrasgn val[0], val[2], val[1]
                     }
-#if defined(RUBY23)
-                | primary_value tLONELY tIDENTIFIER
-                    {
-                      result = s(:safe_attrasgn, val[0], :"#{val[2]}=")
-                    }
-#endif
                 | primary_value tCOLON2 tIDENTIFIER
                     {
                       result = s(:attrasgn, val[0], :"#{val[2]}=")
                     }
-                | primary_value tDOT tCONSTANT # REFACTOR?
+                | primary_value call_op tCONSTANT # REFACTOR?
                     {
-                      result = s(:attrasgn, val[0], :"#{val[2]}=")
+                      result = new_attrasgn val[0], val[2], val[1]
                     }
-#if defined(RUBY23)
-                | primary_value tLONELY tCONSTANT
-                    {
-                      result = s(:safe_attrasgn, val[0], :"#{val[2]}=")
-                    }
-#endif
                 | primary_value tCOLON2 tCONSTANT
                     {
                       if (self.in_def || self.in_single > 0) then
@@ -671,13 +648,13 @@ rule
                       val[2][0] = :arglist if val[2]
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
                     }
-                | primary_value tDOT tIDENTIFIER tOP_ASGN arg
+                | primary_value call_op tIDENTIFIER tOP_ASGN arg
                     {
-                      result = s(:op_asgn2, val[0], :"#{val[2]}=", val[3].to_sym, val[4])
+                      result = new_op_asgn2 val
                     }
-                | primary_value tDOT tCONSTANT tOP_ASGN arg
+                | primary_value call_op tCONSTANT tOP_ASGN arg
                     {
-                      result = s(:op_asgn2, val[0], :"#{val[2]}=", val[3].to_sym, val[4])
+                      result = new_op_asgn2 val
                     }
                 | primary_value tCOLON2 tIDENTIFIER tOP_ASGN arg
                     {
@@ -1606,17 +1583,10 @@ opt_block_args_tail: tCOMMA block_args_tail
                       args = self.call_args val[2..-1]
                       result = val[0].concat args[1..-1]
                     }
-                | primary_value tDOT operation2 opt_paren_args
+                | primary_value call_op operation2 opt_paren_args
                     {
-                      result = new_call val[0], val[2].to_sym, val[3]
+                      result = new_call val[0], val[2].to_sym, val[3], val[1]
                     }
-#if defined(RUBY23)
-                | primary_value tLONELY operation2 opt_paren_args
-                    {
-                      result = new_call val[0], val[2].to_sym, val[3]
-                      result[0] = :safe_call
-                    }
-#endif
                 | primary_value tCOLON2 operation2 paren_args
                     {
                       result = new_call val[0], val[2].to_sym, val[3]
@@ -1625,17 +1595,10 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       result = new_call val[0], val[2].to_sym
                     }
-                | primary_value tDOT paren_args
+                | primary_value call_op paren_args
                     {
-                      result = new_call val[0], :call, val[2]
+                      result = new_call val[0], :call, val[2], val[1]
                     }
-#if defined(RUBY23)
-                | primary_value tLONELY paren_args
-                    {
-                      result = new_call val[0], :call, val[2]
-                      result[0] = :safe_call
-                    }
-#endif
                 | primary_value tCOLON2 paren_args
                     {
                       result = new_call val[0], :call, val[2]
@@ -2479,6 +2442,10 @@ keyword_variable: kNIL      { result = s(:nil)   }
       operation2: tIDENTIFIER | tCONSTANT | tFID | op
       operation3: tIDENTIFIER | tFID | op
     dot_or_colon: tDOT | tCOLON2
+         call_op: tDOT
+#if defined(RUBY23)
+                | tLONELY
+#endif
        opt_terms:  | terms
           opt_nl:  | tNL
           rparen: opt_nl tRPAREN
