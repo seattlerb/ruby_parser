@@ -557,8 +557,15 @@ module RubyParserStuff
     end
   end
 
-  def new_call recv, meth, args = nil
-    result = s(:call, recv, meth)
+  def new_call recv, meth, args = nil, call_op = :'.'
+    result = case call_op.to_sym
+             when :'.'
+               s(:call, recv, meth)
+             when :'&.'
+               s(:safe_call, recv, meth)
+             else
+               raise "unknown call operator: `#{type.inspect}`"
+             end
 
     # TODO: need a test with f(&b) to produce block_pass
     # TODO: need a test with f(&b) { } to produce warning
@@ -574,6 +581,22 @@ module RubyParserStuff
     line = result.grep(Sexp).map(&:line).compact.min
     result.line = line if line
 
+    result
+  end
+
+  def new_attrasgn recv, meth, call_op
+    meth = :"#{meth}="
+
+    result = case call_op.to_sym
+             when :'.'
+               s(:attrasgn, recv, meth)
+             when :'&.'
+               s(:safe_attrasgn, recv, meth)
+             else
+               raise "unknown call operator: `#{type.inspect}`"
+             end
+
+    result.line = recv.line
     result
   end
 
@@ -742,6 +765,23 @@ module RubyParserStuff
                lhs
              end
     result.line = lhs.line
+    result
+  end
+
+  def new_op_asgn2 val
+    recv, call_op, meth, op, arg = val
+    meth = :"#{meth}="
+
+    result = case call_op.to_sym
+             when :'.'
+               s(:op_asgn2, recv, meth, op.to_sym, arg)
+             when :'&.'
+               s(:safe_op_asgn2, recv, meth, op.to_sym, arg)
+             else
+               raise "unknown call operator: `#{type.inspect}`"
+             end
+
+    result.line = recv.line
     result
   end
 
