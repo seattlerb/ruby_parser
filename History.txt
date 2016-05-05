@@ -1,3 +1,10 @@
+=== 3.8.2 / 2016-05-05
+
+* 2 bug fixes:
+
+  * Fixed lex_state in interpolated strings. (whitequark)
+  * Fixed safe operator for newline/semicolon contexts. (presidentbeef)
+
 === 3.8.1 / 2016-02-19
 
 * 1 bug fix:
