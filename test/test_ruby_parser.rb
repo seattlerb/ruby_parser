@@ -3449,6 +3449,13 @@ class TestRuby23Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
+  def test_safe_call_rhs_newline
+    rb = "c = a&.b\n"
+    pt = s(:lasgn, :c, s(:safe_call, s(:call, nil, :a), :b))
+
+    assert_parse rb, pt
+  end
+
   def test_safe_calls
     rb = "a&.b&.c(1)"
     pt = s(:safe_call, s(:safe_call, s(:call, nil, :a), :b), :c, s(:lit, 1))
@@ -3479,7 +3486,21 @@ class TestRuby23Parser < RubyParserTestCase
 
   def test_safe_call_operator
     rb = "a&.> 1"
-    pt = s(:safe_call, s(:call, nil, :a), :>, s(:lit, 1))
+    pt = s(:safe_call, s(:call, nil, :a), :>, s(:lit, 1)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_safe_op_asgn
+    rb = "a&.b += x 1\n"
+    pt = s(:safe_op_asgn, s(:call, nil, :a), s(:call, nil, :x, s(:lit, 1)), :b, :+).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_safe_op_asgn2
+    rb = "a&.b ||=\nx;"
+    pt = s(:safe_op_asgn2, s(:call, nil, :a), :b=, :"||", s(:call, nil, :x)).line(1)
 
     assert_parse rb, pt
   end
