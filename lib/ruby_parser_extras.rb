@@ -884,7 +884,6 @@ module RubyParserStuff
     str = val[1]
     str.force_encoding("ASCII-8BIT") unless str.valid_encoding? unless RUBY_VERSION < "1.9"
     result = s(:str, str)
-    require 'pry-byebug'; binding.pry if val.to_s =~ /fooblah/
     self.lexer.lineno += self.lexer.extra_lineno
     self.lexer.extra_lineno = 0
     result
@@ -894,17 +893,13 @@ module RubyParserStuff
     result = s(:array)
     self.lexer.lineno += self.lexer.extra_lineno
     self.lexer.extra_lineno = 0
-    # require 'pry-byebug'; binding.pry
     result
   end
 
   def new_word_list
     result = s(:array)
-    # result.line = 9
-    # require 'pry-byebug'; binding.pry if result.line == 2
     self.lexer.lineno += self.lexer.extra_lineno
     self.lexer.extra_lineno = 0
-    # require 'pry-byebug'; binding.pry
     result
   end
 
@@ -912,7 +907,6 @@ module RubyParserStuff
     result = val[1][0] == :evstr ? s(:dstr, "", val[1]) : val[1]
     self.lexer.lineno += self.lexer.extra_lineno
     self.lexer.extra_lineno = 0
-    # require 'pry-byebug'; binding.pry if val.to_s =~ /fooblah/
     result
   end
 
@@ -927,7 +921,6 @@ module RubyParserStuff
     result = s(:lit, val[1].to_sym)
     self.lexer.lineno += self.lexer.extra_lineno
     self.lexer.extra_lineno = 0
-    # require 'pry-byebug'; binding.pry if val.to_s =~ /fooblah/
     result
   end
 
@@ -1155,12 +1148,6 @@ module RubyParserStuff
       do_parse
     # end
   end
-
-  def call_string(val)
-    # require 'pry-byebug'; binding.pry if val.to_s =~ /foobar/
-    return
-  end
-
   alias :parse :process
 
   def remove_begin node
