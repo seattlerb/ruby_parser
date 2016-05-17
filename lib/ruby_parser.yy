@@ -1758,12 +1758,11 @@ opt_block_args_tail: tCOMMA block_args_tail
 
        word_list: none
                     {
-                      result = s(:array)
+                      result = new_word_list
                     }
                 | word_list word tSPACE
                     {
-                      word = val[1][0] == :evstr ? s(:dstr, "", val[1]) : val[1]
-                      result = val[0].dup << word
+                      result = val[0].dup << new_word_list_entry(val)
                     }
 
             word: string_content
@@ -1783,23 +1782,11 @@ opt_block_args_tail: tCOMMA block_args_tail
 
      symbol_list: none
                     {
-                      result = s(:array)
+                      result = new_symbol_list
                     }
                 | symbol_list word tSPACE
                     {
-                      list, sym, _ = val
-
-                      case sym[0]
-                      when :dstr then
-                        sym[0] = :dsym
-                      when :str then
-                        sym = s(:lit, sym.last.to_sym)
-                      else
-                        debug20 24
-                        sym = s(:dsym, "", result)
-                      end
-
-                      result = list.dup << sym
+                      result = val[0].dup << new_symbol_list_entry(val)
                     }
 
           qwords: tQWORDS_BEG tSPACE tSTRING_END
@@ -1822,20 +1809,20 @@ opt_block_args_tail: tCOMMA block_args_tail
 
       qword_list: none
                     {
-                      result = s(:array)
+                      result = new_qword_list
                     }
                 | qword_list tSTRING_CONTENT tSPACE
                     {
-                      result = val[0].dup << s(:str, val[1])
+                      result = val[0].dup << new_qword_list_entry(val)
                     }
 
        qsym_list: none
                     {
-                      result = s(:array)
+                      result = new_qsym_list
                     }
                 | qsym_list tSTRING_CONTENT tSPACE
                     {
-                      result = val[0].dup << s(:lit, val[1].to_sym)
+                      result = val[0].dup << new_qsym_list_entry(val)
                     }
 
  string_contents: none
@@ -1883,10 +1870,10 @@ regexp_contents: none
                     }
                 | tSTRING_DBEG
                     {
-                      result = [lexer.lex_strterm, 
-                                lexer.brace_nest, 
+                      result = [lexer.lex_strterm,
+                                lexer.brace_nest,
                                 lexer.string_nest, # TODO: remove
-                                lexer.cond.store, 
+                                lexer.cond.store,
                                 lexer.cmdarg.store,
                                 lexer.lex_state,
                                ]

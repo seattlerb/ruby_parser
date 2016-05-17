@@ -1619,12 +1619,11 @@ rule
 
        word_list: none
                     {
-                      result = s(:array)
+                      result = new_word_list
                     }
                 | word_list word tSPACE
                     {
-                      word = val[1][0] == :evstr ? s(:dstr, "", val[1]) : val[1]
-                      result = val[0] << word
+                      result = val[0] << new_word_list_entry(val)
                     }
 
             word: string_content
@@ -1644,11 +1643,11 @@ rule
 
       qword_list: none
                     {
-                      result = s(:array)
+                      result = new_qword_list
                     }
                 | qword_list tSTRING_CONTENT tSPACE
                     {
-                      result = val[0] << s(:str, val[1])
+                      result = val[0] << new_qword_list_entry(val)
                     }
 
  string_contents: none
@@ -1696,10 +1695,10 @@ regexp_contents: none
                     }
                 | tSTRING_DBEG
                     {
-                      result = [lexer.lex_strterm, 
-                                lexer.brace_nest, 
+                      result = [lexer.lex_strterm,
+                                lexer.brace_nest,
                                 lexer.string_nest, # TODO: remove
-                                lexer.cond.store, 
+                                lexer.cond.store,
                                 lexer.cmdarg.store]
 
                       lexer.lex_strterm = nil
@@ -1793,9 +1792,9 @@ keyword_variable: kNIL      { result = s(:nil)   }
                 | kFALSE    { result = s(:false) }
                 | k__FILE__ { result = s(:str, self.file) }
                 | k__LINE__ { result = s(:lit, lexer.lineno) }
-                | k__ENCODING__ 
-                    { 
-                      result = 
+                | k__ENCODING__
+                    {
+                      result =
                         if defined? Encoding then
                           s(:colon2, s(:const, :Encoding), :UTF_8)
                         else
