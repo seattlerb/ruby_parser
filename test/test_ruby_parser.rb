@@ -2562,7 +2562,7 @@ class TestRuby18Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 end
-#
+
 class TestRuby19Parser < RubyParserTestCase
   include TestRubyParserShared
   include TestRubyParserShared19to22
@@ -3176,7 +3176,7 @@ class TestRuby19Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 end
-#
+
 class TestRuby20Parser < RubyParserTestCase
   include TestRubyParserShared
   include TestRubyParserShared20to22
