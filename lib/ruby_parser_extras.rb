@@ -1133,7 +1133,7 @@ module RubyParserStuff
   # Timeout::Error if it runs for more than +time+ seconds.
 
   def process(str, file = "(string)", time = 10)
-    # Timeout.timeout time do
+    Timeout.timeout time do
       raise "bad val: #{str.inspect}" unless String === str
 
       str = handle_encoding str
@@ -1146,7 +1146,7 @@ module RubyParserStuff
       self.lexer.ss = RPStringScanner.new str
 
       do_parse
-    # end
+    end
   end
   alias :parse :process
 
