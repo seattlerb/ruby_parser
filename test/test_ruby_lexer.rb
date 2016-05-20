@@ -89,6 +89,8 @@ class TestRubyLexer < Minitest::Test
     case value
     when Float then
       assert_in_epsilon value, act_value, 0.001, msg
+    when NilClass then
+      assert_nil act_value, msg
     else
       assert_equal value, act_value,       msg
     end

@@ -45,6 +45,11 @@ class RubyParserTestCase < ParseTreeTestCase
     assert_equal pt, result
   end
 
+  def refute_parse rb
+    self.result = processor.parse rb
+    assert_nil result
+  end
+
   def assert_syntax_error rb, emsg
     e = nil
     assert_silent do
@@ -302,10 +307,9 @@ module TestRubyParserShared
 
   def test_bug_comment_eq_begin
     rb = "\n\n#\n=begin\nblah\n=end\n\n"
-    pt = nil
     exp = rb.strip + "\n"
 
-    assert_parse rb, pt
+    refute_parse rb
     assert_equal exp, processor.lexer.comments
   end
 
@@ -366,10 +370,7 @@ module TestRubyParserShared
   end
 
   def test_empty
-    rb = ""
-    pt = nil
-
-    assert_parse rb, pt
+    refute_parse ""
   end
 
   def test_evstr_evstr

@@ -182,7 +182,7 @@ class TestEnvironment < Minitest::Test
 
   def test_var_scope_static
     @env.extend
-    assert_equal nil, @env[:blah]
+    assert_nil @env[:blah]
     @env.unextend
     assert_equal 42, @env[:blah]
   end
