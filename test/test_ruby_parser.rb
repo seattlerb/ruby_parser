@@ -3505,8 +3505,18 @@ class TestRuby23Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
-end
 
+  def test_slashy_newlines_within_string
+    rb = "puts \"hello\\\n my\\\n dear\\\n friend\"\n\na + b\n"
+
+    pt = s(:block,
+            s(:call, nil, :puts, s(:str, "hello my dear friend")).line(1),
+             s(:call, s(:call, nil, :a), :+, s(:call, nil, :b)).line(6) # ruby_parser currently thinks this is on line 3
+          )
+
+    assert_parse rb, pt
+  end
+end
 
 [18, 19, 20, 21, 22, 23].each do |v|
   describe "block args arity #{v}" do
