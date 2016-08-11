@@ -2700,25 +2700,80 @@ class TestRubyLexer < Minitest::Test
                :tRCURLY, "}", :expr_endarg,   0, 0)
   end
 
-  def test_ruby21_new_numbers
-    skip "Don't have imaginary and rational literal lexing yet"
+  def test_ruby21_rational_literal
+    setup_lexer_class Ruby21Parser
+
+    assert_lex3("10r",      nil, :tRATIONAL, Rational(10), :expr_end)
+    assert_lex3("0x10r",      nil, :tRATIONAL, Rational(16), :expr_end)
+    assert_lex3("0o10r",      nil, :tRATIONAL, Rational(8), :expr_end)
+    assert_lex3("0or",      nil, :tRATIONAL, Rational(0), :expr_end)
+    assert_lex3("0b10r",      nil, :tRATIONAL, Rational(2), :expr_end)
+    assert_lex3("1.5r",    nil, :tRATIONAL, Rational(15, 10), :expr_end)
+    assert_lex3("15e3r",    nil, :tRATIONAL, Rational(15000), :expr_end)
+    assert_lex3("15e-3r",    nil, :tRATIONAL, Rational(15, 1000), :expr_end)
+    assert_lex3("1.5e3r",    nil, :tRATIONAL, Rational(1500), :expr_end)
+    assert_lex3("1.5e-3r",    nil, :tRATIONAL, Rational(15, 10000), :expr_end)
+
+    assert_lex3("-10r", nil,
+                :tUMINUS_NUM, "-", :expr_beg,
+                :tRATIONAL, Rational(10), :expr_end)
+  end
+
+  def test_ruby21_imaginary_literal
+    setup_lexer_class Ruby21Parser
+
+    assert_lex3("1i",       nil, :tIMAGINARY, Complex(0, 1), :expr_end)
+    assert_lex3("0x10i",    nil, :tIMAGINARY, Complex(0, 16), :expr_end)
+    assert_lex3("0o10i",    nil, :tIMAGINARY, Complex(0, 8), :expr_end)
+    assert_lex3("0oi",      nil, :tIMAGINARY, Complex(0, 0), :expr_end)
+    assert_lex3("0b10i",    nil, :tIMAGINARY, Complex(0, 2), :expr_end)
+    assert_lex3("1.5i",    nil, :tIMAGINARY, Complex(0, 1.5), :expr_end)
+    assert_lex3("15e3i",    nil, :tIMAGINARY, Complex(0, 15000), :expr_end)
+    assert_lex3("15e-3i",    nil, :tIMAGINARY, Complex(0, 0.015), :expr_end)
+    assert_lex3("1.5e3i",    nil, :tIMAGINARY, Complex(0, 1500), :expr_end)
+    assert_lex3("1.5e-3i",    nil, :tIMAGINARY, Complex(0, 0.0015), :expr_end)
+
+    assert_lex3("-10i", nil,
+                :tUMINUS_NUM, "-", :expr_beg,
+                :tIMAGINARY, Complex(0, 10), :expr_end)
+  end
+
+  def test_ruby21_rational_imaginary_literal
+    setup_lexer_class Ruby21Parser
+
+    assert_lex3("1ri",       nil, :tIMAGINARY, Complex(0, Rational(1)), :expr_end)
+    assert_lex3("0x10ri",    nil, :tIMAGINARY, Complex(0, Rational(16)), :expr_end)
+    assert_lex3("0o10ri",    nil, :tIMAGINARY, Complex(0, Rational(8)), :expr_end)
+    assert_lex3("0ori",      nil, :tIMAGINARY, Complex(0, Rational(0)), :expr_end)
+    assert_lex3("0b10ri",    nil, :tIMAGINARY, Complex(0, Rational(2)), :expr_end)
+    assert_lex3("1.5ri",    nil, :tIMAGINARY, Complex(0, Rational("1.5")), :expr_end)
+    assert_lex3("15e3ri",    nil, :tIMAGINARY, Complex(0, Rational("15e3")), :expr_end)
+    assert_lex3("15e-3ri",    nil, :tIMAGINARY, Complex(0, Rational("15e-3")), :expr_end)
+    assert_lex3("1.5e3ri",    nil, :tIMAGINARY, Complex(0, Rational("1.5e3")), :expr_end)
+    assert_lex3("1.5e-3ri",    nil, :tIMAGINARY, Complex(0, Rational("1.5e-3")), :expr_end)
+
+    assert_lex3("-10ri", nil,
+                :tUMINUS_NUM, "-", :expr_beg,
+                :tIMAGINARY, Complex(0, Rational(10)), :expr_end)
+  end
+
+  def test_ruby21_imaginary_literal_with_succeeding_keyword
+    skip "Currently does not tokenize correctly"
 
     setup_lexer_class Ruby21Parser
 
-    assert_lex3("10r",      nil, :tRATIONAL, "10r", :expr_end)
-    assert_lex3("1.5r",     nil, :tRATIONAL, "1.5r", :expr_end)
-
-    assert_lex3("1i",       nil, :tIMAGINARY, "1i", :expr_end)
-    assert_lex3("1+2i",     nil, :tIMAGINARY, "1+2i", :expr_end)
-    assert_lex3("1.2+3.4i", nil, :tIMAGINARY, "1.2+3.4i", :expr_end)
-    assert_lex3("4r+3i",    nil, :tIMAGINARY, "4r+3i", :expr_end)
-    assert_lex3("4r+3ri",   nil, :tIMAGINARY, "4r+3i", :expr_end)
-
-    assert_lex3("4i+3r",    nil, :tIMAGINARY, "4r+3i", :expr_end) # HACK
-    assert_lex3("1i+2ri",   nil, :tIMAGINARY, "4r+3i", :expr_end) # HACK
-
-    assert_lex3("1+2ri",    nil, :tIMAGINARY, "1+3ri", :expr_end)
-    refute_lex("1+2ir", :tINTEGER, 1)
+    assert_lex3("1if", nil,
+                :tINTEGER, 1, :expr_end,
+                :kIF_MOD, "if", :expr_beg)
+    assert_lex3("1rif", nil,
+                :tRATIONAL, Rational(1), :expr_end,
+                :kIF_MOD, "if", :expr_beg)
+    assert_lex3("1.0if", nil,
+                :tFLOAT, 1.0, :expr_end,
+                :kIF_MOD, "if", :expr_beg)
+    assert_lex3("1.0rif", nil,
+                :tRATIONAL, Rational("1.0"), :expr_end,
+                :kIF_MOD, "if", :expr_beg)
 
     flunk
   end
