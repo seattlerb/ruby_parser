@@ -1883,10 +1883,10 @@ regexp_contents: none
                     }
                 | tSTRING_DBEG
                     {
-                      result = [lexer.lex_strterm, 
-                                lexer.brace_nest, 
+                      result = [lexer.lex_strterm,
+                                lexer.brace_nest,
                                 lexer.string_nest, # TODO: remove
-                                lexer.cond.store, 
+                                lexer.cond.store,
                                 lexer.cmdarg.store,
                                 lexer.lex_state,
                                ]
@@ -2080,15 +2080,15 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result = args val
                     }
-		| f_kwarg opt_f_block_arg
+                | f_kwarg opt_f_block_arg
                     {
                       result = args val
                     }
-		| f_kwrest opt_f_block_arg
+                | f_kwrest opt_f_block_arg
                     {
                       result = args val
                     }
-		| f_block_arg
+                | f_block_arg
 
    opt_args_tail: tCOMMA args_tail
                     {

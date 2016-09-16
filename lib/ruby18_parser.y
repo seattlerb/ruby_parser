@@ -1563,10 +1563,10 @@ xstring_contents: none
                     }
                 | tSTRING_DBEG
                     {
-                      result = [lexer.lex_strterm, 
-                                lexer.brace_nest, 
+                      result = [lexer.lex_strterm,
+                                lexer.brace_nest,
                                 lexer.string_nest, # TODO: remove
-                                lexer.cond.store, 
+                                lexer.cond.store,
                                 lexer.cmdarg.store]
 
                       lexer.lex_strterm = nil
