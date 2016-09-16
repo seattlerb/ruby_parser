@@ -1132,9 +1132,11 @@ class RubyLexer
                                 [:tSTRING_BEG,   STR_SQUOTE]
                               when 'W' then
                                 scan(/\s*/)
+                                self.extra_lineno += matched.count("\n")
                                 [:tWORDS_BEG,    STR_DQUOTE | STR_FUNC_QWORDS]
                               when 'w' then
                                 scan(/\s*/)
+                                self.extra_lineno += matched.count("\n")
                                 [:tQWORDS_BEG,   STR_SQUOTE | STR_FUNC_QWORDS]
                               when 'x' then
                                 [:tXSTRING_BEG,  STR_XQUOTE]
@@ -1145,9 +1147,11 @@ class RubyLexer
                                 [:tSYMBEG,       STR_SSYM]
                               when 'I' then
                                 scan(/\s*/)
+                                self.extra_lineno += matched.count("\n")
                                 [:tSYMBOLS_BEG, STR_DQUOTE | STR_FUNC_QWORDS]
                               when 'i' then
                                 scan(/\s*/)
+                                self.extra_lineno += matched.count("\n")
                                 [:tQSYMBOLS_BEG, STR_SQUOTE | STR_FUNC_QWORDS]
                               end
 
@@ -1177,7 +1181,10 @@ class RubyLexer
       return :tSTRING_END, nil
     end
 
-    space = true if qwords and scan(/\s+/)
+    if qwords and scan(/\s+/)
+      space = true
+      self.extra_lineno += matched.count("\n")
+    end
 
     if self.string_nest == 0 && scan(/#{term_re}/) then
       if qwords then

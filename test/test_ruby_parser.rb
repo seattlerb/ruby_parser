@@ -1402,8 +1402,29 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  def test_qwords_line_breaks
-    skip "not yet"
+  def test_array_line_breaks
+    # It seems like arrays are roughly created when a certain element is created
+    # In ruby > 1.9 it seems like that is after the last element, so the array
+    # itself is assigned line 3 (since the last element is on line 3) and for
+    # ruby <= 1.9 it seems to get created after the first element, so the array
+    # itself is assigned line 2 (since the first element is on line 2).
+    # This seems to happen since arrays like this are created with a line in
+    # ruby_parser.yy like `result = s(:array, val[0])`. So, the array is not
+    # created by itself. The creation of the array itself is deferred until there
+    # is an element to create it with. That seems to mess up line numbers
+    # for the array. Luckily, the arary elements all seemt to get the correct
+    # line number.
+    start_line = self.class.to_s =~ /1[89]/ ? 2 : 3
+    rb = "[\n'a',\n'b']\n1"
+    pt = s(:block,
+           s(:array,
+             s(:str, "a").line(2),
+             s(:str, "b").line(3)).line(start_line),
+           s(:lit, 1).line(4))
+    assert_parse rb, pt
+  end
+
+  def test_non_interpolated_word_array_line_breaks
 
     rb = "%w(\na\nb\n)\n1"
     pt = s(:block,
@@ -1411,7 +1432,17 @@ module TestRubyParserShared
              s(:str, "a").line(2),
              s(:str, "b").line(3)).line(1),
            s(:lit, 1).line(5))
+    assert_parse rb, pt
+  end
 
+  def test_interpolated_word_array_line_breaks
+
+    rb = "%W(\na\nb\n)\n1"
+    pt = s(:block,
+           s(:array,
+             s(:str, "a").line(2),
+             s(:str, "b").line(3)).line(1),
+           s(:lit, 1).line(5))
     assert_parse rb, pt
   end
 
@@ -2187,7 +2218,30 @@ module TestRubyParserShared19to22
   end
 end
 
+
 module TestRubyParserShared20to22
+  def test_non_interpolated_symbol_array_line_breaks
+
+    rb = "%i(\na\nb\n)\n1"
+    pt = s(:block,
+           s(:array,
+             s(:lit, :a).line(2),
+             s(:lit, :b).line(3)).line(1),
+           s(:lit, 1).line(5))
+    assert_parse rb, pt
+  end
+
+  def test_interpolated_symbol_array_line_breaks
+
+    rb = "%I(\na\nb\n)\n1"
+    pt = s(:block,
+           s(:array,
+             s(:lit, :a).line(2),
+             s(:lit, :b).line(3)).line(1),
+           s(:lit, 1).line(5))
+    assert_parse rb, pt
+  end
+
   def test_defs_kwarg
     rb = "def self.a b: 1\nend"
     pt = s(:defs, s(:self), :a, s(:args, s(:kwarg, :b, s(:lit, 1))), s(:nil))
