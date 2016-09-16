@@ -1495,12 +1495,11 @@ rule
 
        word_list: none
                     {
-                      result = s(:array)
+                      result = new_word_list
                     }
                 | word_list word tSPACE
                     {
-                      word = val[1][0] == :evstr ? s(:dstr, "", val[1]) : val[1]
-                      result = val[0] << word
+                      result = val[0] << new_word_list_entry(val)
                     }
 
             word: string_content
@@ -1520,11 +1519,11 @@ rule
 
       qword_list: none
                     {
-                      result = s(:array)
+                      result = new_qword_list
                     }
                 | qword_list tSTRING_CONTENT tSPACE
                     {
-                      result = val[0] << s(:str, val[1])
+                      result = val[0] << new_qword_list_entry(val)
                     }
 
  string_contents: none

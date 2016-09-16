@@ -903,6 +903,17 @@ class RubyLexer
     ss.check re
   end
 
+  def eat_whitespace
+    r = scan(/\s+/)
+    self.extra_lineno += r.count("\n") if r
+    r
+  end
+
+  def fixup_lineno extra = 0
+    self.lineno += self.extra_lineno + extra
+    self.extra_lineno = 0
+  end
+
   def scanner_class # TODO: design this out of oedipus_lex. or something.
     RPStringScanner
   end
@@ -1131,10 +1142,10 @@ class RubyLexer
                               when 'q' then
                                 [:tSTRING_BEG,   STR_SQUOTE]
                               when 'W' then
-                                scan(/\s*/)
+                                eat_whitespace
                                 [:tWORDS_BEG,    STR_DQUOTE | STR_FUNC_QWORDS]
                               when 'w' then
-                                scan(/\s*/)
+                                eat_whitespace
                                 [:tQWORDS_BEG,   STR_SQUOTE | STR_FUNC_QWORDS]
                               when 'x' then
                                 [:tXSTRING_BEG,  STR_XQUOTE]
@@ -1144,10 +1155,10 @@ class RubyLexer
                                 self.lex_state  = :expr_fname
                                 [:tSYMBEG,       STR_SSYM]
                               when 'I' then
-                                scan(/\s*/)
+                                eat_whitespace
                                 [:tSYMBOLS_BEG, STR_DQUOTE | STR_FUNC_QWORDS]
                               when 'i' then
-                                scan(/\s*/)
+                                eat_whitespace
                                 [:tQSYMBOLS_BEG, STR_SQUOTE | STR_FUNC_QWORDS]
                               end
 
@@ -1177,7 +1188,7 @@ class RubyLexer
       return :tSTRING_END, nil
     end
 
-    space = true if qwords and scan(/\s+/)
+    space = true if qwords and eat_whitespace
 
     if self.string_nest == 0 && scan(/#{term_re}/) then
       if qwords then

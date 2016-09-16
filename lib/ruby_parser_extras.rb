@@ -875,9 +875,71 @@ module RubyParserStuff
     str = val[0]
     str.force_encoding("ASCII-8BIT") unless str.valid_encoding? unless RUBY_VERSION < "1.9"
     result = s(:str, str)
-    self.lexer.lineno += str.count("\n") + self.lexer.extra_lineno
-    self.lexer.extra_lineno = 0
+    self.lexer.fixup_lineno str.count("\n")
     result
+  end
+
+  def new_qword_list_entry val
+    str = val[1]
+    str.force_encoding("ASCII-8BIT") unless str.valid_encoding? unless RUBY_VERSION < "1.9"
+    result = s(:str, str)
+    self.lexer.fixup_lineno
+    result
+  end
+
+  def new_qword_list
+    result = s(:array)
+    self.lexer.fixup_lineno
+    result
+  end
+
+  def new_word_list
+    result = s(:array)
+    self.lexer.fixup_lineno
+    result
+  end
+
+  def new_word_list_entry val
+    result = val[1][0] == :evstr ? s(:dstr, "", val[1]) : val[1]
+    self.lexer.fixup_lineno
+    result
+  end
+
+  def new_qsym_list
+    result = s(:array)
+    self.lexer.fixup_lineno
+    result
+  end
+
+  def new_qsym_list_entry val
+    result = s(:lit, val[1].to_sym)
+    self.lexer.fixup_lineno
+    result
+  end
+
+  def new_symbol_list
+    result = s(:array)
+    self.lexer.fixup_lineno
+    result
+  end
+
+  def new_symbol_list_entry val
+    _list, sym, _nil = val # TODO: use _list
+    result = val[1]
+
+    result ||= s(:str, "")
+
+    case sym[0]
+    when :dstr then
+      sym[0] = :dsym
+    when :str then
+      sym = s(:lit, sym.last.to_sym)
+    else
+      debug20 24
+      sym = s(:dsym, "", sym || s(:str, ""))
+    end
+    self.lexer.fixup_lineno
+    sym
   end
 
   def new_super args
