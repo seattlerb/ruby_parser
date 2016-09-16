@@ -969,7 +969,17 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_float_e_bad_double_e
-    refute_lex "1e2e3"
+    assert_lex3("1e2e3",
+                nil,
+                :tFLOAT, 100, :expr_end,
+                :tIDENTIFIER, "e3", :expr_end)
+  end
+
+  def test_yylex_float_if_modifier
+    assert_lex3("1e2if",
+                nil,
+                :tFLOAT, 100, :expr_end,
+                :kIF_MOD, "if", :expr_beg)
   end
 
   def test_yylex_float_e_bad_trailing_underscore
@@ -1409,6 +1419,13 @@ class TestRubyLexer < Minitest::Test
 
   def test_yylex_integer_dec_d_bad_underscores
     refute_lex "0d42__24"
+  end
+
+  def test_yylex_integer_if_modifier
+    assert_lex3("123if",
+                nil,
+                :tINTEGER, 123, :expr_end,
+                :kIF_MOD, "if", :expr_beg)
   end
 
   def test_yylex_question_eh_a__18
