@@ -258,7 +258,18 @@ class RubyLexer
 
   def int_with_base base
     rb_compile_error "Invalid numeric format" if matched =~ /__/
-    return result(:expr_end, :tINTEGER, matched.to_i(base))
+
+    text = matched
+    case
+    when text.end_with?('ri')
+      return result(:expr_end, :tIMAGINARY, Complex(0, Rational(text.chop.chop.to_i(base))))
+    when text.end_with?('r')
+      return result(:expr_end, :tRATIONAL, Rational(text.chop.to_i(base)))
+    when text.end_with?('i')
+      return result(:expr_end, :tIMAGINARY, Complex(0, text.chop.to_i(base)))
+    else
+      return result(:expr_end, :tINTEGER, text.to_i(base))
+    end
   end
 
   def is_arg?
@@ -406,7 +417,17 @@ class RubyLexer
 
   def process_float text
     rb_compile_error "Invalid numeric format" if text =~ /__/
-    return result(:expr_end, :tFLOAT, text.to_f)
+
+    case
+    when text.end_with?('ri')
+      return result(:expr_end, :tIMAGINARY, Complex(0, Rational(text.chop.chop)))
+    when text.end_with?('r')
+      return result(:expr_end, :tRATIONAL, Rational(text.chop))
+    when text.end_with?('i')
+      return result(:expr_end, :tIMAGINARY, Complex(0, text.chop.to_f))
+    else
+      return result(:expr_end, :tFLOAT, text.to_f)
+    end
   end
 
   def process_gvar text

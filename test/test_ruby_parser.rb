@@ -3558,6 +3558,13 @@ class TestRuby23Parser < RubyParserTestCase
 
     assert_parse rb, pt
   end
+
+  def test_ruby21_numbers
+    rb = "[1i, 2r, 3ri]"
+    pt = s(:array, s(:lit, Complex(0, 1)), s(:lit, Rational(2)), s(:lit, Complex(0, Rational(3))))
+
+    assert_parse rb, pt
+  end
 end
 
 

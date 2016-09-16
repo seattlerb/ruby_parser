@@ -27,10 +27,10 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END
       tSTRING tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAMBDA
       tLAMBEG tDSTAR tCHAR tSYMBOLS_BEG tQSYMBOLS_BEG tSTRING_DEND tUBANG
-#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23))
+#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
       tRATIONAL tIMAGINARY
 #endif
-#if defined(RUBY22 || defined(RUBY23))
+#if defined(RUBY22) || defined(RUBY23)
       tLABEL_END
 #endif
 #if defined(RUBY23)
@@ -720,7 +720,7 @@ rule
                       result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
                     }
                 | tUMINUS_NUM tFLOAT tPOW arg
-#elif defined(RUBY21) || defined(RUBY22 || defined(RUBY23))
+#elif defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
                 | tUMINUS_NUM simple_numeric tPOW arg
 #endif
                     {
@@ -1960,7 +1960,7 @@ regexp_contents: none
          numeric: tINTEGER
                 | tFLOAT
                 | tUMINUS_NUM tINTEGER =tLOWEST
-#elif defined(RUBY21) || defined(RUBY22 || defined(RUBY23))
+#elif defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
          numeric: simple_numeric
                 | tUMINUS_NUM simple_numeric
 #endif
@@ -1974,7 +1974,7 @@ regexp_contents: none
 #endif
                     }
 
-#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23))
+#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
   simple_numeric: tINTEGER
                 | tFLOAT
                 | tRATIONAL
@@ -2173,7 +2173,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       result = identifier
                     }
 
-#if defined(RUBY22) || defined(RUBY23))
+#if defined(RUBY22) || defined(RUBY23)
       f_arg_asgn: f_norm_arg
 
       f_arg_item: f_arg_asgn
