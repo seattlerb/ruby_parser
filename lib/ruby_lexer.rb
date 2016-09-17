@@ -1075,7 +1075,8 @@ class RubyLexer
   def unescape s
     r = ESCAPES[s]
 
-    self.extra_lineno -= 1 if r && s == "n"
+    self.extra_lineno += 1 if s == "\n"     # eg backslash newline strings
+    self.extra_lineno -= 1 if r && s == "n" # literal \n, not newline
 
     return r if r
 
