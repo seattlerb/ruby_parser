@@ -16,7 +16,7 @@ macro
   INT_HEX       /[+]?0x[a-f0-9_]+(ri|r|i)?/i
   INT_BIN       /[+]?0b[01_]+(ri|r|i)?/i
   INT_OCT       /[+]?0o?[0-7_]+(ri|r|i)?|0o(ri|r|i)?/i
-  FLOAT         /[+]?\d[\d_]*\.[\d_]+(e[+-]?[\d_]+)?(ri|r|i)?\b|[+]?[\d_]+e[+-]?[\d_]+(ri|r|i)?\b/i
+  FLOAT         /[+]?\d[\d_]*\.[\d_]+(e[+-]?[\d_]+)?(?:(ri|r|i)\b)?|[+]?[\d_]+e[+-]?[\d_]+(?:(ri|r|i)\b)?/i
   INT_DEC2      /[+]?\d[0-9_]*(?![e])((ri|r|i)\b)?/i
 
   NUM_BAD       /[+]?0[xbd]\b/i
