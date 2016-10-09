@@ -1,3 +1,15 @@
+=== 3.8.3 / 2016-10-09
+
+* 1 minor enhancement:
+
+  * Support Ruby 2.1 number literals. (soutaro)
+
+* 3 bug fixes:
+
+  * Fixed line numbers for strs with backslash-newlines. (maxjacobson)
+  * Improved compatibility on tokenizing number. (soutaro)
+  * Refactored and fixed multiline array line numbers. (ptoomey3, with changes)
+
 === 3.8.2 / 2016-05-05
 
 * 2 bug fixes:
