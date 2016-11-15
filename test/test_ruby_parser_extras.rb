@@ -4,7 +4,7 @@ require 'rubygems'
 require 'minitest/autorun'
 require 'ruby_parser_extras'
 
-require 'minitest/unit'
+require 'minitest/test'
 
 class TestStackState < Minitest::Test
   attr_reader :s
