@@ -788,7 +788,7 @@ class RubyLexer
       else
         result(state, :kDO, value)
       end
-    when in_lex_state?(:expr_beg, :expr_value) then # TODO: :expr_labelarg
+    when in_lex_state?(:expr_beg, :expr_value, :expr_labelarg) then
       result(state, keyword.id0, value)
     when keyword.id0 != keyword.id1 then
       result(:expr_beg, keyword.id1, value)
