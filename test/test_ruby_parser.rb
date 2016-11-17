@@ -2083,6 +2083,13 @@ module TestRubyParserShared19to22
     assert_parse rb, pt
   end
 
+  def test_call_assoc_new_if_multiline
+    rb = "a(b: if :c\n1\nelse\n2\nend)"
+    pt = s(:call, nil, :a, s(:hash, s(:lit, :b), s(:if, s(:lit, :c), s(:lit, 1), s(:lit, 2))))
+
+    assert_parse rb, pt
+  end
+
   def test_do_lambda
     rb = "->() do end"
     pt = s(:iter, s(:call, nil, :lambda), s(:args))
