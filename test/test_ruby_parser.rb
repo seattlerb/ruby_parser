@@ -834,9 +834,41 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_parse_line_squiggly_heredoc
+    rb = <<-CODE
+      string = <<~HEREDOC
+        very long string
+      HEREDOC
+      puts string
+    CODE
+
+    pt = s(:block,
+           s(:lasgn, :string,
+             s(:str, "        very long string\n").line(1)).line(1),
+           s(:call, nil, :puts, s(:lvar, :string).line(4)).line(4)).line(1)
+
+    assert_parse rb, pt
+  end
+
   def test_parse_line_heredoc_regexp_chars
     rb = <<-CODE
       string = <<-"^D"
+        very long string
+      ^D
+      puts string
+    CODE
+
+    pt = s(:block,
+           s(:lasgn, :string,
+             s(:str, "        very long string\n").line(1)).line(1),
+           s(:call, nil, :puts, s(:lvar, :string).line(4)).line(4)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_line_squiggly_heredoc_regexp_chars
+    rb = <<-CODE
+      string = <<~"^D"
         very long string
       ^D
       puts string

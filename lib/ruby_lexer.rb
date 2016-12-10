@@ -203,7 +203,7 @@ class RubyLexer
     self.string_buffer = []
 
     case
-    when scan(/(-?)([\'\"\`])(.*?)\2/) then
+    when scan(/([-~]?)([\'\"\`])(.*?)\2/) then
       term = ss[2]
       func |= STR_FUNC_INDENT unless ss[1].empty?
       func |= case term
@@ -215,9 +215,9 @@ class RubyLexer
                 STR_XQUOTE
               end
       string_buffer << ss[3]
-    when scan(/-?([\'\"\`])(?!\1*\Z)/) then
+    when scan(/[-~]?([\'\"\`])(?!\1*\Z)/) then
       rb_compile_error "unterminated here document identifier"
-    when scan(/(-?)(#{IDENT_CHAR}+)/) then
+    when scan(/([-~]?)(#{IDENT_CHAR}+)/) then
       term = '"'
       func |= STR_DQUOTE
       unless ss[1].empty? then
