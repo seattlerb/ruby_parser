@@ -675,7 +675,7 @@ rule
                 | arg tDOT2 arg
                     {
                       v1, v2 = val[0], val[2]
-                      if v1.node_type == :lit and v2.node_type == :lit and Fixnum === v1.last and Fixnum === v2.last then
+                      if v1.node_type == :lit and v2.node_type == :lit and Integer === v1.last and Integer === v2.last then
                         result = s(:lit, (v1.last)..(v2.last))
                       else
                         result = s(:dot2, v1, v2)
@@ -684,7 +684,7 @@ rule
                 | arg tDOT3 arg
                     {
                       v1, v2 = val[0], val[2]
-                      if v1.node_type == :lit and v2.node_type == :lit and Fixnum === v1.last and Fixnum === v2.last then
+                      if v1.node_type == :lit and v2.node_type == :lit and Integer === v1.last and Integer === v2.last then
                         result = s(:lit, (v1.last)...(v2.last))
                       else
                         result = s(:dot3, v1, v2)
