@@ -2262,6 +2262,13 @@ module TestRubyParserShared20to22
     assert_parse rb, pt
   end
 
+  def test_defn_kwarg_kwsplat_anon
+    rb = "def a(b: 1, **) end"
+    pt = s(:defn, :a, s(:args, s(:kwarg, :b, s(:lit, 1)), :"**"), s(:nil))
+
+    assert_parse rb, pt
+  end
+
   def test_defn_kwarg_env
     rb = "def test(**testing) test_splat(**testing) end"
     pt = s(:defn, :test, s(:args, :"**testing"),

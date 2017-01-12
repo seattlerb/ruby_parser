@@ -2287,7 +2287,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     }
                 | kwrest_mark
                     {
-                      debug20 36, val, result
+                      result = :"**"
                     }
 
 #if defined(RUBY20)
