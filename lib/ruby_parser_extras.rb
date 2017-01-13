@@ -109,7 +109,7 @@ module RubyParserStuff
 
   ruby19 = "".respond_to? :encoding
 
-  # Rhis is in sorted order of occurrence according to
+  # This is in sorted order of occurrence according to
   # charlock_holmes against 500k files, with UTF_8 forced
   # to the top.
   #
