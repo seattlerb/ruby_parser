@@ -2339,6 +2339,30 @@ module TestRubyParserShared20to22
 
     assert_parse rb, pt
   end
+
+  def test_stabby_block_iter_call
+    rb = "x -> () do\na.b do\nend\nend"
+    pt = s(:call, nil, :x,
+           s(:iter,
+             s(:call, nil, :lambda),
+             s(:args),
+             s(:iter, s(:call, s(:call, nil, :a), :b), 0)))
+
+    assert_parse rb, pt
+  end
+
+  def test_stabby_block_iter_call_no_target_with_arg
+    rb = "x -> () do\na(1) do\nend\nend"
+    pt = s(:call, nil, :x,
+           s(:iter,
+             s(:call, nil, :lambda),
+             s(:args),
+             s(:iter,
+               s(:call, nil, :a,
+                 s(:lit, 1)), 0)))
+
+    assert_parse rb, pt
+  end
 end
 
 class TestRubyParser < Minitest::Test
