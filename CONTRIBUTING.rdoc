@@ -1,0 +1,17 @@
+= Contributing
+Small guide on how to contribute to rubyparser
+
+== Prerequisits
+
+Install these gems:
+
+    gem install rake
+    gem install woot
+    gem install sexp_processor
+    gem install racc
+    gem install hoe
+    gem install oedipus_lexp
+
+== Running compilation and tests
+
+    rake
