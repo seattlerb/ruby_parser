@@ -778,7 +778,7 @@ class RubyLexer
       when lpar_beg && lpar_beg == paren_nest then
         self.lpar_beg = nil
         self.paren_nest -= 1
-        result(state, :kDO_LAMBDA, value)
+        expr_result(:kDO_LAMBDA, value)
       when cond.is_in_state then
         result(state, :kDO_COND, value)
       when cmdarg.is_in_state && lex_state != :expr_cmdarg then
