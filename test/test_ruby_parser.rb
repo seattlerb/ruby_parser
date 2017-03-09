@@ -3303,6 +3303,13 @@ class TestRuby20Parser < RubyParserTestCase
     assert_parse rb, pt
   end
 
+  def test_defs_kwarg
+    rb = "def self.a b: 1\nend"
+    pt = s(:defs, s(:self), :a, s(:args, s(:kwarg, :b, s(:lit, 1))), s(:nil))
+
+    assert_parse rb, pt
+  end
+
   def test_block_arg_kwsplat
     rb = "a { |**b| }"
     pt = s(:iter, s(:call, nil, :a), s(:args, :"**b"))
