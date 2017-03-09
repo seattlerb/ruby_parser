@@ -73,8 +73,13 @@ class RubyParserTestCase < ParseTreeTestCase
   end
 
   def assert_parse_line rb, pt, line
+    old_env = ENV["VERBOSE"]
+    ENV["VERBOSE"] = "1"
+
     assert_parse rb, pt
     assert_equal line, result.line,   "call should have line number"
+  ensure
+    ENV["VERBOSE"] = old_env
   end
 end
 
@@ -853,6 +858,19 @@ module TestRubyParserShared
   def test_parse_line_newlines
     rb = "true\n\n"
     pt = s(:true)
+
+    assert_parse_line rb, pt, 1
+  end
+
+  def test_parse_line_rescue
+    skip "not yet"
+    rb = "begin\n a\n rescue\n b\n rescue\n c\n end\n"
+    pt = s(:rescue,
+           s(:call, nil, :a).line(2),
+           s(:resbody, s(:array).line(3),
+             s(:call, nil, :b).line(4)).line(3),
+           s(:resbody, s(:array).line(5),
+             s(:call, nil, :c).line(6)).line(5)).line(1)
 
     assert_parse_line rb, pt, 1
   end
