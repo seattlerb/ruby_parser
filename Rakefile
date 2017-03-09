@@ -14,6 +14,10 @@ Hoe.add_include_dirs "../../sexp_processor/dev/lib"
 Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
 
+V1   = %w[18 19]
+V2   = %w[20 21 22 23]
+V1_2 = V1 + V2
+
 Hoe.spec "ruby_parser" do
   developer "Ryan Davis", "ryand-ruby@zenspider.com"
 
@@ -24,45 +28,31 @@ Hoe.spec "ruby_parser" do
   dependency "oedipus_lex", "~> 2.1", :developer
 
   if plugin? :perforce then     # generated files
-    self.perforce_ignore << "lib/ruby18_parser.rb"
-    self.perforce_ignore << "lib/ruby19_parser.rb"
-    self.perforce_ignore << "lib/ruby20_parser.rb"
-    self.perforce_ignore << "lib/ruby20_parser.y"
-    self.perforce_ignore << "lib/ruby21_parser.rb"
-    self.perforce_ignore << "lib/ruby21_parser.y"
-    self.perforce_ignore << "lib/ruby22_parser.rb"
-    self.perforce_ignore << "lib/ruby22_parser.y"
-    self.perforce_ignore << "lib/ruby23_parser.rb"
-    self.perforce_ignore << "lib/ruby23_parser.y"
-    self.perforce_ignore << "lib/ruby_lexer.rex.rb"
+    V1_2.each do |n|
+      self.perforce_ignore << "lib/ruby#{n}_parser.rb"
+    end
+
+    V2.each do |n|
+      self.perforce_ignore << "lib/ruby#{n}_parser.y"
+    end
   end
 
   self.racc_flags << " -t" if plugin?(:racc) && ENV["DEBUG"]
 end
 
-file "lib/ruby20_parser.y" => "lib/ruby_parser.yy" do |t|
-  sh "unifdef -tk -DRUBY20 -URUBY21 -URUBY22 -URUBY23 -UDEAD #{t.source} > #{t.name} || true"
+V2.each do |n|
+  file "lib/ruby#{n}_parser.y" => "lib/ruby_parser.yy" do |t|
+    puts n
+    flags = V2.map { |m| c = n==m ? "D" : "U"; "-#{c}RUBY#{m}" }.join " "
+    cmd = 'unifdef -tk %s -UDEAD %s > %s || true' % [flags, t.source, t.name]
+    sh cmd
+  end
 end
 
-file "lib/ruby21_parser.y" => "lib/ruby_parser.yy" do |t|
-  sh "unifdef -tk -URUBY20 -DRUBY21 -URUBY22 -URUBY23 -UDEAD #{t.source} > #{t.name} || true"
+V1_2.each do |n|
+  file "lib/ruby#{n}_parser.rb" => "lib/ruby#{n}_parser.y"
 end
 
-file "lib/ruby22_parser.y" => "lib/ruby_parser.yy" do |t|
-  sh "unifdef -tk -URUBY20 -URUBY21 -DRUBY22 -URUBY23 -UDEAD #{t.source} > #{t.name} || true"
-end
-
-file "lib/ruby23_parser.y" => "lib/ruby_parser.yy" do |t|
-  sh "unifdef -tk -URUBY20 -URUBY21 -URUBY22 -DRUBY23 -UDEAD #{t.source} > #{t.name} || true"
-end
-
-
-file "lib/ruby18_parser.rb" => "lib/ruby18_parser.y"
-file "lib/ruby19_parser.rb" => "lib/ruby19_parser.y"
-file "lib/ruby20_parser.rb" => "lib/ruby20_parser.y"
-file "lib/ruby21_parser.rb" => "lib/ruby21_parser.y"
-file "lib/ruby22_parser.rb" => "lib/ruby22_parser.y"
-file "lib/ruby23_parser.rb" => "lib/ruby23_parser.y"
 file "lib/ruby_lexer.rex.rb" => "lib/ruby_lexer.rex"
 
 task :clean do
@@ -108,18 +98,29 @@ task :isolate => :phony
 # 2) YFLAGS="-r all" make parse.c
 # 3) mv y.output parseXX.output
 
-%w[18 19 20 21 22 23].each do |v|
-  task "compare#{v}" do
-    sh "./yack.rb lib/ruby#{v}_parser.output > racc#{v}.txt"
-    sh "./yack.rb parse#{v}.output > yacc#{v}.txt"
-    sh "diff -du racc#{v}.txt yacc#{v}.txt || true"
-    puts
-    sh "diff -du racc#{v}.txt yacc#{v}.txt | wc -l"
+V1_2.each do |v|
+  diff    = "compare/diff#{v}.diff"
+  rp_txt  = "compare/rp#{v}.txt"
+  mri_txt = "compare/mri#{v}.txt"
+  compare = "compare#{v}"
+
+  file diff do
+    Dir.chdir "compare" do
+      sh "rake"
+    end
+  end
+
+  task :compare => compare
+
+  task compare => diff do
+    cmd = "diff -du #{mri_txt} #{rp_txt}"
+    sh "#{cmd} > #{diff} || true"
+    sh "wc -l #{diff}"
   end
 end
 
 task :debug => :isolate do
-  ENV["V"] ||= "23"
+  ENV["V"] ||= V1_2.last
   Rake.application[:parser].invoke # this way we can have DEBUG set
   Rake.application[:lexer].invoke # this way we can have DEBUG set
 
@@ -127,22 +128,9 @@ task :debug => :isolate do
   require "ruby_parser"
   require "pp"
 
-  parser = case ENV["V"]
-           when "18" then
-             Ruby18Parser.new
-           when "19" then
-             Ruby19Parser.new
-           when "20" then
-             Ruby20Parser.new
-           when "21" then
-             Ruby21Parser.new
-           when "22" then
-             Ruby22Parser.new
-           when "23" then
-             Ruby23Parser.new
-           else
-             raise "Unsupported version #{ENV["V"]}"
-           end
+  klass = Object.const_get("Ruby#{ENV["V"]}Parser") rescue nil
+  raise "Unsupported version #{ENV["V"]}" unless klass
+  parser = klass.new
 
   time = (ENV["RP_TIMEOUT"] || 10).to_i
 
@@ -173,7 +161,7 @@ task :debug_ruby do
 end
 
 task :extract => :isolate do
-  ENV["V"] ||= "19"
+  ENV["V"] ||= V1_2.last
   Rake.application[:parser].invoke # this way we can have DEBUG set
 
   file = ENV["F"] || ENV["FILE"]
