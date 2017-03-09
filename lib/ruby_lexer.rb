@@ -481,7 +481,7 @@ class RubyLexer
     return if in_lex_state?(:expr_beg, :expr_value, :expr_class,
                             :expr_fname, :expr_dot, :expr_labelarg)
 
-    if scan(/([\ \t\r\f\v]*)\./) then
+    if scan(/([\ \t\r\f\v]*)(\.|&)/) then
       self.space_seen = true unless ss[1].empty?
 
       ss.pos -= 1
