@@ -149,11 +149,11 @@ class RubyLexer
   def heredoc here # TODO: rewrite / remove
     _, eos, func, last_line = here
 
-    indent  = (func & STR_FUNC_INDENT) != 0 ? "[ \t]*" : nil
+    indent         = (func & STR_FUNC_INDENT) != 0 ? "[ \t]*" : nil
     content_indent = (func & STR_FUNC_ICNTNT) != 0
-    expand  = (func & STR_FUNC_EXPAND) != 0
-    eos_re  = /#{indent}#{Regexp.escape eos}(\r*\n|\z)/
-    err_msg = "can't match #{eos_re.inspect} anywhere in "
+    expand         = (func & STR_FUNC_EXPAND) != 0
+    eos_re         = /#{indent}#{Regexp.escape eos}(\r*\n|\z)/
+    err_msg        = "can't match #{eos_re.inspect} anywhere in "
 
     rb_compile_error err_msg if end_of_stream?
 
