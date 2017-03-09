@@ -1501,7 +1501,8 @@ class RubyParser
     when /^2.3/ then
       Ruby23Parser.new
     else
-      raise "unrecognized RUBY_VERSION #{RUBY_VERSION}"
+      warning('Ruby version not supported. Using the latest one.')
+      Ruby23Parser.new
     end
   end
 end
