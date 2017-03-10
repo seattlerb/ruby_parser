@@ -402,7 +402,7 @@ module RubyParserStuff
     return head
   end
 
-  def logop(type, left, right) # TODO: rename logical_op
+  def logical_op type, left, right
     left = value_expr left
 
     if left and left[0] == type and not left.paren then
@@ -419,6 +419,13 @@ module RubyParserStuff
 
     return s(type, left, right)
   end
+
+  def logop type, left, right
+    # TODO: remove in 4.0 or 2018-01, whichever is first
+    warn "DEPRECATED: logop -> logical_op from #{caller.first}"
+    logical_op type, left, right
+  end
+
 
   def new_aref val
     val[2] ||= s(:arglist)

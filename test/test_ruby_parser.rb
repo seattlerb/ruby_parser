@@ -489,15 +489,15 @@ module TestRubyParserShared
     assert_equal s(:str, "blah"), processor.literal_concat(lhs, rhs)
   end
 
-  def test_logop_12
+  def test_logical_op_12
     lhs = s(:lit, 1)
     rhs = s(:lit, 2)
     exp = s(:and, s(:lit, 1), s(:lit, 2))
 
-    assert_equal exp, processor.logop(:and, lhs, rhs)
+    assert_equal exp, processor.logical_op(:and, lhs, rhs)
   end
 
-  def test_logop_1234_5
+  def test_logical_op_1234_5
     lhs = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:and, s(:lit, 3), s(:lit, 4))))
     rhs = s(:lit, 5)
     exp = s(:and,
@@ -510,10 +510,10 @@ module TestRubyParserShared
                   s(:lit, 4),
                   s(:lit, 5)))))
 
-    assert_equal exp, processor.logop(:and, lhs, rhs)
+    assert_equal exp, processor.logical_op(:and, lhs, rhs)
   end
 
-  def test_logop_123_4
+  def test_logical_op_123_4
     lhs = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:lit, 3)))
     rhs = s(:lit, 4)
     exp = s(:and,
@@ -524,18 +524,18 @@ module TestRubyParserShared
                 s(:lit, 3),
                 s(:lit, 4))))
 
-    assert_equal exp, processor.logop(:and, lhs, rhs)
+    assert_equal exp, processor.logical_op(:and, lhs, rhs)
   end
 
-  def test_logop_12_3
+  def test_logical_op_12_3
     lhs = s(:and, s(:lit, 1), s(:lit, 2))
     rhs = s(:lit, 3)
     exp = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:lit, 3)))
 
-    assert_equal exp, processor.logop(:and, lhs, rhs)
+    assert_equal exp, processor.logical_op(:and, lhs, rhs)
   end
 
-  def test_logop_nested_mix
+  def test_logical_op_nested_mix
     lhs = s(:or, s(:call, nil, :a), s(:call, nil, :b))
     rhs = s(:and, s(:call, nil, :c), s(:call, nil, :d))
     exp = s(:or,
@@ -545,7 +545,7 @@ module TestRubyParserShared
     lhs.paren = true
     rhs.paren = true
 
-    assert_equal exp, processor.logop(:or, lhs, rhs)
+    assert_equal exp, processor.logical_op(:or, lhs, rhs)
   end
 
   def test_str_evstr

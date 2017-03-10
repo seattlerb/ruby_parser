@@ -213,11 +213,11 @@ rule
             expr: command_call
                 | expr kAND expr
                     {
-                      result = logop(:and, val[0], val[2])
+                      result = logical_op :and, val[0], val[2]
                     }
                 | expr kOR expr
                     {
-                      result = logop(:or, val[0], val[2])
+                      result = logical_op :or, val[0], val[2]
                     }
                 | kNOT opt_nl expr
                     {
@@ -751,11 +751,11 @@ rule
                     }
                 | arg tANDOP arg
                     {
-                      result = logop(:and, val[0], val[2])
+                      result = logical_op :and, val[0], val[2]
                     }
                 | arg tOROP arg
                     {
-                      result = logop(:or, val[0], val[2])
+                      result = logical_op :or, val[0], val[2]
                     }
                 | kDEFINED opt_nl arg
                     {
