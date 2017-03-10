@@ -1,13 +1,15 @@
 # -*- racc -*-
 
-#if defined(RUBY20)
+#if V==20
 class Ruby20Parser
-#elif defined(RUBY21)
+#elif V==21
 class Ruby21Parser
-#elif defined(RUBY22)
+#elif V == 22
 class Ruby22Parser
-#elif defined(RUBY23)
+#elif V == 23
 class Ruby23Parser
+#else
+fail "version not specified or supported on code generation"
 #endif
 
 token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
@@ -27,13 +29,13 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END
       tSTRING tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAMBDA
       tLAMBEG tDSTAR tCHAR tSYMBOLS_BEG tQSYMBOLS_BEG tSTRING_DEND tUBANG
-#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
+#if V >= 21
       tRATIONAL tIMAGINARY
 #endif
-#if defined(RUBY22) || defined(RUBY23)
+#if V >= 22
       tLABEL_END
 #endif
-#if defined(RUBY23)
+#if V >= 23
        tLONELY
 #endif
 
@@ -229,13 +231,13 @@ rule
                     {
                       result = self.node_assign val[0], s(:svalue, val[2])
                     }
-#if defined(RUBY20)
+#if V == 20
                 | mlhs tEQL arg_value
                     {
                       result = new_masgn val[0], val[2], :wrap
                     }
                 | mlhs tEQL mrhs
-#elif defined(RUBY21) || defined(RUBY22 || defined(RUBY23))
+#else
                 | mlhs tEQL mrhs_arg
 #endif
                     {
@@ -612,7 +614,7 @@ rule
                 |   tNEQ     | tLSHFT  | tRSHFT   | tPLUS | tMINUS | tSTAR2
                 |   tSTAR    | tDIVIDE | tPERCENT | tPOW  | tDSTAR | tBANG   | tTILDE
                 |   tUPLUS   | tUMINUS | tAREF    | tASET | tBACK_REF2
-#if defined(RUBY20)
+#if V == 20
                 |   tUBANG
 #endif
 
@@ -714,18 +716,18 @@ rule
                     {
                       result = new_call val[0], :**, argl(val[2])
                     }
-#if defined(RUBY20)
+#if V == 20
                 | tUMINUS_NUM tINTEGER tPOW arg
                     {
                       result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
                     }
                 | tUMINUS_NUM tFLOAT tPOW arg
-#elif defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
+#else
                 | tUMINUS_NUM simple_numeric tPOW arg
 #endif
                     {
                       result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
-#if defined(RUBY20)
+#if V == 20
                       ## TODO: why is this 2.0 only?
                       debug20 12, val, result
 #endif
@@ -939,7 +941,7 @@ rule
                       result = self.list_append val[0], s(:splat, val[3])
                     }
 
-#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
+#if V >= 21
         mrhs_arg: mrhs
                     {
                       result = new_masgn_arg val[0]
@@ -1886,9 +1888,9 @@ regexp_contents: none
                     }
                     compstmt tRCURLY
                     {
-#if defined(RUBY20)
+#if V == 20
                       # TODO: tRCURLY -> tSTRING_DEND
-#elif defined(RUBY21) || defined(RUBY22 || defined(RUBY23))
+#else
                       # TODO: tRCURLY -> tSTRING_END
 #endif
                       _, memo, stmt, _ = val
@@ -1956,17 +1958,17 @@ regexp_contents: none
                       end
                     }
 
-#if defined(RUBY20)
+#if V == 20
          numeric: tINTEGER
                 | tFLOAT
                 | tUMINUS_NUM tINTEGER =tLOWEST
-#elif defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
+#else
          numeric: simple_numeric
                 | tUMINUS_NUM simple_numeric
 #endif
                     {
                       result = -val[1] # TODO: pt_testcase
-#if defined(RUBY20)
+#if V == 20
                     }
                 | tUMINUS_NUM tFLOAT   =tLOWEST
                     {
@@ -1974,7 +1976,7 @@ regexp_contents: none
 #endif
                     }
 
-#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
+#if V >= 21
   simple_numeric: tINTEGER
                 | tFLOAT
                 | tRATIONAL
@@ -2173,7 +2175,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       result = identifier
                     }
 
-#if defined(RUBY22) || defined(RUBY23)
+#if V >= 22
       f_arg_asgn: f_norm_arg
 
       f_arg_item: f_arg_asgn
@@ -2215,9 +2217,9 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       result << item
                     }
 
-#if defined(RUBY20)
+#if V == 20
             f_kw: tLABEL arg_value
-#elif defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
+#else
          f_label: tLABEL
 
             f_kw: f_label arg_value
@@ -2230,7 +2232,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
                       result = s(:array, s(:kwarg, identifier, val[1]))
                     }
-#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
+#if V >= 21
                 | f_label
                     {
                       label, _ = val[0] # TODO: fix lineno?
@@ -2241,9 +2243,9 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     }
 #endif
 
-#if defined(RUBY20)
+#if V == 20
       f_block_kw: tLABEL primary_value
-#elif defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
+#else
       f_block_kw: f_label primary_value
 #endif
                     {
@@ -2254,7 +2256,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
                       result = s(:array, s(:kwarg, identifier, val[1]))
                     }
-#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
+#if V >= 21
                 | f_label
                     {
                       label, _ = val[0] # TODO: fix lineno?
@@ -2290,11 +2292,11 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       result = :"**"
                     }
 
-#if defined(RUBY20)
+#if V == 20
            f_opt: tIDENTIFIER tEQL arg_value
-#elif defined(RUBY21)
+#elif V == 21
            f_opt: f_norm_arg tEQL arg_value
-#elif defined(RUBY22) || defined(RUBY23)
+#else
            f_opt: f_arg_asgn tEQL arg_value
 #endif
                     {
@@ -2302,11 +2304,11 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       # TODO: detect duplicate names
                     }
 
-#if defined(RUBY20)
+#if V == 20
      f_block_opt: tIDENTIFIER tEQL primary_value
-#elif defined(RUBY21)
+#elif V == 21
      f_block_opt: f_norm_arg tEQL primary_value
-#elif defined(RUBY22) || defined(RUBY23)
+#else
      f_block_opt: f_arg_asgn tEQL primary_value
 #endif
                     {
@@ -2407,7 +2409,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result = s(:array, s(:lit, val[0][0].to_sym), val[1])
                     }
-#if defined(RUBY22) || defined(RUBY23)
+#if V >= 22
                 | tSTRING_BEG string_contents tLABEL_END arg_value
                     {
                       _, sym, _, value = val
@@ -2430,7 +2432,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
       operation3: tIDENTIFIER | tFID | op
     dot_or_colon: tDOT | tCOLON2
          call_op: tDOT
-#if defined(RUBY23)
+#if V >= 23
                 | tLONELY
 #endif
        opt_terms:  | terms

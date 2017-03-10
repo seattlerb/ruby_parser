@@ -42,9 +42,7 @@ end
 
 V2.each do |n|
   file "lib/ruby#{n}_parser.y" => "lib/ruby_parser.yy" do |t|
-    puts n
-    flags = V2.map { |m| c = n==m ? "D" : "U"; "-#{c}RUBY#{m}" }.join " "
-    cmd = 'unifdef -tk %s -UDEAD %s > %s || true' % [flags, t.source, t.name]
+    cmd = 'unifdef -tk -DV=%s -UDEAD %s > %s || true' % [n, t.source, t.name]
     sh cmd
   end
 end
