@@ -5,6 +5,7 @@ README.rdoc
 Rakefile
 bin/ruby_parse
 bin/ruby_parse_extract_error
+compare/normalize.rb
 lib/.document
 lib/ruby18_parser.rb
 lib/ruby18_parser.y
