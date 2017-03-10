@@ -139,7 +139,7 @@ rule
                     }
                 | lhs tEQL command_call
                     {
-                      result = node_assign val[0], val[2]
+                      result = new_assign val[0], val[2]
                     }
                 | mlhs tEQL command_call
                     {
@@ -171,7 +171,7 @@ rule
                     }
                 | lhs tEQL mrhs
                     {
-                      result = node_assign val[0], s(:svalue, val[2])
+                      result = new_assign val[0], s(:svalue, val[2])
                     }
                 | mlhs tEQL arg_value
                     {
@@ -507,11 +507,11 @@ rule
 
              arg: lhs tEQL arg
                     {
-                      result = node_assign val[0], val[2]
+                      result = new_assign val[0], val[2]
                     }
                 | lhs tEQL arg kRESCUE_MOD arg
                     {
-                      result = node_assign val[0], s(:rescue, val[2], new_resbody(s(:array), val[4]))
+                      result = new_assign val[0], s(:rescue, val[2], new_resbody(s(:array), val[4]))
                       # result.line = val[0].line
                     }
                 | var_lhs tOP_ASGN arg
@@ -1416,7 +1416,7 @@ rule
                       klasses, var, body, rest = val[1], val[2], val[4], val[5]
 
                       klasses ||= s(:array)
-                      klasses << node_assign(var, s(:gvar, :"$!")) if var
+                      klasses << new_assign(var, s(:gvar, :"$!")) if var
 
                       result = new_resbody(klasses, body)
                       result << rest if rest # UGH, rewritten above

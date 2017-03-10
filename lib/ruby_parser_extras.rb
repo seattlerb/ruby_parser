@@ -26,6 +26,13 @@ module RubyParserStuff
     raise "not yet #{n} #{v.inspect} => #{r.inspect}" unless $good20[n]
   end
 
+  def self.deprecate old, new
+    define_method old do |*args|
+      warn "DEPRECATED: #{old} -> #{new} from #{caller.first}"
+      send new, *args
+    end
+  end
+
   ruby19 = "".respond_to? :encoding
 
   # This is in sorted order of occurrence according to
@@ -282,11 +289,8 @@ module RubyParserStuff
     return new_call(lhs, :"=~", argl(rhs)).line(lhs.line)
   end
 
-  def get_match_node lhs, rhs
-    # TODO: remove in 4.0 or 2018-01, whichever is first
-    warn "DEPRECATED: get_match_node -> new_match from #{caller.first}"
-    new_match lhs, rhs
-  end
+  # TODO: remove in 4.0 or 2018-01, whichever is first
+  deprecate :get_match_node, :new_match
 
   def gettable(id)
     lineno = id.lineno if id.respond_to? :lineno
@@ -420,12 +424,8 @@ module RubyParserStuff
     return s(type, left, right)
   end
 
-  def logop type, left, right
-    # TODO: remove in 4.0 or 2018-01, whichever is first
-    warn "DEPRECATED: logop -> logical_op from #{caller.first}"
-    logical_op type, left, right
-  end
-
+  # TODO: remove in 4.0 or 2018-01, whichever is first
+  deprecate :logop, :logical_op
 
   def new_aref val
     val[2] ||= s(:arglist)
@@ -960,7 +960,7 @@ module RubyParserStuff
     end
   end
 
-  def node_assign(lhs, rhs) # TODO: rename new_assign
+  def new_assign lhs, rhs
     return nil unless lhs
 
     rhs = value_expr rhs
@@ -977,6 +977,9 @@ module RubyParserStuff
 
     lhs
   end
+
+  # TODO: remove in 4.0 or 2018-01, whichever is first
+  deprecate :node_assign, :new_assign
 
   ##
   # Returns a UTF-8 encoded string after processing BOMs and magic
