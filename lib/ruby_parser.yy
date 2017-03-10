@@ -939,7 +939,7 @@ rule
                       result = self.list_append val[0], s(:splat, val[3])
                     }
 
-#if defined(RUBY21) || defined(RUBY22 || defined(RUBY23))
+#if defined(RUBY21) || defined(RUBY22) || defined(RUBY23)
         mrhs_arg: mrhs
                     {
                       result = new_masgn_arg val[0]
