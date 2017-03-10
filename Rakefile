@@ -84,40 +84,107 @@ end
 
 task :isolate => :phony
 
-# to create parseXX.output:
-#
-# 1) check out the XX version of ruby
-# 2) Edit uncommon.mk, find the ".y.c" rule and remove the RM lines
-# 3) run `rm -f parse.c; make parse.c`
-# 4) run `bison -r all parse.tmp.y`
-# 5) mv parse.tmp.output parseXX.output
+def in_compare
+  Dir.chdir "compare" do
+    yield
+  end
+end
 
-# possibly new instructions:
-#
-# 1) check out the XX version of ruby
-# 2) YFLAGS="-r all" make parse.c
-# 3) mv y.output parseXX.output
+def dl v
+  dir = v[/^\d+\.\d+/]
+  url = "https://cache.ruby-lang.org/pub/ruby/#{dir}/ruby-#{v}.tar.bz2"
+  path = File.basename url
+  unless File.exist? path then
+    system "curl -O #{url}"
+  end
+end
 
-V1_2.each do |v|
-  diff    = "compare/diff#{v}.diff"
-  rp_txt  = "compare/rp#{v}.txt"
-  mri_txt = "compare/mri#{v}.txt"
-  compare = "compare#{v}"
+def ruby_parse version
+  v         = version[/^\d+\.\d+/].delete "."
+  rp_txt    = "rp#{v}.txt"
+  mri_txt   = "mri#{v}.txt"
+  parse_y   = "parse#{v}.y"
+  tarball   = "ruby-#{version}.tar.bz2"
+  ruby_dir  = "ruby-#{version}"
+  diff      = "diff#{v}.diff"
+  rp_out    = "lib/ruby#{v}_parser.output"
 
-  file diff do
-    Dir.chdir "compare" do
-      sh "rake"
+  c_diff    = "compare/#{diff}"
+  c_rp_txt  = "compare/#{rp_txt}"
+  c_mri_txt = "compare/#{mri_txt}"
+  c_parse_y = "compare/#{parse_y}"
+  c_tarball = "compare/#{tarball}"
+
+  file tarball do
+    in_compare do
+      dl version
     end
   end
 
+  file c_parse_y => c_tarball do
+    in_compare do
+      system "tar yxf #{tarball} #{ruby_dir}/{id.h,parse.y,tool/{id2token.rb,vpath.rb}}"
+      Dir.chdir ruby_dir do
+        if File.exist? "tool/id2token.rb" then
+          sh "ruby tool/id2token.rb --path-separator=.:./ id.h parse.y > ../#{parse_y}"
+        else
+          cp "parse.y", "../#{parse_y}"
+        end
+      end
+      sh "rm -rf #{ruby_dir}"
+    end
+  end
+
+  file c_mri_txt => c_parse_y do
+    in_compare do
+      sh "bison -r all #{parse_y}"
+      sh "./normalize.rb parse#{v}.output > #{mri_txt}"
+      rm ["parse#{v}.output", "parse#{v}.tab.c"]
+    end
+  end
+
+  file rp_out => :parser
+
+  file c_rp_txt => rp_out do
+    in_compare do
+      sh "./normalize.rb ../#{rp_out} > #{rp_txt}"
+    end
+  end
+
+  compare = "compare#{v}"
+
+  desc "Compare all grammars to MRI"
   task :compare => compare
 
-  task compare => diff do
-    cmd = "diff -du #{mri_txt} #{rp_txt}"
-    sh "#{cmd} > #{diff} || true"
-    sh "wc -l #{diff}"
+  task c_diff => [c_mri_txt, c_rp_txt] do
+    in_compare do
+      system "diff -du #{mri_txt} #{rp_txt} > #{diff}"
+    end
+  end
+
+  desc "Compare #{v} grammar to MRI #{version}"
+  task compare => c_diff do
+    in_compare do
+      system "wc -l #{diff}"
+    end
+  end
+
+  task :clean do
+    rm_f Dir[c_parse_y, c_mri_txt, c_rp_txt]
+  end
+
+  task :realclean do
+    rm_f Dir[tarball]
   end
 end
+
+ruby_parse "1.8.7-p374"
+ruby_parse "1.9.3-p551"
+ruby_parse "2.0.0-p648"
+ruby_parse "2.1.9"
+ruby_parse "2.2.6"
+ruby_parse "2.3.3"
+# TODO ruby_parse "2.4.0"
 
 task :debug => :isolate do
   ENV["V"] ||= V1_2.last
