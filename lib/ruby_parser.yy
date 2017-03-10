@@ -786,11 +786,11 @@ rule
                     }
                 | arg tMATCH arg
                     {
-                      result = self.get_match_node val[0], val[2]
+                      result = new_match val[0], val[2]
                     }
                 | arg tNMATCH arg
                     {
-                      result = s(:not, self.get_match_node(val[0], val[2]))
+                      result = s(:not, new_match(val[0], val[2]))
                     }
                 | tBANG arg
                     {

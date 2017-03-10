@@ -341,7 +341,7 @@ module RubyParserStuff
     _racc_do_parse_rb(_racc_setup, false)
   end if ENV['PURE_RUBY']
 
-  def get_match_node lhs, rhs # TODO: rename to new_match
+  def new_match lhs, rhs
     if lhs then
       case lhs[0]
       when :dregx, :dregx_once then
@@ -361,6 +361,12 @@ module RubyParserStuff
     end
 
     return new_call(lhs, :"=~", argl(rhs)).line(lhs.line)
+  end
+
+  def get_match_node lhs, rhs
+    # TODO: remove in 4.0 or 2018-01, whichever is first
+    warn "DEPRECATED: get_match_node -> new_match from #{caller.first}"
+    new_match lhs, rhs
   end
 
   def gettable(id)
