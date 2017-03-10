@@ -7,6 +7,8 @@ bin/ruby_parse
 bin/ruby_parse_extract_error
 compare/normalize.rb
 lib/.document
+lib/rp_extensions.rb
+lib/rp_stringscanner.rb 
 lib/ruby18_parser.rb
 lib/ruby18_parser.y
 lib/ruby19_parser.rb

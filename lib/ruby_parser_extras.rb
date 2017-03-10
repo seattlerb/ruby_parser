@@ -6,92 +6,11 @@ require 'sexp'
 require 'strscan'
 require 'ruby_lexer'
 require "timeout"
-
-# :stopdoc:
-# WHY do I have to do this?!?
-class Regexp
-  ONCE = 0 unless defined? ONCE # FIX: remove this - it makes no sense
-
-  unless defined? ENC_NONE then
-    ENC_NONE = /x/n.options
-    ENC_EUC  = /x/e.options
-    ENC_SJIS = /x/s.options
-    ENC_UTF8 = /x/u.options
-  end
-end
-
-# I hate ruby 1.9 string changes
-class Fixnum
-  def ord
-    self
-  end
-end unless "a"[0] == "a"
-# :startdoc:
-
-class RPStringScanner < StringScanner
-#   if ENV['TALLY'] then
-#     alias :old_getch :getch
-#     def getch
-#       warn({:getch => caller[0]}.inspect)
-#       old_getch
-#     end
-#   end
-
-  if "".respond_to? :encoding then
-    if "".respond_to? :byteslice then
-      def string_to_pos
-        string.byteslice(0, pos)
-      end
-    else
-      def string_to_pos
-        string.bytes.first(pos).pack("c*").force_encoding(string.encoding)
-      end
-    end
-
-    def charpos
-      string_to_pos.length
-    end
-  else
-    alias :charpos :pos
-
-    def string_to_pos
-      string[0..pos]
-    end
-  end
-
-  def unread_many str # TODO: remove this entirely - we should not need it
-    warn({:unread_many => caller[0]}.inspect) if ENV['TALLY']
-    begin
-      string[charpos, 0] = str
-    rescue IndexError
-      # HACK -- this is a bandaid on a dirty rag on an open festering wound
-    end
-  end
-
-  if ENV['DEBUG'] then
-    alias :old_getch :getch
-    def getch
-      c = self.old_getch
-      p :getch => [c, caller.first]
-      c
-    end
-
-    alias :old_scan :scan
-    def scan re
-      s = old_scan re
-      where = caller[1].split(/:/).first(2).join(":")
-      d :scan => [s, where] if s
-      s
-    end
-  end
-
-  def d o
-    $stderr.puts o.inspect
-  end
-end
+require "rp_extensions"
+require "rp_stringscanner"
 
 module RubyParserStuff
-  VERSION = "3.8.4" unless constants.include? "VERSION" # SIGH
+  VERSION = "3.8.4"
 
   attr_accessor :lexer, :in_def, :in_single, :file
   attr_reader :env, :comments
@@ -1511,58 +1430,3 @@ class RubyParser
     end
   end
 end
-
-############################################################
-# HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-
-unless "".respond_to?(:grep) then
-  class String
-    def grep re
-      lines.grep re
-    end
-  end
-end
-
-class String
-  ##
-  # This is a hack used by the lexer to sneak in line numbers at the
-  # identifier level. This should be MUCH smaller than making
-  # process_token return [value, lineno] and modifying EVERYTHING that
-  # reduces tIDENTIFIER.
-
-  attr_accessor :lineno
-end
-
-class Sexp
-  attr_writer :paren
-
-  def paren
-    @paren ||= false
-  end
-
-  def value
-    raise "multi item sexp" if size > 2
-    last
-  end
-
-  def to_sym
-    raise "no: #{self.inspect}.to_sym is a bug"
-    self.value.to_sym
-  end
-
-  alias :add :<<
-
-  def add_all x
-    self.concat x.sexp_body
-  end
-
-  def block_pass?
-    any? { |s| Sexp === s && s[0] == :block_pass }
-  end
-
-  alias :node_type :sexp_type
-  alias :values :sexp_body # TODO: retire
-end
-
-# END HACK
-############################################################
