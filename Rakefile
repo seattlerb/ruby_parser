@@ -37,7 +37,11 @@ Hoe.spec "ruby_parser" do
     end
   end
 
-  self.racc_flags << " -t" if plugin?(:racc) && ENV["DEBUG"]
+  if plugin?(:racc)
+    self.racc_flags << " -t" if ENV["DEBUG"]
+    self.racc_flags << " --superclass RubyParser::Parser"
+    # self.racc_flags << " --runtime ruby_parser" # TODO: broken in racc
+  end
 end
 
 V2.each do |n|

@@ -40,6 +40,8 @@ class String
   attr_accessor :lineno
 end
 
+require "sexp"
+
 class Sexp
   attr_writer :paren
 

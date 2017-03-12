@@ -1,10 +1,8 @@
 # encoding: US-ASCII
 
-require 'rubygems'
-require 'minitest/autorun'
-require 'ruby_parser_extras'
-
-require 'minitest/test'
+require "minitest/autorun"
+require "ruby_parser_extras"
+require "ruby_parser"
 
 class TestStackState < Minitest::Test
   attr_reader :s
@@ -15,7 +13,7 @@ class TestStackState < Minitest::Test
 
   def assert_encoding str, default = false
     orig_str = str.dup
-    p = Ruby19Parser.new
+    p = RubyParser.latest
     s = nil
 
     out, err = capture_io do

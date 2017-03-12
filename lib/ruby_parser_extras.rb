@@ -1,10 +1,7 @@
 # encoding: ASCII-8BIT
 
-require 'stringio'
-require 'racc/parser'
-require 'sexp'
-require 'strscan'
-require 'ruby_lexer'
+require "sexp"
+require "ruby_lexer"
 require "timeout"
 require "rp_extensions"
 require "rp_stringscanner"
@@ -1353,90 +1350,6 @@ module RubyParserStuff
 
     def restore oldstate
       @stack.replace oldstate
-    end
-  end
-end
-
-class Ruby23Parser < Racc::Parser
-  include RubyParserStuff
-end
-
-class Ruby22Parser < Racc::Parser
-  include RubyParserStuff
-end
-
-class Ruby21Parser < Racc::Parser
-  include RubyParserStuff
-end
-
-class Ruby20Parser < Racc::Parser
-  include RubyParserStuff
-end
-
-class Ruby19Parser < Racc::Parser
-  include RubyParserStuff
-end
-
-class Ruby18Parser < Racc::Parser
-  include RubyParserStuff
-end
-
-##
-# RubyParser is a compound parser that first attempts to parse using
-# the 1.9 syntax parser and falls back to the 1.8 syntax parser on a
-# parse error.
-
-class RubyParser
-  class SyntaxError < RuntimeError; end
-
-  def initialize
-    @p18 = Ruby18Parser.new
-    @p19 = Ruby19Parser.new
-    @p20 = Ruby20Parser.new
-    @p21 = Ruby21Parser.new
-    @p22 = Ruby22Parser.new
-    @p23 = Ruby23Parser.new
-  end
-
-  def process s, f = "(string)", t = 10
-    e = nil
-    [@p23, @p22, @p21, @p20, @p19, @p18].each do |parser|
-      begin
-        return parser.process s, f, t
-      rescue Racc::ParseError, RubyParser::SyntaxError => exc
-        e = exc
-      end
-    end
-    raise e
-  end
-
-  alias :parse :process
-
-  def reset
-    @p18.reset
-    @p19.reset
-    @p20.reset
-    @p21.reset
-    @p22.reset
-    @p23.reset
-  end
-
-  def self.for_current_ruby
-    case RUBY_VERSION
-    when /^1\.8/ then
-      Ruby18Parser.new
-    when /^1\.9/ then
-      Ruby19Parser.new
-    when /^2.0/ then
-      Ruby20Parser.new
-    when /^2.1/ then
-      Ruby21Parser.new
-    when /^2.2/ then
-      Ruby22Parser.new
-    when /^2.3/ then
-      Ruby23Parser.new
-    else
-      raise "unrecognized RUBY_VERSION #{RUBY_VERSION}"
     end
   end
 end

@@ -1,3 +1,5 @@
+require "strscan"
+
 class RPStringScanner < StringScanner
 #   if ENV['TALLY'] then
 #     alias :old_getch :getch

@@ -1,10 +1,8 @@
 # encoding: US-ASCII
 
-require 'rubygems'
-require 'minitest/autorun'
-require 'ruby_lexer'
-require 'ruby18_parser'
-require 'ruby20_parser'
+require "minitest/autorun"
+require "ruby_lexer"
+require "ruby_parser"
 
 class TestRubyLexer < Minitest::Test
   attr_accessor :processor, :lex, :parser_class, :lex_state
