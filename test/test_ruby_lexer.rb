@@ -12,7 +12,7 @@ class TestRubyLexer < Minitest::Test
 
   def setup
     self.lex_state = :expr_beg
-    setup_lexer_class Ruby20Parser
+    setup_lexer_class RubyParser.latest.class
   end
 
   def setup_lexer input, exp_sexp = nil
@@ -49,6 +49,10 @@ class TestRubyLexer < Minitest::Test
     args = args.each_slice(3).map { |a, b, c| [a, b, c, nil, nil] }.flatten
 
     assert_lex(input, exp_sexp, *args, &block)
+  end
+
+  def ruby18
+    RubyParser::V18 === lexer.parser
   end
 
   def refute_lex input, *args # TODO: re-sort
@@ -246,13 +250,13 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_and_dot
-    setup_lexer_class Ruby23Parser
+    setup_lexer_class RubyParser::V23
 
     assert_lex3("&.", nil, :tLONELY, "&.", :expr_dot)
   end
 
   def test_yylex_and_dot_call
-    setup_lexer_class Ruby23Parser
+    setup_lexer_class RubyParser::V23
 
     assert_lex3("x&.y", nil,
                 :tIDENTIFIER, "x", :expr_cmdarg,
@@ -292,7 +296,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_label__18
-    setup_lexer_class Ruby18Parser
+    setup_lexer_class RubyParser::V18
 
     assert_lex3("{a:",
                 nil,
@@ -302,7 +306,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_label_in_params__18
-    setup_lexer_class Ruby18Parser
+    setup_lexer_class RubyParser::V18
 
     assert_lex3("foo(a:",
                 nil,
@@ -313,7 +317,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_label__19
-    setup_lexer_class Ruby19Parser
+    setup_lexer_class RubyParser::V19
 
     assert_lex3("{a:",
                 nil,
@@ -322,7 +326,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_label_in_params__19
-    setup_lexer_class Ruby19Parser
+    setup_lexer_class RubyParser::V19
 
     assert_lex3("foo(a:",
                 nil,
@@ -381,7 +385,9 @@ class TestRubyLexer < Minitest::Test
     refute_lexeme
   end
 
-  def test_yylex_not_at_defn
+  def test_yylex_not_at_defn__20
+    setup_lexer_class RubyParser::V20
+
     assert_lex("def +@; end",
                s(:defn, :+@, s(:args), s(:nil)),
 
@@ -465,7 +471,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_lambda_args__20
-    setup_lexer_class Ruby20Parser
+    setup_lexer_class RubyParser::V20
 
     assert_lex("-> (a) { }",
                s(:iter, s(:call, nil, :lambda),
@@ -480,7 +486,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_lambda_args_opt__20
-    setup_lexer_class Ruby20Parser
+    setup_lexer_class RubyParser::V20
 
     assert_lex("-> (a=nil) { }",
                s(:iter, s(:call, nil, :lambda),
@@ -497,7 +503,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_lambda_hash__20
-    setup_lexer_class Ruby20Parser
+    setup_lexer_class RubyParser::V20
 
     assert_lex("-> (a={}) { }",
                s(:iter, s(:call, nil, :lambda),
@@ -1275,13 +1281,13 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_identifier_def__18
-    setup_lexer_class Ruby18Parser
+    setup_lexer_class RubyParser::V18
 
     assert_lex_fname "identifier", :tIDENTIFIER, :expr_end
   end
 
   def test_yylex_identifier_def__1920
-    setup_lexer_class Ruby19Parser
+    setup_lexer_class RubyParser::V19
 
     assert_lex_fname "identifier", :tIDENTIFIER, :expr_endfn
   end
@@ -1318,13 +1324,13 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_identifier_equals_def__18
-    setup_lexer_class Ruby18Parser
+    setup_lexer_class RubyParser::V18
 
     assert_lex_fname "identifier=", :tIDENTIFIER, :expr_end
   end
 
   def test_yylex_identifier_equals_def__1920
-    setup_lexer_class Ruby19Parser
+    setup_lexer_class RubyParser::V19
 
     assert_lex_fname "identifier=", :tIDENTIFIER, :expr_endfn
   end
@@ -1427,25 +1433,25 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_question_eh_a__18
-    setup_lexer_class Ruby18Parser
+    setup_lexer_class RubyParser::V18
 
     assert_lex3("?a", nil, :tINTEGER, 97, :expr_end)
   end
 
   def test_yylex_question_eh_a__19
-    setup_lexer_class Ruby19Parser
+    setup_lexer_class RubyParser::V19
 
     assert_lex3("?a", nil, :tSTRING, "a", :expr_end)
   end
 
   def test_yylex_question_eh_escape_M_escape_C__18
-    setup_lexer_class Ruby18Parser
+    setup_lexer_class RubyParser::V18
 
     assert_lex3("?\\M-\\C-a", nil, :tINTEGER, 129, :expr_end)
   end
 
   def test_yylex_question_eh_escape_M_escape_C__19
-    setup_lexer_class Ruby19Parser
+    setup_lexer_class RubyParser::V19
 
     assert_lex3("?\\M-\\C-a", nil, :tSTRING, "\M-\C-a", :expr_end)
   end
@@ -1630,14 +1636,14 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_open_bracket_exprarg__18
-    setup_lexer_class Ruby18Parser
+    setup_lexer_class RubyParser::V18
     self.lex_state = :expr_arg
 
     assert_lex3(" (", nil, :tLPAREN2, "(", :expr_beg)
   end
 
   def test_yylex_open_bracket_exprarg__19
-    setup_lexer_class Ruby19Parser
+    setup_lexer_class RubyParser::V19
     self.lex_state = :expr_arg
 
     assert_lex3(" (", nil, :tLPAREN_ARG, "(", :expr_beg)
@@ -1802,13 +1808,13 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_question__18
-    setup_lexer_class Ruby18Parser
+    setup_lexer_class RubyParser::V18
 
     assert_lex3("?*", nil, :tINTEGER, 42, :expr_end)
   end
 
   def test_yylex_question__19
-    setup_lexer_class Ruby19Parser
+    setup_lexer_class RubyParser::V19
 
     assert_lex3("?*", nil, :tSTRING, "*", :expr_end)
   end
@@ -1827,7 +1833,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_question_ws_backslashed__18
-    setup_lexer_class Ruby18Parser
+    setup_lexer_class RubyParser::V18
 
     assert_lex3("?\\ ", nil, :tINTEGER, 32, :expr_end)
     assert_lex3("?\\n", nil, :tINTEGER, 10, :expr_end)
@@ -1838,7 +1844,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_question_ws_backslashed__19
-    setup_lexer_class Ruby19Parser
+    setup_lexer_class RubyParser::V19
 
     assert_lex3("?\\ ", nil, :tSTRING, " ",  :expr_end)
     assert_lex3("?\\n", nil, :tSTRING, "\n", :expr_end)
@@ -2241,7 +2247,7 @@ class TestRubyLexer < Minitest::Test
 
   def test_yylex_string_double_escape_M
     chr = "\341"
-    chr.force_encoding("UTF-8") if RubyLexer::RUBY19
+    chr.force_encoding("UTF-8") if RubyLexer::HAS_ENC
 
     assert_lex3("\"\\M-a\"", nil, :tSTRING, chr, :expr_end)
   end
@@ -2331,7 +2337,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_string_double_pound_dollar_bad
-    skip if Ruby18Parser === lexer.parser
+    skip if ruby18
 
     assert_lex3('"#$%"', nil,
 
@@ -2513,7 +2519,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_symbol_zero_byte__18
-    setup_lexer_class Ruby18Parser
+    setup_lexer_class RubyParser::V18
 
     refute_lex(":\"symbol\0\"", :tSYMBEG, ":")
   end
@@ -2648,7 +2654,7 @@ class TestRubyLexer < Minitest::Test
 
   def test_pct_w_backslashes
     ["\t", "\n", "\r", "\v", "\f"].each do |char|
-      next if !RubyLexer::RUBY19 and char == "\v"
+      next if !RubyLexer::HAS_ENC and char == "\v"
 
       assert_lex("%w[foo#{char}bar]",
                  s(:array, s(:str, "foo"), s(:str, "bar")),
@@ -2680,7 +2686,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_hash_colon_quoted_22
-    setup_lexer_class Ruby22Parser
+    setup_lexer_class RubyParser::V22
 
     assert_lex("{'a':1}",
                s(:hash, s(:lit, :a), s(:lit, 1)),
@@ -2692,7 +2698,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_hash_colon_quoted_symbol_22
-    setup_lexer_class Ruby22Parser
+    setup_lexer_class RubyParser::V22
 
     assert_lex("{'abc': :b}",
                s(:hash, s(:lit, :abc), s(:lit, :b)),
@@ -2704,7 +2710,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_hash_colon_double_quoted_symbol_22
-    setup_lexer_class Ruby22Parser
+    setup_lexer_class RubyParser::V22
 
     assert_lex('{"abc": :b}',
                s(:hash, s(:lit, :abc), s(:lit, :b)),
@@ -2716,7 +2722,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_ruby21_rational_literal
-    setup_lexer_class Ruby21Parser
+    setup_lexer_class RubyParser::V21
 
     assert_lex3("10r",      nil, :tRATIONAL, Rational(10), :expr_end)
     assert_lex3("0x10r",      nil, :tRATIONAL, Rational(16), :expr_end)
@@ -2735,7 +2741,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_ruby21_imaginary_literal
-    setup_lexer_class Ruby21Parser
+    setup_lexer_class RubyParser::V21
 
     assert_lex3("1i",       nil, :tIMAGINARY, Complex(0, 1), :expr_end)
     assert_lex3("0x10i",    nil, :tIMAGINARY, Complex(0, 16), :expr_end)
@@ -2754,7 +2760,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_ruby21_rational_imaginary_literal
-    setup_lexer_class Ruby21Parser
+    setup_lexer_class RubyParser::V21
 
     assert_lex3("1ri",       nil, :tIMAGINARY, Complex(0, Rational(1)), :expr_end)
     assert_lex3("0x10ri",    nil, :tIMAGINARY, Complex(0, Rational(16)), :expr_end)
@@ -2775,7 +2781,7 @@ class TestRubyLexer < Minitest::Test
   def test_ruby21_imaginary_literal_with_succeeding_keyword
     skip "Currently does not tokenize correctly"
 
-    setup_lexer_class Ruby21Parser
+    setup_lexer_class RubyParser::V21
 
     assert_lex3("1if", nil,
                 :tINTEGER, 1, :expr_end,

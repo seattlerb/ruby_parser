@@ -15,6 +15,10 @@ class RubyParser
     def self.inherited x
       RubyParser::VERSIONS << x
     end
+
+    def self.version
+      Parser > self and self.name[/V(\d+)$/, 1].to_i
+    end
   end
 
   class SyntaxError < RuntimeError; end

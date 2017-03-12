@@ -12,6 +12,7 @@ require 'pt_testcase'
 
 class Sexp
   alias oldeq2 ==
+  # TODO: push up to Sexp
   def ==(obj) # :nodoc:
     if obj.class == self.class then
       super and
@@ -19,6 +20,14 @@ class Sexp
     else
       false
     end
+  end
+end
+
+class TestRubyParserVersion < Minitest::Test
+  def test_cls_version
+    assert_equal 18, RubyParser::V18.version
+    assert_equal 23, RubyParser::V23.version
+    refute RubyParser::Parser.version
   end
 end
 
@@ -961,27 +970,7 @@ module TestRubyParserShared
   end
 
   def ruby18
-    Ruby18Parser === self.processor
-  end
-
-  def ruby19
-    Ruby19Parser === self.processor
-  end
-
-  def ruby20
-    Ruby20Parser === self.processor
-  end
-
-  def ruby21
-    Ruby21Parser === self.processor
-  end
-
-  def ruby22
-    Ruby22Parser === self.processor
-  end
-
-  def ruby23
-    Ruby23Parser === self.processor
+    RubyParser::V18 === self.processor
   end
 
   def test_bug_comma
@@ -1039,10 +1028,8 @@ module TestRubyParserShared
     rb = "not(a)"
     pt = if ruby18 then
            s(:not, s(:call, nil, :a))
-         elsif ruby19 or ruby20 or ruby21 or ruby22 or ruby23 then
-           s(:call, s(:call, nil, :a), :"!")
          else
-           raise "wtf"
+           s(:call, s(:call, nil, :a), :"!")
          end
 
     assert_parse rb, pt
@@ -1645,11 +1632,11 @@ module TestRubyParserShared
 
   def test___ENCODING__
     rb = "__ENCODING__"
-    pt = if Ruby18Parser === processor then
+    pt = if RubyParser::V18 === processor then
            s(:call, nil, :__ENCODING__)
          else
            if defined? Encoding then
-             if Ruby18Parser === processor then
+             if RubyParser::V18 === processor then
                s(:call, nil, :__ENCODING__)
              else
                s(:colon2, s(:const, :Encoding), :UTF_8)
@@ -2413,13 +2400,13 @@ class TestRubyParser < Minitest::Test
   end
 end
 
-class TestRuby18Parser < RubyParserTestCase
+class TestRubyParserV18 < RubyParserTestCase
   include TestRubyParserShared
 
   def setup
     super
 
-    self.processor = Ruby18Parser.new
+    self.processor = RubyParser::V18.new
   end
 
   def test_call_space_before_paren_args
@@ -2619,14 +2606,14 @@ class TestRuby18Parser < RubyParserTestCase
   end
 end
 
-class TestRuby19Parser < RubyParserTestCase
+class TestRubyParserV19 < RubyParserTestCase
   include TestRubyParserShared
   include TestRubyParserShared19to22
 
   def setup
     super
 
-    self.processor = Ruby19Parser.new
+    self.processor = RubyParser::V19.new
   end
 
   def test_mlhs_back_splat
@@ -3233,7 +3220,7 @@ class TestRuby19Parser < RubyParserTestCase
   end
 end
 
-class TestRuby20Parser < RubyParserTestCase
+class TestRubyParserV20 < RubyParserTestCase
   include TestRubyParserShared
   include TestRubyParserShared20to22
   include TestRubyParserShared19to22
@@ -3241,7 +3228,7 @@ class TestRuby20Parser < RubyParserTestCase
   def setup
     super
 
-    self.processor = Ruby20Parser.new
+    self.processor = RubyParser::V20.new
   end
 
   def test_block_call_dot_op2_brace_block
@@ -3404,7 +3391,7 @@ class TestRuby20Parser < RubyParserTestCase
   end
 end
 
-class TestRuby21Parser < RubyParserTestCase
+class TestRubyParserV21 < RubyParserTestCase
   include TestRubyParserShared
   include TestRubyParserShared19to22
   include TestRubyParserShared20to22
@@ -3412,7 +3399,7 @@ class TestRuby21Parser < RubyParserTestCase
   def setup
     super
 
-    self.processor = Ruby21Parser.new
+    self.processor = RubyParser::V21.new
   end
 
   def test_f_kw
@@ -3483,7 +3470,7 @@ class TestRuby21Parser < RubyParserTestCase
   end
 end
 
-class TestRuby22Parser < RubyParserTestCase
+class TestRubyParserV22 < RubyParserTestCase
   include TestRubyParserShared
   include TestRubyParserShared19to22
   include TestRubyParserShared20to22
@@ -3491,7 +3478,7 @@ class TestRuby22Parser < RubyParserTestCase
   def setup
     super
 
-    self.processor = Ruby22Parser.new
+    self.processor = RubyParser::V22.new
   end
 
   def test_call_args_assoc_quoted
@@ -3534,7 +3521,7 @@ class TestRuby22Parser < RubyParserTestCase
   end
 end
 
-class TestRuby23Parser < RubyParserTestCase
+class TestRubyParserV23 < RubyParserTestCase
   include TestRubyParserShared
   include TestRubyParserShared19to22
   include TestRubyParserShared20to22
@@ -3542,7 +3529,7 @@ class TestRuby23Parser < RubyParserTestCase
   def setup
     super
 
-    self.processor = Ruby23Parser.new
+    self.processor = RubyParser::V23.new
   end
 
   def test_safe_call

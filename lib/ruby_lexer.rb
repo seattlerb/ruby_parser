@@ -3,9 +3,9 @@
 class RubyLexer
 
   # :stopdoc:
-  RUBY19 = "".respond_to? :encoding
+  HAS_ENC = "".respond_to? :encoding
 
-  IDENT_CHAR = if RUBY19 then
+  IDENT_CHAR = if HAS_ENC then
                  /[\w\u0080-\u{10ffff}]/u
                else
                  /[\w\x80-\xFF]/n
@@ -285,7 +285,7 @@ class RubyLexer
   end
 
   def ruby22_label?
-    ruby22? and is_label_possible?
+    ruby22plus? and is_label_possible?
   end
 
   def is_label_possible?
@@ -909,11 +909,7 @@ class RubyLexer
   end
 
   def ruby18
-    Ruby18Parser === parser
-  end
-
-  def ruby19
-    Ruby19Parser === parser
+    RubyParser::V18 === parser
   end
 
   def scan re
@@ -1047,7 +1043,7 @@ class RubyLexer
         t = Regexp.escape term
         x = Regexp.escape(paren) if paren && paren != "\000"
         re = if qwords then
-               if RUBY19 then
+               if HAS_ENC then
                  /[^#{t}#{x}\#\0\\\s]+|./ # |. to pick up whatever
                else
                  /[^#{t}#{x}\#\0\\\s\v]+|./ # argh. 1.8's \s doesn't pick up \v
@@ -1098,7 +1094,7 @@ class RubyLexer
         else
           s
         end
-    x.force_encoding "UTF-8" if RUBY19
+    x.force_encoding "UTF-8" if HAS_ENC
     x
   end
 
@@ -1106,9 +1102,8 @@ class RubyLexer
     # do nothing for now
   end
 
-  def ruby22?
-    Ruby22Parser === parser or
-      Ruby23Parser === parser
+  def ruby22plus?
+    parser.class.version >= 22
   end
 
   def process_string # TODO: rewrite / remove
@@ -1120,7 +1115,7 @@ class RubyLexer
 
     token_type, c = token
 
-    if ruby22? && token_type == :tSTRING_END && ["'", '"'].include?(c) then
+    if ruby22plus? && token_type == :tSTRING_END && ["'", '"'].include?(c) then
       if (([:expr_beg, :expr_endfn].include?(lex_state) &&
            !cond.is_in_state) || is_arg?) &&
           is_label_suffix? then
