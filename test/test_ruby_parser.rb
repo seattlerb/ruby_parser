@@ -3656,7 +3656,8 @@ class TestRubyParserV23 < RubyParserTestCase
   end
 end
 
-[18, 19, 20, 21, 22, 23].each do |v|
+RubyParser::VERSIONS.each do |klass|
+  v = klass.version
   describe "block args arity #{v}" do
     attr_accessor :parser
 
