@@ -30,7 +30,7 @@ module RubyParserStuff
     end
   end
 
-  ruby19 = "".respond_to? :encoding
+  has_enc = "".respond_to? :encoding
 
   # This is in sorted order of occurrence according to
   # charlock_holmes against 500k files, with UTF_8 forced
@@ -45,7 +45,7 @@ module RubyParserStuff
     Encoding::SHIFT_JIS,
     Encoding::WINDOWS_1252,
     Encoding::EUC_JP
-  ] if ruby19
+  ] if has_enc
 
   def syntax_error msg
     raise RubyParser::SyntaxError, msg
@@ -998,11 +998,11 @@ module RubyParserStuff
 
   def handle_encoding str
     str = str.dup
-    ruby19 = str.respond_to? :encoding
+    has_enc = str.respond_to? :encoding
     encoding = nil
 
     header = str.lines.first(2)
-    header.map! { |s| s.force_encoding "ASCII-8BIT" } if ruby19
+    header.map! { |s| s.force_encoding "ASCII-8BIT" } if has_enc
 
     first = header.first || ""
     encoding, str = "utf-8", str[3..-1] if first =~ /\A\xEF\xBB\xBF/
@@ -1013,7 +1013,7 @@ module RubyParserStuff
     }
 
     if encoding then
-      if ruby19 then
+      if has_enc then
         encoding.sub!(/utf-8-.+$/, 'utf-8') # HACK for stupid emacs formats
         hack_encoding str, encoding
       else
@@ -1021,7 +1021,7 @@ module RubyParserStuff
       end
     else
       # nothing specified... ugh. try to encode as utf-8
-      hack_encoding str if ruby19
+      hack_encoding str if has_enc
     end
 
     str
