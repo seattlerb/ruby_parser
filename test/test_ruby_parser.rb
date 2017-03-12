@@ -2779,7 +2779,6 @@ module TestRubyParserShared19Plus
   end
 
   def test_kill_me_8
-    skip "REMOVE ME BEFORE COMMITTING"
     # | f_marg_list tCOMMA tSTAR tCOMMA f_marg_list
     rb = "f { |a, (b, *, c)| }"
     pt = s(:iter,
@@ -2800,7 +2799,6 @@ module TestRubyParserShared19Plus
   end
 
   def test_kill_me_10
-    skip "REMOVE ME BEFORE COMMITTING"
     # | tSTAR f_norm_arg tCOMMA f_marg_list
     rb = "f { |a, (*b, c)| }"
     pt = s(:iter,
@@ -2811,7 +2809,6 @@ module TestRubyParserShared19Plus
   end
 
   def test_kill_me_11
-    skip "REMOVE ME BEFORE COMMITTING"
     # | tSTAR
     rb = "f { |a, (*)| }"
     pt = s(:iter,

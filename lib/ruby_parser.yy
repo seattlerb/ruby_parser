@@ -1334,7 +1334,6 @@ rule
                       args, _, _, _, args2 = val
 
                       result = block_var args, :*, args2
-                      debug20 16, val, result
                     }
                 | tSTAR f_norm_arg
                     {
@@ -1347,12 +1346,10 @@ rule
                       _, splat, _, args = val
 
                       result = block_var :"*#{splat}", args
-                      debug20 17, val, result
                     }
                 | tSTAR
                     {
                       result = block_var :*
-                      debug20 18, val, result
                     }
                 | tSTAR tCOMMA f_marg_list
                     {
