@@ -57,6 +57,18 @@ You can also use Ruby19Parser, Ruby18Parser, or RubyParser.for_current_ruby:
   RubyParser.for_current_ruby.parse "1+1"
   # => s(:call, s(:lit, 1), :+, s(:lit, 1))
 
+== DEVELOPER NOTES:
+
+To add a new version:
+
+* New parser should be generated from lib/ruby_parser.yy.
+* Extend lib/ruby_parser.yy with new class name.
+* Add new version number to Rakefile for rule creation.
+* Require generated parser in lib/ruby_parser.rb.
+* Add empty TestRubyParserShared##Plus module and TestRubyParserV## to test/test_ruby_parser.rb.
+* Extend Manifest.txt with generated file names.
+* Extend sexp_processor's pt_testcase.rb to match version
+
 == REQUIREMENTS:
 
 * ruby. woot.
