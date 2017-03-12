@@ -2,13 +2,12 @@
 
 # ENV['VERBOSE'] = "1"
 
-require 'rubygems'
-require 'minitest/autorun'
-require 'ruby_parser'
+require "minitest/autorun"
+require "ruby_parser"
 
-$: << File.expand_path('~/Work/p4/zss/src/sexp_processor/dev/lib')
+$: << File.expand_path("~/Work/p4/zss/src/sexp_processor/dev/lib")
 
-require 'pt_testcase'
+require "pt_testcase"
 
 class Sexp
   alias oldeq2 ==
@@ -20,75 +19,6 @@ class Sexp
     else
       false
     end
-  end
-end
-
-class TestRubyParserVersion < Minitest::Test
-  def test_cls_version
-    assert_equal 18, RubyParser::V18.version
-    assert_equal 23, RubyParser::V23.version
-    refute RubyParser::Parser.version
-  end
-end
-
-class RubyParserTestCase < ParseTreeTestCase
-  attr_accessor :result, :processor
-
-  make_my_diffs_pretty!
-
-  def self.previous key
-    "Ruby"
-  end
-
-  def self.generate_test klass, node, data, input_name, output_name
-    return if node.to_s =~ /bmethod|dmethod/
-    return if Array === data['Ruby']
-
-    output_name = "ParseTree"
-
-    super
-  end
-
-  def assert_parse rb, pt
-    self.result = processor.parse rb
-    assert_equal pt, result
-  end
-
-  def refute_parse rb
-    self.result = processor.parse rb
-    assert_nil result
-  end
-
-  def assert_syntax_error rb, emsg
-    e = nil
-    assert_silent do
-      e = assert_raises RubyParser::SyntaxError do
-        processor.parse rb
-      end
-    end
-
-    assert_equal emsg, e.message
-  end
-
-  def assert_parse_error rb, emsg
-    e = nil
-    assert_silent do
-      e = assert_raises Racc::ParseError do
-        processor.parse rb
-      end
-    end
-
-    assert_equal emsg, e.message
-  end
-
-  def assert_parse_line rb, pt, line
-    old_env = ENV["VERBOSE"]
-    ENV["VERBOSE"] = "1"
-
-    assert_parse rb, pt
-    assert_equal line, result.line,   "call should have line number"
-  ensure
-    ENV["VERBOSE"] = old_env
   end
 end
 
@@ -402,7 +332,7 @@ module TestRubyParserShared
   end
 
   def test_lasgn_env
-    rb = 'a = 42'
+    rb = "a = 42"
     pt = s(:lasgn, :a, s(:lit, 42))
     expected_env = { :a => :lvar }
 
@@ -411,7 +341,7 @@ module TestRubyParserShared
   end
 
   def test_lasgn_ivar_env
-    rb = '@a = 42'
+    rb = "@a = 42"
     pt = s(:iasgn, :@a, s(:lit, 42))
 
     assert_parse rb, pt
@@ -567,7 +497,7 @@ module TestRubyParserShared
   def test_dsym_to_sym
     pt = s(:alias, s(:lit, :<<), s(:lit, :>>))
 
-    rb = 'alias :<< :>>'
+    rb = "alias :<< :>>"
     assert_parse rb, pt
 
     rb = 'alias :"<<" :">>"'
@@ -1662,9 +1592,117 @@ module TestRubyParserShared
     assert_syntax_error "def a; class B; end; end", err
     assert_syntax_error "def a; def b; end; class B; end; end", err
   end
+
+  def test_call_not
+    rb = "not 42"
+    pt = s(:not, s(:lit, 42))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_bang_command_call
+    rb = "! a.b 1"
+    pt = s(:not, s(:call, s(:call, nil, :a), :b, s(:lit, 1)))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_unary_bang
+    rb = "!1"
+    pt = s(:not, s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+
+  def test_bang_eq
+    rb = "1 != 2"
+    pt = s(:not, s(:call, s(:lit, 1), :"==", s(:lit, 2)))
+
+    assert_parse rb, pt
+  end
+
+  def test_flip2_env_lvar
+    rb = "if a..b then end"
+    pt = s(:if, s(:flip2, s(:call, nil, :a), s(:call, nil, :b)), nil, nil)
+
+    assert_parse rb, pt
+
+    top_env = processor.env.env.first
+
+    assert_kind_of Hash, top_env
+
+    flip = top_env.find { |k,v| k =~ /^flip/ }
+
+    assert flip
+    assert_equal :lvar, flip.last
+  end
+
+  def test_parse_until_not_canonical
+    rb = "until not var.nil?\n  'foo'\nend"
+
+    pt = s(:while,
+           s(:call, s(:call, nil, :var), :nil?),
+           s(:str, "foo"), true)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_until_not_noncanonical
+    rb = "until not var.nil?\n  'foo'\nend"
+    pt = s(:until,
+           s(:not, s(:call, s(:call, nil, :var), :nil?)),
+           s(:str, "foo"), true)
+
+    processor.canonicalize_conditions = false
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_if_not_canonical
+    rb = "if not var.nil? then 'foo' else 'bar'\nend"
+    pt = s(:if,
+           s(:call, s(:call, nil, :var), :nil?),
+           s(:str, "bar"),
+           s(:str, "foo"))
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_if_not_noncanonical
+    rb = "if not var.nil? then 'foo' else 'bar'\nend"
+    pt = s(:if,
+           s(:not, s(:call, s(:call, nil, :var), :nil?)),
+           s(:str, "foo"),
+           s(:str, "bar"))
+
+    processor.canonicalize_conditions = false
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_while_not_canonical
+    rb = "while not var.nil?\n  'foo'\nend"
+    pt = s(:until,
+           s(:call, s(:call, nil, :var), :nil?),
+           s(:str, "foo"), true)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_while_not_noncanonical
+    rb = "while not var.nil?\n  'foo'\nend"
+    pt = s(:while,
+           s(:not, s(:call, s(:call, nil, :var), :nil?)),
+           s(:str, "foo"), true)
+
+    processor.canonicalize_conditions = false
+
+    assert_parse rb, pt
+  end
+
 end
 
-module TestRubyParserShared19to22
+module TestRubyParserShared19Plus
   def test_aref_args_lit_assocs
     rb = "[1, 2 => 3]"
     pt = s(:array, s(:lit, 1), s(:hash, s(:lit, 2), s(:lit, 3)))
@@ -2228,393 +2266,6 @@ module TestRubyParserShared19to22
     assert_parse "f(state: {\n})",   pt
     assert_parse "f(state:\n {\n})", pt
   end
-end
-
-module TestRubyParserShared20to22
-  def test_non_interpolated_symbol_array_line_breaks
-
-    rb = "%i(\na\nb\n)\n1"
-    pt = s(:block,
-           s(:array,
-             s(:lit, :a).line(2),
-             s(:lit, :b).line(3)).line(1),
-           s(:lit, 1).line(5))
-    assert_parse rb, pt
-  end
-
-  def test_interpolated_symbol_array_line_breaks
-
-    rb = "%I(\na\nb\n)\n1"
-    pt = s(:block,
-           s(:array,
-             s(:lit, :a).line(2),
-             s(:lit, :b).line(3)).line(1),
-           s(:lit, 1).line(5))
-    assert_parse rb, pt
-  end
-
-  def test_defs_kwarg
-    rb = "def self.a b: 1\nend"
-    pt = s(:defs, s(:self), :a, s(:args, s(:kwarg, :b, s(:lit, 1))), s(:nil))
-
-    assert_parse rb, pt
-  end
-
-  def test_defn_kwarg_kwsplat
-    rb = "def a(b: 1, **c) end"
-    pt = s(:defn, :a, s(:args, s(:kwarg, :b, s(:lit, 1)), :"**c"), s(:nil))
-
-    assert_parse rb, pt
-  end
-
-  def test_defn_kwarg_kwsplat_anon
-    rb = "def a(b: 1, **) end"
-    pt = s(:defn, :a, s(:args, s(:kwarg, :b, s(:lit, 1)), :"**"), s(:nil))
-
-    assert_parse rb, pt
-  end
-
-  def test_defn_kwarg_env
-    rb = "def test(**testing) test_splat(**testing) end"
-    pt = s(:defn, :test, s(:args, :"**testing"),
-           s(:call, nil, :test_splat, s(:hash, s(:kwsplat, s(:lvar, :testing)))))
-
-    assert_parse rb, pt
-  end
-
-  def test_dstr_lex_state
-    rb = '"#{p:a}"'
-    pt = s(:dstr, "", s(:evstr, s(:call, nil, :p, s(:lit, :a))))
-
-    assert_parse rb, pt
-  end
-
-  def test_call_arg_kwsplat
-    rb = "a(b, **1)"
-    pt = s(:call, nil, :a, s(:call, nil, :b), s(:hash, s(:kwsplat, s(:lit, 1))))
-
-    assert_parse rb, pt
-  end
-
-  def test_call_arg_assoc_kwsplat
-    rb = "f(1, kw: 2, **3)"
-    pt = s(:call, nil, :f,
-           s(:lit, 1),
-           s(:hash, s(:lit, :kw), s(:lit, 2), s(:kwsplat, s(:lit, 3))))
-
-    assert_parse rb, pt
-  end
-
-  def test_call_kwsplat
-    rb = "a(**1)"
-    pt = s(:call, nil, :a, s(:hash, s(:kwsplat, s(:lit, 1))))
-
-    assert_parse rb, pt
-  end
-
-  def test_iter_kwarg
-    rb = "a { |b: 1| }"
-    pt = s(:iter, s(:call, nil, :a), s(:args, s(:kwarg, :b, s(:lit, 1))))
-
-    assert_parse rb, pt
-  end
-
-  def test_iter_kwarg_kwsplat
-    rb = "a { |b: 1, **c| }"
-    pt = s(:iter, s(:call, nil, :a), s(:args, s(:kwarg, :b, s(:lit, 1)), :"**c"))
-
-    assert_parse rb, pt
-  end
-
-  def test_block_kwarg_lvar
-    rb = "bl { |kw: :val| kw }"
-    pt = s(:iter, s(:call, nil, :bl), s(:args, s(:kwarg, :kw, s(:lit, :val))),
-           s(:lvar, :kw))
-
-    assert_parse rb, pt
-  end
-
-  def test_block_kwarg_lvar_multiple
-    rb = "bl { |kw: :val, kw2: :val2 | kw }"
-    pt = s(:iter, s(:call, nil, :bl),
-           s(:args,
-             s(:kwarg, :kw, s(:lit, :val)),
-             s(:kwarg, :kw2, s(:lit, :val2))),
-           s(:lvar, :kw))
-
-    assert_parse rb, pt
-  end
-
-  def test_stabby_block_iter_call
-    rb = "x -> () do\na.b do\nend\nend"
-    pt = s(:call, nil, :x,
-           s(:iter,
-             s(:call, nil, :lambda),
-             s(:args),
-             s(:iter, s(:call, s(:call, nil, :a), :b), 0)))
-
-    assert_parse rb, pt
-  end
-
-  def test_stabby_block_iter_call_no_target_with_arg
-    rb = "x -> () do\na(1) do\nend\nend"
-    pt = s(:call, nil, :x,
-           s(:iter,
-             s(:call, nil, :lambda),
-             s(:args),
-             s(:iter,
-               s(:call, nil, :a,
-                 s(:lit, 1)), 0)))
-
-    assert_parse rb, pt
-  end
-end
-
-class TestRubyParser < Minitest::Test
-  def test_parse
-    processor = RubyParser.new
-
-    # 1.8 only syntax
-    rb = "while false : 42 end"
-    pt = s(:while, s(:false), s(:lit, 42), true)
-
-    assert_silent do
-      assert_equal pt, processor.parse(rb)
-    end
-
-    # 1.9 only syntax
-    rb = "a.()"
-    pt = s(:call, s(:call, nil, :a), :call)
-
-    assert_equal pt, processor.parse(rb)
-
-    # bad syntax
-    e = assert_raises Racc::ParseError do
-      capture_io do
-        processor.parse "a.("
-      end
-    end
-
-    msg = "(string):1 :: parse error on value \"(\" (tLPAREN2)"
-    assert_equal msg, e.message.strip
-  end
-end
-
-class TestRubyParserV18 < RubyParserTestCase
-  include TestRubyParserShared
-
-  def setup
-    super
-
-    self.processor = RubyParser::V18.new
-  end
-
-  def test_call_space_before_paren_args
-    rb = "a (:b, :c, :d => :e)"
-    pt = s(:call, nil, :a,
-           s(:lit, :b),
-           s(:lit, :c),
-           s(:hash, s(:lit, :d), s(:lit, :e)))
-
-    assert_parse rb, pt
-  end
-
-  def test_flip2_env_lvar
-    rb = "if a..b then end"
-    pt = s(:if, s(:flip2, s(:call, nil, :a), s(:call, nil, :b)), nil, nil)
-
-    assert_parse rb, pt
-
-    top_env = processor.env.env.first
-
-    assert_kind_of Hash, top_env
-
-    flip = top_env.find { |k,v| k =~ /^flip/ }
-
-    assert flip
-    assert_equal :lvar, flip.last
-  end
-
-  def test_assoc_list_18
-    rb = "{1, 2, 3, 4}"
-    pt = s(:hash, s(:lit, 1), s(:lit, 2), s(:lit, 3), s(:lit, 4))
-
-    assert_parse rb, pt
-  end
-
-  def test_case_then_colon_18
-    rb = "case x; when Fixnum: 42; end"
-    pt = s(:case,
-           s(:call, nil, :x),
-           s(:when, s(:array, s(:const, :Fixnum)), s(:lit, 42)),
-           nil)
-
-    assert_parse rb, pt
-  end
-
-  def test_do_colon_18
-    rb = "while false : 42 end"
-    pt = s(:while, s(:false), s(:lit, 42), true)
-
-    assert_parse rb, pt
-  end
-
-  def test_parse_until_not_canonical
-    rb = "until not var.nil?\n  'foo'\nend"
-
-    pt = s(:while,
-           s(:call, s(:call, nil, :var), :nil?),
-           s(:str, "foo"), true)
-
-    assert_parse rb, pt
-  end
-
-  def test_parse_until_not_noncanonical
-    rb = "until not var.nil?\n  'foo'\nend"
-    pt = s(:until,
-           s(:not, s(:call, s(:call, nil, :var), :nil?)),
-           s(:str, "foo"), true)
-
-    processor.canonicalize_conditions = false
-
-    assert_parse rb, pt
-  end
-
-  def test_parse_if_not_canonical
-    rb = "if not var.nil? then 'foo' else 'bar'\nend"
-    pt = s(:if,
-           s(:call, s(:call, nil, :var), :nil?),
-           s(:str, "bar"),
-           s(:str, "foo"))
-
-    assert_parse rb, pt
-  end
-
-  def test_parse_if_not_noncanonical
-    rb = "if not var.nil? then 'foo' else 'bar'\nend"
-    pt = s(:if,
-           s(:not, s(:call, s(:call, nil, :var), :nil?)),
-           s(:str, "foo"),
-           s(:str, "bar"))
-
-    processor.canonicalize_conditions = false
-
-    assert_parse rb, pt
-  end
-
-  def test_parse_while_not_canonical
-    rb = "while not var.nil?\n  'foo'\nend"
-    pt = s(:until,
-           s(:call, s(:call, nil, :var), :nil?),
-           s(:str, "foo"), true)
-
-    assert_parse rb, pt
-  end
-
-  def test_parse_while_not_noncanonical
-    rb = "while not var.nil?\n  'foo'\nend"
-    pt = s(:while,
-           s(:not, s(:call, s(:call, nil, :var), :nil?)),
-           s(:str, "foo"), true)
-
-    processor.canonicalize_conditions = false
-
-    assert_parse rb, pt
-  end
-
-  def test_double_block_error_10
-    assert_syntax_error "a.b (&b) {}", BLOCK_DUP_MSG
-  end
-
-  def test_double_block_error_11
-    assert_syntax_error "a (1, &b) { }", BLOCK_DUP_MSG
-  end
-
-  def test_double_block_error_12
-    assert_syntax_error "a (1, &b) do end", BLOCK_DUP_MSG
-  end
-
-  def test_double_block_error_13
-    assert_syntax_error "m.a (1, &b) { }", BLOCK_DUP_MSG
-  end
-
-  def test_double_block_error_14
-    assert_syntax_error "m.a (1, &b) do end", BLOCK_DUP_MSG
-  end
-
-  def test_double_block_error_15
-    assert_syntax_error "m::a (1, &b) { }", BLOCK_DUP_MSG
-  end
-
-  def test_double_block_error_16
-    assert_syntax_error "m::a (1, &b) do end", BLOCK_DUP_MSG
-  end
-
-  # In 1.8, block args with an outer set of parens are superfluous.
-  # In 1.9, outer set of parens are NOT... they are an explicit extra masgn.
-
-  def test_iter_args_2_18
-    rb = "f { |(a, b)| }"
-    pt = s(:iter, s(:call, nil, :f), s(:args, :a, :b))
-
-    assert_parse rb, pt
-  end
-
-  def test_bug_args__18
-    rb = "f { |(a, b)| }"
-    pt = s(:iter, s(:call, nil, :f),
-           s(:args, :a, :b))
-
-    assert_parse rb, pt
-  end
-
-  def test_bug_args_masgn_outer_parens__18
-    rb = "f { |((a, b), c)| }"
-    pt = s(:iter,               # NOTE: same sexp as test_bug_args_masgn
-           s(:call, nil, :f),
-           s(:args, s(:masgn, :a, :b), :c))
-
-    assert_parse rb, pt.dup
-  end
-
-  def test_call_unary_bang
-    rb = "!1"
-    pt = s(:not, s(:lit, 1))
-
-    assert_parse rb, pt
-  end
-
-  def test_bang_eq
-    rb = "1 != 2"
-    pt = s(:not, s(:call, s(:lit, 1), :"==", s(:lit, 2)))
-
-    assert_parse rb, pt
-  end
-
-  def test_call_not
-    rb = "not 42"
-    pt = s(:not, s(:lit, 42))
-
-    assert_parse rb, pt
-  end
-
-  def test_call_bang_command_call
-    rb = "! a.b 1"
-    pt = s(:not, s(:call, s(:call, nil, :a), :b, s(:lit, 1)))
-
-    assert_parse rb, pt
-  end
-end
-
-class TestRubyParserV19 < RubyParserTestCase
-  include TestRubyParserShared
-  include TestRubyParserShared19to22
-
-  def setup
-    super
-
-    self.processor = RubyParser::V19.new
-  end
 
   def test_mlhs_back_splat
     rb = "a, b, c, *s = f"
@@ -2895,7 +2546,7 @@ class TestRubyParserV19 < RubyParserTestCase
     assert_parse rb, pt
   end
 
-  def test_block_args_opt2
+  def test_block_args_opt2_2
     rb = "f { |a, b = 42, c = 24| [a, b, c] }"
     pt = s(:iter,
            s(:call, nil, :f),
@@ -3128,6 +2779,7 @@ class TestRubyParserV19 < RubyParserTestCase
   end
 
   def test_kill_me_8
+    skip "REMOVE ME BEFORE COMMITTING"
     # | f_marg_list tCOMMA tSTAR tCOMMA f_marg_list
     rb = "f { |a, (b, *, c)| }"
     pt = s(:iter,
@@ -3148,6 +2800,7 @@ class TestRubyParserV19 < RubyParserTestCase
   end
 
   def test_kill_me_10
+    skip "REMOVE ME BEFORE COMMITTING"
     # | tSTAR f_norm_arg tCOMMA f_marg_list
     rb = "f { |a, (*b, c)| }"
     pt = s(:iter,
@@ -3158,6 +2811,7 @@ class TestRubyParserV19 < RubyParserTestCase
   end
 
   def test_kill_me_11
+    skip "REMOVE ME BEFORE COMMITTING"
     # | tSTAR
     rb = "f { |a, (*)| }"
     pt = s(:iter,
@@ -3220,15 +2874,212 @@ class TestRubyParserV19 < RubyParserTestCase
   end
 end
 
-class TestRubyParserV20 < RubyParserTestCase
-  include TestRubyParserShared
-  include TestRubyParserShared20to22
-  include TestRubyParserShared19to22
+module TestRubyParserShared21Plus
+  def test_f_kw
+    rb = "def x k:42; end"
+    pt = s(:defn, :x, s(:args, s(:kwarg, :k, s(:lit, 42))), s(:nil))
 
-  def setup
-    super
+    assert_parse rb, pt
+  end
 
-    self.processor = RubyParser::V20.new
+  def test_f_kw__required
+    rb = "def x k:; end"
+    pt = s(:defn, :x, s(:args, s(:kwarg, :k)), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_kw
+    rb = "blah { |k:42| }"
+    pt = s(:iter, s(:call, nil, :blah), s(:args, s(:kwarg, :k, s(:lit, 42))))
+
+    assert_parse rb, pt
+
+    rb = "blah { |k:42| }"
+    assert_parse rb, pt
+  end
+
+  def test_block_kw__required
+    rb = "blah do |k:| end"
+    pt = s(:iter, s(:call, nil, :blah), s(:args, s(:kwarg, :k)))
+
+    assert_parse rb, pt
+
+    rb = "blah do |k:| end"
+    assert_parse rb, pt
+  end
+
+  def test_stabby_block_kw
+    rb = "-> (k:42) { }"
+    pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k, s(:lit, 42))))
+
+    assert_parse rb, pt
+  end
+
+  def test_stabby_block_kw__required
+    rb = "-> (k:) { }"
+    pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k)))
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_line_heredoc_hardnewline
+    skip "not yet"
+
+    rb = <<-'CODE'.gsub(/^      /, '')
+      <<-EOFOO
+      \n\n\n\n\n\n\n\n\n
+      EOFOO
+
+      class Foo
+      end
+    CODE
+
+    pt = s(:block,
+           s(:str, "\n\n\n\n\n\n\n\n\n\n").line(1),
+           s(:class, :Foo, nil).line(5)).line(1)
+
+    assert_parse rb, pt
+  end
+end
+
+module TestRubyParserShared20Plus
+  def test_non_interpolated_symbol_array_line_breaks
+
+    rb = "%i(\na\nb\n)\n1"
+    pt = s(:block,
+           s(:array,
+             s(:lit, :a).line(2),
+             s(:lit, :b).line(3)).line(1),
+           s(:lit, 1).line(5))
+    assert_parse rb, pt
+  end
+
+  def test_interpolated_symbol_array_line_breaks
+
+    rb = "%I(\na\nb\n)\n1"
+    pt = s(:block,
+           s(:array,
+             s(:lit, :a).line(2),
+             s(:lit, :b).line(3)).line(1),
+           s(:lit, 1).line(5))
+    assert_parse rb, pt
+  end
+
+  def test_defs_kwarg
+    rb = "def self.a b: 1\nend"
+    pt = s(:defs, s(:self), :a, s(:args, s(:kwarg, :b, s(:lit, 1))), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_kwarg_kwsplat
+    rb = "def a(b: 1, **c) end"
+    pt = s(:defn, :a, s(:args, s(:kwarg, :b, s(:lit, 1)), :"**c"), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_kwarg_kwsplat_anon
+    rb = "def a(b: 1, **) end"
+    pt = s(:defn, :a, s(:args, s(:kwarg, :b, s(:lit, 1)), :"**"), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_kwarg_env
+    rb = "def test(**testing) test_splat(**testing) end"
+    pt = s(:defn, :test, s(:args, :"**testing"),
+           s(:call, nil, :test_splat, s(:hash, s(:kwsplat, s(:lvar, :testing)))))
+
+    assert_parse rb, pt
+  end
+
+  def test_dstr_lex_state
+    rb = '"#{p:a}"'
+    pt = s(:dstr, "", s(:evstr, s(:call, nil, :p, s(:lit, :a))))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_arg_kwsplat
+    rb = "a(b, **1)"
+    pt = s(:call, nil, :a, s(:call, nil, :b), s(:hash, s(:kwsplat, s(:lit, 1))))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_arg_assoc_kwsplat
+    rb = "f(1, kw: 2, **3)"
+    pt = s(:call, nil, :f,
+           s(:lit, 1),
+           s(:hash, s(:lit, :kw), s(:lit, 2), s(:kwsplat, s(:lit, 3))))
+
+    assert_parse rb, pt
+  end
+
+  def test_call_kwsplat
+    rb = "a(**1)"
+    pt = s(:call, nil, :a, s(:hash, s(:kwsplat, s(:lit, 1))))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_kwarg
+    rb = "a { |b: 1| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, s(:kwarg, :b, s(:lit, 1))))
+
+    assert_parse rb, pt
+  end
+
+  def test_iter_kwarg_kwsplat
+    rb = "a { |b: 1, **c| }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, s(:kwarg, :b, s(:lit, 1)), :"**c"))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_kwarg_lvar
+    rb = "bl { |kw: :val| kw }"
+    pt = s(:iter, s(:call, nil, :bl), s(:args, s(:kwarg, :kw, s(:lit, :val))),
+           s(:lvar, :kw))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_kwarg_lvar_multiple
+    rb = "bl { |kw: :val, kw2: :val2 | kw }"
+    pt = s(:iter, s(:call, nil, :bl),
+           s(:args,
+             s(:kwarg, :kw, s(:lit, :val)),
+             s(:kwarg, :kw2, s(:lit, :val2))),
+           s(:lvar, :kw))
+
+    assert_parse rb, pt
+  end
+
+  def test_stabby_block_iter_call
+    rb = "x -> () do\na.b do\nend\nend"
+    pt = s(:call, nil, :x,
+           s(:iter,
+             s(:call, nil, :lambda),
+             s(:args),
+             s(:iter, s(:call, s(:call, nil, :a), :b), 0)))
+
+    assert_parse rb, pt
+  end
+
+  def test_stabby_block_iter_call_no_target_with_arg
+    rb = "x -> () do\na(1) do\nend\nend"
+    pt = s(:call, nil, :x,
+           s(:iter,
+             s(:call, nil, :lambda),
+             s(:args),
+             s(:iter,
+               s(:call, nil, :a,
+                 s(:lit, 1)), 0)))
+
+    assert_parse rb, pt
   end
 
   def test_block_call_dot_op2_brace_block
@@ -3374,13 +3225,6 @@ class TestRubyParserV20 < RubyParserTestCase
     assert_parse rb, pt
   end
 
-  def test_defn_unary_not
-    rb = "def !@; true; end" # I seriously HATE this
-    pt = s(:defn, :"!@", s(:args), s(:true))
-
-    assert_parse rb, pt
-  end
-
   def test_iter_array_curly
     rb = "f :a, [:b] { |c, d| }" # yes, this is bad code... that's their problem
     pt = s(:iter,
@@ -3391,96 +3235,7 @@ class TestRubyParserV20 < RubyParserTestCase
   end
 end
 
-class TestRubyParserV21 < RubyParserTestCase
-  include TestRubyParserShared
-  include TestRubyParserShared19to22
-  include TestRubyParserShared20to22
-
-  def setup
-    super
-
-    self.processor = RubyParser::V21.new
-  end
-
-  def test_f_kw
-    rb = "def x k:42; end"
-    pt = s(:defn, :x, s(:args, s(:kwarg, :k, s(:lit, 42))), s(:nil))
-
-    assert_parse rb, pt
-  end
-
-  def test_f_kw__required
-    rb = "def x k:; end"
-    pt = s(:defn, :x, s(:args, s(:kwarg, :k)), s(:nil))
-
-    assert_parse rb, pt
-  end
-
-  def test_block_kw
-    rb = "blah { |k:42| }"
-    pt = s(:iter, s(:call, nil, :blah), s(:args, s(:kwarg, :k, s(:lit, 42))))
-
-    assert_parse rb, pt
-
-    rb = "blah { |k:42| }"
-    assert_parse rb, pt
-  end
-
-  def test_block_kw__required
-    rb = "blah do |k:| end"
-    pt = s(:iter, s(:call, nil, :blah), s(:args, s(:kwarg, :k)))
-
-    assert_parse rb, pt
-
-    rb = "blah do |k:| end"
-    assert_parse rb, pt
-  end
-
-  def test_stabby_block_kw
-    rb = "-> (k:42) { }"
-    pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k, s(:lit, 42))))
-
-    assert_parse rb, pt
-  end
-
-  def test_stabby_block_kw__required
-    rb = "-> (k:) { }"
-    pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k)))
-
-    assert_parse rb, pt
-  end
-
-  def test_parse_line_heredoc_hardnewline
-    skip "not yet"
-
-    rb = <<-'CODE'.gsub(/^      /, '')
-      <<-EOFOO
-      \n\n\n\n\n\n\n\n\n
-      EOFOO
-
-      class Foo
-      end
-    CODE
-
-    pt = s(:block,
-           s(:str, "\n\n\n\n\n\n\n\n\n\n").line(1),
-           s(:class, :Foo, nil).line(5)).line(1)
-
-    assert_parse rb, pt
-  end
-end
-
-class TestRubyParserV22 < RubyParserTestCase
-  include TestRubyParserShared
-  include TestRubyParserShared19to22
-  include TestRubyParserShared20to22
-
-  def setup
-    super
-
-    self.processor = RubyParser::V22.new
-  end
-
+module TestRubyParserShared22Plus
   def test_call_args_assoc_quoted
     pt = s(:call, nil, :x, s(:hash, s(:lit, :k), s(:lit, 42)))
 
@@ -3521,17 +3276,7 @@ class TestRubyParserV22 < RubyParserTestCase
   end
 end
 
-class TestRubyParserV23 < RubyParserTestCase
-  include TestRubyParserShared
-  include TestRubyParserShared19to22
-  include TestRubyParserShared20to22
-
-  def setup
-    super
-
-    self.processor = RubyParser::V23.new
-  end
-
+module TestRubyParserShared23Plus
   def test_safe_call
     rb = "a&.b"
     pt = s(:safe_call, s(:call, nil, :a), :b)
@@ -3633,13 +3378,281 @@ a + b
     )
 
     pt = s(:block,
-            s(:call, nil, :puts, s(:str, "hello my dear friend").line(1)).line(1),
-            s(:call, s(:call, nil, :a).line(6),
-              :+,
-              s(:call, nil, :b).line(6)).line(6)
+           s(:call, nil, :puts, s(:str, "hello my dear friend").line(1)).line(1),
+           s(:call, s(:call, nil, :a).line(6),
+             :+,
+             s(:call, nil, :b).line(6)).line(6)
           ).line(1)
 
     assert_parse rb, pt
+  end
+end
+
+class TestRubyParser < Minitest::Test
+  def test_cls_version
+    assert_equal 18, RubyParser::V18.version
+    assert_equal 23, RubyParser::V23.version
+    refute RubyParser::Parser.version
+  end
+
+  def test_parse
+    processor = RubyParser.new
+
+    # 1.8 only syntax
+    rb = "while false : 42 end"
+    pt = s(:while, s(:false), s(:lit, 42), true)
+
+    assert_silent do
+      assert_equal pt, processor.parse(rb)
+    end
+
+    # 1.9 only syntax
+    rb = "a.()"
+    pt = s(:call, s(:call, nil, :a), :call)
+
+    assert_equal pt, processor.parse(rb)
+
+    # bad syntax
+    e = assert_raises Racc::ParseError do
+      capture_io do
+        processor.parse "a.("
+      end
+    end
+
+    msg = "(string):1 :: parse error on value \"(\" (tLPAREN2)"
+    assert_equal msg, e.message.strip
+  end
+end
+
+class RubyParserTestCase < ParseTreeTestCase
+  attr_accessor :result, :processor
+
+  make_my_diffs_pretty!
+
+  def self.previous key
+    "Ruby"
+  end
+
+  def self.generate_test klass, node, data, input_name, output_name
+    return if node.to_s =~ /bmethod|dmethod/
+    return if Array === data['Ruby']
+
+    output_name = "ParseTree"
+
+    super
+  end
+
+  def assert_parse rb, pt
+    self.result = processor.parse rb
+    assert_equal pt, result
+  end
+
+  def refute_parse rb
+    self.result = processor.parse rb
+    assert_nil result
+  end
+
+  def assert_syntax_error rb, emsg
+    e = nil
+    assert_silent do
+      e = assert_raises RubyParser::SyntaxError do
+        processor.parse rb
+      end
+    end
+
+    assert_equal emsg, e.message
+  end
+
+  def assert_parse_error rb, emsg
+    e = nil
+    assert_silent do
+      e = assert_raises Racc::ParseError do
+        processor.parse rb
+      end
+    end
+
+    assert_equal emsg, e.message
+  end
+
+  def assert_parse_line rb, pt, line
+    old_env = ENV["VERBOSE"]
+    ENV["VERBOSE"] = "1"
+
+    assert_parse rb, pt
+    assert_equal line, result.line,   "call should have line number"
+  ensure
+    ENV["VERBOSE"] = old_env
+  end
+end
+
+class TestRubyParserV18 < RubyParserTestCase
+  include TestRubyParserShared
+
+  def setup
+    super
+
+    self.processor = RubyParser::V18.new
+  end
+
+  def test_assoc_list_18
+    rb = "{1, 2, 3, 4}"
+    pt = s(:hash, s(:lit, 1), s(:lit, 2), s(:lit, 3), s(:lit, 4))
+
+    assert_parse rb, pt
+  end
+
+  def test_case_then_colon_18
+    rb = "case x; when Fixnum: 42; end"
+    pt = s(:case,
+           s(:call, nil, :x),
+           s(:when, s(:array, s(:const, :Fixnum)), s(:lit, 42)),
+           nil)
+
+    assert_parse rb, pt
+  end
+
+  def test_do_colon_18
+    rb = "while false : 42 end"
+    pt = s(:while, s(:false), s(:lit, 42), true)
+
+    assert_parse rb, pt
+  end
+
+  def test_call_space_before_paren_args_18
+    rb = "a (:b, :c, :d => :e)"
+    pt = s(:call, nil, :a,
+           s(:lit, :b),
+           s(:lit, :c),
+           s(:hash, s(:lit, :d), s(:lit, :e)))
+
+    assert_parse rb, pt
+  end
+
+  # In 1.8, block args with an outer set of parens are superfluous.
+  # In 1.9, outer set of parens are NOT... they are an explicit extra masgn.
+
+  def test_iter_args_2_18
+    rb = "f { |(a, b)| }"
+    pt = s(:iter, s(:call, nil, :f), s(:args, :a, :b))
+
+    assert_parse rb, pt
+  end
+
+  def test_bug_args__18
+    rb = "f { |(a, b)| }"
+    pt = s(:iter, s(:call, nil, :f),
+           s(:args, :a, :b))
+
+    assert_parse rb, pt
+  end
+
+  def test_bug_args_masgn_outer_parens__18
+    rb = "f { |((a, b), c)| }"
+    pt = s(:iter,               # NOTE: same sexp as test_bug_args_masgn
+           s(:call, nil, :f),
+           s(:args, s(:masgn, :a, :b), :c))
+
+    assert_parse rb, pt.dup
+  end
+
+  def test_double_block_error_10
+    assert_syntax_error "a.b (&b) {}", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_11
+    assert_syntax_error "a (1, &b) { }", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_12
+    assert_syntax_error "a (1, &b) do end", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_13
+    assert_syntax_error "m.a (1, &b) { }", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_14
+    assert_syntax_error "m.a (1, &b) do end", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_15
+    assert_syntax_error "m::a (1, &b) { }", BLOCK_DUP_MSG
+  end
+
+  def test_double_block_error_16
+    assert_syntax_error "m::a (1, &b) do end", BLOCK_DUP_MSG
+  end
+end
+
+class TestRubyParserV19 < RubyParserTestCase
+  include TestRubyParserShared
+  include TestRubyParserShared19Plus
+
+  def setup
+    super
+
+    self.processor = RubyParser::V19.new
+  end
+end
+
+class TestRubyParserV20 < RubyParserTestCase
+  include TestRubyParserShared
+  include TestRubyParserShared19Plus
+  include TestRubyParserShared20Plus
+
+  def setup
+    super
+
+    self.processor = RubyParser::V20.new
+  end
+
+  def test_defn_unary_not
+    rb = "def !@; true; end" # I seriously HATE this
+    pt = s(:defn, :"!@", s(:args), s(:true))
+
+    assert_parse rb, pt
+  end
+end
+
+class TestRubyParserV21 < RubyParserTestCase
+  include TestRubyParserShared
+  include TestRubyParserShared19Plus
+  include TestRubyParserShared20Plus
+  include TestRubyParserShared21Plus
+
+  def setup
+    super
+
+    self.processor = RubyParser::V21.new
+  end
+end
+
+class TestRubyParserV22 < RubyParserTestCase
+  include TestRubyParserShared
+  include TestRubyParserShared19Plus
+  include TestRubyParserShared20Plus
+  include TestRubyParserShared21Plus
+  include TestRubyParserShared22Plus
+
+  def setup
+    super
+
+    self.processor = RubyParser::V22.new
+  end
+end
+
+class TestRubyParserV23 < RubyParserTestCase
+  include TestRubyParserShared
+  include TestRubyParserShared19Plus
+  include TestRubyParserShared20Plus
+  include TestRubyParserShared21Plus
+  include TestRubyParserShared22Plus
+  include TestRubyParserShared23Plus
+
+  def setup
+    super
+
+    self.processor = RubyParser::V23.new
   end
 end
 
@@ -3648,7 +3661,7 @@ end
     attr_accessor :parser
 
     before do
-      self.parser = Object.const_get("Ruby#{v}Parser").new
+      self.parser = RubyParser.const_get("V#{v}").new
     end
 
     {
