@@ -3385,6 +3385,10 @@ a + b
   end
 end
 
+module TestRubyParserShared24Plus
+  # ...version specific tests to go here...
+end
+
 class TestRubyParser < Minitest::Test
   def test_cls_version
     assert_equal 18, RubyParser::V18.version
@@ -3650,6 +3654,22 @@ class TestRubyParserV23 < RubyParserTestCase
     super
 
     self.processor = RubyParser::V23.new
+  end
+end
+
+class TestRubyParserV24 < RubyParserTestCase
+  include TestRubyParserShared
+  include TestRubyParserShared19Plus
+  include TestRubyParserShared20Plus
+  include TestRubyParserShared21Plus
+  include TestRubyParserShared22Plus
+  include TestRubyParserShared23Plus
+  include TestRubyParserShared24Plus
+
+  def setup
+    super
+
+    self.processor = RubyParser::V24.new
   end
 end
 

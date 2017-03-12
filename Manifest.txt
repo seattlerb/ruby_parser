@@ -21,6 +21,8 @@ lib/ruby22_parser.rb
 lib/ruby22_parser.y
 lib/ruby23_parser.rb
 lib/ruby23_parser.y
+lib/ruby24_parser.rb
+lib/ruby24_parser.y
 lib/ruby_lexer.rb
 lib/ruby_lexer.rex
 lib/ruby_lexer.rex.rb
