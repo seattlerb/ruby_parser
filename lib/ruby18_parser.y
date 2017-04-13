@@ -969,9 +969,13 @@ rule
                     {
                       result = val[1] || s(:array)
                     }
-                | tLBRACE assoc_list tRCURLY
+                | tLBRACE
                     {
-                      result = s(:hash, *val[1].values)
+                      result = self.lexer.lineno
+                    }
+                    assoc_list tRCURLY
+                    {
+                      result = new_hash val
                     }
                 | kRETURN
                     {

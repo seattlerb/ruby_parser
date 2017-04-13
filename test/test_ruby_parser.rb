@@ -705,6 +705,15 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_parse_line_hash_lit
+    rb = "{\n:s1 => 1,\n}"
+    pt = s(:hash,
+           s(:lit, :s1).line(2), s(:lit, 1).line(2),
+          ).line(1)
+
+    assert_parse rb, pt
+  end
+
   def test_parse_line_heredoc_evstr
     skip "heredoc line numbers are just gonna be screwed for a while..."
 

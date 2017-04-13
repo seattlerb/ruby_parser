@@ -620,6 +620,10 @@ module RubyParserStuff
     result
   end
 
+  def new_hash val
+    s(:hash, *val[2].values).line(val[1])
+  end
+
   def new_if c, t, f
     l = [c.line, t && t.line, f && f.line].compact.min
     c = cond c

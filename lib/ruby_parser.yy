@@ -1026,9 +1026,13 @@ rule
                       result = val[1] || s(:array)
                       result[0] = :array # aref_args is :args
                     }
-                | tLBRACE assoc_list tRCURLY
+                | tLBRACE
                     {
-                      result = s(:hash, *val[1].values) # TODO: array_to_hash?
+                      result = self.lexer.lineno
+                    }
+                    assoc_list tRCURLY
+                    {
+                      result = new_hash val
                     }
                 | kRETURN
                     {
@@ -2397,7 +2401,6 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       list.push(*more) unless more.empty?
                       result = list
                       result[0] = :hash
-                      # TODO: shouldn't this be a hash?
                     }
 
            assoc: arg_value tASSOC arg_value
