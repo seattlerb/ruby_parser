@@ -1,3 +1,32 @@
+=== 3.9.0 / 2017-04-13
+
+* 1 major enhancement:
+
+  * Added tentative ruby 2.4 support. Probably missing things.
+
+* 13 minor enhancements:
+
+  * Added RubyParser.latest.
+  * Added RubyParser::Parser.version to make version range comparisons easier
+  * Changed superclasses of all parsers to RubyParser::Parser
+  * Cleaned up a lot of the version specific code to be more generic/flexible.
+  * Documented how to add new versions in README.
+  * Moved RubyParser from ruby_parser_extras.rb into ruby_parser.rb to fix bootstrap issues.
+  * Renamed RubyParserStuff#get_match_node to new_match. Aliased and deprecated.
+  * Renamed RubyParserStuff#logop to logical_op. Aliased and deprecated.
+  * Renamed RubyParserStuff#node_assign to new_assign. Aliased and deprecated.
+  * Renamed all parsers to RubyParser::V##.
+  * Revamped grammar preprocessing to make adding new versions easier.
+  * RubyParser.for_current_ruby falls back to latest if current not available.
+  * Subclasses of RubyParser::Parser register themselves into RubyParser::VERSIONS.
+
+* 4 bug fixes:
+
+  * Fixed `&.` after newline. (presidentbeef)
+  * Fixed bug setting line number for hash literals to line of opening brace.
+  * Fixed grammar preprocessing bug.
+  * Properly handle kDO with no-parens stabby lambda. (presidentbeef)
+
 === 3.8.4 / 2017-01-13
 
 * 3 bug fixes:
