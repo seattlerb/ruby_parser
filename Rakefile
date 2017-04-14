@@ -35,6 +35,8 @@ Hoe.spec "ruby_parser" do
     V2.each do |n|
       self.perforce_ignore << "lib/ruby#{n}_parser.y"
     end
+
+    self.perforce_ignore << "lib/ruby_lexer.rex.rb"
   end
 
   if plugin?(:racc)
