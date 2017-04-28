@@ -1407,6 +1407,11 @@ rule
                     {
                       result = val[1]
                     }
+                | tPIPE tAMPER block_var tPIPE
+                    {
+                      result = s(:lasgn, :"&block")
+                      self.lexer.command_start = true
+                    }
 
         do_block: kDO_BLOCK
                     {
