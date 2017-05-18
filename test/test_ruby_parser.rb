@@ -1838,6 +1838,17 @@ module TestRubyParserShared19Plus
     assert_parse rb, pt
   end
 
+  def test_defs_as_arg_with_do_block_inside
+    rb = "a def self.b\n x.y do\n end\n end"
+    pt = s(:call,
+           nil,
+           :a,
+           s(:defs, s(:self), :b, s(:args),
+             s(:iter, s(:call, s(:call, nil, :x), :y), 0)))
+
+    assert_parse rb, pt
+  end
+
   def test_defn_opt_reg
     rb = "def f(a=nil, b) end"
     pt = s(:defn, :f, s(:args, s(:lasgn, :a, s(:nil)), :b), s(:nil))

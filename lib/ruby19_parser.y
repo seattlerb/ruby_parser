@@ -1133,15 +1133,21 @@ rule
                     }
                     fname
                     {
+                      result = self.lexer.cmdarg.stack.dup
+
                       self.in_single += 1
                       self.env.extend
+                      lexer.cmdarg.stack.replace [false]
                       lexer.lex_state = :expr_end # force for args
-                      result = lexer.lineno
                     }
                     f_arglist bodystmt kEND
                     {
+                      cmdarg = val[5]
+
                       result = new_defs val
                       result[3].line val[5]
+
+                      lexer.cmdarg.stack.replace cmdarg
 
                       self.env.unextend
                       self.in_single -= 1
