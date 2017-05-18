@@ -1158,11 +1158,16 @@ rule
                       self.in_single += 1
                       self.env.extend
                       lexer.lex_state = :expr_end # force for args
+                      result = [lexer.lineno, self.lexer.cmdarg.stack.dup]
+                      lexer.cmdarg.stack.replace [false]
                     }
                     f_arglist bodystmt kEND
                     {
+                      line, cmdarg = val[5]
                       result = new_defs val
+                      result[3].line line
 
+                      lexer.cmdarg.stack.replace cmdarg
                       self.env.unextend
                       self.in_single -= 1
                       self.lexer.comments # we don't care about comments in the body

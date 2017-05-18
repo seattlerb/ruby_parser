@@ -1709,6 +1709,16 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_defs_as_arg_with_do_block_inside
+    rb = "p def self.b; x.y do; end; end"
+    pt = s(:call,
+           nil,
+           :p,
+           s(:defs, s(:self), :b, s(:args),
+             s(:iter, s(:call, s(:call, nil, :x), :y), 0)))
+
+    assert_parse rb, pt
+  end
 end
 
 module TestRubyParserShared19Plus
