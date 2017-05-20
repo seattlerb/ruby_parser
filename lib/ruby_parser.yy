@@ -203,7 +203,7 @@ rule
                     {
                       result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
                       if val[1] == '&.'
-                        result[0] = :safe_op_asgn
+                        result.sexp_type = :safe_op_asgn
                       end
                       result.line = val[0].line
                     }
@@ -211,7 +211,7 @@ rule
                     {
                       result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
                       if val[1] == '&.'
-                        result[0] = :safe_op_asgn
+                        result.sexp_type = :safe_op_asgn
                       end
                       result.line = val[0].line
                     }
@@ -313,11 +313,11 @@ rule
 
          command: fcall command_args =tLOWEST
                     {
-                      result = val[0].concat val[1][1..-1] # REFACTOR pattern
+                      result = val[0].concat val[1].sexp_body # REFACTOR pattern
                     }
                 | fcall command_args cmd_brace_block
                     {
-                      result = val[0].concat val[1][1..-1]
+                      result = val[0].concat val[1].sexp_body
                       if val[2] then
                         block_dup_check result, val[2]
 
@@ -406,7 +406,7 @@ rule
                       ary1, _, splat, _, ary2 = val
 
                       result = list_append ary1, s(:splat, splat)
-                      result.concat ary2[1..-1]
+                      result.concat ary2.sexp_body
                       result = s(:masgn, result)
                     }
                 | mlhs_head tSTAR
@@ -416,7 +416,7 @@ rule
                 | mlhs_head tSTAR tCOMMA mlhs_post
                     {
                       ary = list_append val[0], s(:splat)
-                      ary.concat val[3][1..-1]
+                      ary.concat val[3].sexp_body
                       result = s(:masgn, ary)
                     }
                 | tSTAR mlhs_node
@@ -426,7 +426,7 @@ rule
                 | tSTAR mlhs_node tCOMMA mlhs_post
                     {
                       ary = s(:array, s(:splat, val[1]))
-                      ary.concat val[3][1..-1]
+                      ary.concat val[3].sexp_body
                       result = s(:masgn, ary)
                     }
                 | tSTAR
@@ -435,7 +435,7 @@ rule
                     }
                 | tSTAR tCOMMA mlhs_post
                     {
-                      result = s(:masgn, s(:array, s(:splat), *val[2][1..-1]))
+                      result = s(:masgn, s(:array, s(:splat), *val[2].sexp_body))
                     }
 
        mlhs_item: mlhs_node
@@ -649,7 +649,7 @@ rule
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN arg
                     {
-                      val[2][0] = :arglist if val[2]
+                      val[2].sexp_type = :arglist if val[2]
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
                     }
                 | primary_value call_op tIDENTIFIER tOP_ASGN arg
@@ -1024,7 +1024,7 @@ rule
                 | tLBRACK aref_args tRBRACK
                     {
                       result = val[1] || s(:array)
-                      result[0] = :array # aref_args is :args
+                      result.sexp_type = :array # aref_args is :args
                     }
                 | tLBRACE
                     {
@@ -1590,7 +1590,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     paren_args
                     {
                       args = self.call_args val[2..-1]
-                      result = val[0].concat args[1..-1]
+                      result = val[0].concat args.sexp_body
                     }
                 | primary_value call_op operation2 opt_paren_args
                     {
@@ -1723,7 +1723,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
          strings: string
                     {
-                      val[0] = s(:dstr, val[0].value) if val[0][0] == :evstr
+                      val[0] = s(:dstr, val[0].value) if val[0].sexp_type == :evstr
                       result = val[0]
                     }
 
@@ -1915,7 +1915,7 @@ regexp_contents: none
 
                       case stmt
                       when Sexp then
-                        case stmt[0]
+                        case stmt.sexp_type
                         when :str, :dstr, :evstr then
                           result = stmt
                         else
@@ -1953,9 +1953,9 @@ regexp_contents: none
 
                       result ||= s(:str, "")
 
-                      case result[0]
+                      case result.sexp_type
                       when :dstr then
-                        result[0] = :dsym
+                        result.sexp_type = :dsym
                       when :str then
                         result = s(:lit, result.last.to_sym)
                       when :evstr then
@@ -2385,7 +2385,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result = val[2]
                       yyerror "Can't define single method for literals." if
-                        result[0] == :lit
+                        result.sexp_type == :lit
                     }
 
       assoc_list: none # [!nil]
@@ -2401,10 +2401,10 @@ keyword_variable: kNIL      { result = s(:nil)   }
                 | assocs tCOMMA assoc
                     {
                       list = val[0].dup
-                      more = val[2][1..-1]
+                      more = val[2].sexp_body
                       list.push(*more) unless more.empty?
                       result = list
-                      result[0] = :hash
+                      result.sexp_type = :hash
                     }
 
            assoc: arg_value tASSOC arg_value
@@ -2419,7 +2419,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                 | tSTRING_BEG string_contents tLABEL_END arg_value
                     {
                       _, sym, _, value = val
-                      sym[0] = :dsym
+                      sym.sexp_type = :dsym
                       result = s(:array, sym, value)
                     }
                 | tSYMBOL arg_value

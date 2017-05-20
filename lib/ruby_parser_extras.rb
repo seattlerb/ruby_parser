@@ -52,7 +52,7 @@ module RubyParserStuff
   end
 
   def arg_blk_pass node1, node2 # TODO: nuke
-    node1 = s(:arglist, node1) unless [:arglist, :call_args, :array, :args].include? node1.first
+    node1 = s(:arglist, node1) unless [:arglist, :call_args, :array, :args].include? node1.sexp_type 
     node1 << node2 if node2
     node1
   end
@@ -67,7 +67,7 @@ module RubyParserStuff
     case sexp.sexp_type
     when :masgn then
       if sexp.size == 2 and sexp[1].sexp_type == :array then
-        s(:masgn, *sexp[1][1..-1].map { |sub| clean_mlhs sub })
+        s(:masgn, *sexp[1].sexp_body.map { |sub| clean_mlhs sub })
       else
         debug20 5
         sexp
@@ -86,7 +86,7 @@ module RubyParserStuff
 
   def block_var *args
     result = self.args args
-    result[0] = :masgn
+    result.sexp_type = :masgn
     result
   end
 
@@ -101,7 +101,7 @@ module RubyParserStuff
     ary << "&#{block[1]}".to_sym if block
 
     if ary.length > 2 or ary.splat then # HACK
-      s(:masgn, *ary[1..-1])
+      s(:masgn, *ary.sexp_body)
     else
       ary.last
     end
@@ -112,7 +112,7 @@ module RubyParserStuff
     when :kwsplat then
       array
     else
-      s(:hash, *array[1..-1])
+      s(:hash, *array.sexp_body)
     end
   end
 
@@ -124,7 +124,7 @@ module RubyParserStuff
       when Sexp then
         case arg.sexp_type
         when :array, :args, :call_args then # HACK? remove array at some point
-          result.concat arg[1..-1]
+          result.concat arg.sexp_body
         else
           result << arg
         end
@@ -148,7 +148,7 @@ module RubyParserStuff
       when Sexp then
         case arg.sexp_type
         when :args, :block, :array, :call_args then # HACK call_args mismatch
-          result.concat arg[1..-1]
+          result.concat arg.sexp_body
         when :block_arg then
           result << :"&#{arg.last}"
         when :shadow then
@@ -177,8 +177,8 @@ module RubyParserStuff
   end
 
   def aryset receiver, index
-    index ||= []
-    s(:attrasgn, receiver, :"[]=", *index[1..-1]).compact # [][1..-1] => nil
+    index ||= s()
+    s(:attrasgn, receiver, :"[]=", *index.sexp_body).compact # [].sexp_body => nil
   end
 
   def assignable(lhs, value = nil)
@@ -233,7 +233,7 @@ module RubyParserStuff
     return nil if node.nil?
     node = value_expr node
 
-    case node.first
+    case node.sexp_type
     when :lit then
       if Regexp === node.last then
         return s(:match, node)
@@ -247,11 +247,13 @@ module RubyParserStuff
     when :dot2 then
       label = "flip#{node.hash}"
       env[label] = :lvar
-      return s(:flip2, node[1], node[2])
+      _, lhs, rhs = node
+      return s(:flip2, lhs, rhs)
     when :dot3 then
       label = "flip#{node.hash}"
       env[label] = :lvar
-      return s(:flip3, node[1], node[2])
+      _, lhs, rhs = node
+      return s(:flip3, lhs, rhs)
     else
       return node
     end
@@ -266,7 +268,7 @@ module RubyParserStuff
 
   def new_match lhs, rhs
     if lhs then
-      case lhs[0]
+      case lhs.sexp_type
       when :dregx, :dregx_once then
         return s(:match2, lhs, rhs).line(lhs.line)
       when :lit then
@@ -275,7 +277,7 @@ module RubyParserStuff
     end
 
     if rhs then
-      case rhs[0]
+      case rhs.sexp_type
       when :dregx, :dregx_once then
         return s(:match3, rhs, lhs).line(lhs.line)
       when :lit then
@@ -347,12 +349,12 @@ module RubyParserStuff
 
   def list_append list, item # TODO: nuke me *sigh*
     return s(:array, item) unless list
-    list = s(:array, list) unless Sexp === list && list.first == :array
+    list = s(:array, list) unless Sexp === list && list.sexp_type == :array
     list << item
   end
 
   def list_prepend item, list # TODO: nuke me *sigh*
-    list = s(:array, list) unless Sexp === list && list[0] == :array
+    list = s(:array, list) unless Sexp === list && list.sexp_type == :array
     list.insert 1, item
     list
   end
@@ -361,37 +363,43 @@ module RubyParserStuff
     return tail unless head
     return head unless tail
 
-    htype, ttype = head[0], tail[0]
+    htype, ttype = head.sexp_type, tail.sexp_type
 
     head = s(:dstr, '', head) if htype == :evstr
 
     case ttype
     when :str then
       if htype == :str
-        head[-1] << tail[-1]
+        head.last << tail.last
       elsif htype == :dstr and head.size == 2 then
-        head[-1] << tail[-1]
+        head.last << tail.last
       else
         head << tail
       end
     when :dstr then
       if htype == :str then
         lineno = head.line
-        tail[1] = head[-1] + tail[1]
+        tail[1] = head.last + tail[1]
         head = tail
         head.line = lineno
       else
-        tail[0] = :array
+        tail.sexp_type = :array
         tail[1] = s(:str, tail[1])
         tail.delete_at 1 if tail[1] == s(:str, '')
 
-        head.push(*tail[1..-1])
+        head.push(*tail.sexp_body)
       end
     when :evstr then
-      head[0] = :dstr if htype == :str
-      if head.size == 2 and tail.size > 1 and tail[1][0] == :str then
-        head[-1] << tail[1][-1]
-        head[0] = :str if head.size == 2 # HACK ?
+      if htype == :str then
+        f, l = head.file, head.line
+        head = s(:dstr, *head.sexp_body)
+        head.file = f
+        head.line = l
+      end
+
+      if head.size == 2 and tail.size > 1 and tail[1].sexp_type == :str then
+        head.last << tail[1].last
+        head.sexp_type = :str if head.size == 2 # HACK ?
       else
         head.push(tail)
       end
@@ -406,14 +414,16 @@ module RubyParserStuff
   def logical_op type, left, right
     left = value_expr left
 
-    if left and left[0] == type and not left.paren then
-      node, second = left, nil
+    if left and left.sexp_type == type and not left.paren then
+      node, rhs = left, nil
 
-      while (second = node[2]) && second[0] == type and not second.paren do
-        node = second
+      loop do
+        _, _lhs, rhs = node
+        break unless rhs && rhs.sexp_type == type and not rhs.paren
+        node = rhs
       end
 
-      node[2] = s(type, second, right)
+      node[2] = s(type, rhs, right)
 
       return left
     end
@@ -426,7 +436,7 @@ module RubyParserStuff
 
   def new_aref val
     val[2] ||= s(:arglist)
-    val[2][0] = :arglist if val[2][0] == :array # REFACTOR
+    val[2].sexp_type = :arglist if val[2].sexp_type == :array # REFACTOR
     if val[0].node_type == :self then
       result = new_call nil, :"[]", val[2]
     else
@@ -468,13 +478,13 @@ module RubyParserStuff
   end
 
   def argl x
-    x = s(:arglist, x) if x and x[0] == :array
+    x = s(:arglist, x) if x and x.sexp_type == :array
     x
   end
 
   def backref_assign_error ref
     # TODO: need a test for this... obviously
-    case ref.first
+    case ref.sexp_type
     when :nth_ref then
       raise "write a test 2"
       raise SyntaxError, "Can't set variable %p" % ref.last
@@ -500,7 +510,7 @@ module RubyParserStuff
     # TODO: need a test with f(&b) { } to produce warning
 
     if args
-      if [:arglist, :args, :array, :call_args].include? args.first
+      if [:arglist, :args, :array, :call_args].include? args.sexp_type
         result.concat args.sexp_body
       else
         result << args
@@ -539,7 +549,7 @@ module RubyParserStuff
 
     result[2..-1].each do |node|
       block = node.block(:delete)
-      node.concat block[1..-1] if block
+      node.concat block.sexp_body if block
     end
 
     # else
@@ -556,8 +566,8 @@ module RubyParserStuff
     result = s(:class, path, superclass)
 
     if body then
-      if body.first == :block then
-        result.push(*body[1..-1])
+      if body.sexp_type == :block then
+        result.push(*body.sexp_body)
       else
         result.push body
       end
@@ -581,8 +591,8 @@ module RubyParserStuff
     result = s(:defn, name.to_sym, args)
 
     if body then
-      if body.first == :block then
-        result.push(*body[1..-1])
+      if body.sexp_type == :block then
+        result.push(*body.sexp_body)
       else
         result.push body
       end
@@ -602,8 +612,8 @@ module RubyParserStuff
     result = s(:defs, recv, name.to_sym, args)
 
     if body then
-      if body.first == :block then
-        result.push(*body[1..-1])
+      if body.sexp_type == :block then
+        result.push(*body.sexp_body)
       else
         result.push body
       end
@@ -627,7 +637,7 @@ module RubyParserStuff
   def new_if c, t, f
     l = [c.line, t && t.line, f && f.line].compact.min
     c = cond c
-    c, t, f = c.last, f, t if c[0] == :not and canonicalize_conditions
+    c, t, f = c.last, f, t if c.sexp_type == :not and canonicalize_conditions
     s(:if, c, t, f).line(l)
   end
 
@@ -642,7 +652,7 @@ module RubyParserStuff
     result << args
     result << body if body
 
-    args[0] = :args unless args == 0
+    args.sexp_type = :args unless args == 0
 
     result
   end
@@ -654,10 +664,12 @@ module RubyParserStuff
   end
 
   def new_masgn lhs, rhs, wrap = false
-    rhs = value_expr(rhs)
-    rhs = lhs[1] ? s(:to_ary, rhs) : s(:array, rhs) if wrap
+    _, ary = lhs
 
-    lhs.delete_at 1 if lhs[1].nil?
+    rhs = value_expr(rhs)
+    rhs = ary ? s(:to_ary, rhs) : s(:array, rhs) if wrap
+
+    lhs.delete_at 1 if ary.nil?
     lhs << rhs
 
     lhs
@@ -669,8 +681,8 @@ module RubyParserStuff
     result = s(:module, path)
 
     if body then # REFACTOR?
-      if body.first == :block then
-        result.push(*body[1..-1])
+      if body.sexp_type == :block then
+        result.push(*body.sexp_body)
       else
         result.push body
       end
@@ -741,9 +753,9 @@ module RubyParserStuff
       k = c if c =~ /[esu]/ if RUBY_VERSION < "1.9"
     end
 
-    case node[0]
+    case node.sexp_type
     when :str then
-      node[0] = :lit
+      node.sexp_type = :lit
       node[1] = if k then
                   Regexp.new(node[1], o, k)
                 else
@@ -762,14 +774,14 @@ module RubyParserStuff
                 end
     when :dstr then
       if options =~ /o/ then
-        node[0] = :dregx_once
+        node.sexp_type = :dregx_once
       else
-        node[0] = :dregx
+        node.sexp_type = :dregx
       end
       node << o if o and o != 0
     else
       node = s(:dregx, '', node);
-      node[0] = :dregx_once if options =~ /o/
+      node.sexp_type = :dregx_once if options =~ /o/
       node << o if o and o != 0
     end
 
@@ -777,7 +789,7 @@ module RubyParserStuff
   end
 
   def new_resbody cond, body
-    if body && body.first == :block then
+    if body && body.sexp_type == :block then
       body.shift # remove block and splat it in directly
     else
       body = [body]
@@ -791,8 +803,8 @@ module RubyParserStuff
     result = s(:sclass, recv)
 
     if body then
-      if body.first == :block then
-        result.push(*body[1..-1])
+      if body.sexp_type == :block then
+        result.push(*body.sexp_body)
       else
         result.push body
       end
@@ -833,7 +845,7 @@ module RubyParserStuff
   end
 
   def new_word_list_entry val
-    result = val[1][0] == :evstr ? s(:dstr, "", val[1]) : val[1]
+    result = val[1].sexp_type == :evstr ? s(:dstr, "", val[1]) : val[1]
     self.lexer.fixup_lineno
     result
   end
@@ -862,9 +874,9 @@ module RubyParserStuff
 
     result ||= s(:str, "")
 
-    case sym[0]
+    case sym.sexp_type
     when :dstr then
-      sym[0] = :dsym
+      sym.sexp_type = :dsym
     when :str then
       sym = s(:lit, sym.last.to_sym)
     else
@@ -880,7 +892,7 @@ module RubyParserStuff
       s(:super, args)
     else
       args ||= s(:arglist)
-      s(:super, *args[1..-1])
+      s(:super, *args.sexp_body)
     end
   end
 
@@ -899,11 +911,11 @@ module RubyParserStuff
   def new_until_or_while type, block, expr, pre
     other = type == :until ? :while : :until
     line = [block && block.line, expr.line].compact.min
-    block, pre = block.last, false if block && block[0] == :begin
+    block, pre = block.last, false if block && block.sexp_type == :begin
 
     expr = cond expr
 
-    result = unless expr.first == :not and canonicalize_conditions then
+    result = unless expr.sexp_type == :not and canonicalize_conditions then
                s(type,  expr,      block, pre)
              else
                s(other, expr.last, block, pre)
@@ -923,11 +935,11 @@ module RubyParserStuff
 
   def new_xstring str
     if str then
-      case str[0]
+      case str.sexp_type
       when :str
-        str[0] = :xstr
+        str.sexp_type = :xstr
       when :dstr
-        str[0] = :dxstr
+        str.sexp_type = :dxstr
       else
         str = s(:dxstr, '', str)
       end
@@ -945,10 +957,10 @@ module RubyParserStuff
 
     args ||= s(:arglist)
 
-    args[0] = :arglist if [:call_args, :array].include?(args[0])
-    args = s(:arglist, args) unless args.first == :arglist
+    args.sexp_type = :arglist if [:call_args, :array].include? args.sexp_type
+    args = s(:arglist, args) unless args.sexp_type == :arglist
 
-    return s(:yield, *args[1..-1])
+    return s(:yield, *args.sexp_body)
   end
 
   def next_token
@@ -966,11 +978,11 @@ module RubyParserStuff
 
     rhs = value_expr rhs
 
-    case lhs[0]
+    case lhs.sexp_type
     when :lasgn, :iasgn, :cdecl, :cvdecl, :gasgn, :cvasgn, :attrasgn, :safe_attrasgn then
       lhs << rhs
     when :const then
-      lhs[0] = :cdecl
+      lhs.sexp_type = :cdecl
       lhs << rhs
     else
       raise "unknown lhs #{lhs.inspect} w/ #{rhs.inspect}"
@@ -1080,8 +1092,8 @@ module RubyParserStuff
 
   def remove_begin node
     oldnode = node
-    if node and :begin == node[0] and node.size == 2 then
-      node = node[-1]
+    if node and node.sexp_type == :begin and node.size == 2 then
+      node = node.last
       node.line = oldnode.line
     end
     node
@@ -1114,18 +1126,18 @@ module RubyParserStuff
 
   def ret_args node
     if node then
-      raise "write a test 5" if node[0] == :block_pass
+      raise "write a test 5" if node.sexp_type == :block_pass
 
       raise SyntaxError, "block argument should not be given" if
-        node[0] == :block_pass
+        node.sexp_type == :block_pass
 
-      node[0] = :array if node[0] == :call_args
-      node = node.last if node[0] == :array && node.size == 2
+      node.sexp_type = :array if node.sexp_type == :call_args
+      node = node.last if node.sexp_type == :array && node.size == 2
 
       # HACK matz wraps ONE of the FOUR splats in a newline to
       # distinguish. I use paren for now. ugh
-      node = s(:svalue, node) if node[0] == :splat and not node.paren
-      node[0] = :svalue if node[0] == :arglist && node[1][0] == :splat
+      node = s(:svalue, node) if node.sexp_type == :splat and not node.paren
+      node.sexp_type = :svalue if node.sexp_type == :arglist && node[1].sexp_type == :splat
     end
 
     node
@@ -1141,15 +1153,15 @@ module RubyParserStuff
   def value_expr oldnode # HACK
     node = remove_begin oldnode
     node.line = oldnode.line if oldnode
-    node[2] = value_expr(node[2]) if node and node[0] == :if
+    node[2] = value_expr node[2] if node and node.sexp_type == :if
     node
   end
 
   def void_stmts node
     return nil unless node
-    return node unless node[0] == :block
+    return node unless node.sexp_type == :block
 
-    node[1..-1] = node[1..-1].map { |n| remove_begin(n) }
+    node.sexp_body = node.sexp_body.map { |n| remove_begin n }
     node
   end
 

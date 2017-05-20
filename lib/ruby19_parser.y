@@ -357,7 +357,7 @@ rule
                 | mlhs_head tSTAR mlhs_node tCOMMA mlhs_post
                     {
                       ary = list_append val[0], s(:splat, val[2])
-                      ary.concat val[4][1..-1]
+                      ary.concat val[4].sexp_body
                       result = s(:masgn, ary)
                     }
                 | mlhs_head tSTAR
@@ -367,7 +367,7 @@ rule
                 | mlhs_head tSTAR tCOMMA mlhs_post
                     {
                       ary = list_append val[0], s(:splat)
-                      ary.concat val[3][1..-1]
+                      ary.concat val[3].sexp_body
                       result = s(:masgn, ary)
                     }
                 | tSTAR mlhs_node
@@ -377,7 +377,7 @@ rule
                 | tSTAR mlhs_node tCOMMA mlhs_post
                     {
                       ary = s(:array, s(:splat, val[1]))
-                      ary.concat val[3][1..-1]
+                      ary.concat val[3].sexp_body
                       result = s(:masgn, ary)
                     }
                 | tSTAR
@@ -387,7 +387,7 @@ rule
                 | tSTAR tCOMMA mlhs_post
                     {
                       ary = s(:array, s(:splat))
-                      ary.concat val[2][1..-1]
+                      ary.concat val[2].sexp_body
                       result = s(:masgn, ary)
                     }
 
@@ -591,7 +591,7 @@ rule
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN arg
                     {
-                      val[2][0] = :arglist if val[2]
+                      val[2].sexp_type = :arglist if val[2]
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
                     }
                 | primary_value tDOT tIDENTIFIER tOP_ASGN arg
@@ -808,7 +808,7 @@ rule
                     }
                 | args tCOMMA assocs tCOMMA
                     {
-                      result = val[0] << s(:hash, *val[2][1..-1]) # TODO: self.args
+                      result = val[0] << s(:hash, *val[2].sexp_body) # TODO: self.args
                     }
                 | assocs tCOMMA
                     {
@@ -1586,7 +1586,7 @@ rule
 
          strings: string
                     {
-                      val[0] = s(:dstr, val[0].value) if val[0][0] == :evstr
+                      val[0] = s(:dstr, val[0].value) if val[0].sexp_type == :evstr
                       result = val[0]
                     }
 
@@ -1729,7 +1729,7 @@ regexp_contents: none
 
                       case stmt
                       when Sexp then
-                        case stmt[0]
+                        case stmt.sexp_type
                         when :str, :dstr, :evstr then
                           result = stmt
                         else
@@ -1766,9 +1766,9 @@ regexp_contents: none
 
                       result ||= s(:str, "")
 
-                      case result[0]
+                      case result.sexp_type
                       when :dstr then
-                        result[0] = :dsym
+                        result.sexp_type = :dsym
                       when :str then
                         result = s(:lit, result.last.intern)
                       else
@@ -2053,7 +2053,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result = val[2]
                       yyerror "Can't define single method for literals." if
-                        result[0] == :lit
+                        result.sexp_type == :lit
                     }
 
       assoc_list: none # [!nil]
@@ -2069,7 +2069,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                 | assocs tCOMMA assoc
                     {
                       list = val[0].dup
-                      more = val[2][1..-1]
+                      more = val[2].sexp_body
                       list.push(*more) unless more.empty?
                       result = list
                     }

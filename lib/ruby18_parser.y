@@ -521,7 +521,7 @@ rule
                 | primary_value tLBRACK2 aref_args tRBRACK tOP_ASGN arg
                     {
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
-                      val[2][0] = :arglist if val[2]
+                      val[2].sexp_type = :arglist if val[2]
                     }
                 | primary_value tDOT tIDENTIFIER tOP_ASGN arg
                     {
@@ -599,7 +599,7 @@ rule
                     }
                 | tUPLUS arg
                     {
-                      if val[1][0] == :lit then
+                      if val[1].sexp_type == :lit then
                         result = val[1]
                       else
                         result = new_call val[1], :"+@"
@@ -1464,7 +1464,7 @@ rule
 
          strings: string
                     {
-                      val[0] = s(:dstr, val[0].value) if val[0][0] == :evstr
+                      val[0] = s(:dstr, val[0].value) if val[0].sexp_type == :evstr
                       result = val[0]
                     }
 
@@ -1598,7 +1598,7 @@ xstring_contents: none
 
                       case stmt
                       when Sexp then
-                        case stmt[0]
+                        case stmt.sexp_type
                         when :str, :dstr, :evstr then
                           result = stmt
                         else
@@ -1636,9 +1636,9 @@ xstring_contents: none
                       yyerror "empty symbol literal" if
                         result.nil? or result.empty?
 
-                      case result[0]
+                      case result.sexp_type
                       when :dstr then
-                        result[0] = :dsym
+                        result.sexp_type = :dsym
                       when :str then
                         result = s(:lit, result.last.to_sym)
                       else
@@ -1843,7 +1843,7 @@ xstring_contents: none
                     {
                       result = val[2]
                       yyerror "Can't define single method for literals." if
-                        result[0] == :lit
+                        result.sexp_type == :lit
                     }
 
       assoc_list: none # [!nil]
@@ -1867,7 +1867,7 @@ xstring_contents: none
                 | assocs tCOMMA assoc
                     {
                       list = val[0].dup
-                      more = val[2][1..-1]
+                      more = val[2].sexp_body
                       list.push(*more) unless more.empty?
                       result = list
                     }

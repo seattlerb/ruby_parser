@@ -66,7 +66,7 @@ class Sexp
   end
 
   def block_pass?
-    any? { |s| Sexp === s && s[0] == :block_pass }
+    any? { |s| Sexp === s && s.sexp_type == :block_pass }
   end
 
   alias :node_type :sexp_type
