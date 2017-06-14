@@ -817,6 +817,7 @@ class RubyLexer
     when scan(/\\/) then                  # Backslash
       '\\'
     when scan(/n/) then                   # newline
+      self.extra_lineno -= 1
       "\n"
     when scan(/t/) then                   # horizontal tab
       "\t"

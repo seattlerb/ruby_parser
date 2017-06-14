@@ -571,6 +571,14 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_str_newline_hash_line_number
+    rb = "\"\\n\\n\\n\\n#\"\n1"
+    pt = s(:block, s(:str, "\n\n\n\n#").line(1),
+                   s(:lit, 1).line(2))
+
+    assert_parse rb, pt
+  end
+
   def after_process_hook klass, node, data, input_name, output_name
     assert_equal 1, @result.line, "should have proper line number"
   end
