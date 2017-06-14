@@ -1153,6 +1153,47 @@ class TestRubyLexer < Minitest::Test
                 :tNL,             nil,             :expr_beg)
   end
 
+  def test_yylex_heredoc_double_squiggly
+    setup_lexer_class Ruby23Parser
+
+    assert_lex3("a = <<~\"EOF\"\n  blah blah\n  EOF\n\n",
+                nil,
+                :tIDENTIFIER,     "a",           :expr_cmdarg,
+                :tEQL,            "=",           :expr_beg,
+                :tSTRING_BEG,     "\"",          :expr_beg,
+                :tSTRING_CONTENT, "blah blah\n", :expr_beg,
+                :tSTRING_END,     "EOF",         :expr_end,
+                :tNL,             nil,           :expr_beg)
+  end
+
+  # mri handles tabs in a pretty specific way:
+  # https://github.com/ruby/ruby/blob/trunk/parse.y#L5925
+  def test_yylex_heredoc_double_squiggly_with_tab_indentation_remaining
+    setup_lexer_class Ruby23Parser
+
+    assert_lex3("a = <<~\"EOF\"\n  blah blah\n \tblah blah\n  EOF\n\n",
+                nil,
+                :tIDENTIFIER,     "a",                        :expr_cmdarg,
+                :tEQL,            "=",                        :expr_beg,
+                :tSTRING_BEG,     "\"",                       :expr_beg,
+                :tSTRING_CONTENT, "blah blah\n\tblah blah\n", :expr_beg,
+                :tSTRING_END,     "EOF",                      :expr_end,
+                :tNL,             nil,                        :expr_beg)
+  end
+
+  def test_yylex_heredoc_double_squiggly_with_tab_indentation_removed
+    setup_lexer_class Ruby23Parser
+
+    assert_lex3("a = <<~\"EOF\"\n        blah blah\n\t blah blah\n  EOF\n\n",
+                nil,
+                :tIDENTIFIER,     "a",                       :expr_cmdarg,
+                :tEQL,            "=",                       :expr_beg,
+                :tSTRING_BEG,     "\"",                      :expr_beg,
+                :tSTRING_CONTENT, "blah blah\n blah blah\n", :expr_beg,
+                :tSTRING_END,     "EOF",                     :expr_end,
+                :tNL,             nil,                       :expr_beg)
+  end
+
   def test_yylex_heredoc_double_eos
     refute_lex("a = <<\"EOF\"\nblah",
                :tIDENTIFIER, "a",
@@ -1223,6 +1264,19 @@ class TestRubyLexer < Minitest::Test
                 :tNL,             nil,            :expr_beg)
   end
 
+  def test_yylex_heredoc_none_squiggly
+    setup_lexer_class Ruby23Parser
+
+    assert_lex3("a = <<~EOF\n  blah\n  blah\n  EOF\n",
+                nil,
+                :tIDENTIFIER,     "a",            :expr_cmdarg,
+                :tEQL,            "=",            :expr_beg,
+                :tSTRING_BEG,     "\"",           :expr_beg,
+                :tSTRING_CONTENT, "blah\nblah\n", :expr_beg,
+                :tSTRING_END,     "EOF",          :expr_end,
+                :tNL,             nil,            :expr_beg)
+  end
+
   def test_yylex_heredoc_single
     assert_lex3("a = <<'EOF'\n  blah blah\nEOF\n\n",
                 nil,
@@ -1271,6 +1325,19 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_CONTENT, "  blah blah\n", :expr_beg,
                 :tSTRING_END,     "EOF",           :expr_end,
                 :tNL,             nil,             :expr_beg)
+  end
+
+  def test_yylex_heredoc_single_squiggly
+    setup_lexer_class Ruby23Parser
+
+    assert_lex3("a = <<~'EOF'\n  blah blah\n  EOF\n\n",
+                nil,
+                :tIDENTIFIER,     "a",           :expr_cmdarg,
+                :tEQL,            "=",           :expr_beg,
+                :tSTRING_BEG,     "\"",          :expr_beg,
+                :tSTRING_CONTENT, "blah blah\n", :expr_beg,
+                :tSTRING_END,     "EOF",         :expr_end,
+                :tNL,             nil,           :expr_beg)
   end
 
   def test_yylex_identifier
