@@ -811,7 +811,6 @@ module TestRubyParserShared
   end
 
   def test_parse_line_rescue
-    skip "not yet"
     rb = "begin\n a\n rescue\n b\n rescue\n c\n end\n"
     pt = s(:rescue,
            s(:call, nil, :a).line(2),

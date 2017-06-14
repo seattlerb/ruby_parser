@@ -1546,10 +1546,11 @@ rule
 
       opt_rescue: kRESCUE exc_list exc_var then compstmt opt_rescue
                     {
-                      _, klasses, var, _, body, rest = val
+                      (_, line), klasses, var, _, body, rest = val
 
                       klasses ||= s(:array)
                       klasses << new_assign(var, s(:gvar, :"$!")) if var
+                      klasses.line line
 
                       result = new_resbody(klasses, body)
                       result << rest if rest # UGH, rewritten above

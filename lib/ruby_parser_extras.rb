@@ -794,7 +794,7 @@ module RubyParserStuff
     else
       body = [body]
     end
-    s(:resbody, cond, *body)
+    s(:resbody, cond, *body).line cond.line
   end
 
   def new_sclass val
