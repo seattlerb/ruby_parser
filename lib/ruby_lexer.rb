@@ -22,6 +22,7 @@ class RubyLexer
   STR_FUNC_QWORDS = 0x08
   STR_FUNC_SYMBOL = 0x10
   STR_FUNC_INDENT = 0x20 # <<-HEREDOC
+  STR_FUNC_ICNTNT = 0x40 # <<~HEREDOC
 
   STR_SQUOTE = STR_FUNC_BORING
   STR_DQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
@@ -61,6 +62,8 @@ class RubyLexer
     "=~"  => :tMATCH,
     "->"  => :tLAMBDA,
   }
+
+  TAB_WIDTH = 8
 
   @@regexp_cache = Hash.new { |h,k| h[k] = Regexp.new(Regexp.escape(k)) }
   @@regexp_cache[nil] = nil
@@ -146,10 +149,11 @@ class RubyLexer
   def heredoc here # TODO: rewrite / remove
     _, eos, func, last_line = here
 
-    indent  = (func & STR_FUNC_INDENT) != 0 ? "[ \t]*" : nil
-    expand  = (func & STR_FUNC_EXPAND) != 0
-    eos_re  = /#{indent}#{Regexp.escape eos}(\r*\n|\z)/
-    err_msg = "can't match #{eos_re.inspect} anywhere in "
+    indent         = (func & STR_FUNC_INDENT) != 0 ? "[ \t]*" : nil
+    content_indent = (func & STR_FUNC_ICNTNT) != 0
+    expand         = (func & STR_FUNC_EXPAND) != 0
+    eos_re         = /#{indent}#{Regexp.escape eos}(\r*\n|\z)/
+    err_msg        = "can't match #{eos_re.inspect} anywhere in "
 
     rb_compile_error err_msg if end_of_stream?
 
@@ -195,17 +199,64 @@ class RubyLexer
 
     self.lex_strterm = [:heredoc, eos, func, last_line]
 
-    return :tSTRING_CONTENT, string_buffer.join.delete("\r")
+    string_content = string_buffer.join.delete("\r")
+
+    string_content = heredoc_dedent(string_content) if content_indent && ruby23?
+
+    return :tSTRING_CONTENT, string_content
+  end
+
+  def heredoc_dedent(string_content)
+    width = string_content.scan(/^[ \t]*(?=\S)/).map do |whitespace|
+      heredoc_whitespace_indent_size whitespace
+    end.min || 0
+
+    string_content.split("\n", -1).map do |line|
+      dedent_string line, width
+    end.join "\n"
+  end
+
+  def dedent_string(string, width)
+    characters_skipped = 0
+    indentation_skipped = 0
+
+    string.chars.each do |char|
+      break if indentation_skipped >= width
+      if char == ' '
+        characters_skipped += 1
+        indentation_skipped += 1
+      elsif char == "\t"
+        proposed = TAB_WIDTH * (indentation_skipped / TAB_WIDTH + 1)
+        break if (proposed > width)
+        characters_skipped += 1
+        indentation_skipped = proposed
+      end
+    end
+    string[characters_skipped..-1]
+  end
+
+  def heredoc_whitespace_indent_size(whitespace)
+    whitespace.chars.inject 0 do |size, char|
+      if char == "\t"
+        size + TAB_WIDTH
+      else
+        size + 1
+      end
+    end
   end
 
   def heredoc_identifier # TODO: remove / rewrite
     term, func = nil, STR_FUNC_BORING
     self.string_buffer = []
 
+    heredoc_indent_mods = '-'
+    heredoc_indent_mods += '\~' if ruby23?
+
     case
-    when scan(/(-?)([\'\"\`])(.*?)\2/) then
+    when scan(/([#{heredoc_indent_mods}]?)([\'\"\`])(.*?)\2/) then
       term = ss[2]
       func |= STR_FUNC_INDENT unless ss[1].empty?
+      func |= STR_FUNC_ICNTNT if ss[1] == '~'
       func |= case term
               when "\'" then
                 STR_SQUOTE
@@ -215,13 +266,14 @@ class RubyLexer
                 STR_XQUOTE
               end
       string_buffer << ss[3]
-    when scan(/-?([\'\"\`])(?!\1*\Z)/) then
+    when scan(/[#{heredoc_indent_mods}]?([\'\"\`])(?!\1*\Z)/) then
       rb_compile_error "unterminated here document identifier"
-    when scan(/(-?)(#{IDENT_CHAR}+)/) then
+    when scan(/([#{heredoc_indent_mods}]?)(#{IDENT_CHAR}+)/) then
       term = '"'
       func |= STR_DQUOTE
       unless ss[1].empty? then
         func |= STR_FUNC_INDENT
+        func |= STR_FUNC_ICNTNT if ss[1] == '~'
       end
       string_buffer << ss[2]
     else
@@ -1104,6 +1156,10 @@ class RubyLexer
 
   def ruby22plus?
     parser.class.version >= 22
+  end
+
+  def ruby23?
+    Ruby23Parser === parser
   end
 
   def process_string # TODO: rewrite / remove
