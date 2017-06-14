@@ -1,0 +1,4 @@
+lib/*.output
+lib/ruby2*_parser.y
+lib/ruby*_parser.rb
+lib/ruby_lexer.rex.rb
