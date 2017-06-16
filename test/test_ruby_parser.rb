@@ -3256,6 +3256,20 @@ module TestRubyParserShared20Plus
 
     assert_parse rb, pt
   end
+
+  def test_bug_249
+    rb = "mount (Class.new do\ndef initialize\nend\n end).new, :at => 'endpoint'"
+    pt = s(:call, nil, :mount,
+           s(:call,
+             s(:iter,
+               s(:call, s(:const, :Class), :new),
+               0,
+               s(:defn, :initialize, s(:args), s(:nil))),
+             :new),
+           s(:hash, s(:lit, :at), s(:str, "endpoint")))
+
+    assert_parse rb, pt
+  end
 end
 
 module TestRubyParserShared22Plus

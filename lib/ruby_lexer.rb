@@ -92,6 +92,17 @@ class RubyLexer
   attr_accessor :string_buffer
   attr_accessor :string_nest
 
+  if $DEBUG then
+    alias lex_state= lex_state=
+    def lex_state=o
+      return if @lex_state == o
+      c = caller.first
+      c = caller[1] if c =~ /\bresult\b/
+      warn "lex_state: %p -> %p from %s" % [@lex_state, o, c.clean_caller]
+      @lex_state = o
+    end
+  end
+
   # Last token read via next_token.
   attr_accessor :token
 
@@ -105,6 +116,10 @@ class RubyLexer
 
   def initialize v = 18
     self.version = v
+    @lex_state = :expr_none
+
+    self.cmdarg = RubyParserStuff::StackState.new(:cmdarg, $DEBUG)
+    self.cond   = RubyParserStuff::StackState.new(:cond, $DEBUG)
 
     reset
   end
@@ -559,6 +574,7 @@ class RubyLexer
 
     self.paren_nest += 1
 
+    # TODO: add :expr_label to :expr_beg (set in expr_result below)
     return expr_result(token, "(")
   end
 
@@ -941,7 +957,7 @@ class RubyLexer
     self.brace_nest    = 0
     self.command_start = true
     self.comments      = []
-    self.lex_state     = nil
+    self.lex_state     = :expr_none
     self.lex_strterm   = nil
     self.lineno        = 1
     self.lpar_beg      = nil
@@ -951,8 +967,8 @@ class RubyLexer
     self.token         = nil
     self.extra_lineno  = 0
 
-    self.cmdarg = RubyParserStuff::StackState.new(:cmdarg)
-    self.cond   = RubyParserStuff::StackState.new(:cond)
+    self.cmdarg.reset
+    self.cond.reset
   end
 
   def result lex_state, token, text # :nodoc:

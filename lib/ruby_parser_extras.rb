@@ -1322,10 +1322,15 @@ module RubyParserStuff
     attr_reader :stack
     attr_accessor :debug
 
-    def initialize(name)
+    def initialize name, debug=false
       @name = name
       @stack = [false]
-      @debug = false
+      @debug = debug
+    end
+
+    def reset
+      @stack = [false]
+      warn "#{name}_stack(set): 0" if debug
     end
 
     def inspect
@@ -1333,12 +1338,11 @@ module RubyParserStuff
     end
 
     def is_in_state
-      p :stack_is_in_state => [name, @stack.last, caller.first] if debug
       @stack.last
     end
 
     def lexpop
-      p :stack_lexpop => caller.first if debug
+      warn "#{name}_stack.lexpop" if debug
       raise if @stack.size == 0
       a = @stack.pop
       b = @stack.pop
@@ -1347,14 +1351,16 @@ module RubyParserStuff
 
     def pop
       r = @stack.pop
-      p :stack_pop => [name, r, @stack, caller.first] if debug
+      warn "#{name}_stack.pop" if debug
       @stack.push false if @stack.size == 0
       r
     end
 
     def push val
       @stack.push val
-      p :stack_push => [name, @stack, caller.first] if debug
+      c = caller.first
+      c = caller[1] if c =~ /expr_result/
+      warn "#{name}_stack(push): #{val} at line #{c.clean_caller}" if debug
       nil
     end
 

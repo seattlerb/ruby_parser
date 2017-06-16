@@ -999,14 +999,20 @@ rule
                     {
                       debug20 13, val, result
                     }
-                | tLPAREN_ARG expr
+                | tLPAREN_ARG
+                    {
+                      result = self.lexer.cmdarg.stack.dup
+                      lexer.cmdarg.stack.replace [false] # TODO add api for these
+                    }
+                    expr
                     {
                       lexer.lex_state = :expr_endarg
                     }
                     rparen
                     {
                       warning "(...) interpreted as grouped expression"
-                      result = val[1]
+                      lexer.cmdarg.stack.replace val[1]
+                      result = val[2]
                     }
                 | tLPAREN compstmt tRPAREN
                     {

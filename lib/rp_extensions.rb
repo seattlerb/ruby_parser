@@ -38,6 +38,10 @@ class String
   # reduces tIDENTIFIER.
 
   attr_accessor :lineno
+
+  def clean_caller
+    self.sub(File.dirname(__FILE__), ".").sub(/:in.*/, "")
+  end if $DEBUG
 end
 
 require "sexp"
