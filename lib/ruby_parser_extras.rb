@@ -1161,7 +1161,12 @@ module RubyParserStuff
     return nil unless node
     return node unless node.sexp_type == :block
 
-    node.sexp_body = node.sexp_body.map { |n| remove_begin n }
+    if node.respond_to? :sexp_body= then
+      node.sexp_body = node.sexp_body.map { |n| remove_begin n }
+    else
+      node[1..-1] = node[1..-1].map { |n| remove_begin(n) }
+    end
+
     node
   end
 
