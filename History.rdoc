@@ -1,3 +1,20 @@
+=== 3.10.0 / 2017-07-17
+
+* 4 minor enhancements:
+
+  * Added support for 'squiggly heredocs' (indented content). (jjoos)
+  * Bumped oedipus_lex to ~> 2.5.
+  * Bumped sexp_processor to ~> 4.9.
+  * Made STRICT_SEXP=1 safe: converted indexed sexps to semantic calls where needed.
+
+* 5 bug fixes:
+
+  * Clear and restore cmdarg stack around defs args and body. (presidentbeef)
+  * Conditionalize use of sexp_body= to make it compatible w/ sexp_processor 4.9.0
+  * Fix up line numbers in strings with newlines and `#`. (presidentbeef)
+  * Fixed line numbers of resbodies.
+  * Fixed some tracking of lexical state. Fixes bug #249.
+
 === 3.9.0 / 2017-04-13
 
 * 1 major enhancement:
