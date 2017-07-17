@@ -23,9 +23,9 @@ Hoe.spec "ruby_parser" do
 
   license "MIT"
 
-  dependency "sexp_processor", "~> 4.1"
+  dependency "sexp_processor", "~> 4.9"
   dependency "rake", "< 11", :developer
-  dependency "oedipus_lex", "~> 2.1", :developer
+  dependency "oedipus_lex", "~> 2.5", :developer
 
   if plugin? :perforce then     # generated files
     V1_2.each do |n|
