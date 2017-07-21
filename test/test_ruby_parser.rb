@@ -3447,6 +3447,8 @@ class TestRubyParser < Minitest::Test
   def test_cls_version
     assert_equal 18, RubyParser::V18.version
     assert_equal 23, RubyParser::V23.version
+    assert_equal 24, RubyParser::V24.version
+    assert_equal 24, Ruby24Parser.version
     refute RubyParser::Parser.version
   end
 
