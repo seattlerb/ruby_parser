@@ -171,6 +171,13 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_call_self_brackets
+    rb = "self[1]"
+    pt = s(:call, s(:self), :[], s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+
   def test_dasgn_icky2
     rb = "a do\n  v = nil\n  begin\n    yield\n  rescue Exception => v\n    break\n  end\nend"
     pt = s(:iter,

@@ -437,12 +437,7 @@ module RubyParserStuff
   def new_aref val
     val[2] ||= s(:arglist)
     val[2].sexp_type = :arglist if val[2].sexp_type == :array # REFACTOR
-    if val[0].node_type == :self then
-      result = new_call nil, :"[]", val[2]
-    else
-      result = new_call val[0], :"[]", val[2]
-    end
-    result
+    new_call val[0], :"[]", val[2]
   end
 
   def new_body val
