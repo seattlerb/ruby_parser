@@ -1,3 +1,10 @@
+=== 3.10.1 / 2017-07-21
+
+* 2 bug fixes:
+
+  * Fixed identification of parser version whether Ruby##Parser or Parser::V##.
+  * Fixed squiggly heredoc lexing when using 24 parser.
+
 === 3.10.0 / 2017-07-17
 
 * 4 minor enhancements:
