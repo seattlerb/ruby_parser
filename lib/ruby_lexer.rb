@@ -1,5 +1,7 @@
 # encoding: UTF-8
 
+$DEBUG = true if ENV["DEBUG"]
+
 class RubyLexer
 
   # :stopdoc:
@@ -216,7 +218,7 @@ class RubyLexer
 
     string_content = string_buffer.join.delete("\r")
 
-    string_content = heredoc_dedent(string_content) if content_indent && ruby23?
+    string_content = heredoc_dedent(string_content) if content_indent && ruby23plus?
 
     return :tSTRING_CONTENT, string_content
   end
@@ -265,7 +267,7 @@ class RubyLexer
     self.string_buffer = []
 
     heredoc_indent_mods = '-'
-    heredoc_indent_mods += '\~' if ruby23?
+    heredoc_indent_mods += '\~' if ruby23plus?
 
     case
     when scan(/([#{heredoc_indent_mods}]?)([\'\"\`])(.*?)\2/) then
@@ -1175,8 +1177,8 @@ class RubyLexer
     parser.class.version >= 22
   end
 
-  def ruby23?
-    Ruby23Parser === parser
+  def ruby23plus?
+    parser.class.version >= 23
   end
 
   def process_string # TODO: rewrite / remove

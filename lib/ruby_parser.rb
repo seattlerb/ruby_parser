@@ -17,7 +17,7 @@ class RubyParser
     end
 
     def self.version
-      Parser > self and self.name[/V(\d+)$/, 1].to_i
+      Parser > self and self.name[/(?:V|Ruby)(\d+)/, 1].to_i
     end
   end
 
