@@ -3412,6 +3412,13 @@ module TestRubyParserShared23Plus
     assert_parse rb, pt
   end
 
+  def test_heredoc_squiggly
+    rb = "a = <<~\"EOF\"\n  blah blah\n  EOF\n\n"
+    pt = s(:lasgn, :a, s(:str, "blah blah\n"))
+
+    assert_parse rb, pt
+  end
+
   def test_slashy_newlines_within_string
     rb = %(puts "hello\\
  my\\
