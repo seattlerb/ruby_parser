@@ -2418,9 +2418,9 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result = s(:array, val[0], val[2])
                     }
-                | tLABEL arg_value
+                | tLABEL opt_nl arg_value
                     {
-                      result = s(:array, s(:lit, val[0][0].to_sym), val[1])
+                      result = s(:array, s(:lit, val[0][0].to_sym), val.last)
                     }
 #if V >= 22
                 | tSTRING_BEG string_contents tLABEL_END arg_value

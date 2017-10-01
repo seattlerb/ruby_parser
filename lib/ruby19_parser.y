@@ -2079,10 +2079,10 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result = s(:array, val[0], val[2])
                     }
-                | tLABEL arg_value
+                | tLABEL opt_nl arg_value
                     {
                       label, _ = val[0] # TODO: fix lineno?
-                      result = s(:array, s(:lit, label.to_sym), val[1])
+                      result = s(:array, s(:lit, label.to_sym), val.last)
                     }
 
        operation: tIDENTIFIER | tCONSTANT | tFID
