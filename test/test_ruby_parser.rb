@@ -3419,6 +3419,17 @@ module TestRubyParserShared23Plus
     assert_parse rb, pt
   end
 
+  def test_required_kwarg_no_value
+    rb = "def x a:, b:\nend"
+    pt = s(:defn, :x,
+           s(:args,
+             s(:kwarg, :a),
+             s(:kwarg, :b)),
+           s(:nil))
+
+    assert_parse rb, pt
+  end
+
   def test_slashy_newlines_within_string
     rb = %(puts "hello\\
  my\\
