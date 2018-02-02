@@ -2797,6 +2797,20 @@ class TestRubyLexer < Minitest::Test
                :tRCURLY, "}", :expr_endarg,   0, 0)
   end
 
+  def test_yylex_required_kwarg_no_value_22
+    setup_lexer_class RubyParser::V22
+
+    assert_lex3("def foo a:, b:\nend",
+                nil,
+                :kDEF, "def", :expr_fname,
+                :tIDENTIFIER, "foo", :expr_endfn,
+                :tLABEL, "a",   :expr_labelarg,
+                :tCOMMA, ",", :expr_beg,
+                :tLABEL, "b",   :expr_labelarg,
+                :tNL, nil, :expr_beg,
+                :kEND, "end", :expr_end)
+  end
+
   def test_ruby21_rational_literal
     setup_lexer_class RubyParser::V21
 

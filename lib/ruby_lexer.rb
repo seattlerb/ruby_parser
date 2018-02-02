@@ -548,7 +548,7 @@ class RubyLexer
     self.lineno += matched.lines.to_a.size if scan(/\n+/)
 
     return if in_lex_state?(:expr_beg, :expr_value, :expr_class,
-                            :expr_fname, :expr_dot, :expr_labelarg)
+                            :expr_fname, :expr_dot)
 
     if scan(/([\ \t\r\f\v]*)(\.|&)/) then
       self.space_seen = true unless ss[1].empty?
