@@ -63,11 +63,15 @@ To add a new version:
 
 * New parser should be generated from lib/ruby_parser.yy.
 * Extend lib/ruby_parser.yy with new class name.
-* Add new version number to Rakefile for rule creation.
+* Add new version number to V2 in Rakefile for rule creation.
 * Require generated parser in lib/ruby_parser.rb.
 * Add empty TestRubyParserShared##Plus module and TestRubyParserV## to test/test_ruby_parser.rb.
 * Extend Manifest.txt with generated file names.
 * Extend sexp_processor's pt_testcase.rb to match version
+  * add_19tests needs to have the version added
+  * VER_RE needs to have the regexp expanded
+
+Until all of these are done, you won't have a clean test run.
 
 == REQUIREMENTS:
 
