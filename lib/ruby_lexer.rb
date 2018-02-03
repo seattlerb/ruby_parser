@@ -1042,7 +1042,13 @@ class RubyLexer
     when scan(/\\[McCx]/) then
       rb_compile_error "Invalid escape character syntax"
     when scan(/\\(.)/m) then
-      self.string_buffer << matched
+      chr = ss[1]
+      prev = self.string_buffer.last
+      if term == chr && prev && prev.end_with?("(?") then
+        self.string_buffer << chr
+      else
+        self.string_buffer << matched
+      end
     else
       rb_compile_error "Invalid escape character syntax"
     end

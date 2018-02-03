@@ -2053,6 +2053,14 @@ class TestRubyLexer < Minitest::Test
                 :tREGEXP_END,     "",            :expr_end)
   end
 
+  def test_yylex_regexp_escaped_delim
+    assert_lex3("%r!blah(?\\!blah)!",
+                nil,
+                :tREGEXP_BEG,     "%r\000",       :expr_beg,
+                :tSTRING_CONTENT, "blah(?!blah)", :expr_beg,
+                :tREGEXP_END,     "",             :expr_end)
+  end
+
   def test_yylex_regexp_escape_backslash_terminator_meta1
     assert_lex3("%r{blah\\}blah}",
                 nil,
