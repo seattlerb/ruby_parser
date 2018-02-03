@@ -10,13 +10,6 @@ class Regexp
     ENC_UTF8 = /x/u.options
   end
 end
-
-# I hate ruby 1.9 string changes
-class Fixnum
-  def ord
-    self
-  end
-end unless "a"[0] == "a"
 # :startdoc:
 
 ############################################################
