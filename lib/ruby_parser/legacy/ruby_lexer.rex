@@ -2,7 +2,7 @@
 #
 # lexical scanner definition for ruby
 
-class RubyLexer
+class RubyParserLegacy::RubyLexer
 
 macro
 

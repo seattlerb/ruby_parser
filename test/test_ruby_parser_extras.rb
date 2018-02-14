@@ -1,14 +1,14 @@
 # encoding: US-ASCII
 
 require "minitest/autorun"
-require "ruby_parser_extras"
-require "ruby_parser"
+require "ruby_parser/legacy/ruby_parser_extras"
+require "ruby_parser/legacy"
 
 class TestStackState < Minitest::Test
   attr_reader :s
 
   def setup
-    @s = RubyParserStuff::StackState.new :test
+    @s = LegacyRubyParserStuff::StackState.new :test
   end
 
   def assert_encoding str, default = false
@@ -166,7 +166,7 @@ class TestEnvironment < Minitest::Test
   end
 
   def setup
-    @env = RubyParserStuff::Environment.new
+    @env = LegacyRubyParserStuff::Environment.new
     @env[:blah] = 42
     assert_equal 42, @env[:blah]
   end

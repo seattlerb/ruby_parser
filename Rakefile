@@ -15,10 +15,8 @@ Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
 
 V1   = %w[18 19]
-V2   = %w[20 21 22 23 24 25]
-V1_2 = V1 + V2
 
-Hoe.spec "ruby_parser" do
+Hoe.spec "ruby_parser_legacy" do
   developer "Ryan Davis", "ryand-ruby@zenspider.com"
 
   license "MIT"
@@ -28,12 +26,8 @@ Hoe.spec "ruby_parser" do
   dependency "oedipus_lex", "~> 2.5", :developer
 
   if plugin? :perforce then     # generated files
-    V1_2.each do |n|
+    V1.each do |n|
       self.perforce_ignore << "lib/ruby#{n}_parser.rb"
-    end
-
-    V2.each do |n|
-      self.perforce_ignore << "lib/ruby#{n}_parser.y"
     end
 
     self.perforce_ignore << "lib/ruby_lexer.rex.rb"
@@ -46,26 +40,18 @@ Hoe.spec "ruby_parser" do
   end
 end
 
-V2.each do |n|
-  file "lib/ruby#{n}_parser.y" => "lib/ruby_parser.yy" do |t|
-    cmd = 'unifdef -tk -DV=%s -UDEAD %s > %s || true' % [n, t.source, t.name]
-    sh cmd
-  end
+V1.each do |n|
+  file "lib/ruby_parser/legacy/ruby#{n}_parser.rb" => "lib/ruby_parser/legacy/ruby#{n}_parser.y"
 end
 
-V1_2.each do |n|
-  file "lib/ruby#{n}_parser.rb" => "lib/ruby#{n}_parser.y"
-end
-
-file "lib/ruby_lexer.rex.rb" => "lib/ruby_lexer.rex"
+file "lib/ruby_parser/legacy/ruby_lexer.rex.rb" => "lib/ruby_parser/legacy/ruby_lexer.rex"
 
 task :clean do
   rm_rf(Dir["**/*~"] +
         Dir["diff.diff"] + # not all diffs. bit me too many times
         Dir["coverage.info"] +
         Dir["coverage"] +
-        Dir["lib/ruby2*_parser.y"] +
-        Dir["lib/*.output"])
+        Dir["lib/ruby_parser/legacy/*.output"])
 end
 
 task :sort do
@@ -184,14 +170,9 @@ end
 
 ruby_parse "1.8.7-p374"
 ruby_parse "1.9.3-p551"
-ruby_parse "2.0.0-p648"
-ruby_parse "2.1.9"
-ruby_parse "2.2.6"
-ruby_parse "2.3.3"
-# TODO ruby_parse "2.4.0"
 
 task :debug => :isolate do
-  ENV["V"] ||= V1_2.last
+  ENV["V"] ||= V1.last
   Rake.application[:parser].invoke # this way we can have DEBUG set
   Rake.application[:lexer].invoke # this way we can have DEBUG set
 
@@ -232,7 +213,7 @@ task :debug_ruby do
 end
 
 task :extract => :isolate do
-  ENV["V"] ||= V1_2.last
+  ENV["V"] ||= V1.last
   Rake.application[:parser].invoke # this way we can have DEBUG set
 
   file = ENV["F"] || ENV["FILE"]

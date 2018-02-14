@@ -1,13 +1,13 @@
 # encoding: ASCII-8BIT
 
 require "sexp"
-require "ruby_lexer"
+require "ruby_parser/legacy/ruby_lexer"
 require "timeout"
-require "rp_extensions"
-require "rp_stringscanner"
+require "ruby_parser/legacy/rp_extensions"
+require "ruby_parser/legacy/rp_stringscanner"
 
-module RubyParserStuff
-  VERSION = "3.11.0"
+module LegacyRubyParserStuff
+  VERSION = "3.10.1"
 
   attr_accessor :lexer, :in_def, :in_single, :file
   attr_reader :env, :comments
@@ -339,7 +339,7 @@ module RubyParserStuff
     self.lexer = RubyLexer.new v && v.to_i
     self.lexer.parser = self
 
-    @env = RubyParserStuff::Environment.new
+    @env = LegacyRubyParserStuff::Environment.new
     @comments = []
 
     @canonicalize_conditions = true
