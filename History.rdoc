@@ -1,3 +1,15 @@
+=== 3.11.0 / 2018-02-14
+
+* 1 major enhancement:
+
+  * Expand to support ruby 2.5 parsing.
+
+* 3 bug fixes:
+
+  * Fixed %r lexing when delimiter is also used in (?X) group.
+  * Restore newline after label to detect required kwarg. (presidentbeef)
+  * Return `s(:self)` target for `self[]` calls. (presidentbeef)
+
 === 3.10.1 / 2017-07-21
 
 * 2 bug fixes:
