@@ -2641,6 +2641,12 @@ class TestRubyLexer < Minitest::Test
                 :tSYMBOL,   'symbol#{1+1}', :expr_end)
   end
 
+  def test_yylex_symbol_single_escape_chars
+    assert_lex3(":'s\\tri\\ng'",
+                nil,
+                :tSYMBOL,   "s\\tri\\ng", :expr_end)
+  end
+
   def test_yylex_ternary1
     assert_lex3("a ? b : c",
                 nil,

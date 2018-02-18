@@ -745,7 +745,12 @@ class RubyLexer
   end
 
   def process_symbol text
-    symbol = match[1].gsub(ESC) { unescape $1 }
+    content = match[1]
+    if text =~ /^:"/
+      symbol = content.gsub(ESC) { unescape $1 }
+    else
+      symbol = content
+    end
 
     rb_compile_error "symbol cannot contain '\\0'" if
       ruby18 && symbol =~ /\0/
