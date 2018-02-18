@@ -749,7 +749,7 @@ class RubyLexer
     if text =~ /^:"/
       symbol = content.gsub(ESC) { unescape $1 }
     else
-      symbol = content
+      symbol = content.gsub(/\\\\/, "\\").gsub(/\\'/, "'")
     end
 
     rb_compile_error "symbol cannot contain '\\0'" if

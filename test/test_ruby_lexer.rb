@@ -2598,6 +2598,10 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("'blah\\\nblah'", nil, :tSTRING, "blah\\\nblah", :expr_end)
   end
 
+  def test_yylex_string_single_escaped_quote
+    assert_lex3("'foo\\'bar'", nil, :tSTRING, "foo'bar", :expr_end)
+  end
+
   def test_yylex_symbol
     assert_lex3(":symbol", nil, :tSYMBOL, "symbol", :expr_end)
   end
@@ -2645,6 +2649,10 @@ class TestRubyLexer < Minitest::Test
     assert_lex3(":'s\\tri\\ng'",
                 nil,
                 :tSYMBOL,   "s\\tri\\ng", :expr_end)
+  end
+
+  def test_yylex_string_single_escape_quote_and_backslash
+    assert_lex3(":'foo\\'bar\\\\baz'", nil, :tSYMBOL, "foo'bar\\baz", :expr_end)
   end
 
   def test_yylex_ternary1
