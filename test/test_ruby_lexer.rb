@@ -2833,6 +2833,30 @@ class TestRubyLexer < Minitest::Test
                 :kEND, "end", :expr_end)
   end
 
+  def test_yylex_hash_colon_double_quoted_with_escapes
+    setup_lexer_class RubyParser::V22
+
+    assert_lex3("{\"s\\tr\\i\\ng\\\\foo\\'bar\":1}",
+               nil,
+
+               :tLBRACE, "{", :expr_beg,
+               :tLABEL,  "s\tr\i\ng\\foo'bar", :expr_labelarg,
+               :tINTEGER, 1,  :expr_end,
+               :tRCURLY, "}", :expr_endarg)
+  end
+
+  def test_yylex_hash_colon_quoted_with_escapes
+    setup_lexer_class RubyParser::V22
+
+    assert_lex3("{'s\\tr\\i\\ng\\\\foo\\'bar':1}",
+               nil,
+
+               :tLBRACE, "{", :expr_beg,
+               :tLABEL,  "s\\tr\\i\\ng\\foo'bar", :expr_labelarg,
+               :tINTEGER, 1,  :expr_end,
+               :tRCURLY, "}", :expr_endarg)
+  end
+
   def test_ruby21_rational_literal
     setup_lexer_class RubyParser::V21
 

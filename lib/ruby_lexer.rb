@@ -776,7 +776,11 @@ class RubyLexer
   end
 
   def process_label text
-    symbol = text[1..-3].gsub(ESC) { unescape $1 }
+    if text =~ /^"/
+      symbol = text[1..-3].gsub(ESC) { unescape $1 }
+    else
+      symbol = text[1..-3].gsub(/\\\\/, "\\").gsub(/\\'/, "'")
+    end
 
     result(:expr_labelarg, :tLABEL, [symbol, self.lineno])
   end
