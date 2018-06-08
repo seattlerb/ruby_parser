@@ -1660,7 +1660,11 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       result = nil # self.env.dynamic.keys
                     }
+#if V >= 25
+                    bodystmt kEND
+#else
                     compstmt kEND
+#endif
                     {
                       _, line, args, _, body, _ = val
 
