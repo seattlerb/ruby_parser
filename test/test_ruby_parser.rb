@@ -3766,6 +3766,72 @@ class TestRubyParserV25 < RubyParserTestCase
 
     self.processor = RubyParser::V25.new
   end
+
+  def test_rescue_in_block
+    rb = "blah do\nrescue\n  stuff\nend"
+    pt = s(:iter, s(:call, nil, :blah), 0, s(:rescue, s(:resbody, s(:array), s(:call, nil, :stuff))))
+    assert_parse rb, pt
+  end
+
+  def test_rescue_do_end_raised
+    rb = "tap do\n  raise\nensure\n  :ensure\nend"
+    pt = s(:iter,
+           s(:call, nil, :tap),
+           0,
+           s(:ensure,
+             s(:call, nil, :raise),
+             s(:lit, :ensure)))
+
+    assert_parse rb, pt
+  end
+
+  def test_rescue_do_end_rescued
+    rb = "tap do\n  raise\nrescue\n  :rescue\nelse\n  :else\nensure\n  :ensure\nend"
+    pt = s(:iter,
+           s(:call, nil, :tap),
+           0,
+           s(:ensure,
+             s(:rescue,
+               s(:call, nil, :raise),
+               s(:resbody,
+                 s(:array),
+                 s(:lit, :rescue)),
+               s(:lit, :else)),
+             s(:lit, :ensure)))
+
+    assert_parse rb, pt
+  end
+
+  def test_rescue_do_end_no_raise
+    rb = "tap do\n  :begin\nrescue\n  :rescue\nelse\n  :else\nensure\n  :ensure\nend"
+    pt = s(:iter,
+           s(:call, nil, :tap),
+           0,
+           s(:ensure,
+             s(:rescue,
+               s(:lit, :begin),
+               s(:resbody,
+                 s(:array),
+                 s(:lit, :rescue)),
+               s(:lit, :else)),
+             s(:lit, :ensure)))
+
+    assert_parse rb, pt
+  end
+
+  def test_rescue_do_end_ensure_result
+    rb = "proc do\n  :begin\nensure\n  :ensure\nend.call"
+    pt = s(:call,
+           s(:iter,
+             s(:call, nil, :proc),
+             0,
+             s(:ensure,
+               s(:lit, :begin),
+               s(:lit, :ensure))),
+           :call)
+
+    assert_parse rb, pt
+  end
 end
 
 RubyParser::VERSIONS.each do |klass|
