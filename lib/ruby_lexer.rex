@@ -9,8 +9,8 @@ macro
   IDENT         /^#{IDENT_CHAR}+/o
 
   ESC           /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|u[0-9a-fA-F]+|u\{[0-9a-fA-F]+\}|[^0-7xMCc]))/
-  SIMPLE_STRING /(#{ESC}|\#(#{ESC}|[^\{\#\@\$\"\\])|[^\"\\\#])*/o
-  SSTRING       /(\\.|[^\'])*/
+  SIMPLE_STRING /((#{ESC}|\#(#{ESC}|[^\{\#\@\$\"\\])|[^\"\\\#])*)/o
+  SSTRING       /((\\.|[^\'])*)/
 
   INT_DEC       /[+]?(?:(?:[1-9][\d_]*|0)(?!\.\d)(ri|r|i)?\b|0d[0-9_]+)(ri|r|i)?/i
   INT_HEX       /[+]?0x[a-f0-9_]+(ri|r|i)?/i

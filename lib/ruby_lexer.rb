@@ -744,8 +744,18 @@ class RubyLexer
     return expr_result(token, "[")
   end
 
+  def possibly_escape_string text, check
+    content = match[1]
+
+    if text =~ check then
+      content.gsub(ESC) { unescape $1 }
+    else
+      content.gsub(/\\\\/, "\\").gsub(/\\'/, "'")
+    end
+  end
+
   def process_symbol text
-    symbol = match[1].gsub(ESC) { unescape $1 }
+    symbol = possibly_escape_string text, /^:"/
 
     rb_compile_error "symbol cannot contain '\\0'" if
       ruby18 && symbol =~ /\0/
@@ -771,7 +781,7 @@ class RubyLexer
   end
 
   def process_label text
-    symbol = text[1..-3].gsub(ESC) { unescape $1 }
+    symbol = possibly_escape_string text, /^"/
 
     result(:expr_labelarg, :tLABEL, [symbol, self.lineno])
   end
