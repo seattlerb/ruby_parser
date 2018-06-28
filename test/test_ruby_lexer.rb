@@ -2598,6 +2598,10 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("'blah\\\nblah'", nil, :tSTRING, "blah\\\nblah", :expr_end)
   end
 
+  def test_yylex_string_single_escaped_quote
+    assert_lex3("'foo\\'bar'", nil, :tSTRING, "foo'bar", :expr_end)
+  end
+
   def test_yylex_symbol
     assert_lex3(":symbol", nil, :tSYMBOL, "symbol", :expr_end)
   end
@@ -2639,6 +2643,16 @@ class TestRubyLexer < Minitest::Test
     assert_lex3(':\'symbol#{1+1}\'',
                 nil,
                 :tSYMBOL,   'symbol#{1+1}', :expr_end)
+  end
+
+  def test_yylex_symbol_single_escape_chars
+    assert_lex3(":'s\\tri\\ng'",
+                nil,
+                :tSYMBOL,   "s\\tri\\ng", :expr_end)
+  end
+
+  def test_yylex_string_single_escape_quote_and_backslash
+    assert_lex3(":'foo\\'bar\\\\baz'", nil, :tSYMBOL, "foo'bar\\baz", :expr_end)
   end
 
   def test_yylex_ternary1
@@ -2817,6 +2831,30 @@ class TestRubyLexer < Minitest::Test
                 :tLABEL, "b",   :expr_labelarg,
                 :tNL, nil, :expr_beg,
                 :kEND, "end", :expr_end)
+  end
+
+  def test_yylex_hash_colon_double_quoted_with_escapes
+    setup_lexer_class RubyParser::V22
+
+    assert_lex3("{\"s\\tr\\i\\ng\\\\foo\\'bar\":1}",
+               nil,
+
+               :tLBRACE, "{", :expr_beg,
+               :tLABEL,  "s\tr\i\ng\\foo'bar", :expr_labelarg,
+               :tINTEGER, 1,  :expr_end,
+               :tRCURLY, "}", :expr_endarg)
+  end
+
+  def test_yylex_hash_colon_quoted_with_escapes
+    setup_lexer_class RubyParser::V22
+
+    assert_lex3("{'s\\tr\\i\\ng\\\\foo\\'bar':1}",
+               nil,
+
+               :tLBRACE, "{", :expr_beg,
+               :tLABEL,  "s\\tr\\i\\ng\\foo'bar", :expr_labelarg,
+               :tINTEGER, 1,  :expr_end,
+               :tRCURLY, "}", :expr_endarg)
   end
 
   def test_ruby21_rational_literal

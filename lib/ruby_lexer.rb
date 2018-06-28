@@ -745,7 +745,12 @@ class RubyLexer
   end
 
   def process_symbol text
-    symbol = match[1].gsub(ESC) { unescape $1 }
+    content = match[1]
+    if text =~ /^:"/
+      symbol = content.gsub(ESC) { unescape $1 }
+    else
+      symbol = content.gsub(/\\\\/, "\\").gsub(/\\'/, "'")
+    end
 
     rb_compile_error "symbol cannot contain '\\0'" if
       ruby18 && symbol =~ /\0/
@@ -771,7 +776,11 @@ class RubyLexer
   end
 
   def process_label text
-    symbol = text[1..-3].gsub(ESC) { unescape $1 }
+    if text =~ /^"/
+      symbol = text[1..-3].gsub(ESC) { unescape $1 }
+    else
+      symbol = text[1..-3].gsub(/\\\\/, "\\").gsub(/\\'/, "'")
+    end
 
     result(:expr_labelarg, :tLABEL, [symbol, self.lineno])
   end
