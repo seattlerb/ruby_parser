@@ -865,6 +865,8 @@ class RubyLexer
         result(state, :kDO_BLOCK, value)
       when in_lex_state?(:expr_beg, :expr_endarg) then
         result(state, :kDO_BLOCK, value)
+      when lex_state == :expr_end # do end do end
+        result(state, :kDO_BLOCK, value)
       else
         result(state, :kDO, value)
       end

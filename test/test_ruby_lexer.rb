@@ -494,6 +494,20 @@ class TestRubyLexer < Minitest::Test
                :tRCURLY,     "}", :expr_endarg, 0, 0)
   end
 
+  def test_yylex_lambda_as_args_with_block__20
+    setup_lexer_class RubyParser::V20
+
+    assert_lex3("a -> do end do end",
+                nil,
+               :tIDENTIFIER, "a", :expr_cmdarg,
+               :tLAMBDA,     nil, :expr_endfn,
+               :kDO, "do", :expr_beg,
+               :kEND, "end", :expr_end,
+               :kDO_BLOCK, "do", :expr_beg,
+               :kEND, "end", :expr_end
+              )
+  end
+
   def test_yylex_lambda_args_opt__20
     setup_lexer_class RubyParser::V20
 
