@@ -1358,9 +1358,11 @@ module RubyParserStuff
 
     def push val
       @stack.push val
-      c = caller.first
-      c = caller[1] if c =~ /expr_result/
-      warn "#{name}_stack(push): #{val} at line #{c.clean_caller}" if debug
+      if debug
+        c = caller.first
+        c = caller[1] if c =~ /expr_result/
+        warn "#{name}_stack(push): #{val} at line #{c.clean_caller}"
+      end
       nil
     end
 
