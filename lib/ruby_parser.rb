@@ -12,12 +12,19 @@ class RubyParser
   class Parser < Racc::Parser
     include RubyParserStuff
 
+    @version = nil
+
     def self.inherited x
+      x.version = x.name[/(?:V|Ruby)(\d+)/, 1].to_i
       RubyParser::VERSIONS << x
     end
 
+    def self.version= v
+       @version = v
+    end
+
     def self.version
-      Parser > self and self.name[/(?:V|Ruby)(\d+)/, 1].to_i
+      @version
     end
   end
 
