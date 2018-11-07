@@ -1012,7 +1012,7 @@ module RubyParserStuff
     has_enc = str.respond_to? :encoding
     encoding = nil
 
-    header = str.lines.first(2)
+    header = str.each_line.first(2)
     header.map! { |s| s.force_encoding "ASCII-8BIT" } if has_enc
 
     first = header.first || ""
