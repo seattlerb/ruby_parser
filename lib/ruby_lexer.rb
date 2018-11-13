@@ -896,26 +896,26 @@ class RubyLexer
   def read_escape # TODO: remove / rewrite
     case
     when scan(/\\/) then                  # Backslash
-      '\\'
+      '\\'.dup
     when scan(/n/) then                   # newline
       self.extra_lineno -= 1
-      "\n"
+      "\n".dup
     when scan(/t/) then                   # horizontal tab
-      "\t"
+      "\t".dup
     when scan(/r/) then                   # carriage-return
-      "\r"
+      "\r".dup
     when scan(/f/) then                   # form-feed
-      "\f"
+      "\f".dup
     when scan(/v/) then                   # vertical tab
-      "\13"
+      "\13".dup
     when scan(/a/) then                   # alarm(bell)
-      "\007"
+      "\007".dup
     when scan(/e/) then                   # escape
-      "\033"
+      "\033".dup
     when scan(/b/) then                   # backspace
-      "\010"
+      "\010".dup
     when scan(/s/) then                   # space
-      " "
+      " ".dup
     when scan(/[0-7]{1,3}/) then          # octal constant
       (matched.to_i(8) & 0xFF).chr
     when scan(/x([0-9a-fA-F]{1,2})/) then # hex constant
@@ -948,7 +948,7 @@ class RubyLexer
       rb_compile_error("Invalid escape character syntax")
     else
       ss.getch
-    end.dup
+    end
   end
 
   def regx_options # TODO: rewrite / remove
