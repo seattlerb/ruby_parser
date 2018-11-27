@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 # encoding: UTF-8
 
 $DEBUG = true if ENV["DEBUG"]
@@ -947,7 +948,7 @@ class RubyLexer
       rb_compile_error("Invalid escape character syntax")
     else
       ss.getch
-    end
+    end.dup
   end
 
   def regx_options # TODO: rewrite / remove

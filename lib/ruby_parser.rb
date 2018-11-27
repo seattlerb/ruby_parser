@@ -16,8 +16,12 @@ class RubyParser
       RubyParser::VERSIONS << x
     end
 
+    def self.version= v
+       @version = v
+    end
+
     def self.version
-      Parser > self and self.name[/(?:V|Ruby)(\d+)/, 1].to_i
+      @version ||= Parser > self && self.name[/(?:V|Ruby)(\d+)/, 1].to_i
     end
   end
 

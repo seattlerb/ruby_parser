@@ -1012,7 +1012,7 @@ module RubyParserStuff
     has_enc = str.respond_to? :encoding
     encoding = nil
 
-    header = str.lines.first(2)
+    header = str.each_line.first(2)
     header.map! { |s| s.force_encoding "ASCII-8BIT" } if has_enc
 
     first = header.first || ""
@@ -1358,9 +1358,10 @@ module RubyParserStuff
 
     def push val
       @stack.push val
+      return unless debug
       c = caller.first
       c = caller[1] if c =~ /expr_result/
-      warn "#{name}_stack(push): #{val} at line #{c.clean_caller}" if debug
+      warn "#{name}_stack(push): #{val} at line #{c.clean_caller}"
       nil
     end
 
