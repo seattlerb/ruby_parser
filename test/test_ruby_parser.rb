@@ -2029,6 +2029,20 @@ module TestRubyParserShared19Plus
     assert_parse rb, pt
   end
 
+  def test_call_stabby_with_braces_block
+    rb = "a -> {} do\nend"
+    pt = s(:iter, s(:call, nil, :a, s(:iter, s(:call, nil, :lambda), 0)), 0)
+
+    assert_parse rb, pt
+  end
+
+  def test_call_stabby_do_end_with_block
+    rb = "a -> do end do end"
+    pt = s(:iter, s(:call, nil, :a, s(:iter, s(:call, nil, :lambda), 0)), 0)
+
+    assert_parse rb, pt
+  end
+
   def test_call_trailing_comma
     rb = "f(1,)"
     pt = s(:call, nil, :f, s(:lit, 1))
