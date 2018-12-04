@@ -1,3 +1,15 @@
+=== 3.12.0 / 2018-12-04
+
+* 3 minor enhancements:
+
+  * 2.5: Allow rescue/ensure/else in normal do blocks. (presidentbeef)
+  * Added stabby proc with do/end as block call argument. (presidentbeef)
+  * Holy cow levels of optimization from presidentbeef. I write slow bad code.
+
+* 1 bug fix:
+
+  * Improve handling of single-quoted symbols and labels. (mvz)
+
 === 3.11.0 / 2018-02-14
 
 * 1 major enhancement:

@@ -7,7 +7,7 @@ require "rp_extensions"
 require "rp_stringscanner"
 
 module RubyParserStuff
-  VERSION = "3.11.0"
+  VERSION = "3.12.0"
 
   attr_accessor :lexer, :in_def, :in_single, :file
   attr_reader :env, :comments
