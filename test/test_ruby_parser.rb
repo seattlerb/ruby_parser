@@ -1045,6 +1045,15 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_iter_shadowed_method_name
+    rb = "x = 1; x do end"
+    pt = s(:block,
+           s(:lasgn, :x, s(:lit, 1)),
+           s(:iter, s(:call, nil, :x), 0))
+
+    assert_parse rb, pt
+  end
+
   def test_str_heredoc_interp
     rb = "<<\"\"\n\#{x}\nblah2\n\n"
     pt = s(:dstr, "", s(:evstr, s(:call, nil, :x)), s(:str, "\nblah2\n"))
