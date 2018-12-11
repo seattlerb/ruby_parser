@@ -253,6 +253,12 @@ rule
                     {
                       result = new_assign val[0], val[2]
                     }
+#if V >= 24
+                | lhs tEQL command_call kRESCUE_MOD arg
+                    {
+                      result = new_assign val[0], s(:rescue, val[2], new_resbody(s(:array), val[4]))
+                    }
+#endif
                 | lhs tEQL command_asgn
                     {
                       result = new_assign val[0], val[2]
