@@ -1259,6 +1259,16 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_lasgn_call_bracket_rescue_arg
+    rb = "a = b(1) rescue 2"
+    pt = s(:lasgn, :a,
+           s(:rescue,
+             s(:call, nil, :b, s(:lit, 1)),
+             s(:resbody, s(:array), s(:lit, 2))))
+
+    assert_parse rb, pt
+  end
+
   def test_call_bang_squiggle
     rb = "1 !~ 2"
     pt = s(:not, s(:call, s(:lit, 1), :=~, s(:lit, 2))) # TODO: check for 1.9+
@@ -3468,7 +3478,15 @@ end
 module TestRubyParserShared24Plus
   include TestRubyParserShared23Plus
 
-  # ...version specific tests to go here...
+  def test_lasgn_call_nobracket_rescue_arg
+    rb = "a = b 1 rescue 2"
+    pt = s(:lasgn, :a,
+           s(:rescue,
+             s(:call, nil, :b, s(:lit, 1)),
+             s(:resbody, s(:array), s(:lit, 2))))
+
+    assert_parse rb, pt
+  end
 end
 
 module TestRubyParserShared25Plus
@@ -3642,6 +3660,15 @@ class TestRubyParserV23 < RubyParserTestCase
     super
 
     self.processor = RubyParser::V23.new
+  end
+
+  def test_lasgn_call_nobracket_rescue_arg
+    rb = "a = b 1 rescue 2"
+    pt = s(:rescue,
+          s(:lasgn, :a, s(:call, nil, :b, s(:lit, 1))),
+          s(:resbody, s(:array), s(:lit, 2)))
+
+    assert_parse rb, pt
   end
 end
 
