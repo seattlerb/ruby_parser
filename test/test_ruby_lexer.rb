@@ -2287,6 +2287,15 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING, chr, :expr_end)
   end
 
+  def test_yylex_string_utf8_trailing_hex
+    chr = [0x3024].pack("U")
+    str = "#{chr}abz"
+
+    assert_lex3('"\u3024abz"',
+                s(:str, str),
+                :tSTRING, str, :expr_end)
+  end
+
   def test_yylex_string_utf8_complex
     chr = [0x3024].pack("U")
 
