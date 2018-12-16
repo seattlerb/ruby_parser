@@ -499,6 +499,14 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_str_evstr_escape
+    char = [0x00bd].pack("U")
+    rb = "\"a #\{b}\\302\\275\""
+    pt = s(:dstr, "a ", s(:evstr, s(:call, nil, :b)), s(:str, char))
+
+    assert_parse rb, pt
+  end
+
   def test_dsym_to_sym
     pt = s(:alias, s(:lit, :<<), s(:lit, :>>))
 

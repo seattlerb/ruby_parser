@@ -2300,7 +2300,6 @@ class TestRubyLexer < Minitest::Test
 
   def test_yylex_string_double_escape_M
     chr = "\341"
-    chr.force_encoding("UTF-8") if RubyLexer::HAS_ENC
 
     assert_lex3("\"\\M-a\"", nil, :tSTRING, chr, :expr_end)
   end

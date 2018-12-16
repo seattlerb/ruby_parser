@@ -1178,7 +1178,6 @@ class RubyLexer
         else
           s
         end
-    x.force_encoding "UTF-8" if HAS_ENC
     x
   end
 
