@@ -2313,6 +2313,47 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_END,     '"',      :expr_end)
   end
 
+  def test_yylex_string_utf8_complex_trailing_hex
+    chr = [0x3024].pack("U")
+    str = "#{chr}abz"
+
+    assert_lex3('"#@a\u3024abz"',
+                s(:dstr, "", s(:evstr, s(:ivar, :@a)), s(:str, str)),
+                :tSTRING_BEG,     '"',      :expr_beg,
+                :tSTRING_DVAR,    nil,      :expr_beg,
+                :tSTRING_CONTENT, "@a"+str, :expr_beg,
+                :tSTRING_END,     '"',      :expr_end)
+  end
+
+  def test_yylex_string_utf8_complex_missing_hex
+    chr = [0x302].pack("U")
+    str = "#{chr}zzz"
+
+    refute_lex('"#@a\u302zzz"',
+                :tSTRING_BEG,     '"',
+                :tSTRING_DVAR,    nil,
+                :tSTRING_CONTENT, "@a"+str,
+                :tSTRING_END,     '"')
+
+    chr = [0x30].pack("U")
+    str = "#{chr}zzz"
+
+    refute_lex('"#@a\u30zzz"',
+                :tSTRING_BEG,     '"',
+                :tSTRING_DVAR,    nil,
+                :tSTRING_CONTENT, "@a"+str,
+                :tSTRING_END,     '"')
+
+    chr = [0x3].pack("U")
+    str = "#{chr}zzz"
+
+    refute_lex('"#@a\u3zzz"',
+                :tSTRING_BEG,     '"',
+                :tSTRING_DVAR,    nil,
+                :tSTRING_CONTENT, "@a"+str,
+                :tSTRING_END,     '"')
+  end
+
   def test_yylex_string_double_escape_M
     chr = "\341"
     chr.force_encoding("UTF-8") if RubyLexer::HAS_ENC

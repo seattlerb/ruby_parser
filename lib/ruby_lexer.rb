@@ -946,8 +946,10 @@ class RubyLexer
       c
     when scan(/^[89]/i) then # bad octal or hex... MRI ignores them :(
       matched
-    when scan(/u([0-9a-fA-F]{2,4}|\{[0-9a-fA-F]{2,6}\})/) then
+    when scan(/u([0-9a-fA-F]{4}|\{[0-9a-fA-F]{2,6}\})/) then
       [ss[1].delete("{}").to_i(16)].pack("U")
+    when scan(/u([0-9a-fA-F]{1,3})/) then
+      rb_compile_error "Invalid escape character syntax"
     when scan(/[McCx0-9]/) || end_of_stream? then
       rb_compile_error("Invalid escape character syntax")
     else
