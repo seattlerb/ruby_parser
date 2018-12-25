@@ -2296,6 +2296,12 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING, str, :expr_end)
   end
 
+  def test_yylex_string_utf8_missing_hex
+    refute_lex('"\u3zzz"')
+    refute_lex('"\u30zzz"')
+    refute_lex('"\u302zzz"')
+  end
+
   def test_yylex_string_utf8_complex
     chr = [0x3024].pack("U")
 
