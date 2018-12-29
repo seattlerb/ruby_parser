@@ -3210,6 +3210,14 @@ module TestRubyParserShared20Plus
     assert_parse rb, pt
   end
 
+  def test_block_kwsplat_lvar
+    rb = "a { |**b| b }"
+    pt = s(:iter, s(:call, nil, :a), s(:args, :"**b"),
+           s(:lvar, :b))
+
+    assert_parse rb, pt
+  end
+
   def test_symbols
     rb = "%i(a b c)"
     pt = s(:array, s(:lit, :a), s(:lit, :b), s(:lit, :c))
