@@ -163,8 +163,6 @@ module RubyParserStuff
           raise "unhandled: #{arg.sexp_type} in #{args.inspect}"
         end
       when Symbol then
-        name = arg.to_s.delete("&*")
-        self.env[name.to_sym] = :lvar unless name.empty?
         result << arg
       when ",", "|", ";", "(", ")", nil then
         # ignore

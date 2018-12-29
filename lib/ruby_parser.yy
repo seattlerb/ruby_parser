@@ -2362,13 +2362,12 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       # TODO: differs from parse.y - needs tests
                       name = val[1].to_sym
-                      self.assignable name
+                      self.env[name] = :lvar
                       result = :"*#{name}"
                     }
                 | restarg_mark
                     {
                       name = :"*"
-                      self.env[name] = :lvar
                       result = name
                     }
 
