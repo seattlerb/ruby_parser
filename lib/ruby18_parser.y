@@ -128,7 +128,7 @@ rule
                     }
                     tLCURLY compstmt tRCURLY
                     {
-                      result = new_iter s(:preexe), nil, val[3]
+                      result = new_iter s(:preexe), 0, val[3]
                     }
                 | klEND tLCURLY compstmt tRCURLY
                     {

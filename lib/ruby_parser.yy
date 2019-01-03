@@ -110,7 +110,7 @@ rule
                     }
                   tLCURLY top_compstmt tRCURLY
                     {
-                      result = new_iter s(:preexe), nil, val[3]
+                      result = new_iter s(:preexe), 0, val[3]
                     }
 
         bodystmt: compstmt opt_rescue opt_else opt_ensure

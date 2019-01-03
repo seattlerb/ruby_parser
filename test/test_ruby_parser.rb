@@ -1427,7 +1427,7 @@ module TestRubyParserShared
 
   def test_BEGIN
     rb = "BEGIN { 42 }"
-    pt = s(:iter, s(:preexe), s(:args), s(:lit, 42))
+    pt = s(:iter, s(:preexe), 0, s(:lit, 42))
 
     assert_parse rb, pt
   end
