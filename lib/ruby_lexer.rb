@@ -836,7 +836,14 @@ class RubyLexer
 
     if not [:expr_dot, :expr_fname].include? last_state and
         self.parser.env[token.to_sym] == :lvar then
-      state = :expr_end
+
+      if command_state
+        if ss.match?(/\s+\[/) # a = []; a [1]
+          state = :expr_end
+        end
+      else
+        state = :expr_end
+      end
     end
 
     token.lineno = self.lineno # yes, on a string. I know... I know...
