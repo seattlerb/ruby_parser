@@ -1365,13 +1365,15 @@ module RubyParserStuff
       nil
     end
 
-    def store
+    def store base = false
       result = @stack.dup
-      @stack.replace [false]
+      @stack.replace [base]
+      warn "#{name}_stack(store): #{base}" if debug
       result
     end
 
     def restore oldstate
+      warn "#{name}_stack(restore): #{oldstate}" if debug
       @stack.replace oldstate
     end
   end

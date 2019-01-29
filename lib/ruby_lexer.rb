@@ -121,8 +121,8 @@ class RubyLexer
     self.version = v
     @lex_state = :expr_none
 
-    self.cmdarg = RubyParserStuff::StackState.new(:cmdarg, $DEBUG)
     self.cond   = RubyParserStuff::StackState.new(:cond, $DEBUG)
+    self.cmdarg = RubyParserStuff::StackState.new(:cmdarg, $DEBUG)
 
     reset
   end
@@ -982,8 +982,8 @@ class RubyLexer
     self.token         = nil
     self.extra_lineno  = 0
 
-    self.cmdarg.reset
     self.cond.reset
+    self.cmdarg.reset
   end
 
   def result lex_state, token, text # :nodoc:

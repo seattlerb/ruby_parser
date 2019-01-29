@@ -6,6 +6,7 @@ Rakefile
 bin/ruby_parse
 bin/ruby_parse_extract_error
 compare/normalize.rb
+debugging.md
 lib/.document
 lib/rp_extensions.rb
 lib/rp_stringscanner.rb
@@ -34,3 +35,5 @@ lib/ruby_parser_extras.rb
 test/test_ruby_lexer.rb
 test/test_ruby_parser.rb
 test/test_ruby_parser_extras.rb
+tools/munge.rb
+tools/ripper.rb

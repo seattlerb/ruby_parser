@@ -226,9 +226,22 @@ task :debug => :isolate do
   end
 end
 
-task :debug_ruby do
-  file = ENV["F"] || ENV["FILE"]
-  sh "/Users/ryan/Desktop/DVDs/debugparser/miniruby -cwy #{file} 2>&1 | ./yuck.rb"
+task :debug3 do
+  file    = ENV["F"]
+  verbose = ENV["V"] ? "-v" : ""
+  munge    = "./tools/munge.rb #{verbose}"
+
+  abort "Need a file to parse, via: F=path.rb" unless file
+
+  ENV.delete "V"
+
+  sh "ruby -y #{file} 2>&1 | #{munge} > tmp/ruby"
+  sh "./tools/ripper.rb -d #{file} | #{munge} > tmp/rip"
+  sh "rake debug F=#{file} DEBUG=1 2>&1 | #{munge} > tmp/rp"
+end
+
+task :cmp3 do
+  sh %(emacsclient --eval '(ediff-files3 "tmp/ruby" "tmp/rip" "tmp/rp")')
 end
 
 task :extract => :isolate do

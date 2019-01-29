@@ -908,12 +908,11 @@ rule
                     }
 
     command_args:   {
-                      result = lexer.cmdarg.stack.dup # TODO: smell?
-                      lexer.cmdarg.push true
+                      result = lexer.cmdarg.store true
                     }
                       call_args
                     {
-                      lexer.cmdarg.stack.replace val[0]
+                      lexer.cmdarg.restore val[0]
                       result = val[1]
                     }
 
