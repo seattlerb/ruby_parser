@@ -119,7 +119,7 @@ def ruby_parse version
   c_parse_y = "compare/#{parse_y}"
   c_tarball = "compare/#{tarball}"
 
-  file tarball do
+  file c_tarball do
     in_compare do
       dl version
     end
@@ -182,13 +182,14 @@ def ruby_parse version
   end
 end
 
-ruby_parse "1.8.7-p374"
-ruby_parse "1.9.3-p551"
+# ruby_parse "1.8.7-p374"
+# ruby_parse "1.9.3-p551"
 ruby_parse "2.0.0-p648"
 ruby_parse "2.1.9"
-ruby_parse "2.2.6"
-ruby_parse "2.3.3"
-# TODO ruby_parse "2.4.0"
+ruby_parse "2.2.9"
+ruby_parse "2.3.8"
+ruby_parse "2.4.5"
+ruby_parse "2.5.3"
 
 task :debug => :isolate do
   ENV["V"] ||= V1_2.last
