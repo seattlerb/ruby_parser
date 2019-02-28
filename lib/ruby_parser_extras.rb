@@ -601,7 +601,7 @@ module RubyParserStuff
   end
 
   def new_defs val
-    recv, name, args, body = val[1], val[4], val[6], val[7]
+    recv, (name, _line), args, body = val[1], val[4], val[6], val[7]
     body ||= s(:nil)
 
     result = s(:defs, recv, name.to_sym, args)
@@ -1330,7 +1330,7 @@ module RubyParserStuff
 
     def reset
       @stack = [false]
-      warn "#{name}_stack(set): 0" if debug
+      log :reset if debug
     end
 
     def inspect
@@ -1338,43 +1338,47 @@ module RubyParserStuff
     end
 
     def is_in_state
+      log :is_in_state if debug
       @stack.last
     end
 
     def lexpop
-      warn "#{name}_stack.lexpop" if debug
       raise if @stack.size == 0
       a = @stack.pop
       b = @stack.pop
       @stack.push(a || b)
+      log :lexpop if debug
+    end
+
+    def log action
+      c = caller[1].first
+      c = caller[2] if c =~ /expr_result/
+      warn "%s_stack.%s: %p at %s" % [name, action, @stack, c.clean_caller]
+      nil
     end
 
     def pop
       r = @stack.pop
-      warn "#{name}_stack.pop" if debug
-      @stack.push false if @stack.size == 0
+      @stack.push false if @stack.empty?
+      log :pop if debug
       r
     end
 
     def push val
       @stack.push val
-      return unless debug
-      c = caller.first
-      c = caller[1] if c =~ /expr_result/
-      warn "#{name}_stack(push): #{val} at line #{c.clean_caller}"
-      nil
+      log :push if debug
     end
 
     def store base = false
       result = @stack.dup
       @stack.replace [base]
-      warn "#{name}_stack(store): #{base}" if debug
+      log :store if debug
       result
     end
 
     def restore oldstate
-      warn "#{name}_stack(restore): #{oldstate}" if debug
       @stack.replace oldstate
+      log :restore if debug
     end
   end
 end

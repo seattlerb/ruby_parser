@@ -331,7 +331,7 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("{a:",
                 nil,
                 :tLBRACE, "{", :expr_beg,
-                :tLABEL,  "a", :expr_labelarg)
+                :tLABEL,  "a", :expr_labeled)
   end
 
   def test_yylex_label_in_params__19
@@ -341,7 +341,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "foo", :expr_cmdarg,
                 :tLPAREN2,    "(",   :expr_beg,
-                :tLABEL,      "a",   :expr_labelarg)
+                :tLABEL,      "a",   :expr_labeled)
   end
 
   def test_yylex_paren_string_parens_interpolated
@@ -357,13 +357,13 @@ class TestRubyLexer < Minitest::Test
     assert_next_lexeme :tSTRING_DBEG,    nil,  :expr_beg, 0, 0
 
     emulate_string_interpolation do
-      assert_next_lexeme :tIDENTIFIER,   "b",  :expr_arg, 0, 0
+      assert_next_lexeme :tIDENTIFIER,   "b",  :expr_cmdarg, 0, 0
     end
 
     assert_next_lexeme :tSTRING_DBEG,    nil,  :expr_beg, 0, 0
 
     emulate_string_interpolation do
-      assert_next_lexeme :tIDENTIFIER,   "d",  :expr_arg, 0, 0
+      assert_next_lexeme :tIDENTIFIER,   "d",  :expr_cmdarg, 0, 0
     end
 
     assert_next_lexeme :tSTRING_CONTENT, ")",  :expr_beg, 0, 0
@@ -503,7 +503,7 @@ class TestRubyLexer < Minitest::Test
                 :tLAMBDA,     nil,   :expr_endfn,
                 :kDO,         "do",  :expr_beg,
                 :kEND,        "end", :expr_end,
-                :kDO_BLOCK,   "do",  :expr_beg,
+                :kDO,         "do",  :expr_beg,
                 :kEND,        "end", :expr_end)
   end
 
@@ -710,6 +710,39 @@ class TestRubyLexer < Minitest::Test
 
   def test_yylex_bang_tilde
     assert_lex3("!~", nil, :tNMATCH, "!~", :expr_beg)
+  end
+
+  def test_yylex_block_bug_1
+    assert_lex3("a do end",
+                s(:iter, s(:call, nil, :a), 0),
+
+                :tIDENTIFIER, "a",   :expr_cmdarg,
+                :kDO,         "do",  :expr_beg,
+                :kEND,        "end", :expr_end)
+  end
+
+  def test_yylex_block_bug_2
+    assert_lex3("a = 1\na do\nend",
+                s(:block,
+                  s(:lasgn, :a, s(:lit, 1)),
+                  s(:iter, s(:call, nil, :a), 0)),
+
+                :tIDENTIFIER, "a",   :expr_cmdarg,
+                :tEQL,        "=",   :expr_beg,
+                :tINTEGER,    1,     :expr_end,
+                :tNL,         nil,   :expr_beg,
+                :tIDENTIFIER, "a",   :expr_cmdarg,
+                :kDO,         "do",  :expr_beg,
+                :kEND,        "end", :expr_end)
+  end
+
+  def test_yylex_block_bug_3
+    assert_lex3("a { }",
+                s(:iter, s(:call, nil, :a), 0),
+
+                :tIDENTIFIER, "a", :expr_cmdarg, # verified
+                :tLCURLY,     "{", :expr_beg, # TODO: expr_beg|expr_label
+                :tRCURLY,     "}", :expr_endarg)
   end
 
   def test_yylex_carat
@@ -2791,7 +2824,7 @@ class TestRubyLexer < Minitest::Test
                s(:hash, s(:lit, :a), s(:lit, 1)),
 
                :tLBRACE, "{", :expr_beg,      0, 1,
-               :tLABEL,  "a", :expr_labelarg, 0, 1,
+               :tLABEL,  "a", :expr_labeled, 0, 1,
                :tINTEGER, 1,  :expr_end,      0, 1,
                :tRCURLY, "}", :expr_endarg,   0, 0)
   end
@@ -2803,7 +2836,7 @@ class TestRubyLexer < Minitest::Test
                s(:hash, s(:lit, :a), s(:lit, 1)),
 
                :tLBRACE, "{", :expr_beg,      0, 1,
-               :tLABEL,  "a", :expr_labelarg, 0, 1,
+               :tLABEL,  "a", :expr_labeled, 0, 1,
                :tINTEGER, 1,  :expr_end,      0, 1,
                :tRCURLY, "}", :expr_endarg,   0, 0)
   end
@@ -2815,7 +2848,7 @@ class TestRubyLexer < Minitest::Test
                s(:hash, s(:lit, :abc), s(:lit, :b)),
 
                :tLBRACE, "{", :expr_beg,      0, 1,
-               :tLABEL,  "abc", :expr_labelarg, 0, 1,
+               :tLABEL,  "abc", :expr_labeled, 0, 1,
                :tSYMBOL, "b",  :expr_end,     0, 1,
                :tRCURLY, "}", :expr_endarg,   0, 0)
   end
@@ -2827,7 +2860,7 @@ class TestRubyLexer < Minitest::Test
                s(:hash, s(:lit, :abc), s(:lit, :b)),
 
                :tLBRACE, "{", :expr_beg,      0, 1,
-               :tLABEL,  "abc", :expr_labelarg, 0, 1,
+               :tLABEL,  "abc", :expr_labeled, 0, 1,
                :tSYMBOL, "b",  :expr_end,     0, 1,
                :tRCURLY, "}", :expr_endarg,   0, 0)
   end
@@ -2839,9 +2872,9 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :kDEF, "def", :expr_fname,
                 :tIDENTIFIER, "foo", :expr_endfn,
-                :tLABEL, "a",   :expr_labelarg,
+                :tLABEL, "a",   :expr_labeled,
                 :tCOMMA, ",", :expr_beg,
-                :tLABEL, "b",   :expr_labelarg,
+                :tLABEL, "b",   :expr_labeled,
                 :tNL, nil, :expr_beg,
                 :kEND, "end", :expr_end)
   end
@@ -2853,7 +2886,7 @@ class TestRubyLexer < Minitest::Test
                nil,
 
                :tLBRACE, "{", :expr_beg,
-               :tLABEL,  "s\tr\i\ng\\foo'bar", :expr_labelarg,
+               :tLABEL,  "s\tr\i\ng\\foo'bar", :expr_labeled,
                :tINTEGER, 1,  :expr_end,
                :tRCURLY, "}", :expr_endarg)
   end
@@ -2865,7 +2898,7 @@ class TestRubyLexer < Minitest::Test
                nil,
 
                :tLBRACE, "{", :expr_beg,
-               :tLABEL,  "s\\tr\\i\\ng\\foo'bar", :expr_labelarg,
+               :tLABEL,  "s\\tr\\i\\ng\\foo'bar", :expr_labeled,
                :tINTEGER, 1,  :expr_end,
                :tRCURLY, "}", :expr_endarg)
   end

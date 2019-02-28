@@ -34,6 +34,10 @@ class RubyLexer
   STR_SSYM   = STR_FUNC_SYMBOL
   STR_DSYM   = STR_FUNC_SYMBOL | STR_FUNC_EXPAND
 
+  EXPR_BEG_ANY =  [:expr_beg, :expr_mid,  :expr_class  ]
+  EXPR_ARG_ANY =  [:expr_arg, :expr_cmdarg,            ]
+  EXPR_END_ANY =  [:expr_end, :expr_endarg, :expr_endfn]
+
   ESCAPES = {
     "a"    => "\007",
     "b"    => "\010",
@@ -77,7 +81,7 @@ class RubyLexer
   attr_accessor :brace_nest
   attr_accessor :cmdarg
   attr_accessor :command_start
-  attr_accessor :command_state
+  attr_accessor :cmd_state # temporary--ivar to avoid passing everywhere
   attr_accessor :last_state
   attr_accessor :cond
   attr_accessor :extra_lineno
@@ -343,23 +347,30 @@ class RubyLexer
   end
 
   def is_arg?
-    in_lex_state? :expr_arg, :expr_cmdarg
+    in_lex_state?(*EXPR_ARG_ANY)
   end
 
   def is_beg?
-    in_lex_state? :expr_beg, :expr_value, :expr_mid, :expr_class, :expr_labelarg
+    # TODO: in_lex_state?(*EXPR_BEG_ANY) || lex_state == [:expr_arg, :expr_labeled]
+    in_lex_state?(*EXPR_BEG_ANY, :expr_value, :expr_labeled)
   end
 
   def is_end?
-    in_lex_state? :expr_end, :expr_endarg, :expr_endfn
+    in_lex_state?(*EXPR_END_ANY)
   end
+
+  def lvar_defined? id
+    # TODO: (dyna_in_block? && dvar_defined?(id)) || local_id?(id)
+    self.parser.env[id.to_sym] == :lvar
+  end
+
 
   def ruby22_label?
     ruby22plus? and is_label_possible?
   end
 
   def is_label_possible?
-    (in_lex_state?(:expr_beg, :expr_endfn) && !command_state) || is_arg?
+    (in_lex_state?(:expr_beg, :expr_endfn) && !cmd_state) || is_arg?
   end
 
   def is_label_suffix?
@@ -368,6 +379,10 @@ class RubyLexer
 
   def is_space_arg? c = "x"
     is_arg? and space_seen and c !~ /\s/
+  end
+
+  def lambda_beginning?
+    lpar_beg && lpar_beg == paren_nest
   end
 
   def matched
@@ -411,20 +426,18 @@ class RubyLexer
     nil # TODO
   end
 
-  def process_bracing text
+  def process_brace_close text
+    # matching compare/parse23.y:8561
     cond.lexpop
     cmdarg.lexpop
 
     case matched
     when "}" then
+      # TODO? self.paren_nest -= 1
       self.brace_nest -= 1
       self.lex_state   = :expr_endarg
 
-      # TODO
-      # if (c == '}') {
-      #     if (!brace_nest--) c = tSTRING_DEND;
-      # }
-
+      # TODO: return :tSTRING_DEND, matched if brace_nest > 0
       return :tRCURLY, matched
     when "]" then
       self.paren_nest -= 1
@@ -463,24 +476,30 @@ class RubyLexer
     end
   end
 
-  def process_curly_brace text
+  def process_brace_open text
+    # matching compare/parse23.y:8694
     self.brace_nest += 1
-    if lpar_beg && lpar_beg == paren_nest then
+
+    if lambda_beginning? then
       self.lpar_beg = nil
-      self.paren_nest -= 1
+      self.paren_nest -= 1 # close arg list when lambda opens body
 
       return expr_result(:tLAMBEG, "{")
     end
 
-    token = if is_arg? || in_lex_state?(:expr_end, :expr_endfn) then
-               :tLCURLY      #  block (primary)
-             elsif in_lex_state?(:expr_endarg) then
-               :tLBRACE_ARG  #  block (expr)
-             else
-               :tLBRACE      #  hash
-             end
+    token = case lex_state
+            when :expr_labeled then
+              :tLBRACE     # hash
+            when *EXPR_ARG_ANY, :expr_end, :expr_endfn then
+              :tLCURLY     # block (primary)
+            when :expr_endarg
+              :tLBRACE_ARG # block (expr)
+            else
+              :tLBRACE     # hash
+            end
 
-    self.command_start = true unless token == :tLBRACE
+    # TODO: self.lex_state |= :expr_label if token != :tLBRACE_ARG
+    self.command_start = true if token != :tLBRACE
 
     return expr_result(token, "{")
   end
@@ -519,12 +538,19 @@ class RubyLexer
   def process_lchevron text
     if (!in_lex_state?(:expr_dot, :expr_class) &&
         !is_end? &&
-        (!is_arg? || space_seen)) then
+        (!is_arg? || space_seen)) then # TODO: || in_state(:expr_labeled)
       tok = self.heredoc_identifier
       return tok if tok
     end
 
-    return result(:arg_state, :tLSHFT, "\<\<")
+    if in_arg_state? then
+      self.lex_state = :expr_arg
+    else
+      self.command_start = true if lex_state == :expr_class
+      self.lex_state = :expr_beg
+    end
+
+    return result(lex_state, :tLSHFT, "\<\<")
   end
 
   def process_newline_or_comment text
@@ -742,7 +768,9 @@ class RubyLexer
       token = :tLBRACK2
     end
 
-    return expr_result(token, "[")
+    # TODO: this is done by expr_result except "|EXPR_LABEL")
+    # SET_LEX_STATE(EXPR_BEG|EXPR_LABEL);
+    expr_result token, "["
   end
 
   def possibly_escape_string text, check
@@ -784,11 +812,14 @@ class RubyLexer
   def process_label text
     symbol = possibly_escape_string text, /^"/
 
-    result(:expr_labelarg, :tLABEL, [symbol, self.lineno])
+    result(:expr_labeled, :tLABEL, [symbol, self.lineno]) # TODO: expr_arg|expr_labeled
   end
 
   def process_token text
+    # matching: parse_ident in compare/parse23.y:7989
     # TODO: make this always return [token, lineno]
+    self.last_state = lex_state
+
     token = self.token = text
     token << matched if scan(/[\!\?](?!=)/)
 
@@ -809,9 +840,11 @@ class RubyLexer
 
     if !ruby18 and is_label_possible? and is_label_suffix? then
       scan(/:/)
-      return result(:expr_labelarg, :tLABEL, [token, self.lineno])
+      # TODO: :expr_arg|:expr_labeled
+      return result :expr_labeled, :tLABEL, [token, self.lineno]
     end
 
+    # TODO: mb == ENC_CODERANGE_7BIT && !in_lex_state?(:expr_dot)
     unless in_lex_state? :expr_dot then
       # See if it is a reserved word.
       keyword = if ruby18 then # REFACTOR need 18/19 lexer subclasses
@@ -823,11 +856,9 @@ class RubyLexer
       return process_token_keyword keyword if keyword
     end # unless in_lex_state? :expr_dot
 
-    # TODO:
-    # if (mb == ENC_CODERANGE_7BIT && lex_state != EXPR_DOT) {
-
+    # matching: compare/parse23.y:8079
     state = if is_beg? or is_arg? or in_lex_state? :expr_dot then
-              command_state ? :expr_cmdarg : :expr_arg
+              cmd_state ? :expr_cmdarg : :expr_arg
             elsif not ruby18 and in_lex_state? :expr_fname then
               :expr_endfn
             else
@@ -835,8 +866,9 @@ class RubyLexer
             end
 
     if not [:expr_dot, :expr_fname].include? last_state and
-        self.parser.env[token.to_sym] == :lvar then
-      state = :expr_end
+        (tok_id == :tIDENTIFIER) and # not :expr_fname, not attrasgn
+        lvar_defined?(token) then
+      state = :expr_end # TODO: EXPR_END|EXPR_LABEL
     end
 
     token.lineno = self.lineno # yes, on a string. I know... I know...
@@ -845,38 +877,38 @@ class RubyLexer
   end
 
   def process_token_keyword keyword
-    state = keyword.state
+    # matching MIDDLE of parse_ident in compare/parse23.y:8046
+    state = lex_state
+    self.lex_state = keyword.state
 
     value = [token, self.lineno]
 
-    self.command_start = true if state == :expr_beg and lex_state != :expr_fname
+    return result(lex_state, keyword.id0, value) if state == :expr_fname
+
+    self.command_start = true if lex_state == :expr_beg
 
     case
-    when lex_state == :expr_fname then
-      result(state, keyword.id0, keyword.name)
     when keyword.id0 == :kDO then
       case
-      when lpar_beg && lpar_beg == paren_nest then
-        self.lpar_beg = nil
+      when lambda_beginning? then
+        self.lpar_beg = nil # lambda_beginning? == FALSE in the body of "-> do ... end"
         self.paren_nest -= 1
-        expr_result(:kDO_LAMBDA, value)
+        result(lex_state, :kDO_LAMBDA, value)
       when cond.is_in_state then
-        result(state, :kDO_COND, value)
-      when cmdarg.is_in_state && lex_state != :expr_cmdarg then
-        result(state, :kDO_BLOCK, value)
-      when in_lex_state?(:expr_beg, :expr_endarg) then
-        result(state, :kDO_BLOCK, value)
-      when lex_state == :expr_end # eg: a -> do end do end
-        result(state, :kDO_BLOCK, value)
+        result(lex_state, :kDO_COND, value)
+      when cmdarg.is_in_state && state != :expr_cmdarg then
+        result(lex_state, :kDO_BLOCK, value)
+      when [:expr_beg, :expr_endarg].include?(state) then
+        result(lex_state, :kDO_BLOCK, value)
       else
-        result(state, :kDO, value)
+        result(lex_state, :kDO, value)
       end
-    when in_lex_state?(:expr_beg, :expr_value, :expr_labelarg) then
-      result(state, keyword.id0, value)
+    when [:expr_beg, :expr_labeled].include?(state) then
+      result(lex_state, keyword.id0, value)
     when keyword.id0 != keyword.id1 then
-      result(:expr_beg, keyword.id1, value)
+      result(:expr_beg, keyword.id1, value) # TODO: :expr_beg|:expr_label
     else
-      result(state, keyword.id1, value)
+      result(lex_state, keyword.id1, value)
     end
   end
 
@@ -1201,6 +1233,7 @@ class RubyLexer
   end
 
   def process_string # TODO: rewrite / remove
+    # matches top of parser_yylex in compare/parse23.y:8113
     token = if lex_strterm[0] == :heredoc then
               self.heredoc lex_strterm
             else
@@ -1209,6 +1242,7 @@ class RubyLexer
 
     token_type, c = token
 
+    # matches parser_string_term
     if ruby22plus? && token_type == :tSTRING_END && ["'", '"'].include?(c) then
       if (([:expr_beg, :expr_endfn].include?(lex_state) &&
            !cond.is_in_state) || is_arg?) &&
@@ -1220,7 +1254,8 @@ class RubyLexer
 
     if [:tSTRING_END, :tREGEXP_END, :tLABEL_END].include? token_type then
       self.lex_strterm = nil
-      self.lex_state   = (token_type == :tLABEL_END) ? :expr_labelarg : :expr_end
+      # TODO: :expr_beg|:expr_label
+      self.lex_state   = (token_type == :tLABEL_END) ? :expr_label : :expr_end
     end
 
     return token
@@ -1326,6 +1361,7 @@ class RubyLexer
         # TODO: !ISASCII
         return :tSTRING_DVAR, nil
       when scan(/#[{]/) then
+        self.command_start = true
         return :tSTRING_DBEG, nil
       when scan(/#/) then
         string_buffer << '#'

@@ -1461,18 +1461,22 @@ opt_block_args_tail: tCOMMA block_args_tail
 
  opt_block_param: none { result = 0 }
                 | block_param_def
+                    {
+                      self.lexer.command_start = true
+                    }
 
  block_param_def: tPIPE opt_bv_decl tPIPE
                     {
+                      # TODO: current_arg = 0
                       result = args val
                     }
                 | tOROP
                     {
-                      self.lexer.command_start = true
                       result = s(:args)
                     }
                 | tPIPE block_param opt_bv_decl tPIPE
                     {
+                      # TODO: current_arg = 0
                       result = args val
                     }
 
@@ -1505,13 +1509,20 @@ opt_block_args_tail: tCOMMA block_args_tail
                       lexer.paren_nest += 1
                       lexer.lpar_beg = lexer.paren_nest
                     }
-                    f_larglist lambda_body
+                    f_larglist
                     {
-                      lpar, args, body = val
+                      result = [lexer.cmdarg.store(false), self.lexer.lineno]
+                    }
+                    lambda_body
+                    {
+                      lpar, args, (cmdarg, lineno), body = val
                       lexer.lpar_beg = lpar
+
+                      lexer.cmdarg.restore cmdarg
 
                       call = new_call nil, :lambda
                       result = new_iter call, args, body
+                      result.line = lineno
                       self.env.unextend
                     }
 
@@ -1903,7 +1914,7 @@ regexp_contents: none
                       lexer.brace_nest  = 0
                       lexer.string_nest = 0
 
-                      lexer.lex_state   = :expr_value
+                      lexer.lex_state   = :expr_beg
                     }
                     compstmt tRCURLY
                     {
@@ -2048,19 +2059,20 @@ keyword_variable: kNIL      { result = s(:nil)   }
          backref: tNTH_REF  { result = s(:nth_ref,  val[0]) }
                 | tBACK_REF { result = s(:back_ref, val[0]) }
 
-      superclass: term
+      superclass: term # TODO: remove
                     {
                       result = nil
                     }
                 | tLT
                     {
                       lexer.lex_state = :expr_beg
+                      lexer.command_start = true
                     }
                     expr_value term
                     {
                       result = val[2]
                     }
-                | error term
+                | error term # TODO: remove
                     {
                       yyerrok
                       result = nil
@@ -2080,8 +2092,8 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       # TODO: parser->parser_in_kwarg = $<num>1;
                       result = val[0]
-                      self.lexer.lex_state = :expr_beg
-                      self.lexer.command_start = true
+                      lexer.lex_state = :expr_beg
+                      lexer.command_start = true
                     }
 
        args_tail: f_kwarg tCOMMA f_kwrest opt_f_block_arg

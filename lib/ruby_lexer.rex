@@ -27,9 +27,9 @@ start
 
   return process_string if lex_strterm
 
-  self.command_state = self.command_start
+  self.cmd_state = self.command_start
   self.command_start = false
-  self.space_seen    = false
+  self.space_seen    = false # TODO: rename token_seen?
   self.last_state    = lex_state
 
 rule
@@ -41,7 +41,7 @@ rule
 
                 /\n|\#/                 process_newline_or_comment
 
-                /[\]\)\}]/              process_bracing
+                /[\]\)\}]/              process_brace_close
 
 : /\!/
 | in_arg_state? /\!\@/                  { result :expr_arg, :tUBANG, "!@" }
@@ -50,7 +50,7 @@ rule
 : /\./
 |               /\.\.\.?/               { result :expr_beg, TOKENS[text], text }
 |               /\.\d/                  { rb_compile_error "no .<digit> floating literal anymore put 0 before dot" }
-|               /\./                    { result :expr_dot, :tDOT, "." }
+|               /\./                    { self.lex_state = :expr_beg; result :expr_dot, :tDOT, "." }
 
                 /\(/                    process_paren
 
@@ -101,7 +101,7 @@ was_label?        /\'#{SSTRING}\':?/o   process_label_or_string
 |               /\|\=/                  { result :expr_beg, :tOP_ASGN, "|" }
 |               /\|/                    { result :arg_state, :tPIPE,    "|" }
 
-                /\{/                    process_curly_brace
+                /\{/                    process_brace_open
 
 : /\*/
 |               /\*\*=/                 { result :expr_beg, :tOP_ASGN, "**" }
@@ -109,22 +109,23 @@ was_label?        /\'#{SSTRING}\':?/o   process_label_or_string
 |               /\*\=/                  { result(:expr_beg, :tOP_ASGN, "*") }
 |               /\*/                    { result(:arg_state, space_vs_beginning(:tSTAR, :tSTAR, :tSTAR2), "*") }
 
+# TODO: fix result+process_lchevron to set command_start = true
 : /</
 |               /\<\=\>/                { result :arg_state, :tCMP, "<=>"    }
 |               /\<\=/                  { result :arg_state, :tLEQ, "<="     }
-|               /\<\<\=/                { result :arg_state, :tOP_ASGN, "<<" }
+|               /\<\<\=/                { result :expr_beg,  :tOP_ASGN, "<<" }
 |               /\<\</                  process_lchevron
 |               /\</                    { result :arg_state, :tLT, "<"       }
 
 : />/
 |               /\>\=/                  { result :arg_state, :tGEQ, ">="     }
-|               /\>\>=/                 { result :arg_state, :tOP_ASGN, ">>" }
+|               /\>\>=/                 { result :expr_beg,  :tOP_ASGN, ">>" }
 |               /\>\>/                  { result :arg_state, :tRSHFT, ">>"   }
 |               /\>/                    { result :arg_state, :tGT, ">"       }
 
 : /\`/
 | expr_fname?   /\`/                   { result(:expr_end, :tBACK_REF2, "`") }
-| expr_dot?     /\`/                   { result((command_state ? :expr_cmdarg : :expr_arg), :tBACK_REF2, "`") }
+| expr_dot?     /\`/                   { result((cmd_state ? :expr_cmdarg : :expr_arg), :tBACK_REF2, "`") }
 |               /\`/                   { string STR_XQUOTE, '`'; result(nil, :tXSTRING_BEG, "`") }
 
                 /\?/                    process_questionmark

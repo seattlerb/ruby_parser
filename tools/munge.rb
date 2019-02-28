@@ -6,8 +6,6 @@ stack = []
 last_token = nil
 reduce_line = nil
 
-# reading_token = nil
-
 def munge s
   renames = [
              "'='",             "tEQL",
@@ -110,23 +108,29 @@ ARGF.each_line do |line|
     # do nothing
   when /^vtable_/ then
     # do nothing
-  when /^Reading a token:/ then
-    # puts "reading a token:" if reading_token != last_token
-    # reading_token = last_token if last_token
-    # puts "reading_token = #{reading_token}"
-  when /^Now at end of input./ then
-    # do nothing
+  when /^Reading a token: Next token is token (.*?) \(\)/ then
+    token = munge $1
+    next if last_token == token
+    puts "next token is %p (%p)" % [token, last_token]
+    last_token = token
+  when /^Reading a token: / then
+    next # skip
   when /^read\s+:(\w+)/ then # read    :tNL(tNL) nil
     token = munge $1
-    puts "next token is #{token.inspect}"
-  when /^read\s+false/ then # read    false($end) "$end"
-    puts "next token is EOF"
-  when /^.:scan=>\["([^"]+)"/ then
-    next # skip
+    next if last_token == token
+    puts "next token is %p (%p)" % [token, last_token]
+    last_token = token
   when /^Next token is token (\S+)/ then
     token = munge $1
-    puts "next token is #{token.inspect}" unless token == last_token
+    next if last_token == token
+    puts "next token is %p (%p)" % [token, last_token]
     last_token = token
+  when /^read\s+false/ then # read    false($end) "$end"
+    puts "next token is EOF"
+  when /^Now at end of input./ then
+    # do nothing
+  when /^.:scan=>\["([^"]+)"/ then
+    puts "scan = %p" % [$1]
   when /^Reducing stack by rule (\d+) \(line (\d+)\):/ then
     reduce_line = $2.to_i
   when /^   \$\d+ = (?:token|nterm) (.+) \(.*\)/ then
@@ -150,10 +154,14 @@ ARGF.each_line do |line|
     puts munge line.chomp
     puts
   when /^(\w+_stack)\.(\w+)/ then
-    puts "#{$1}(#{$2})"
+    # TODO: make pretty, but still informative w/ line numbers etc
+    puts line.gsub("true", "1").gsub("false", "0")
+    # puts "#{$1}(#{$2})"
   when /^(\w+_stack(\(\w+\))?: \S+)/ then
-    data = $v ? line.chomp : $1
-    puts data.sub("true", "1").sub("false", "0")
+    # _data = $v ? line.chomp : $1
+    # puts line
+    # TODO: make pretty, but still informative w/ line numbers etc
+    puts line.gsub("true", "1").gsub("false", "0")
   when /^lex_state: :?([\w|]+) -> :?([\w|]+)(?: (?:at|from) (.*))?/ then
     if $3 && $v then
       puts "lex_state: #{$1.upcase} -> #{$2.upcase} at #{$3}"
