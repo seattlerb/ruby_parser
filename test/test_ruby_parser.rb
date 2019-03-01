@@ -926,6 +926,10 @@ module TestRubyParserShared
     RubyParser::V18 === self.processor
   end
 
+  def ruby19
+    RubyParser::V19 === self.processor
+  end
+
   def test_bug_comma
     val = if ruby18 then
             s(:lit, 100)
@@ -1003,10 +1007,20 @@ module TestRubyParserShared
   end
 
   def test_bug_op_asgn_rescue
+    skip if ruby18 || ruby19
+
     rb = "a ||= b rescue nil"
     pt = s(:rescue,
            s(:op_asgn_or, s(:lvar, :a), s(:lasgn, :a, s(:call, nil, :b))),
            s(:resbody, s(:array), s(:nil)))
+
+    # TODO: HRM: this seems more correct IMO. Check against other versions
+    pt = s(:op_asgn_or,
+           s(:lvar, :a),
+           s(:lasgn, :a,
+             s(:rescue,
+               s(:call, nil, :b),
+               s(:resbody, s(:array), s(:nil)))))
 
     assert_parse rb, pt
   end
@@ -3790,7 +3804,10 @@ class TestRubyParserV25 < RubyParserTestCase
 
   def test_rescue_in_block
     rb = "blah do\nrescue\n  stuff\nend"
-    pt = s(:iter, s(:call, nil, :blah), 0, s(:rescue, s(:resbody, s(:array), s(:call, nil, :stuff))))
+    pt = s(:iter,
+           s(:call, nil, :blah),
+           0,
+           s(:rescue, s(:resbody, s(:array), s(:call, nil, :stuff))))
     assert_parse rb, pt
   end
 

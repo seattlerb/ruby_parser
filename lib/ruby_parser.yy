@@ -124,8 +124,8 @@ rule
                     }
 
            stmts: none
-                | stmt
-                | stmts terms stmt
+                | stmt_or_begin # TODO: newline_node ?
+                | stmts terms stmt_or_begin
                     {
                       result = self.block_append val[0], val[2]
                     }
@@ -133,6 +133,20 @@ rule
                     {
                       result = val[1]
                       debug20 2, val, result
+                    }
+
+   stmt_or_begin: stmt
+                | klBEGIN
+                    {
+                      if (self.in_def || self.in_single > 0) then
+                        debug20 1
+                        yyerror "BEGIN in method"
+                      end
+                      self.env.extend
+                    }
+                  tLCURLY top_compstmt tRCURLY
+                    {
+                      result = new_iter s(:preexe), 0, val[3]
                     }
 
             stmt: kALIAS fitem
@@ -178,7 +192,8 @@ rule
                     }
                 | stmt kRESCUE_MOD stmt
                     {
-                      result = s(:rescue, val[0], new_resbody(s(:array), val[2]))
+                      body, _, resbody = val
+                      result = new_rescue body, new_resbody(s(:array), resbody)
                     }
                 | klEND tLCURLY compstmt tRCURLY
                     {
@@ -192,44 +207,6 @@ rule
                 | mlhs tEQL command_call
                     {
                       result = new_masgn val[0], val[2], :wrap
-                    }
-                | var_lhs tOP_ASGN command_call
-                    {
-                      result = new_op_asgn val
-                    }
-                | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN command_call
-                    {
-                      result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
-                    }
-                | primary_value call_op tIDENTIFIER tOP_ASGN command_call
-                    {
-                      result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
-                      if val[1] == '&.'
-                        result.sexp_type = :safe_op_asgn
-                      end
-                      result.line = val[0].line
-                    }
-                | primary_value call_op tCONSTANT tOP_ASGN command_call
-                    {
-                      result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
-                      if val[1] == '&.'
-                        result.sexp_type = :safe_op_asgn
-                      end
-                      result.line = val[0].line
-                    }
-                | primary_value tCOLON2 tCONSTANT tOP_ASGN command_call
-                    {
-                      result = s(:op_asgn, val[0], val[4], val[2], val[3])
-                      debug20 4, val, result
-                    }
-                | primary_value tCOLON2 tIDENTIFIER tOP_ASGN command_call
-                    {
-                      result = s(:op_asgn, val[0], val[4], val[2], val[3])
-                      debug20 5, val, result
-                    }
-                | backref tOP_ASGN command_call
-                    {
-                      self.backref_assign_error val[0]
                     }
                 | lhs tEQL mrhs
                     {
@@ -249,14 +226,65 @@ rule
                     }
                 | expr
 
-    command_asgn: lhs tEQL command_call
+    command_asgn: lhs tEQL command_rhs
                     {
                       result = new_assign val[0], val[2]
                     }
-                | lhs tEQL command_asgn
+                # | lhs tEQL command_asgn
+                #     {
+                #       result = new_assign val[0], val[2]
+                #     }
+                | var_lhs tOP_ASGN command_rhs
                     {
-                      result = new_assign val[0], val[2]
+                      result = new_op_asgn val
                     }
+                | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN command_rhs
+                    {
+                      result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
+                    }
+                | primary_value call_op tIDENTIFIER tOP_ASGN command_rhs
+                    {
+                      result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
+                      if val[1] == '&.'
+                        result.sexp_type = :safe_op_asgn
+                      end
+                      result.line = val[0].line
+                    }
+                | primary_value call_op tCONSTANT tOP_ASGN command_rhs
+                    {
+                      result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
+                      if val[1] == '&.'
+                        result.sexp_type = :safe_op_asgn
+                      end
+                      result.line = val[0].line
+                    }
+                | primary_value tCOLON2 tCONSTANT tOP_ASGN command_rhs
+                    {
+                      result = s(:op_asgn, val[0], val[4], val[2], val[3])
+                      debug20 4, val, result
+                    }
+                | primary_value tCOLON2 tIDENTIFIER tOP_ASGN command_rhs
+                    {
+                      result = s(:op_asgn, val[0], val[4], val[2], val[3])
+                      debug20 5, val, result
+                    }
+                | backref tOP_ASGN command_rhs
+                    {
+                      self.backref_assign_error val[0]
+                    }
+
+     command_rhs: command_call # %prec tOP_ASGN
+                    {
+                      expr, = val
+                      result = value_expr expr
+                    }
+                | command_call kRESCUE_MOD stmt
+                    {
+                      expr, _, resbody = val
+                      expr = value_expr expr
+                      result = new_rescue(expr, new_resbody(s(:array), resbody))
+                    }
+                | command_asgn
 
             expr: command_call
                 | expr kAND expr
@@ -286,26 +314,24 @@ rule
                 | block_command
 
    block_command: block_call
-                | block_call dot_or_colon operation2 command_args
+                | block_call call_op2 operation2 command_args
                     {
                       result = new_call val[0], val[2].to_sym, val[3]
                     }
 
  cmd_brace_block: tLBRACE_ARG
                     {
-                      self.env.extend(:dynamic)
+                      # self.env.extend(:dynamic)
                       result = self.lexer.lineno
                     }
-                    opt_block_param
+                    brace_body tRCURLY
                     {
-                      result = nil # self.env.dynamic.keys
-                    }
-                    compstmt tRCURLY
-                    {
-                      result = new_iter nil, val[2], val[4]
-                      result.line = val[1]
+                      _, line, body, _ = val
 
-                      self.env.unextend
+                      result = body
+                      result.line = line
+
+                      # self.env.unextend
                     }
 
            fcall: operation
@@ -632,51 +658,46 @@ rule
                 | kWHEN     | kYIELD    | kIF           | kUNLESS | kWHILE
                 | kUNTIL
 
-             arg: lhs tEQL arg
+             arg: lhs tEQL arg_rhs
                     {
                       result = new_assign val[0], val[2]
                     }
-                | lhs tEQL arg kRESCUE_MOD arg
-                    {
-                      result = new_assign val[0], s(:rescue, val[2], new_resbody(s(:array), val[4]))
-                    }
-                | var_lhs tOP_ASGN arg
+                | var_lhs tOP_ASGN arg_rhs
                     {
                       result = new_op_asgn val
                     }
-                | var_lhs tOP_ASGN arg kRESCUE_MOD arg
-                    {
-                      result = new_op_asgn val
-                      result = s(:rescue, result, new_resbody(s(:array), val[4]))
-                    }
-                | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN arg
+                | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN arg_rhs
                     {
                       val[2].sexp_type = :arglist if val[2]
                       result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
                     }
-                | primary_value call_op tIDENTIFIER tOP_ASGN arg
+                | primary_value call_op tIDENTIFIER tOP_ASGN arg_rhs
                     {
                       result = new_op_asgn2 val
                     }
-                | primary_value call_op tCONSTANT tOP_ASGN arg
+                | primary_value call_op tCONSTANT tOP_ASGN arg_rhs
                     {
                       result = new_op_asgn2 val
                     }
-                | primary_value tCOLON2 tIDENTIFIER tOP_ASGN arg
+                | primary_value tCOLON2 tIDENTIFIER tOP_ASGN arg_rhs
                     {
                       result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
                     }
-                | primary_value tCOLON2 tCONSTANT tOP_ASGN arg
+                | primary_value tCOLON2 tCONSTANT tOP_ASGN arg_rhs
                     {
-                      yyerror "constant re-assignment"
+                      # TODO: assignment
+                      raise "not yet: %p" % [val]
                     }
-                | tCOLON3 tCONSTANT tOP_ASGN arg
+                | tCOLON3 tCONSTANT tOP_ASGN arg_rhs
                     {
-                      yyerror "constant re-assignment"
+                      # TODO: assignment
+                      raise "not yet: %p" % [val]
                     }
-                | backref tOP_ASGN arg
+                | backref tOP_ASGN arg_rhs
                     {
-                      self.backref_assign_error val[0]
+                      # TODO: lhs = var_field val[0]
+                      asgn = new_op_asgn val
+                      result = self.backref_assign_error asgn
                     }
                 | arg tDOT2 arg
                     {
@@ -853,6 +874,15 @@ rule
                       result = args [array_to_hash(val[0])]
                     }
 
+         arg_rhs: arg           # %prec tOP_ASGN
+                | arg kRESCUE_MOD arg
+                    {
+                      body, _, resbody = val
+                      body    = value_expr body
+                      resbody = remove_begin resbody
+                      result  = new_rescue(body, new_resbody(s(:array), resbody))
+                    }
+
       paren_args: tLPAREN2 opt_call_args rparen
                     {
                       result = val[1]
@@ -985,9 +1015,13 @@ rule
                 | kBEGIN
                     {
                       result = self.lexer.lineno
+                      # TODO:
+                      # $<val>1 = cmdarg_stack;
+                      # CMDARG_SET(0);
                     }
                     bodystmt kEND
                     {
+                      # TODO: CMDARG_SET($<val>1);
                       unless val[2] then
                         result = s(:nil)
                       else
@@ -998,22 +1032,25 @@ rule
                     }
                 | tLPAREN_ARG rparen
                     {
+                      # TODO: lex_state = :expr_endarg in between
                       debug20 13, val, result
                     }
                 | tLPAREN_ARG
                     {
-                      result = self.lexer.cmdarg.stack.dup
-                      lexer.cmdarg.stack.replace [false] # TODO add api for these
+                      result = lexer.cmdarg.store false
+                      # result = self.lexer.cmdarg.stack.dup
+                      # lexer.cmdarg.stack.replace [false] # TODO add api for these
                     }
-                    expr
+                    stmt
                     {
                       lexer.lex_state = :expr_endarg
                     }
                     rparen
                     {
+                      _, cmdarg, stmt, _, _, = val
                       warning "(...) interpreted as grouped expression"
-                      lexer.cmdarg.stack.replace val[1]
-                      result = val[2]
+                      lexer.cmdarg.restore cmdarg
+                      result = stmt
                     }
                 | tLPAREN compstmt tRPAREN
                     {
@@ -1545,23 +1582,10 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result = val[1]
                     }
 
-        do_block: kDO_BLOCK
+        do_block: kDO_BLOCK do_body kEND
                     {
-                      self.env.extend :dynamic
-                      result = self.lexer.lineno
-                    }
-                    opt_block_param
-                    {
-                      result = nil # self.env.dynamic.keys
-                    }
-                    compstmt kEND
-                    {
-                      args   = val[2]
-                      body   = val[4]
-                      result = new_iter nil, args, body
-                      result.line = val[1]
-
-                      self.env.unextend
+                      # TODO: maybe fix lineno to kDO's lineno?
+                      result = val[1]
                     }
 
       block_call: command do_block
@@ -1578,11 +1602,11 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result = val[1]
                       result.insert 1, val[0]
                     }
-                | block_call dot_or_colon operation2 opt_paren_args
+                | block_call call_op2 operation2 opt_paren_args
                     {
                       result = new_call val[0], val[2].to_sym, val[3]
                     }
-                | block_call dot_or_colon operation2 opt_paren_args brace_block
+                | block_call call_op2 operation2 opt_paren_args brace_block
                     {
                       iter1, _, name, args, iter2 = val
 
@@ -1591,7 +1615,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = iter2
                     }
-                | block_call dot_or_colon operation2 command_args do_block
+                | block_call call_op2 operation2 command_args do_block
                     {
                       iter1, _, name, args, iter2 = val
 
@@ -1648,15 +1672,11 @@ opt_block_args_tail: tCOMMA block_args_tail
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                    opt_block_param
+                    brace_body tRCURLY
                     {
-                      result = nil # self.env.dynamic.keys
-                    }
-                    compstmt tRCURLY
-                    {
-                      _, line, args, _, body, _ = val
+                      _, line, body, _ = val
 
-                      result = new_iter nil, args, body
+                      result = body
                       result.line = line
 
                       self.env.unextend
@@ -1666,22 +1686,42 @@ opt_block_args_tail: tCOMMA block_args_tail
                       self.env.extend :dynamic
                       result = self.lexer.lineno
                     }
-                    opt_block_param
+                    do_body kEND
                     {
-                      result = nil # self.env.dynamic.keys
-                    }
-#if V >= 25
-                    bodystmt kEND
-#else
-                    compstmt kEND
-#endif
-                    {
-                      _, line, args, _, body, _ = val
+                      _, line, body, _ = val
 
-                      result = new_iter nil, args, body
+                      result = body
                       result.line = line
 
                       self.env.unextend
+                    }
+
+      brace_body:   { self.env.extend :dynamic; result = self.lexer.lineno }
+                    { result = lexer.cmdarg.store(false) }
+                    opt_block_param compstmt
+                    {
+                      line, cmdarg, param, cmpstmt = val
+
+                      result = new_brace_body param, cmpstmt, line
+                      self.env.unextend
+                      lexer.cmdarg.restore cmdarg
+                      lexer.cmdarg.pop # because of: cmdarg_stack >> 1 ?
+                    }
+
+         do_body:   { self.env.extend :dynamic; result = self.lexer.lineno }
+                    { result = lexer.cmdarg.store(false) }
+                    opt_block_param
+#if V >= 25
+                    bodystmt
+#else
+                    compstmt
+#endif
+                    {
+                      line, cmdarg, param, cmpstmt = val
+
+                      result = new_do_body param, cmpstmt, line
+                      self.env.unextend
+                      lexer.cmdarg.restore cmdarg
                     }
 
        case_body: kWHEN
@@ -2059,11 +2099,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
          backref: tNTH_REF  { result = s(:nth_ref,  val[0]) }
                 | tBACK_REF { result = s(:back_ref, val[0]) }
 
-      superclass: term # TODO: remove
-                    {
-                      result = nil
-                    }
-                | tLT
+      superclass: tLT
                     {
                       lexer.lex_state = :expr_beg
                       lexer.command_start = true
@@ -2072,11 +2108,9 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result = val[2]
                     }
-                | error term # TODO: remove
+                | none
                     {
-                      yyerrok
                       result = nil
-                      debug20 30, val, result
                     }
 
        f_arglist: tLPAREN2 f_args rparen
@@ -2463,8 +2497,12 @@ keyword_variable: kNIL      { result = s(:nil)   }
     dot_or_colon: tDOT | tCOLON2
          call_op: tDOT
 #if V >= 23
-                | tLONELY
+                | tLONELY # TODO: rename tANDDOT?
 #endif
+
+        call_op2: call_op
+                | tCOLON2
+
        opt_terms:  | terms
           opt_nl:  | tNL
           rparen: opt_nl tRPAREN
