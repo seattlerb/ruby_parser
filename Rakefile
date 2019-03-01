@@ -174,11 +174,11 @@ def ruby_parse version
   end
 
   task :clean do
-    rm_f Dir[c_parse_y, c_mri_txt, c_rp_txt]
+    rm_f Dir[c_mri_txt, c_rp_txt]
   end
 
   task :realclean do
-    rm_f Dir[tarball]
+    rm_f Dir[c_parse_y, tarball]
   end
 end
 
