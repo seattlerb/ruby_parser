@@ -2430,6 +2430,13 @@ module TestRubyParserShared19Plus
     assert_parse_error rb, '(string):1 :: parse error on value "=" (tEQL)'
   end
 
+  def test_parse_def_special_name
+    rb = 'def next; end'
+    pt = s(:defn, :next, s(:args), s(:nil))
+
+    assert_parse rb, pt
+  end
+
   def test_parse_until_not_canonical
     rb = "until not var.nil?\n  'foo'\nend"
     pt = s(:until,
