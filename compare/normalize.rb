@@ -1,4 +1,4 @@
-#!/usr/bin/ruby -w
+#!/usr/bin/env ruby -w
 
 good = false
 
@@ -53,6 +53,7 @@ def munge s
 
              '"&"',              "tAMPER",
              '"&&"',             "tANDOP",
+             '"&."',             "tLONELY",
              '"||"',             "tOROP",
 
              '"..."',            "tDOT3",

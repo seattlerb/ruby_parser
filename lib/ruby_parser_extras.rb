@@ -1351,7 +1351,7 @@ module RubyParserStuff
     end
 
     def log action
-      c = caller[1].first
+      c = caller[1]
       c = caller[2] if c =~ /expr_result/
       warn "%s_stack.%s: %p at %s" % [name, action, @stack, c.clean_caller]
       nil
