@@ -141,7 +141,7 @@ class TestRubyLexer < Minitest::Test
     yield
 
     lexer.lex_state = :expr_endarg
-    assert_next_lexeme :tRCURLY,     "}",  :expr_endarg, 0
+    assert_next_lexeme :tSTRING_DEND, "}",  :expr_endarg, 0
 
     lexer.lex_strterm = lex_strterm
     lexer.lex_state   = :expr_beg
@@ -1981,7 +1981,9 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_rcurly
-    assert_lex3("}", nil, :tRCURLY, "}", :expr_endarg)
+    assert_lex("}", nil, :tRCURLY, "}", :expr_endarg, 0, 1) do
+      lexer.brace_nest += 2
+    end
   end
 
   def test_yylex_regexp
