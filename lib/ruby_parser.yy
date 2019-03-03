@@ -273,7 +273,7 @@ rule
                       self.backref_assign_error val[0]
                     }
 
-     command_rhs: command_call # %prec tOP_ASGN
+     command_rhs: command_call                =tOP_ASGN
                     {
                       expr, = val
                       result = value_expr expr
@@ -874,7 +874,7 @@ rule
                       result = args [array_to_hash(val[0])]
                     }
 
-         arg_rhs: arg           # %prec tOP_ASGN
+         arg_rhs: arg                   =tOP_ASGN
                 | arg kRESCUE_MOD arg
                     {
                       body, _, resbody = val
