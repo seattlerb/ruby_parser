@@ -559,6 +559,7 @@ class RubyLexer
     if c == '#' then
       ss.pos -= 1
 
+      # TODO: handle magic comments
       while scan(/\s*\#.*(\n+|\z)/) do
         hit = true
         self.lineno += matched.lines.to_a.size
@@ -573,8 +574,21 @@ class RubyLexer
     # Replace a string of newlines with a single one
     self.lineno += matched.lines.to_a.size if scan(/\n+/)
 
-    return if in_lex_state?(:expr_beg, :expr_value, :expr_class,
-                            :expr_fname, :expr_dot)
+    # TODO: remove :expr_value -- audit all uses of it
+    c = in_lex_state?(:expr_beg, :expr_value, :expr_class,
+                      :expr_fname, :expr_dot) && !in_lex_state?(:expr_labeled)
+
+    # TODO: figure out what token_seen is for
+    # TODO: if c || self.lex_state == [:expr_beg, :expr_labeled] then
+    if c || self.lex_state == :expr_labeled then
+      # ignore if !fallthrough?
+      if !c && parser.in_kwarg then
+        # normal newline
+        return result(:expr_beg, :tNL, nil)
+      else
+        return # skip
+      end
+    end
 
     if scan(/([\ \t\r\f\v]*)(\.|&)/) then
       self.space_seen = true unless ss[1].empty?
