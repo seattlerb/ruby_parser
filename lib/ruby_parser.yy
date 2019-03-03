@@ -781,22 +781,7 @@ rule
                     {
                       result = new_call val[0], :"<=>", argl(val[2])
                     }
-                | arg tGT arg
-                    {
-                      result = new_call val[0], :">", argl(val[2])
-                    }
-                | arg tGEQ arg
-                    {
-                      result = new_call val[0], :">=", argl(val[2])
-                    }
-                | arg tLT arg
-                    {
-                      result = new_call val[0], :"<", argl(val[2])
-                    }
-                | arg tLEQ arg
-                    {
-                      result = new_call val[0], :"<=", argl(val[2])
-                    }
+                | rel_expr                      =tCMP
                 | arg tEQ arg
                     {
                       result = new_call val[0], :"==", argl(val[2])
@@ -854,6 +839,23 @@ rule
                       result = s(:if, val[0], val[2], val[5])
                     }
                 | primary
+
+           relop: tGT
+                | tLT
+                | tGEQ
+                | tLEQ
+
+        rel_expr: arg      relop arg                    =tGT
+                    {
+                      lhs, op, rhs = val
+                      result = new_call lhs, op.to_sym, argl(rhs)
+                    }
+                | rel_expr relop arg                    =tGT
+                    {
+                      lhs, op, rhs = val
+                      warn "comparison '%s' after comparison", op
+                      result = new_call lhs, op.to_sym, argl(rhs)
+                    }
 
        arg_value: arg
                     {

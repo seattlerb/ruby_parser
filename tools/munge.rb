@@ -108,6 +108,8 @@ ARGF.each_line do |line|
     # do nothing
   when /^vtable_/ then
     # do nothing
+  when /Gem::MissingSpecError/ then
+    # do nothing -- ruby 2.5 is being bitchy?
   when /^Reading a token: Next token is token (.*?) \(\)/ then
     token = munge $1
     next if last_token == token
