@@ -153,8 +153,10 @@ module RubyParserStuff
         when :block_arg then
           result << :"&#{arg.last}"
         when :shadow then
+          name = arg.last
+          self.env[name] = :lvar
           if Sexp === result.last and result.last.sexp_type == :shadow then
-            result.last << arg.last
+            result.last << name
           else
             result << arg
           end
