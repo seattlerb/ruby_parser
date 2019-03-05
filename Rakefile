@@ -134,9 +134,9 @@ def ruby_parse version
       system "tar yxf #{tarball} #{ruby_dir}/{id.h,parse.y,tool/{id2token.rb,vpath.rb}}"
       Dir.chdir ruby_dir do
         if File.exist? "tool/id2token.rb" then
-          sh "ruby tool/id2token.rb --path-separator=.:./ id.h parse.y > ../#{parse_y}"
+          sh "ruby tool/id2token.rb --path-separator=.:./ id.h parse.y | expand > ../#{parse_y}"
         else
-          cp "parse.y", "../#{parse_y}"
+          sh "expand parse.y > ../#{parse_y}"
         end
       end
       sh "rm -rf #{ruby_dir}"
