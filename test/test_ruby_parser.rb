@@ -1562,6 +1562,13 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_alias_resword
+    rb = "alias in out"
+    pt = s(:alias, s(:lit, :in), s(:lit, :out))
+
+    assert_parse rb, pt
+  end
+
   def test_alias_gvar_backref
     rb = "alias $MATCH $&"
     pt = s(:valias, :$MATCH, :$&)
