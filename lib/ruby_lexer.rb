@@ -434,7 +434,7 @@ class RubyLexer
     case matched
     when "}" then
       self.brace_nest -= 1
-      self.lex_state   = :expr_endarg
+      self.lex_state   = :expr_endarg # TODO: :expr_end ? Look at 2.6
 
       return :tSTRING_DEND, matched if brace_nest < 0 unless ruby18 || ruby19
       return :tRCURLY, matched
