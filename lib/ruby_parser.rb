@@ -34,7 +34,7 @@ class RubyParser
       begin
         return parser.process s, f, t
       rescue Racc::ParseError, RubyParser::SyntaxError => exc
-        e = exc
+        e ||= exc
       end
     end
     raise e
