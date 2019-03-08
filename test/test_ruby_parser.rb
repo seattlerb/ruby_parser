@@ -3590,8 +3590,20 @@ class TestRubyParser < Minitest::Test
       end
     end
 
-    msg = "(string):1 :: parse error on value \"(\" (tLPAREN2)"
-    assert_equal msg, e.message.strip
+    assert_includes e.message, 'parse error on value "$end"'
+  end
+
+  def test_parse_error_from_first
+    processor = RubyParser.new
+
+    e = assert_raises Racc::ParseError do
+      capture_io do
+        processor.parse "a -> () {"
+      end
+    end
+
+    # This is a 2.x error, will fail on 1.8/1.9.
+    assert_includes e.message, 'parse error on value "$end"'
   end
 end
 
