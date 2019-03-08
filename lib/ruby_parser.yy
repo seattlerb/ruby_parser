@@ -389,7 +389,7 @@ rule
                     {
                       result = new_yield val[1]
                     }
-                | kRETURN call_args
+                | k_return call_args
                     {
                       line = val[0].last
                       result = s(:return, ret_args(val[1])).line(line)
@@ -1012,14 +1012,14 @@ rule
                     {
                       result = new_call nil, val[0].to_sym
                     }
-                | kBEGIN
+                | k_begin
                     {
                       result = self.lexer.lineno
                       # TODO:
                       # $<val>1 = cmdarg_stack;
                       # CMDARG_SET(0);
                     }
-                    bodystmt kEND
+                    bodystmt k_end
                     {
                       # TODO: CMDARG_SET($<val>1);
                       unless val[2] then
@@ -1078,7 +1078,7 @@ rule
                     {
                       result = new_hash val
                     }
-                | kRETURN
+                | k_return
                     {
                       result = s(:return)
                     }
@@ -1126,15 +1126,15 @@ rule
                     {
                       result = val[1] # TODO: fix lineno
                     }
-                | kIF expr_value then compstmt if_tail kEND
+                | k_if expr_value then compstmt if_tail k_end
                     {
                       result = new_if val[1], val[3], val[4]
                     }
-                | kUNLESS expr_value then compstmt opt_else kEND
+                | k_unless expr_value then compstmt opt_else k_end
                     {
                       result = new_if val[1], val[4], val[3]
                     }
-                | kWHILE
+                | k_while
                     {
                       lexer.cond.push true
                     }
@@ -1142,11 +1142,11 @@ rule
                     {
                       lexer.cond.pop
                     }
-                    compstmt kEND
+                    compstmt k_end
                     {
                       result = new_while val[5], val[2], true
                     }
-                | kUNTIL
+                | k_until
                     {
                       lexer.cond.push true
                     }
@@ -1154,21 +1154,21 @@ rule
                     {
                       lexer.cond.pop
                     }
-                    compstmt kEND
+                    compstmt k_end
                     {
                       result = new_until val[5], val[2], true
                     }
-                | kCASE expr_value opt_terms case_body kEND
+                | k_case expr_value opt_terms case_body k_end
                     {
                       (_, line), expr, _, body, _ = val
                       result = new_case expr, body, line
                     }
-                | kCASE            opt_terms case_body kEND
+                | k_case            opt_terms case_body k_end
                     {
                       (_, line), _, body, _ = val
                       result = new_case nil, body, line
                     }
-                | kFOR for_var kIN
+                | k_for for_var kIN
                     {
                       lexer.cond.push true
                     }
@@ -1176,11 +1176,11 @@ rule
                     {
                       lexer.cond.pop
                     }
-                    compstmt kEND
+                    compstmt k_end
                     {
                       result = new_for val[4], val[1], val[7]
                     }
-                | kCLASS
+                | k_class
                     {
                       result = self.lexer.lineno
                     }
@@ -1192,13 +1192,13 @@ rule
                       end
                       self.env.extend
                     }
-                    bodystmt kEND
+                    bodystmt k_end
                     {
                       result = new_class val
                       self.env.unextend
                       self.lexer.comments # we don't care about comments in the body
                     }
-                | kCLASS tLSHFT
+                | k_class tLSHFT
                     {
                       result = self.lexer.lineno
                     }
@@ -1213,13 +1213,13 @@ rule
                       self.in_single = 0
                       self.env.extend
                     }
-                    bodystmt kEND
+                    bodystmt k_end
                     {
                       result = new_sclass val
                       self.env.unextend
                       self.lexer.comments # we don't care about comments in the body
                     }
-                | kMODULE
+                | k_module
                     {
                       result = self.lexer.lineno
                     }
@@ -1231,13 +1231,13 @@ rule
 
                       self.env.extend
                     }
-                    bodystmt kEND
+                    bodystmt k_end
                     {
                       result = new_module val
                       self.env.unextend
                       self.lexer.comments # we don't care about comments in the body
                     }
-                | kDEF fname
+                | k_def fname
                     {
                       result = [self.in_def, self.lexer.cmdarg.stack.dup]
 
@@ -1248,7 +1248,7 @@ rule
                       # TODO: port local_push_gen and local_pop_gen
                       lexer.cmdarg.stack.replace [false]
                     }
-                    f_arglist bodystmt kEND
+                    f_arglist bodystmt k_end
                     {
                       in_def, cmdarg = val[2]
 
@@ -1259,7 +1259,7 @@ rule
                       self.in_def = in_def
                       self.lexer.comments # we don't care about comments in the body
                     }
-                | kDEF singleton dot_or_colon
+                | k_def singleton dot_or_colon
                     {
                       self.comments.push self.lexer.comments
                       lexer.lex_state = :expr_fname
@@ -1272,7 +1272,7 @@ rule
                       result = [lexer.lineno, self.lexer.cmdarg.stack.dup]
                       lexer.cmdarg.stack.replace [false]
                     }
-                    f_arglist bodystmt kEND
+                    f_arglist bodystmt k_end
                     {
                       line, cmdarg = val[5]
                       result = new_defs val
@@ -1318,6 +1318,7 @@ rule
         k_module: kMODULE
            k_def: kDEF
            k_end: kEND
+        k_return: kRETURN
 
             then: term
                 | kTHEN
