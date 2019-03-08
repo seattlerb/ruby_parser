@@ -2391,7 +2391,9 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
         f_kwrest: kwrest_mark tIDENTIFIER
                     {
-                      result = :"**#{val[1]}"
+                      name = val[1].to_sym
+                      self.assignable name
+                      result = :"**#{name}"
                     }
                 | kwrest_mark
                     {
