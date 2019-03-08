@@ -2114,15 +2114,19 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       result = val[1]
                       self.lexer.lex_state = :expr_beg
                       self.lexer.command_start = true
-                      # TODO:
-                      # $<num>$ = parser->parser_in_kwarg;
-                      # parser->parser_in_kwarg = 1;
                     }
-                | f_args term
+                |   {
+                      result = self.in_kwarg
+                      self.in_kwarg = true
+                      # TODO: self.lexer.lex_state |= :expr_label
+                    }
+                    f_args term
                     {
-                      # TODO: parser->parser_in_kwarg = $<num>1;
-                      result = val[0]
-                      lexer.lex_state = :expr_beg
+                      kwarg, args, _ = val
+
+                      self.in_kwarg = kwarg
+                      result = args
+                      lexer.lex_state     = :expr_beg
                       lexer.command_start = true
                     }
 
@@ -2465,9 +2469,10 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       result = s(:array, val[0], val[2])
                     }
-                | tLABEL opt_nl arg_value
+                | tLABEL arg_value
                     {
-                      result = s(:array, s(:lit, val[0][0].to_sym), val.last)
+                      (label, _), arg = val
+                      result = s(:array, s(:lit, label.to_sym), arg)
                     }
 #if V >= 22
                 | tSTRING_BEG string_contents tLABEL_END arg_value
@@ -2475,11 +2480,6 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       _, sym, _, value = val
                       sym.sexp_type = :dsym
                       result = s(:array, sym, value)
-                    }
-                | tSYMBOL arg_value
-                    {
-                      raise "not yet: #{val.inspect}"
-                      # result = s(:array, s(:lit, val[1].to_sym), val[1])
                     }
 #endif
                 | tDSTAR arg_value

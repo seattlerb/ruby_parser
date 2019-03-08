@@ -2877,7 +2877,6 @@ class TestRubyLexer < Minitest::Test
                 :tLABEL, "a",   :expr_labeled,
                 :tCOMMA, ",", :expr_beg,
                 :tLABEL, "b",   :expr_labeled,
-                :tNL, nil, :expr_beg,
                 :kEND, "end", :expr_end)
   end
 
