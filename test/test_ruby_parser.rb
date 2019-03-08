@@ -3503,6 +3503,15 @@ module TestRubyParserShared25Plus
 end
 
 module TestRubyParserShared26Plus
+  def test_symbol_list
+    rb = '%I[#{a} #{b}]'
+    pt = s(:array,
+           s(:dsym, "", s(:evstr, s(:call, nil, :a))),
+           s(:dsym, "", s(:evstr, s(:call, nil, :b))))
+
+    assert_parse rb, pt
+  end
+
   def test_dot2_nil__26
     rb = "a.."
     pt = s(:dot2, s(:call, nil, :a), nil)

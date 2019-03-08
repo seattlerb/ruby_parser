@@ -889,7 +889,6 @@ module RubyParserStuff
     when :str then
       sym = s(:lit, sym.last.to_sym)
     else
-      debug20 24
       sym = s(:dsym, "", sym || s(:str, ""))
     end
     self.lexer.fixup_lineno
