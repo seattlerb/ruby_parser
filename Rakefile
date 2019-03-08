@@ -112,12 +112,15 @@ def ruby_parse version
   ruby_dir  = "ruby-#{version}"
   diff      = "diff#{v}.diff"
   rp_out    = "lib/ruby#{v}_parser.output"
+  rp_y      = "lib/ruby#{v}_parser.y"
+  rp_y_rb   = "lib/ruby#{v}_parser.rb"
 
   c_diff    = "compare/#{diff}"
   c_rp_txt  = "compare/#{rp_txt}"
   c_mri_txt = "compare/#{mri_txt}"
   c_parse_y = "compare/#{parse_y}"
   c_tarball = "compare/#{tarball}"
+  normalize = "compare/normalize.rb"
 
   file c_tarball do
     in_compare do
@@ -139,7 +142,7 @@ def ruby_parse version
     end
   end
 
-  file c_mri_txt => c_parse_y do
+  file c_mri_txt => [c_parse_y, normalize] do
     in_compare do
       sh "bison -r all #{parse_y}"
       sh "./normalize.rb parse#{v}.output > #{mri_txt}"
@@ -147,9 +150,9 @@ def ruby_parse version
     end
   end
 
-  file rp_out => :parser
+  file rp_out => rp_y_rb
 
-  file c_rp_txt => rp_out do
+  file c_rp_txt => [rp_out, normalize] do
     in_compare do
       sh "./normalize.rb ../#{rp_out} > #{rp_txt}"
     end
@@ -160,9 +163,9 @@ def ruby_parse version
   desc "Compare all grammars to MRI"
   task :compare => compare
 
-  task c_diff => [c_mri_txt, c_rp_txt] do
+  file c_diff => [c_mri_txt, c_rp_txt] do
     in_compare do
-      system "diff -du #{mri_txt} #{rp_txt} > #{diff}"
+      sh "diff -du #{mri_txt} #{rp_txt} > #{diff}; true"
     end
   end
 

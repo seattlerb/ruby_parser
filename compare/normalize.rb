@@ -82,12 +82,34 @@ def munge s
 
              "/* empty */",     "none",
              /^\s*$/,           "none",
+
              "keyword_BEGIN",   "klBEGIN",
              "keyword_END",     "klEND",
-             /keyword_(\w+)/,   proc { "k#{$1.upcase}" },
-             /\bk_([a-z_]+)/,   proc { "k#{$1.upcase}" },
-             /modifier_(\w+)/,  proc { "k#{$1.upcase}_MOD" },
-             "kVARIABLE",       "keyword_variable", # ugh
+
+             # 2.6 collapses klBEGIN to kBEGIN
+             "klBEGIN",   "kBEGIN",
+             "klEND",     "kEND",
+
+             /keyword_(\w+)/,          proc { "k#{$1.upcase}" },
+             /\bk_([^_][a-z_]+)/,      proc { "k#{$1.upcase}" },
+             /modifier_(\w+)/,         proc { "k#{$1.upcase}_MOD" },
+
+             "kVARIABLE",       "keyword_variable", # ugh: this is a rule name
+
+             # UGH
+             "k_LINE__",       "k__LINE__",
+             "k_FILE__",       "k__FILE__",
+             "k_ENCODING__",   "k__ENCODING__",
+
+             '"defined?"',     "kDEFINED",
+
+
+             '"do (for condition)"', "kDO_COND",
+             '"do (for lambda)"',    "kDO_LAMBDA",
+             '"do (for block)"',     "kDO_BLOCK",
+
+             /\"(\w+) \(modifier\)\"/, proc { |x| "k#{$1.upcase}_MOD" },
+             /\"(\w+)\"/,              proc { |x| "k#{$1.upcase}" },
 
              /@(\d+)\s+/,       "",
             ]
