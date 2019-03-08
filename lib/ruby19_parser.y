@@ -533,8 +533,9 @@ rule
 
                 | reswords
                     {
+                      (sym, _line), = val
                       lexer.lex_state = :expr_end
-                      result = val[0]
+                      result = sym
                     }
 
             fsym: fname | symbol
