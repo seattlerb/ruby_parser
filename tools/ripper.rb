@@ -4,6 +4,7 @@ $d ||= false
 $p ||= false
 
 require "ripper/sexp"
+require "pp" if $p
 
 ARGV.each do |path|
   src = File.read path
