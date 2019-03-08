@@ -85,6 +85,10 @@ def munge s
 
              "keyword_BEGIN",   "klBEGIN",
              "keyword_END",     "klEND",
+             /keyword_(\w+)/,   proc { "k#{$1.upcase}" },
+             /\bk_([a-z_]+)/,   proc { "k#{$1.upcase}" },
+             /modifier_(\w+)/,  proc { "k#{$1.upcase}_MOD" },
+             "kVARIABLE",       "keyword_variable", # ugh
 
              # 2.6 collapses klBEGIN to kBEGIN
              "klBEGIN",   "kBEGIN",
