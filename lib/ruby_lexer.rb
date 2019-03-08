@@ -433,11 +433,10 @@ class RubyLexer
 
     case matched
     when "}" then
-      # TODO? self.paren_nest -= 1
       self.brace_nest -= 1
       self.lex_state   = :expr_endarg
 
-      # TODO: return :tSTRING_DEND, matched if brace_nest > 0
+      return :tSTRING_DEND, matched if brace_nest < 0 unless ruby18 || ruby19
       return :tRCURLY, matched
     when "]" then
       self.paren_nest -= 1
@@ -1026,6 +1025,10 @@ class RubyLexer
 
   def ruby18
     RubyParser::V18 === parser
+  end
+
+  def ruby19
+    RubyParser::V19 === parser
   end
 
   def scan re

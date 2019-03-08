@@ -1956,13 +1956,9 @@ regexp_contents: none
 
                       lexer.lex_state   = :expr_beg
                     }
-                    compstmt tRCURLY
+                    compstmt
+                    tSTRING_DEND
                     {
-#if V == 20
-                      # TODO: tRCURLY -> tSTRING_DEND
-#else
-                      # TODO: tRCURLY -> tSTRING_END
-#endif
                       _, memo, stmt, _ = val
 
                       lex_strterm, brace_nest, string_nest, oldcond, oldcmdarg, oldlex_state = memo
