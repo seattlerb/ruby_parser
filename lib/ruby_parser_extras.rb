@@ -472,6 +472,10 @@ module RubyParserStuff
     result
   end
 
+  def new_brace_body args, body, lineno
+    new_iter(nil, args, body).line(lineno)
+  end
+
   def argl x
     x = s(:arglist, x) if x and x.sexp_type == :array
     x
@@ -617,6 +621,10 @@ module RubyParserStuff
     result.line = recv.line
     result.comments = self.comments.pop
     result
+  end
+
+  def new_do_body args, body, lineno
+    new_iter(nil, args, body).line(lineno)
   end
 
   def new_for expr, var, body
@@ -781,6 +789,10 @@ module RubyParserStuff
     end
 
     node
+  end
+
+  def new_rescue body, resbody
+    s(:rescue, body, resbody)
   end
 
   def new_resbody cond, body
@@ -1145,7 +1157,7 @@ module RubyParserStuff
     result
   end
 
-  def value_expr oldnode # HACK
+  def value_expr oldnode # HACK: much more to do
     node = remove_begin oldnode
     node.line = oldnode.line if oldnode
     node[2] = value_expr node[2] if node and node.sexp_type == :if
