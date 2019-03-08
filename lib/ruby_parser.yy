@@ -680,7 +680,7 @@ rule
                 |   tNEQ     | tLSHFT  | tRSHFT   | tPLUS | tMINUS | tSTAR2
                 |   tSTAR    | tDIVIDE | tPERCENT | tPOW  | tDSTAR | tBANG   | tTILDE
                 |   tUPLUS   | tUMINUS | tAREF    | tASET | tBACK_REF2
-#if V == 20
+#if V >= 20
                 |   tUBANG
 #endif
 
@@ -1597,6 +1597,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       lexer.lpar_beg = lpar
 
                       lexer.cmdarg.restore cmdarg
+                      lexer.cmdarg.lexpop
 
                       call = new_call nil, :lambda
                       result = new_iter call, args, body
