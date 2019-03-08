@@ -111,7 +111,7 @@ def munge s
              /\"(\w+) \(modifier\)\"/, proc { |x| "k#{$1.upcase}_MOD" },
              /\"(\w+)\"/,              proc { |x| "k#{$1.upcase}" },
 
-             /@(\d+)\s+/,       "",
+             /@(\d+)(\s+|$)/,       "",
             ]
 
   renames.each_slice(2) do |(a, b)|

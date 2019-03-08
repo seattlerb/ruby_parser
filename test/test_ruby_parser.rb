@@ -243,17 +243,19 @@ module TestRubyParserShared
   end
 
   def test_bug_begin_else
-    rb = "begin 1; else; 2 end"
-    pt = s(:block, s(:lit, 1), s(:lit, 2))
+    skip if ruby18 or ruby19
 
-    assert_parse rb, pt
+    rb = "begin 1; else; 2 end"
+
+    assert_syntax_error rb, "else without rescue is useless"
   end
 
   def test_begin_else_return_value
-    rb = "begin; else 2; end"
-    pt = s(:lit, 2)
+    skip if ruby18 or ruby19
 
-    assert_parse rb, pt
+    rb = "begin; else 2; end"
+
+    assert_syntax_error rb, "else without rescue is useless"
   end
 
   def test_bug_comment_eq_begin
@@ -3501,7 +3503,19 @@ module TestRubyParserShared25Plus
 end
 
 module TestRubyParserShared26Plus
-  # ...version specific tests to go here...
+  def test_dot2_nil__26
+    rb = "a.."
+    pt = s(:dot2, s(:call, nil, :a), nil)
+
+    assert_parse rb, pt
+  end
+
+  def test_dot3_nil__26
+    rb = "a..."
+    pt = s(:dot3, s(:call, nil, :a), nil)
+
+    assert_parse rb, pt
+  end
 end
 
 class TestRubyParser < Minitest::Test

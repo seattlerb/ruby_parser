@@ -110,14 +110,35 @@ rule
                       end
                       self.env.extend
                     }
-                  tLCURLY top_compstmt tRCURLY
+                    begin_block
                     {
-                      result = new_iter s(:preexe), 0, val[3]
+                      _, _, block = val
+                      result = block
                     }
 
-        bodystmt: compstmt opt_rescue opt_else opt_ensure
+     begin_block: tLCURLY top_compstmt tRCURLY
                     {
-                      result = new_body val
+                      _, stmt, _ = val
+                      result = new_iter s(:preexe), 0, stmt
+                    }
+
+        bodystmt: compstmt opt_rescue k_else
+                    {
+                      res = _values[-2]
+                      yyerror "else without rescue is useless" unless res
+                    }
+                    compstmt
+                    opt_ensure
+                    {
+                      body, resc, _, _, els, ens = val
+
+                      result = new_body [body, resc, els, ens]
+                    }
+                | compstmt opt_rescue opt_ensure
+                    {
+                      body, resc, ens = val
+
+                      result = new_body [body, resc, nil, ens]
                     }
 
         compstmt: stmts opt_terms
@@ -146,9 +167,10 @@ rule
                       end
                       self.env.extend
                     }
-                  tLCURLY top_compstmt tRCURLY
+                    begin_block
                     {
-                      result = new_iter s(:preexe), 0, val[3]
+                      _, _, stmt = val
+                      result = stmt
                     }
 
             stmt: kALIAS fitem
@@ -310,6 +332,18 @@ rule
       expr_value: expr
                     {
                       result = value_expr(val[0])
+                    }
+
+   expr_value_do:   {
+                      lexer.cond.push true
+                    }
+                    expr_value do
+                    {
+                      lexer.cond.pop
+                    }
+                    {
+                      _, expr, _, _ = val
+                      result = expr
                     }
 
     command_call: command
@@ -719,6 +753,20 @@ rule
                         result = s(:dot3, v1, v2)
                       end
                     }
+#if V >= 26
+                | arg tDOT2
+                    {
+                      v1, v2 = val[0], nil
+
+                      result = s(:dot2, v1, v2)
+                    }
+                | arg tDOT3
+                    {
+                      v1, v2 = val[0], nil
+
+                      result = s(:dot3, v1, v2)
+                    }
+#endif
                 | arg tPLUS arg
                     {
                       result = new_call val[0], :+, argl(val[2])
@@ -1132,35 +1180,23 @@ rule
                     }
                 | k_if expr_value then compstmt if_tail k_end
                     {
-                      result = new_if val[1], val[3], val[4]
+                      _, c, _, t, f, _ = val
+                      result = new_if c, t, f
                     }
                 | k_unless expr_value then compstmt opt_else k_end
                     {
-                      result = new_if val[1], val[4], val[3]
+                      _, c, _, t, f, _ = val
+                      result = new_if c, f, t
                     }
-                | k_while
+                | k_while expr_value_do compstmt k_end
                     {
-                      lexer.cond.push true
+                      _, cond, body, _ = val
+                      result = new_while body, cond, true
                     }
-                    expr_value do
+                | k_until expr_value_do compstmt k_end
                     {
-                      lexer.cond.pop
-                    }
-                    compstmt k_end
-                    {
-                      result = new_while val[5], val[2], true
-                    }
-                | k_until
-                    {
-                      lexer.cond.push true
-                    }
-                    expr_value do
-                    {
-                      lexer.cond.pop
-                    }
-                    compstmt k_end
-                    {
-                      result = new_until val[5], val[2], true
+                      _, cond, body, _ = val
+                      result = new_until body, cond, true
                     }
                 | k_case expr_value opt_terms case_body k_end
                     {
@@ -1172,17 +1208,10 @@ rule
                       (_, line), _, body, _ = val
                       result = new_case nil, body, line
                     }
-                | k_for for_var kIN
+                | k_for for_var kIN expr_value_do compstmt k_end
                     {
-                      lexer.cond.push true
-                    }
-                    expr_value do
-                    {
-                      lexer.cond.pop
-                    }
-                    compstmt k_end
-                    {
-                      result = new_for val[4], val[1], val[7]
+                      _, var, _, iter, body, _ = val
+                      result = new_for iter, var, body
                     }
                 | k_class
                     {
@@ -1321,6 +1350,13 @@ rule
          k_class: kCLASS
         k_module: kMODULE
            k_def: kDEF
+            k_do: kDO
+      k_do_block: kDO_BLOCK
+        k_rescue: kRESCUE
+        k_ensure: kENSURE
+          k_when: kWHEN
+          k_else: kELSE
+         k_elsif: kELSIF
            k_end: kEND
         k_return: kRETURN
 
@@ -1332,7 +1368,7 @@ rule
                 | kDO_COND
 
          if_tail: opt_else
-                | kELSIF expr_value then compstmt if_tail
+                | k_elsif expr_value then compstmt if_tail
                     {
                       result = s(:if, val[1], val[3], val[4])
                     }
@@ -1582,12 +1618,12 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       result = val[1]
                     }
-                | kDO_LAMBDA compstmt kEND
+                | kDO_LAMBDA bodystmt kEND
                     {
                       result = val[1]
                     }
 
-        do_block: kDO_BLOCK do_body kEND
+        do_block: k_do_block do_body kEND
                     {
                       # TODO: maybe fix lineno to kDO's lineno?
                       result = val[1]
@@ -1686,7 +1722,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       self.env.unextend
                     }
-                | kDO
+                | k_do
                     {
                       self.env.extend :dynamic
                       result = self.lexer.lineno
@@ -1729,7 +1765,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       lexer.cmdarg.restore cmdarg
                     }
 
-       case_body: kWHEN
+       case_body: k_when
                     {
                       result = self.lexer.lineno
                     }
@@ -1742,7 +1778,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
            cases: opt_else | case_body
 
-      opt_rescue: kRESCUE exc_list exc_var then compstmt opt_rescue
+      opt_rescue: k_rescue exc_list exc_var then compstmt opt_rescue
                     {
                       (_, line), klasses, var, _, body, rest = val
 
@@ -1771,7 +1807,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | none
 
-      opt_ensure: kENSURE compstmt
+      opt_ensure: k_ensure compstmt
                     {
                       _, body = val
 
