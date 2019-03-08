@@ -1752,6 +1752,8 @@ module TestRubyParserShared
 end
 
 module TestRubyParserShared19Plus
+  include TestRubyParserShared
+
   def test_aref_args_lit_assocs
     rb = "[1, 2 => 3]"
     pt = s(:array, s(:lit, 1), s(:hash, s(:lit, 2), s(:lit, 3)))
@@ -2941,76 +2943,9 @@ module TestRubyParserShared19Plus
   end
 end
 
-module TestRubyParserShared21Plus
-  def test_f_kw
-    rb = "def x k:42; end"
-    pt = s(:defn, :x, s(:args, s(:kwarg, :k, s(:lit, 42))), s(:nil))
-
-    assert_parse rb, pt
-  end
-
-  def test_f_kw__required
-    rb = "def x k:; end"
-    pt = s(:defn, :x, s(:args, s(:kwarg, :k)), s(:nil))
-
-    assert_parse rb, pt
-  end
-
-  def test_block_kw
-    rb = "blah { |k:42| }"
-    pt = s(:iter, s(:call, nil, :blah), s(:args, s(:kwarg, :k, s(:lit, 42))))
-
-    assert_parse rb, pt
-
-    rb = "blah { |k:42| }"
-    assert_parse rb, pt
-  end
-
-  def test_block_kw__required
-    rb = "blah do |k:| end"
-    pt = s(:iter, s(:call, nil, :blah), s(:args, s(:kwarg, :k)))
-
-    assert_parse rb, pt
-
-    rb = "blah do |k:| end"
-    assert_parse rb, pt
-  end
-
-  def test_stabby_block_kw
-    rb = "-> (k:42) { }"
-    pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k, s(:lit, 42))))
-
-    assert_parse rb, pt
-  end
-
-  def test_stabby_block_kw__required
-    rb = "-> (k:) { }"
-    pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k)))
-
-    assert_parse rb, pt
-  end
-
-  def test_parse_line_heredoc_hardnewline
-    skip "not yet"
-
-    rb = <<-'CODE'.gsub(/^      /, '')
-      <<-EOFOO
-      \n\n\n\n\n\n\n\n\n
-      EOFOO
-
-      class Foo
-      end
-    CODE
-
-    pt = s(:block,
-           s(:str, "\n\n\n\n\n\n\n\n\n\n").line(1),
-           s(:class, :Foo, nil).line(5)).line(1)
-
-    assert_parse rb, pt
-  end
-end
-
 module TestRubyParserShared20Plus
+  include TestRubyParserShared19Plus
+
   def test_non_interpolated_symbol_array_line_breaks
 
     rb = "%i(\na\nb\n)\n1"
@@ -3316,7 +3251,87 @@ module TestRubyParserShared20Plus
   end
 end
 
+module TestRubyParserShared21Plus
+  include TestRubyParserShared20Plus
+
+  def test_defn_unary_not
+    rb = "def !@; true; end" # I seriously HATE this
+    pt = s(:defn, :"!@", s(:args), s(:true))
+
+    assert_parse rb, pt
+  end
+
+  def test_f_kw
+    rb = "def x k:42; end"
+    pt = s(:defn, :x, s(:args, s(:kwarg, :k, s(:lit, 42))), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_f_kw__required
+    rb = "def x k:; end"
+    pt = s(:defn, :x, s(:args, s(:kwarg, :k)), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_kw
+    rb = "blah { |k:42| }"
+    pt = s(:iter, s(:call, nil, :blah), s(:args, s(:kwarg, :k, s(:lit, 42))))
+
+    assert_parse rb, pt
+
+    rb = "blah { |k:42| }"
+    assert_parse rb, pt
+  end
+
+  def test_block_kw__required
+    rb = "blah do |k:| end"
+    pt = s(:iter, s(:call, nil, :blah), s(:args, s(:kwarg, :k)))
+
+    assert_parse rb, pt
+
+    rb = "blah do |k:| end"
+    assert_parse rb, pt
+  end
+
+  def test_stabby_block_kw
+    rb = "-> (k:42) { }"
+    pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k, s(:lit, 42))))
+
+    assert_parse rb, pt
+  end
+
+  def test_stabby_block_kw__required
+    rb = "-> (k:) { }"
+    pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k)))
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_line_heredoc_hardnewline
+    skip "not yet"
+
+    rb = <<-'CODE'.gsub(/^      /, '')
+      <<-EOFOO
+      \n\n\n\n\n\n\n\n\n
+      EOFOO
+
+      class Foo
+      end
+    CODE
+
+    pt = s(:block,
+           s(:str, "\n\n\n\n\n\n\n\n\n\n").line(1),
+           s(:class, :Foo, nil).line(5)).line(1)
+
+    assert_parse rb, pt
+  end
+end
+
 module TestRubyParserShared22Plus
+  include TestRubyParserShared21Plus
+
   def test_call_args_assoc_quoted
     pt = s(:call, nil, :x, s(:hash, s(:lit, :k), s(:lit, 42)))
 
@@ -3358,6 +3373,8 @@ module TestRubyParserShared22Plus
 end
 
 module TestRubyParserShared23Plus
+  include TestRubyParserShared22Plus
+
   def test_safe_call
     rb = "a&.b"
     pt = s(:safe_call, s(:call, nil, :a), :b)
@@ -3495,14 +3512,20 @@ a + b
 end
 
 module TestRubyParserShared24Plus
+  include TestRubyParserShared23Plus
+
   # ...version specific tests to go here...
 end
 
 module TestRubyParserShared25Plus
+  include TestRubyParserShared24Plus
+
   # ...version specific tests to go here...
 end
 
 module TestRubyParserShared26Plus
+  include TestRubyParserShared25Plus
+
   def test_symbol_list
     rb = '%I[#{a} #{b}]'
     pt = s(:array,
@@ -3726,7 +3749,6 @@ class TestRubyParserV18 < RubyParserTestCase
 end
 
 class TestRubyParserV19 < RubyParserTestCase
-  include TestRubyParserShared
   include TestRubyParserShared19Plus
 
   def setup
@@ -3737,8 +3759,6 @@ class TestRubyParserV19 < RubyParserTestCase
 end
 
 class TestRubyParserV20 < RubyParserTestCase
-  include TestRubyParserShared
-  include TestRubyParserShared19Plus
   include TestRubyParserShared20Plus
 
   def setup
@@ -3746,19 +3766,9 @@ class TestRubyParserV20 < RubyParserTestCase
 
     self.processor = RubyParser::V20.new
   end
-
-  def test_defn_unary_not
-    rb = "def !@; true; end" # I seriously HATE this
-    pt = s(:defn, :"!@", s(:args), s(:true))
-
-    assert_parse rb, pt
-  end
 end
 
 class TestRubyParserV21 < RubyParserTestCase
-  include TestRubyParserShared
-  include TestRubyParserShared19Plus
-  include TestRubyParserShared20Plus
   include TestRubyParserShared21Plus
 
   def setup
@@ -3769,10 +3779,6 @@ class TestRubyParserV21 < RubyParserTestCase
 end
 
 class TestRubyParserV22 < RubyParserTestCase
-  include TestRubyParserShared
-  include TestRubyParserShared19Plus
-  include TestRubyParserShared20Plus
-  include TestRubyParserShared21Plus
   include TestRubyParserShared22Plus
 
   def setup
@@ -3783,11 +3789,6 @@ class TestRubyParserV22 < RubyParserTestCase
 end
 
 class TestRubyParserV23 < RubyParserTestCase
-  include TestRubyParserShared
-  include TestRubyParserShared19Plus
-  include TestRubyParserShared20Plus
-  include TestRubyParserShared21Plus
-  include TestRubyParserShared22Plus
   include TestRubyParserShared23Plus
 
   def setup
@@ -3798,12 +3799,6 @@ class TestRubyParserV23 < RubyParserTestCase
 end
 
 class TestRubyParserV24 < RubyParserTestCase
-  include TestRubyParserShared
-  include TestRubyParserShared19Plus
-  include TestRubyParserShared20Plus
-  include TestRubyParserShared21Plus
-  include TestRubyParserShared22Plus
-  include TestRubyParserShared23Plus
   include TestRubyParserShared24Plus
 
   def setup
@@ -3814,13 +3809,6 @@ class TestRubyParserV24 < RubyParserTestCase
 end
 
 class TestRubyParserV25 < RubyParserTestCase
-  include TestRubyParserShared
-  include TestRubyParserShared19Plus
-  include TestRubyParserShared20Plus
-  include TestRubyParserShared21Plus
-  include TestRubyParserShared22Plus
-  include TestRubyParserShared23Plus
-  include TestRubyParserShared24Plus
   include TestRubyParserShared25Plus
 
   def setup
@@ -3900,14 +3888,6 @@ class TestRubyParserV25 < RubyParserTestCase
 end
 
 class TestRubyParserV26 < RubyParserTestCase
-  include TestRubyParserShared
-  include TestRubyParserShared19Plus
-  include TestRubyParserShared20Plus
-  include TestRubyParserShared21Plus
-  include TestRubyParserShared22Plus
-  include TestRubyParserShared23Plus
-  include TestRubyParserShared24Plus
-  include TestRubyParserShared25Plus
   include TestRubyParserShared26Plus
 
   def setup
