@@ -10,12 +10,13 @@ Hoe.plugin :racc
 Hoe.plugin :isolate
 Hoe.plugin :rdoc
 
+Hoe.add_include_dirs File.expand_path "~/Links/SP/lib" # HACK
 Hoe.add_include_dirs "../../sexp_processor/dev/lib"
 Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
 
 V1   = %w[18 19]
-V2   = %w[20 21 22 23 24 25]
+V2   = %w[20 21 22 23 24 25 26]
 V1_2 = V1 + V2
 
 Hoe.spec "ruby_parser" do
@@ -193,6 +194,7 @@ ruby_parse "2.2.9"
 ruby_parse "2.3.8"
 ruby_parse "2.4.5"
 ruby_parse "2.5.3"
+ruby_parse "2.6.1"
 
 task :debug => :isolate do
   ENV["V"] ||= V1_2.last
