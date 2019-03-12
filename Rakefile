@@ -1,7 +1,5 @@
 # -*- ruby -*-
 
-$:.unshift "../../hoe/dev/lib"
-
 require "rubygems"
 require "hoe"
 
@@ -15,9 +13,7 @@ Hoe.add_include_dirs "../../sexp_processor/dev/lib"
 Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
 
-V1   = %w[18 19]
 V2   = %w[20 21 22 23 24 25 26]
-V1_2 = V1 + V2
 
 Hoe.spec "ruby_parser" do
   developer "Ryan Davis", "ryand-ruby@zenspider.com"
@@ -29,7 +25,7 @@ Hoe.spec "ruby_parser" do
   dependency "oedipus_lex", "~> 2.5", :developer
 
   if plugin? :perforce then     # generated files
-    V1_2.each do |n|
+    V2.each do |n|
       self.perforce_ignore << "lib/ruby#{n}_parser.rb"
     end
 
@@ -52,9 +48,7 @@ V2.each do |n|
     cmd = 'unifdef -tk -DV=%s -UDEAD %s > %s || true' % [n, t.source, t.name]
     sh cmd
   end
-end
 
-V1_2.each do |n|
   file "lib/ruby#{n}_parser.rb" => "lib/ruby#{n}_parser.y"
 end
 
@@ -197,7 +191,7 @@ ruby_parse "2.5.3"
 ruby_parse "2.6.1"
 
 task :debug => :isolate do
-  ENV["V"] ||= V1_2.last
+  ENV["V"] ||= V2.last
   Rake.application[:parser].invoke # this way we can have DEBUG set
   Rake.application[:lexer].invoke # this way we can have DEBUG set
 
@@ -243,7 +237,7 @@ task :debug3 do
 
   sh "ruby -y #{file} 2>&1 | #{munge} > tmp/ruby"
   sh "./tools/ripper.rb -d #{file} | #{munge} > tmp/rip"
-  sh "rake debug F=#{file} DEBUG=1 2>&1 | #{munge} > tmp/rp"
+  sh "rake debug F=#{file} DEBUG=1 V=25 2>&1 | #{munge} > tmp/rp"
 end
 
 task :cmp3 do
@@ -251,7 +245,7 @@ task :cmp3 do
 end
 
 task :extract => :isolate do
-  ENV["V"] ||= V1_2.last
+  ENV["V"] ||= V2.last
   Rake.application[:parser].invoke # this way we can have DEBUG set
 
   file = ENV["F"] || ENV["FILE"]

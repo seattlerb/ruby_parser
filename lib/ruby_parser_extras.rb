@@ -91,23 +91,6 @@ module RubyParserStuff
     result
   end
 
-  def block_var18 ary, splat, block
-    ary ||= s(:array)
-
-    if splat then
-      splat = splat[1] unless Symbol === splat
-      ary << "*#{splat}".to_sym
-    end
-
-    ary << "&#{block[1]}".to_sym if block
-
-    if ary.length > 2 or ary.splat then # HACK
-      s(:masgn, *ary.sexp_body)
-    else
-      ary.last
-    end
-  end
-
   def array_to_hash array
     case array.sexp_type
     when :kwsplat then

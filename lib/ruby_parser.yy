@@ -1976,7 +1976,7 @@ regexp_contents: none
                       result = lexer.lex_strterm
 
                       lexer.lex_strterm = nil
-                      lexer.lex_state = :expr_beg # TODO: expr_value ?
+                      lexer.lex_state = :expr_beg
                     }
                     string_dvar
                     {
