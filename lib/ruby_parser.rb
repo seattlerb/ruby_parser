@@ -66,11 +66,9 @@ end
 
 ##
 # Unfortunately a problem with racc is that it won't let me namespace
-# properly, so instead of RubyParser::V18, I still have to generate
-# the old Ruby23Parser and shove it in as V23.
+# properly, so instead of RubyParser::V25, I still have to generate
+# the old Ruby25Parser and shove it in as V25.
 
-require "ruby18_parser"
-require "ruby19_parser"
 require "ruby20_parser"
 require "ruby21_parser"
 require "ruby22_parser"
@@ -89,6 +87,4 @@ class RubyParser # HACK
   class V22 < ::Ruby22Parser; end
   class V21 < ::Ruby21Parser; end
   class V20 < ::Ruby20Parser; end
-  class V19 < ::Ruby19Parser; end
-  class V18 < ::Ruby18Parser; end
 end

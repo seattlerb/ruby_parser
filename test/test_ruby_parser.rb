@@ -243,16 +243,12 @@ module TestRubyParserShared
   end
 
   def test_bug_begin_else
-    skip if ruby18 or ruby19
-
     rb = "begin 1; else; 2 end"
 
     assert_syntax_error rb, "else without rescue is useless"
   end
 
   def test_begin_else_return_value
-    skip if ruby18 or ruby19
-
     rb = "begin; else 2; end"
 
     assert_syntax_error rb, "else without rescue is useless"
@@ -896,16 +892,6 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  # according to 2.3.1 parser -- added: ON 1.8 only:
-  # rp.process("f { |(a,b),c| }") == rp.process("f { |((a,b),c)| }")
-
-  # ruby18 -e "p lambda { |(a,b)|     }.arity" # =>  2
-  # ruby19 -e "p lambda { |(a,b)|     }.arity" # =>  1
-  # ruby18 -e "p lambda { |(a,b),c|   }.arity" # =>  2
-  # ruby19 -e "p lambda { |(a,b),c|   }.arity" # =>  2
-  # ruby18 -e "p lambda { |((a,b),c)| }.arity" # =>  2
-  # ruby19 -e "p lambda { |((a,b),c)| }.arity" # =>  1
-
   def test_bug_args_masgn
     rb = "f { |(a, b), c| }"
     pt = s(:iter,
@@ -924,24 +910,10 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  def ruby18
-    RubyParser::V18 === self.processor
-  end
-
-  def ruby19
-    RubyParser::V19 === self.processor
-  end
-
   def test_bug_comma
-    val = if ruby18 then
-            s(:lit, 100)
-          else
-            s(:str, "d")
-          end
-
     rb = "if test ?d, dir then end"
     pt = s(:if,
-           s(:call, nil, :test, val, s(:call, nil, :dir)),
+           s(:call, nil, :test, s(:str, "d"), s(:call, nil, :dir)),
            nil,
            nil)
 
@@ -985,11 +957,7 @@ module TestRubyParserShared
 
   def test_bug_not_parens
     rb = "not(a)"
-    pt = if ruby18 then
-           s(:not, s(:call, nil, :a))
-         else
-           s(:call, s(:call, nil, :a), :"!")
-         end
+    pt = s(:call, s(:call, nil, :a), :"!")
 
     assert_parse rb, pt
   end
@@ -1009,8 +977,6 @@ module TestRubyParserShared
   end
 
   def test_bug_op_asgn_rescue
-    skip if ruby18 || ruby19
-
     rb = "a ||= b rescue nil"
     pt = s(:rescue,
            s(:op_asgn_or, s(:lvar, :a), s(:lasgn, :a, s(:call, nil, :b))),
@@ -1536,8 +1502,6 @@ module TestRubyParserShared
   end
 
   def test_block_decomp_splat
-    skip "not that smart yet" if ruby18 # HACK
-
     rb = "f { |(*a)| }"
     pt = s(:iter, s(:call, nil, :f), s(:args, s(:masgn, :"*a")))
 
@@ -1608,19 +1572,7 @@ module TestRubyParserShared
 
   def test___ENCODING__
     rb = "__ENCODING__"
-    pt = if RubyParser::V18 === processor then
-           s(:call, nil, :__ENCODING__)
-         else
-           if defined? Encoding then
-             if RubyParser::V18 === processor then
-               s(:call, nil, :__ENCODING__)
-             else
-               s(:colon2, s(:const, :Encoding), :UTF_8)
-             end
-           else
-             s(:str, "Unsupported!")
-           end
-         end
+    pt = s(:colon2, s(:const, :Encoding), :UTF_8)
 
     assert_parse rb, pt
   end
@@ -2300,8 +2252,6 @@ module TestRubyParserShared19Plus
   end
 
   def test_symbol_empty
-    skip "can't do this in ruby 1.8" if RUBY_VERSION < "1.9"
-
     rb = ":''"
     pt = s(:lit, "".to_sym)
 
@@ -2728,9 +2678,6 @@ module TestRubyParserShared19Plus
 
     assert_parse rb, pt
   end
-
-  # In 1.8, block args with an outer set of parens are superfluous.
-  # In 1.9, outer set of parens are NOT... they are an explicit extra masgn.
 
   def test_iter_args_2__19
     rb = "f { |(a, b)| }"
@@ -3559,7 +3506,6 @@ end
 
 class TestRubyParser < Minitest::Test
   def test_cls_version
-    assert_equal 18, RubyParser::V18.version
     assert_equal 23, RubyParser::V23.version
     assert_equal 24, RubyParser::V24.version
     assert_equal 24, Ruby24Parser.version
@@ -3569,15 +3515,6 @@ class TestRubyParser < Minitest::Test
   def test_parse
     processor = RubyParser.new
 
-    # 1.8 only syntax
-    rb = "while false : 42 end"
-    pt = s(:while, s(:false), s(:lit, 42), true)
-
-    assert_silent do
-      assert_equal pt, processor.parse(rb)
-    end
-
-    # 1.9 only syntax
     rb = "a.()"
     pt = s(:call, s(:call, nil, :a), :call)
 
@@ -3665,115 +3602,6 @@ class RubyParserTestCase < ParseTreeTestCase
     assert_equal line, result.line,   "call should have line number"
   ensure
     ENV["VERBOSE"] = old_env
-  end
-end
-
-class TestRubyParserV18 < RubyParserTestCase
-  include TestRubyParserShared
-
-  def setup
-    super
-
-    self.processor = RubyParser::V18.new
-  end
-
-  def test_assoc_list_18
-    rb = "{1, 2, 3, 4}"
-    pt = s(:hash, s(:lit, 1), s(:lit, 2), s(:lit, 3), s(:lit, 4))
-
-    assert_parse rb, pt
-  end
-
-  def test_case_then_colon_18
-    rb = "case x; when Fixnum: 42; end"
-    pt = s(:case,
-           s(:call, nil, :x),
-           s(:when, s(:array, s(:const, :Fixnum)), s(:lit, 42)),
-           nil)
-
-    assert_parse rb, pt
-  end
-
-  def test_do_colon_18
-    rb = "while false : 42 end"
-    pt = s(:while, s(:false), s(:lit, 42), true)
-
-    assert_parse rb, pt
-  end
-
-  def test_call_space_before_paren_args_18
-    rb = "a (:b, :c, :d => :e)"
-    pt = s(:call, nil, :a,
-           s(:lit, :b),
-           s(:lit, :c),
-           s(:hash, s(:lit, :d), s(:lit, :e)))
-
-    assert_parse rb, pt
-  end
-
-  # In 1.8, block args with an outer set of parens are superfluous.
-  # In 1.9, outer set of parens are NOT... they are an explicit extra masgn.
-
-  def test_iter_args_2_18
-    rb = "f { |(a, b)| }"
-    pt = s(:iter, s(:call, nil, :f), s(:args, :a, :b))
-
-    assert_parse rb, pt
-  end
-
-  def test_bug_args__18
-    rb = "f { |(a, b)| }"
-    pt = s(:iter, s(:call, nil, :f),
-           s(:args, :a, :b))
-
-    assert_parse rb, pt
-  end
-
-  def test_bug_args_masgn_outer_parens__18
-    rb = "f { |((a, b), c)| }"
-    pt = s(:iter,               # NOTE: same sexp as test_bug_args_masgn
-           s(:call, nil, :f),
-           s(:args, s(:masgn, :a, :b), :c))
-
-    assert_parse rb, pt.dup
-  end
-
-  def test_double_block_error_10
-    assert_syntax_error "a.b (&b) {}", BLOCK_DUP_MSG
-  end
-
-  def test_double_block_error_11
-    assert_syntax_error "a (1, &b) { }", BLOCK_DUP_MSG
-  end
-
-  def test_double_block_error_12
-    assert_syntax_error "a (1, &b) do end", BLOCK_DUP_MSG
-  end
-
-  def test_double_block_error_13
-    assert_syntax_error "m.a (1, &b) { }", BLOCK_DUP_MSG
-  end
-
-  def test_double_block_error_14
-    assert_syntax_error "m.a (1, &b) do end", BLOCK_DUP_MSG
-  end
-
-  def test_double_block_error_15
-    assert_syntax_error "m::a (1, &b) { }", BLOCK_DUP_MSG
-  end
-
-  def test_double_block_error_16
-    assert_syntax_error "m::a (1, &b) do end", BLOCK_DUP_MSG
-  end
-end
-
-class TestRubyParserV19 < RubyParserTestCase
-  include TestRubyParserShared19Plus
-
-  def setup
-    super
-
-    self.processor = RubyParser::V19.new
   end
 end
 

@@ -114,14 +114,14 @@ class RubyLexer
   attr_accessor :token
 
   ##
-  # What version of ruby to parse. 18 and 19 are the only valid values
+  # What version of ruby to parse. 19 is the only valid value
   # currently supported.
 
   attr_accessor :version
 
   attr_writer :comments
 
-  def initialize v = 18
+  def initialize v = 19
     self.version = v
     @lex_state = :expr_none
 
@@ -436,7 +436,7 @@ class RubyLexer
       self.brace_nest -= 1
       self.lex_state   = :expr_endarg # TODO: :expr_end ? Look at 2.6
 
-      return :tSTRING_DEND, matched if brace_nest < 0 unless ruby18 || ruby19
+      return :tSTRING_DEND, matched if brace_nest < 0
       return :tRCURLY, matched
     when "]" then
       self.paren_nest -= 1
@@ -608,35 +608,12 @@ class RubyLexer
   end
 
   def process_paren text
-    token = if ruby18 then
-              process_paren18
-            else
-              process_paren19
-            end
+    token = process_paren19
 
     self.paren_nest += 1
 
     # TODO: add :expr_label to :expr_beg (set in expr_result below)
     return expr_result(token, "(")
-  end
-
-  def process_paren18
-    self.command_start = true
-    token = :tLPAREN2
-
-    if in_lex_state? :expr_beg, :expr_mid then
-      token = :tLPAREN
-    elsif space_seen then
-      if in_lex_state? :expr_cmdarg then
-        token = :tLPAREN_ARG
-      elsif in_lex_state? :expr_arg then
-        warning "don't put space before argument parentheses"
-      end
-    else
-      # not a ternary -- do nothing?
-    end
-
-    token
   end
 
   def process_paren19
@@ -693,8 +670,7 @@ class RubyLexer
 
   def process_questionmark text
     if is_end? then
-      state = ruby18 ? :expr_beg : :expr_value # HACK?
-      return result(state, :tEH, "?")
+      return result(:expr_value, :tEH, "?")
     end
 
     if end_of_stream? then
@@ -716,8 +692,7 @@ class RubyLexer
       end
 
       # ternary
-      state = ruby18 ? :expr_beg : :expr_value # HACK?
-      return result(state, :tEH, "?")
+      return result(:expr_value, :tEH, "?")
     elsif check(/\w(?=\w)/) then # ternary, also
       return result(:expr_beg, :tEH, "?")
     end
@@ -799,9 +774,6 @@ class RubyLexer
   def process_symbol text
     symbol = possibly_escape_string text, /^:"/
 
-    rb_compile_error "symbol cannot contain '\\0'" if
-      ruby18 && symbol =~ /\0/
-
     return result(:expr_end, :tSYMBOL, symbol)
   end
 
@@ -851,7 +823,7 @@ class RubyLexer
         :tIDENTIFIER
       end
 
-    if !ruby18 and is_label_possible? and is_label_suffix? then
+    if is_label_possible? and is_label_suffix? then
       scan(/:/)
       # TODO: :expr_arg|:expr_labeled
       return result :expr_labeled, :tLABEL, [token, self.lineno]
@@ -860,11 +832,7 @@ class RubyLexer
     # TODO: mb == ENC_CODERANGE_7BIT && !in_lex_state?(:expr_dot)
     unless in_lex_state? :expr_dot then
       # See if it is a reserved word.
-      keyword = if ruby18 then # REFACTOR need 18/19 lexer subclasses
-                  RubyParserStuff::Keyword.keyword18 token
-                else
-                  RubyParserStuff::Keyword.keyword19 token
-                end
+      keyword = RubyParserStuff::Keyword.keyword19 token
 
       return process_token_keyword keyword if keyword
     end # unless in_lex_state? :expr_dot
@@ -872,7 +840,7 @@ class RubyLexer
     # matching: compare/parse23.y:8079
     state = if is_beg? or is_arg? or in_lex_state? :expr_dot then
               cmd_state ? :expr_cmdarg : :expr_arg
-            elsif not ruby18 and in_lex_state? :expr_fname then
+            elsif in_lex_state? :expr_fname then
               :expr_endfn
             else
               :expr_end
@@ -1037,14 +1005,6 @@ class RubyLexer
     [token, text]
   end
 
-  def ruby18
-    RubyParser::V18 === parser
-  end
-
-  def ruby19
-    RubyParser::V19 === parser
-  end
-
   def scan re
     ss.scan re
   end
@@ -1182,11 +1142,7 @@ class RubyLexer
         t = Regexp.escape term
         x = Regexp.escape(paren) if paren && paren != "\000"
         re = if qwords then
-               if HAS_ENC then
-                 /[^#{t}#{x}\#\0\\\s]+|./ # |. to pick up whatever
-               else
-                 /[^#{t}#{x}\#\0\\\s\v]+|./ # argh. 1.8's \s doesn't pick up \v
-               end
+               /[^#{t}#{x}\#\0\\\s]+|./ # |. to pick up whatever
              else
                /[^#{t}#{x}\#\0\\]+|./
              end

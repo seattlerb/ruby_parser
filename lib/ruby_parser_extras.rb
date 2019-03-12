@@ -755,9 +755,6 @@ module RubyParserStuff
       }[c]
       raise "unknown regexp option: #{c}" unless v
       o += v
-
-      # encoding options are ignored on 1.9+
-      k = c if c =~ /[esu]/ if RUBY_VERSION < "1.9"
     end
 
     case node.sexp_type
@@ -829,7 +826,7 @@ module RubyParserStuff
 
   def new_string val
     str = val[0]
-    str.force_encoding("ASCII-8BIT") unless str.valid_encoding? unless RUBY_VERSION < "1.9"
+    str.force_encoding("ASCII-8BIT") unless str.valid_encoding?
     result = s(:str, str)
     self.lexer.fixup_lineno str.count("\n")
     result
@@ -837,7 +834,7 @@ module RubyParserStuff
 
   def new_qword_list_entry val
     str = val[1]
-    str.force_encoding("ASCII-8BIT") unless str.valid_encoding? unless RUBY_VERSION < "1.9"
+    str.force_encoding("ASCII-8BIT") unless str.valid_encoding?
     result = s(:str, str)
     self.lexer.fixup_lineno
     result
