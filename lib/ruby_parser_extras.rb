@@ -291,9 +291,6 @@ module RubyParserStuff
     return new_call(lhs, :"=~", argl(rhs)).line(lhs.line)
   end
 
-  # TODO: remove in 4.0 or 2018-01, whichever is first
-  deprecate :get_match_node, :new_match
-
   def gettable(id)
     lineno = id.lineno if id.respond_to? :lineno
     id = id.to_sym if String === id
@@ -435,9 +432,6 @@ module RubyParserStuff
 
     return s(type, left, right)
   end
-
-  # TODO: remove in 4.0 or 2018-01, whichever is first
-  deprecate :logop, :logical_op
 
   def new_aref val
     val[2] ||= s(:arglist)
@@ -998,9 +992,6 @@ module RubyParserStuff
 
     lhs
   end
-
-  # TODO: remove in 4.0 or 2018-01, whichever is first
-  deprecate :node_assign, :new_assign
 
   ##
   # Returns a UTF-8 encoded string after processing BOMs and magic
