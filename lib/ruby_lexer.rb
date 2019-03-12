@@ -703,11 +703,7 @@ class RubyLexer
           ss.getch
         end
 
-    if version == 18 then
-      return result(:expr_end, :tINTEGER, c[0].ord & 0xff)
-    else
-      return result(:expr_end, :tSTRING, c)
-    end
+    return result(:expr_end, :tSTRING, c)
   end
 
   def process_slash text
