@@ -1197,15 +1197,20 @@ module RubyParserStuff
     ##
     # :stopdoc:
     #
-    # :expr_beg    = ignore newline, +/- is a sign.
-    # :expr_end    = newline significant, +/- is a operator.
-    # :expr_arg    = newline significant, +/- is a operator.
-    # :expr_cmdarg = newline significant, +/- is a operator.
-    # :expr_endarg = newline significant, +/- is a operator.
-    # :expr_mid    = newline significant, +/- is a operator.
-    # :expr_fname  = ignore newline, no reserved words.
-    # :expr_dot    = right after . or ::, no reserved words.
-    # :expr_class  = immediate after class, no here document.
+    # :expr_beg     = ignore newline, +/- is a sign.
+    # :expr_end     = newline significant, +/- is an operator.
+    # :expr_endarg  = ditto, and unbound braces.
+    # :expr_endfn   = ditto, and unbound braces.
+    # :expr_arg     = newline significant, +/- is an operator.
+    # :expr_cmdarg  = ditto
+    # :expr_mid     = ditto
+    # :expr_fname   = ignore newline, no reserved words.
+    # :expr_dot     = right after . or ::, no reserved words.
+    # :expr_class   = immediate after class, no here document.
+    # :expr_label   = flag bit, label is allowed.
+    # :expr_labeled = flag bit, just after a label.
+    # :expr_fitem   = symbol literal as FNAME.
+    # :expr_value   = :expr_beg -- work to remove. Need multi-state support.
 
     wordlist = [
                 ["alias",    [:kALIAS,    :kALIAS      ], :expr_fname ],
@@ -1228,7 +1233,7 @@ module RubyParserStuff
                 ["module",   [:kMODULE,   :kMODULE     ], :expr_beg   ],
                 ["next",     [:kNEXT,     :kNEXT       ], :expr_mid   ],
                 ["nil",      [:kNIL,      :kNIL        ], :expr_end   ],
-                ["not",      [:kNOT,      :kNOT        ], :expr_beg   ],
+                ["not",      [:kNOT,      :kNOT        ], :expr_arg   ],
                 ["or",       [:kOR,       :kOR         ], :expr_beg   ],
                 ["redo",     [:kREDO,     :kREDO       ], :expr_end   ],
                 ["rescue",   [:kRESCUE,   :kRESCUE_MOD ], :expr_mid   ],
@@ -1253,26 +1258,10 @@ module RubyParserStuff
 
     # :startdoc:
 
-    WORDLIST18 = Hash[*wordlist.map { |o| [o.name, o] }.flatten]
-    WORDLIST19 = Hash[*wordlist.map { |o| [o.name, o] }.flatten]
+    WORDLIST = Hash[*wordlist.map { |o| [o.name, o] }.flatten]
 
-    WORDLIST18.delete "__ENCODING__"
-
-    %w[and case elsif for if in module or unless until when while].each do |k|
-      WORDLIST19[k] = WORDLIST19[k].dup
-      WORDLIST19[k].state = :expr_value
-    end
-    %w[not].each do |k|
-      WORDLIST19[k] = WORDLIST19[k].dup
-      WORDLIST19[k].state = :expr_arg
-    end
-
-    def self.keyword18 str # REFACTOR
-      WORDLIST18[str]
-    end
-
-    def self.keyword19 str
-      WORDLIST19[str]
+    def self.keyword str
+      WORDLIST[str]
     end
   end
 

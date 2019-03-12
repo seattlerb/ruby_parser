@@ -832,7 +832,7 @@ class RubyLexer
     # TODO: mb == ENC_CODERANGE_7BIT && !in_lex_state?(:expr_dot)
     unless in_lex_state? :expr_dot then
       # See if it is a reserved word.
-      keyword = RubyParserStuff::Keyword.keyword19 token
+      keyword = RubyParserStuff::Keyword.keyword token
 
       return process_token_keyword keyword if keyword
     end # unless in_lex_state? :expr_dot
