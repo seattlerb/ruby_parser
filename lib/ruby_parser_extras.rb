@@ -337,7 +337,8 @@ module RubyParserStuff
   def initialize(options = {})
     super()
 
-    v = self.class.name[/1[89]|2[01]/]
+    v = self.class.name[/2\d/]
+    raise "Bad Class name #{self.class}" unless v
 
     self.lexer = RubyLexer.new v && v.to_i
     self.lexer.parser = self
