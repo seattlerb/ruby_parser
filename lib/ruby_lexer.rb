@@ -113,16 +113,9 @@ class RubyLexer
   # Last token read via next_token.
   attr_accessor :token
 
-  ##
-  # What version of ruby to parse. 19 is the only valid value
-  # currently supported.
-
-  attr_accessor :version
-
   attr_writer :comments
 
-  def initialize v = 19
-    self.version = v
+  def initialize _ = nil
     @lex_state = :expr_none
 
     self.cond   = RubyParserStuff::StackState.new(:cond, $DEBUG)
