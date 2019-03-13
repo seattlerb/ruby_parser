@@ -1,3 +1,50 @@
+=== 3.13.0 / 2019-03-12
+
+* 3 major enhancements:
+
+  * Removed 1.8 and 1.9 support. Moved to ruby_parser-legacy gem.
+  * Added tentative 2.6 support.
+  * Updated ruby_parser.yy to ruby 2.4 architecture.
+
+* 22 minor enhancements:
+
+  * Added debug3 and cmp3 rake tasks that use the above tools.
+  * Added tLONELY to compare/normalize.rb
+  * Added tools/munge.rb, tools/ripper.rb, and debugging.md
+  * 2.6: Added trailing .. and ... support.
+  * Extended StackState to log more state changes, making debugging easier.
+  * Extended StackState#store to take an initial value.
+  * Improved logging / debugging in StackState.
+  * Improved normalization and parser compare tasks.
+  * Improved tools/munge.rb output.
+  * In f_arglist, track in_kwarg if no parens.
+  * In process_newline_or_comment, handle NL if in_kwarg there vs normal.
+  * Refactored normalized values to WORDLIST.
+  * Refactored parser: push up to relop and rel_expr.
+  * Removed Keyword.keyword18.
+  * Removed RubyLexer version attr_accessors.
+  * Removed long dead deprecations internal to RubyParserStuff.
+  * Removed version arg to RubyLexer#initialize (default nil + no-op).
+  * Renamed Keyword.keyword19 to Keyword.keyword.
+  * Renamed process_bracing to process_brace_close
+  * Renamed process_curly_brace to process_brace_open
+  * Report first parse error message if all parser versions fail, not last.
+  * Updated parser to track against 2.6.
+
+* 11 bug fixes:
+
+  * Fix some shift/reduce errors.
+  * Fixed BEGIN blocks having different arg value that END blocks. (mvz)
+  * Fixed all reported unused non-terminals/rules.
+  * Fixed bug 272.
+  * Fixed bug in interpolated symbol lists. (strviola)
+  * Fixed bug where block shadow arguments were not registered as lvars. (akimd)
+  * Fixed bug where kwsplat args weren't treated as lvars. (mvz)
+  * Fixed lex_state and other internals in many cases.
+  * Fixed shebang in compare/normalize.rb to use env. Avoids rubygems freaking.
+  * Fixed some more internal state bugs.
+  * Fixed tRCURLY -> tSTRING_DEND for interpolation brace closes.
+
 === 3.12.0 / 2018-12-04
 
 * 3 minor enhancements:
