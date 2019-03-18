@@ -8,7 +8,6 @@ Hoe.plugin :racc
 Hoe.plugin :isolate
 Hoe.plugin :rdoc
 
-Hoe.add_include_dirs File.expand_path "~/Links/SP/lib" # HACK
 Hoe.add_include_dirs "../../sexp_processor/dev/lib"
 Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
