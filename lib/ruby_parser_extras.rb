@@ -804,6 +804,7 @@ module RubyParserStuff
 
   def new_string val
     str = val[0]
+    str.force_encoding("UTF-8")
     str.force_encoding("ASCII-8BIT") unless str.valid_encoding?
     result = s(:str, str)
     self.lexer.fixup_lineno str.count("\n")
