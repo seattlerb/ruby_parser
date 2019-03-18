@@ -302,12 +302,14 @@ rule
                       expr, = val
                       result = value_expr expr
                     }
+#if V >= 24
                 | command_call kRESCUE_MOD stmt
                     {
                       expr, _, resbody = val
                       expr = value_expr expr
                       result = new_rescue(expr, new_resbody(s(:array), resbody))
                     }
+#endif
                 | command_asgn
 
             expr: command_call
