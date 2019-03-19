@@ -9,6 +9,8 @@ class RubyParser
 
   VERSIONS = []
 
+  attr_accessor :current
+
   class Parser < Racc::Parser
     include RubyParserStuff
 
@@ -30,7 +32,7 @@ class RubyParser
   def process s, f = "(string)", t = 10
     e = nil
     VERSIONS.each do |klass|
-      parser = klass.new
+      self.current = parser = klass.new
       begin
         return parser.process s, f, t
       rescue Racc::ParseError, RubyParser::SyntaxError => exc
