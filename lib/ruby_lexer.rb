@@ -214,7 +214,12 @@ class RubyLexer
 
     self.lex_strterm = [:heredoc, eos, func, last_line]
 
-    string_content = string_buffer.join.delete("\r")
+    string_content = begin
+                       s = string_buffer.join
+                       s.delete "\r"
+                     rescue ArgumentError
+                       s.b.delete("\r").force_encoding Encoding::UTF_8
+                     end
 
     string_content = heredoc_dedent(string_content) if content_indent && ruby23plus?
 
@@ -923,7 +928,8 @@ class RubyLexer
     when scan(/[0-7]{1,3}/) then          # octal constant
       (matched.to_i(8) & 0xFF).chr
     when scan(/x([0-9a-fA-F]{1,2})/) then # hex constant
-      ss[1].to_i(16).chr
+      # TODO: force encode everything to UTF-8?
+      ss[1].to_i(16).chr.force_encoding Encoding::UTF_8
     when check(/M-\\[\\MCc]/) then
       scan(/M-\\/) # eat it
       c = self.read_escape

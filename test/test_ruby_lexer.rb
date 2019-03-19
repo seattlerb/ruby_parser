@@ -1,4 +1,5 @@
 # encoding: US-ASCII
+# TODO: work this out
 
 require "minitest/autorun"
 require "ruby_lexer"
@@ -102,8 +103,8 @@ class TestRubyLexer < Minitest::Test
   end
 
   def assert_read_escape expected, input
-    @lex.ss.string = input
-    assert_equal expected, @lex.read_escape, input
+    @lex.ss.string = input.dup
+    assert_equal expected, @lex.read_escape.b, input
   end
 
   def assert_read_escape_bad input # TODO: rename refute_read_escape

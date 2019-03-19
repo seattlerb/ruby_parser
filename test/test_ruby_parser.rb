@@ -1572,6 +1572,14 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_heredoc_bad_escape
+    rb = "s = <<eos\na\\xE9b\neos"
+    pt = s(:lasgn, :s, s(:str, "a\xE9b\n".b))
+
+    assert_parse rb, pt
+  end
+
+
   def test_masgn_double_paren
     rb = "((a,b))=c" # TODO: blog
     pt = s(:masgn,
