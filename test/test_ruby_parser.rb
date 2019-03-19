@@ -3304,6 +3304,13 @@ end
 module TestRubyParserShared22Plus
   include TestRubyParserShared21Plus
 
+  def test_bug_hash_interp_array
+    rp = '{ "#{}": [] }'
+    pt = s(:hash, s(:dsym, "", s(:evstr)), s(:array))
+
+    assert_parse rp, pt
+  end
+
   def test_call_args_assoc_quoted
     pt = s(:call, nil, :x, s(:hash, s(:lit, :k), s(:lit, 42)))
 

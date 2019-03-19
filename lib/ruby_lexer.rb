@@ -737,9 +737,9 @@ class RubyLexer
       else
         rb_compile_error "unexpected '['"
       end
-    elsif is_beg? then
+    elsif is_beg? || in_lex_state?(:expr_label) then # HACK :expr_label
       token = :tLBRACK
-    elsif is_arg? && space_seen then
+    elsif is_arg? && space_seen then # TODO:  || in_lex_state?(:expr_labeled) (2.4)
       token = :tLBRACK
     else
       token = :tLBRACK2
