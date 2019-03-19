@@ -1,44 +1,20 @@
 #!/usr/bin/ruby -ws
 
-$d ||= false
-$d ||= ENV["DELETE"]
-$t ||= false
-$t ||= ENV["DELETE_TIMEOUT"]
-$m ||= false
-$m ||= ENV["MOVE_TIMEOUT"]
-$q ||= false
-$q ||= ENV["QUIET"]
-$v ||= ENV["V"] || "20"
-$s ||= ENV["SPEED"] || false
+$d ||= ENV["DELETE"]         || false
+$t ||= ENV["DELETE_TIMEOUT"] || false
+$m ||= ENV["MOVE_TIMEOUT"]   || false
+$q ||= ENV["QUIET"]          || false
+$s ||= ENV["SPEED"]          || false
 
 require 'rubygems'
 require 'ruby_parser'
 require 'fileutils'
 
-$parser_class = case $v
-                when "18" then
-                  Ruby18Parser
-                when "19" then
-                  Ruby19Parser
-                when "20" then
-                  Ruby20Parser
-                else
-                  abort "Unknown version #{$v.inspect}. Needs to be 18, 19, or 20"
-                end
-
-class IO
-  RUBY19 = "<3".respond_to? :encoding
-
-  class << self
-    alias :binread :read unless RUBY19
-  end
-end
-
 ARGV.push "-" if ARGV.empty?
 
-class Racc::Parser
+class RubyParser
   def extract_defs
-    ss = lexer.ss
+    ss = current.lexer.ss
 
     raise "can't access source. possible encoding issue" unless ss
 
@@ -106,6 +82,7 @@ def process_error parser
   end
 rescue RuntimeError, Racc::ParseError => e
   warn "# process error: #{e.message.strip}"
+  warn "#   #{e.backtrace.first}"
 end
 
 def process file
@@ -113,7 +90,7 @@ def process file
   time = (ENV["RP_TIMEOUT"] || 10).to_i
 
   $stderr.print "# Validating #{file}: "
-  parser = $parser_class.new
+  parser = RubyParser.new
   t0 = Time.now if $s
   parser.process(ruby, file, time)
   if $s then
@@ -137,6 +114,7 @@ rescue StandardError, SyntaxError, Racc::ParseError => e
   $exit = 1
   warn ""
   warn "# error: #{e.message.strip}" unless $q
+  warn "#   #{e.backtrace.first}"
   warn ""
   return if $q
 
