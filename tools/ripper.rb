@@ -6,8 +6,13 @@ $p ||= false
 require "ripper/sexp"
 require "pp" if $p
 
+if ARGV.empty? then
+  warn "reading from stdin"
+  ARGV << "-"
+end
+
 ARGV.each do |path|
-  src = File.read path
+  src = path == "-" ? $stdin.read : File.read(path)
   rip = Ripper::SexpBuilderPP.new src
   rip.yydebug = $d
 
