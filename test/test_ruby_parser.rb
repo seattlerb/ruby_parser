@@ -533,6 +533,10 @@ module TestRubyParserShared
     # TODO: add more including interpolation etc
   end
 
+  def test_regexp_escape_extended
+    assert_parse '/\“/', s(:lit, /“/)
+  end
+
   def test_label_vs_string
     rb = "_buf << ':\n'"
     pt = s(:call, s(:call, nil, :_buf), :<<, s(:str, ":\n"))

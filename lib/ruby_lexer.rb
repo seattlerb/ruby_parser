@@ -1065,8 +1065,10 @@ class RubyLexer
       prev = self.string_buffer.last
       if term == chr && prev && prev.end_with?("(?") then
         self.string_buffer << chr
+      elsif term == chr || chr.ascii_only? then
+        self.string_buffer << matched # dunno why we keep them for ascii
       else
-        self.string_buffer << matched
+        self.string_buffer << chr # HACK? this is such a rat's nest
       end
     else
       rb_compile_error "Invalid escape character syntax"
