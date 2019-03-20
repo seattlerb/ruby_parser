@@ -1572,13 +1572,19 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  def test_heredoc_bad_escape
+  def test_heredoc_bad_hex_escape
     rb = "s = <<eos\na\\xE9b\neos"
     pt = s(:lasgn, :s, s(:str, "a\xE9b\n".b))
 
     assert_parse rb, pt
   end
 
+  def test_heredoc_bad_oct_escape
+    rb = "s = <<-EOS\na\\247b\ncöd\nEOS\n"
+    pt = s(:lasgn, :s, s(:str, "a\xa7b\nc\xc3\xb6d\n".b))
+
+    assert_parse rb, pt
+  end
 
   def test_masgn_double_paren
     rb = "((a,b))=c" # TODO: blog

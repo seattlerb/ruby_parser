@@ -926,7 +926,7 @@ class RubyLexer
     when scan(/s/) then                   # space
       " "
     when scan(/[0-7]{1,3}/) then          # octal constant
-      (matched.to_i(8) & 0xFF).chr
+      (matched.to_i(8) & 0xFF).chr.force_encoding Encoding::UTF_8
     when scan(/x([0-9a-fA-F]{1,2})/) then # hex constant
       # TODO: force encode everything to UTF-8?
       ss[1].to_i(16).chr.force_encoding Encoding::UTF_8
