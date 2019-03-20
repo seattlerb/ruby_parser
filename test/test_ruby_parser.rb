@@ -3445,6 +3445,41 @@ module TestRubyParserShared23Plus
     assert_parse rb, pt
   end
 
+  def test_const_op_asgn_or
+    rb = "X::Y ||= 1"
+    pt = s(:op_asgn_or, s(:colon2, s(:const, :X), :Y), s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+
+  def test_const_2_op_asgn_or2
+    rb = "::X::Y ||= 1"
+    pt = s(:op_asgn_or, s(:colon2, s(:colon3, :X), :Y), s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+
+  def test_const_3_op_asgn_or
+    rb = "::X ||= 1"
+    pt = s(:op_asgn_or, s(:colon3, :X), s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+
+  def test_const_op_asgn_and2
+    rb = "::X &&= 1"
+    pt = s(:op_asgn_and, s(:colon3, :X), s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+
+  def test_const_op_asgn_and1
+    rb = "::X &= 1"
+    pt = s(:op_asgn, s(:colon3, :X), :"&", s(:lit, 1))
+
+    assert_parse rb, pt
+  end
+
   def test_ruby21_numbers
     rb = "[1i, 2r, 3ri]"
     pt = s(:array, s(:lit, Complex(0, 1)), s(:lit, Rational(2)), s(:lit, Complex(0, Rational(3))))

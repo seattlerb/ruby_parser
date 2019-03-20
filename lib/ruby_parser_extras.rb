@@ -698,6 +698,22 @@ module RubyParserStuff
     result
   end
 
+  def new_const_op_asgn val
+    lhs, asgn_op, rhs = val[0], val[1].to_sym, val[2]
+
+    result = case asgn_op
+             when :"||" then
+               s(:op_asgn_or, lhs, rhs)
+             when :"&&" then
+               s(:op_asgn_and, lhs, rhs)
+             else
+               s(:op_asgn, lhs, asgn_op, rhs)
+             end
+
+    result.line = lhs.line
+    result
+  end
+
   def new_op_asgn2 val
     recv, call_op, meth, op, arg = val
     meth = :"#{meth}="

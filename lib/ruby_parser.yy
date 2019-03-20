@@ -724,13 +724,21 @@ rule
                     }
                 | primary_value tCOLON2 tCONSTANT tOP_ASGN arg_rhs
                     {
-                      # TODO: assignment
-                      raise "not yet: %p" % [val]
+                      lhs1, _, lhs2, op, rhs = val
+
+                      lhs = s(:colon2, lhs1, lhs2.to_sym).line lhs1.line
+                      result = new_const_op_asgn [lhs, op, rhs]
                     }
-                | tCOLON3 tCONSTANT tOP_ASGN arg_rhs
+                | tCOLON3 tCONSTANT
                     {
-                      # TODO: assignment
-                      raise "not yet: %p" % [val]
+                      result = self.lexer.lineno
+                    }
+                    tOP_ASGN arg_rhs
+                    {
+                      _, lhs, line, op, rhs = val
+
+                      lhs = s(:colon3, lhs.to_sym).line line
+                      result = new_const_op_asgn [lhs, op, rhs]
                     }
                 | backref tOP_ASGN arg_rhs
                     {
