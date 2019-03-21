@@ -238,6 +238,7 @@ task :debug3 do
   sh "ruby -y #{file} 2>&1 | #{munge} > tmp/ruby"
   sh "./tools/ripper.rb -d #{file} | #{munge} > tmp/rip"
   sh "rake debug F=#{file} DEBUG=1 V=25 2>&1 | #{munge} > tmp/rp"
+  sh "diff -U 999 -d tmp/{rip,rp}"
 end
 
 task :cmp3 do
