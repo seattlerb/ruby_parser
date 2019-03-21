@@ -3677,7 +3677,11 @@ class RubyParserTestCase < ParseTreeTestCase
       end
     end
 
-    assert_equal emsg, e.message
+    if Regexp === emsg then
+      assert_match emsg, e.message
+    else
+      assert_equal emsg, e.message
+    end
   end
 
   def assert_parse_line rb, pt, line
@@ -3747,6 +3751,17 @@ class TestRubyParserV24 < RubyParserTestCase
     super
 
     self.processor = RubyParser::V24.new
+  end
+
+  def test_rescue_parens
+    rb = "a (b rescue c)"
+    pt = s(:call, nil, :a,
+           s(:rescue, s(:call, nil, :b),
+             s(:resbody, s(:array), s(:call, nil, :c))))
+
+    assert_parse rb, pt
+
+    assert_parse_error "a(b rescue c)", /parse error on value ..rescue/
   end
 end
 
