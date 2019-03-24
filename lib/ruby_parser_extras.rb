@@ -1185,6 +1185,8 @@ module RubyParserStuff
   end
 
   class Keyword
+    include RubyLexer::State::Values
+
     class KWtable
       attr_accessor :name, :state, :id0, :id1
       def initialize(name, id=[], state=nil)
@@ -1213,48 +1215,50 @@ module RubyParserStuff
     # :expr_value   = :expr_beg -- work to remove. Need multi-state support.
 
     wordlist = [
-                ["alias",    [:kALIAS,    :kALIAS      ], :expr_fname ],
-                ["and",      [:kAND,      :kAND        ], :expr_beg   ],
-                ["begin",    [:kBEGIN,    :kBEGIN      ], :expr_beg   ],
-                ["break",    [:kBREAK,    :kBREAK      ], :expr_mid   ],
-                ["case",     [:kCASE,     :kCASE       ], :expr_beg   ],
-                ["class",    [:kCLASS,    :kCLASS      ], :expr_class ],
-                ["def",      [:kDEF,      :kDEF        ], :expr_fname ],
-                ["defined?", [:kDEFINED,  :kDEFINED    ], :expr_arg   ],
-                ["do",       [:kDO,       :kDO         ], :expr_beg   ],
-                ["else",     [:kELSE,     :kELSE       ], :expr_beg   ],
-                ["elsif",    [:kELSIF,    :kELSIF      ], :expr_beg   ],
-                ["end",      [:kEND,      :kEND        ], :expr_end   ],
-                ["ensure",   [:kENSURE,   :kENSURE     ], :expr_beg   ],
-                ["false",    [:kFALSE,    :kFALSE      ], :expr_end   ],
-                ["for",      [:kFOR,      :kFOR        ], :expr_beg   ],
-                ["if",       [:kIF,       :kIF_MOD     ], :expr_beg   ],
-                ["in",       [:kIN,       :kIN         ], :expr_beg   ],
-                ["module",   [:kMODULE,   :kMODULE     ], :expr_beg   ],
-                ["next",     [:kNEXT,     :kNEXT       ], :expr_mid   ],
-                ["nil",      [:kNIL,      :kNIL        ], :expr_end   ],
-                ["not",      [:kNOT,      :kNOT        ], :expr_arg   ],
-                ["or",       [:kOR,       :kOR         ], :expr_beg   ],
-                ["redo",     [:kREDO,     :kREDO       ], :expr_end   ],
-                ["rescue",   [:kRESCUE,   :kRESCUE_MOD ], :expr_mid   ],
-                ["retry",    [:kRETRY,    :kRETRY      ], :expr_end   ],
-                ["return",   [:kRETURN,   :kRETURN     ], :expr_mid   ],
-                ["self",     [:kSELF,     :kSELF       ], :expr_end   ],
-                ["super",    [:kSUPER,    :kSUPER      ], :expr_arg   ],
-                ["then",     [:kTHEN,     :kTHEN       ], :expr_beg   ],
-                ["true",     [:kTRUE,     :kTRUE       ], :expr_end   ],
-                ["undef",    [:kUNDEF,    :kUNDEF      ], :expr_fname ],
-                ["unless",   [:kUNLESS,   :kUNLESS_MOD ], :expr_beg   ],
-                ["until",    [:kUNTIL,    :kUNTIL_MOD  ], :expr_beg   ],
-                ["when",     [:kWHEN,     :kWHEN       ], :expr_beg   ],
-                ["while",    [:kWHILE,    :kWHILE_MOD  ], :expr_beg   ],
-                ["yield",    [:kYIELD,    :kYIELD      ], :expr_arg   ],
-                ["BEGIN",    [:klBEGIN,   :klBEGIN     ], :expr_end   ],
-                ["END",      [:klEND,     :klEND       ], :expr_end   ],
-                ["__FILE__", [:k__FILE__, :k__FILE__   ], :expr_end   ],
-                ["__LINE__", [:k__LINE__, :k__LINE__   ], :expr_end   ],
-                ["__ENCODING__", [:k__ENCODING__, :k__ENCODING__], :expr_end],
-               ].map { |args| KWtable.new(*args) }
+                ["alias",    [:kALIAS,    :kALIAS      ], EXPR_FNAME ],
+                ["and",      [:kAND,      :kAND        ], EXPR_BEG   ],
+                ["begin",    [:kBEGIN,    :kBEGIN      ], EXPR_BEG   ],
+                ["break",    [:kBREAK,    :kBREAK      ], EXPR_MID   ],
+                ["case",     [:kCASE,     :kCASE       ], EXPR_BEG   ],
+                ["class",    [:kCLASS,    :kCLASS      ], EXPR_CLASS ],
+                ["def",      [:kDEF,      :kDEF        ], EXPR_FNAME ],
+                ["defined?", [:kDEFINED,  :kDEFINED    ], EXPR_ARG   ],
+                ["do",       [:kDO,       :kDO         ], EXPR_BEG   ],
+                ["else",     [:kELSE,     :kELSE       ], EXPR_BEG   ],
+                ["elsif",    [:kELSIF,    :kELSIF      ], EXPR_BEG   ],
+                ["end",      [:kEND,      :kEND        ], EXPR_END   ],
+                ["ensure",   [:kENSURE,   :kENSURE     ], EXPR_BEG   ],
+                ["false",    [:kFALSE,    :kFALSE      ], EXPR_END   ],
+                ["for",      [:kFOR,      :kFOR        ], EXPR_BEG   ],
+                ["if",       [:kIF,       :kIF_MOD     ], EXPR_BEG   ],
+                ["in",       [:kIN,       :kIN         ], EXPR_BEG   ],
+                ["module",   [:kMODULE,   :kMODULE     ], EXPR_BEG   ],
+                ["next",     [:kNEXT,     :kNEXT       ], EXPR_MID   ],
+                ["nil",      [:kNIL,      :kNIL        ], EXPR_END   ],
+                ["not",      [:kNOT,      :kNOT        ], EXPR_ARG   ],
+                ["or",       [:kOR,       :kOR         ], EXPR_BEG   ],
+                ["redo",     [:kREDO,     :kREDO       ], EXPR_END   ],
+                ["rescue",   [:kRESCUE,   :kRESCUE_MOD ], EXPR_MID   ],
+                ["retry",    [:kRETRY,    :kRETRY      ], EXPR_END   ],
+                ["return",   [:kRETURN,   :kRETURN     ], EXPR_MID   ],
+                ["self",     [:kSELF,     :kSELF       ], EXPR_END   ],
+                ["super",    [:kSUPER,    :kSUPER      ], EXPR_ARG   ],
+                ["then",     [:kTHEN,     :kTHEN       ], EXPR_BEG   ],
+                ["true",     [:kTRUE,     :kTRUE       ], EXPR_END   ],
+                ["undef",    [:kUNDEF,    :kUNDEF      ], EXPR_FNAME ],
+                ["unless",   [:kUNLESS,   :kUNLESS_MOD ], EXPR_BEG   ],
+                ["until",    [:kUNTIL,    :kUNTIL_MOD  ], EXPR_BEG   ],
+                ["when",     [:kWHEN,     :kWHEN       ], EXPR_BEG   ],
+                ["while",    [:kWHILE,    :kWHILE_MOD  ], EXPR_BEG   ],
+                ["yield",    [:kYIELD,    :kYIELD      ], EXPR_ARG   ],
+                ["BEGIN",    [:klBEGIN,   :klBEGIN     ], EXPR_END   ],
+                ["END",      [:klEND,     :klEND       ], EXPR_END   ],
+                ["__FILE__", [:k__FILE__, :k__FILE__   ], EXPR_END   ],
+                ["__LINE__", [:k__LINE__, :k__LINE__   ], EXPR_END   ],
+                ["__ENCODING__", [:k__ENCODING__, :k__ENCODING__], EXPR_END],
+               ].map { |args|
+      KWtable.new(*args)
+    }
 
     # :startdoc:
 

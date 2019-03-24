@@ -107,6 +107,7 @@ def munge s
 
              '"defined?"',     "kDEFINED",
 
+             "<none>",         "none",
 
              '"do (for condition)"', "kDO_COND",
              '"do (for lambda)"',    "kDO_LAMBDA",
@@ -167,7 +168,7 @@ ARGF.each_line do |line|
     item = $1
     stack << munge(item)
   when /^-> \$\$ = (?:token|nterm) (.+) \(.*\)/ then
-    stack << "<none>" if stack.empty?
+    stack << "none" if stack.empty?
     item = munge $1
     x = stack.map { |s| s.strip }.join " "
     if x != item then # prevent kdef -> kdef
