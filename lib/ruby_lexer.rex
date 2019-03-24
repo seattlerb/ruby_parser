@@ -54,7 +54,6 @@ rule
 
                 /\(/                    process_paren
 
-# TODO: :expr_beg|:expr_label
                 /\,/                    { result EXPR_PAR, TOKENS[text], text }
 
 : /=/

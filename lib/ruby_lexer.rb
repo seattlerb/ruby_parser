@@ -113,6 +113,7 @@ class RubyLexer
   if $DEBUG then
     def lex_state= o
       return if @lex_state == o
+      raise ArgumentError, "bad state: %p" % [o] unless State === o
       if ENV["V"] then
         c = caller[0]
         c = caller[1] if c =~ /\b(expr_)?result\b/
@@ -125,6 +126,7 @@ class RubyLexer
     end
   else
     def lex_state= o
+      raise ArgumentError, "bad state: %p" % [o] unless State === o
       @lex_state = o
     end
   end
@@ -921,7 +923,7 @@ class RubyLexer
             end
 
     if last_state !~ EXPR_DOT|EXPR_FNAME and
-        (tok_id == :tIDENTIFIER) and # not :expr_fname, not attrasgn
+        (tok_id == :tIDENTIFIER) and # not EXPR_FNAME, not attrasgn
         lvar_defined?(token) then
       state = EXPR_END|EXPR_LABEL
     end
@@ -1350,7 +1352,7 @@ class RubyLexer
                               when 'r' then
                                 [:tREGEXP_BEG,   STR_REGEXP]
                               when 's' then
-                                self.lex_state  = :expr_fname
+                                self.lex_state = EXPR_FNAME
                                 [:tSYMBEG,       STR_SSYM]
                               when 'I' then
                                 eat_whitespace

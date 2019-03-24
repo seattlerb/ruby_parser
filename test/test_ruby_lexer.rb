@@ -2542,6 +2542,14 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_END,     "]",     EXPR_END)
   end
 
+  def test_yylex_string_pct_s
+    assert_lex3("%s[s1 s2]",
+                nil,
+                :tSYMBEG,         "%s[",   EXPR_FNAME, # TODO: :tSYM_BEG ?
+                :tSTRING_CONTENT, "s1 s2", EXPR_FNAME, # man... I don't like this
+                :tSTRING_END,     "]",     EXPR_END)
+  end
+
   def test_yylex_string_pct_W
     assert_lex3("%W[s1 s2\ns3]", # TODO: add interpolation to these
                 nil,
