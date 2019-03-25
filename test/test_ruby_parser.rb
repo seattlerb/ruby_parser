@@ -1752,6 +1752,22 @@ module TestRubyParserShared
 
     assert_parse rb, pt
   end
+
+  def test_str_interp_ternary_or_label
+    env = processor.env
+    env[:a] = :lvar
+
+    rb = '"#{a.b? ? ""+a+"": ""}"'
+    pt = s(:dstr,
+           "",
+           s(:evstr,
+             s(:if,
+               s(:call, s(:lvar, :a), :b?),
+               s(:call, s(:call, s(:str, ""), :+, s(:lvar, :a)), :+, s(:str, "")),
+               s(:str, ""))))
+
+    assert_parse rb, pt
+  end
 end
 
 module TestRubyParserShared19Plus
