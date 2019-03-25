@@ -180,8 +180,6 @@ def ruby_parse version
   end
 end
 
-# ruby_parse "1.8.7-p374"
-# ruby_parse "1.9.3-p551"
 ruby_parse "2.0.0-p648"
 ruby_parse "2.1.9"
 ruby_parse "2.2.9"

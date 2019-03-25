@@ -1215,7 +1215,7 @@ module RubyParserStuff
     # :expr_value   = :expr_beg -- work to remove. Need multi-state support.
 
     wordlist = [
-                ["alias",    [:kALIAS,    :kALIAS      ], EXPR_FNAME ],
+                ["alias",    [:kALIAS,    :kALIAS      ], EXPR_FNAME|EXPR_FITEM],
                 ["and",      [:kAND,      :kAND        ], EXPR_BEG   ],
                 ["begin",    [:kBEGIN,    :kBEGIN      ], EXPR_BEG   ],
                 ["break",    [:kBREAK,    :kBREAK      ], EXPR_MID   ],
@@ -1245,7 +1245,7 @@ module RubyParserStuff
                 ["super",    [:kSUPER,    :kSUPER      ], EXPR_ARG   ],
                 ["then",     [:kTHEN,     :kTHEN       ], EXPR_BEG   ],
                 ["true",     [:kTRUE,     :kTRUE       ], EXPR_END   ],
-                ["undef",    [:kUNDEF,    :kUNDEF      ], EXPR_FNAME ],
+                ["undef",    [:kUNDEF,    :kUNDEF      ], EXPR_FNAME|EXPR_FITEM],
                 ["unless",   [:kUNLESS,   :kUNLESS_MOD ], EXPR_BEG   ],
                 ["until",    [:kUNTIL,    :kUNTIL_MOD  ], EXPR_BEG   ],
                 ["when",     [:kWHEN,     :kWHEN       ], EXPR_BEG   ],

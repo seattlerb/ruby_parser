@@ -3383,6 +3383,13 @@ end
 module TestRubyParserShared23Plus
   include TestRubyParserShared22Plus
 
+  def test_bug_215
+    rb = 'undef %s(foo)'
+    pt = s(:undef, s(:lit, :foo))
+
+    assert_parse rb, pt
+  end
+
   def test_safe_call
     rb = "a&.b"
     pt = s(:safe_call, s(:call, nil, :a), :b)

@@ -232,11 +232,11 @@ class RubyLexer
   end
 
   def expr_dot?
-    lex_state == EXPR_DOT
+    lex_state =~ EXPR_DOT
   end
 
   def expr_fname? # REFACTOR
-    lex_state == EXPR_FNAME
+    lex_state =~ EXPR_FNAME
   end
 
   def expr_result token, text
@@ -429,7 +429,7 @@ class RubyLexer
   end
 
   def is_beg?
-    lex_state =~ EXPR_BEG_ANY || lex_state == EXPR_LAB
+    lex_state =~ EXPR_BEG_ANY || lex_state == EXPR_LAB # yes, == EXPR_LAB
   end
 
   def is_end?
@@ -623,7 +623,7 @@ class RubyLexer
     if is_after_operator? then
       self.lex_state = EXPR_ARG
     else
-      self.command_start = true if lex_state == EXPR_CLASS
+      self.command_start = true if lex_state =~ EXPR_CLASS
       self.lex_state = EXPR_BEG
     end
 
@@ -655,7 +655,7 @@ class RubyLexer
     c = (lex_state =~ EXPR_BEG|EXPR_CLASS|EXPR_FNAME|EXPR_DOT &&
          lex_state !~ EXPR_LABELED)
     # TODO: figure out what token_seen is for
-    if c || self.lex_state == EXPR_LAB then
+    if c || self.lex_state == EXPR_LAB then # yes, == EXPR_LAB
       # ignore if !fallthrough?
       if !c && parser.in_kwarg then
         # normal newline
@@ -712,7 +712,7 @@ class RubyLexer
 
     return result EXPR_BEG, :tOP_ASGN, "%" if scan(/\=/)
 
-    return parse_quote if is_arg? && space_seen && ! check(/\s/)
+    return parse_quote if is_space_arg?(check(/\s/)) || (lex_state =~ EXPR_FITEM && check(/s/))
 
     return result :arg_state, :tPERCENT, "%"
   end
@@ -940,7 +940,7 @@ class RubyLexer
 
     value = [token, self.lineno]
 
-    return result(lex_state, keyword.id0, value) if state == EXPR_FNAME
+    return result(lex_state, keyword.id0, value) if state =~ EXPR_FNAME
 
     self.command_start = true if lex_state =~ EXPR_BEG
 
