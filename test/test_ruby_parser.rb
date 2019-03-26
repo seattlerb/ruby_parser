@@ -40,6 +40,15 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_bug202
+    rb = "$测试 = 1\n测试 = 1"
+    pt = s(:block,
+           s(:gasgn, :$测试, s(:lit, 1)),
+           s(:lasgn, :测试, s(:lit, 1)))
+
+    assert_parse rb, pt
+  end
+
   def test_double_block_error_01
     assert_syntax_error "a(1, &b) { }", BLOCK_DUP_MSG
   end

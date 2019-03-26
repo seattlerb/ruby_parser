@@ -164,6 +164,7 @@ was_label?        /\'#{SSTRING}\':?/o   process_label_or_string
 | in_fname?     /\$([1-9]\d*)/                   process_gvar
 |               /\$([1-9]\d*)/                   process_nthref
 |               /\$0/                            process_gvar
+|               /\$[^[:ascii:]]+/                process_gvar
 |               /\$\W|\$\z/                      process_gvar_oddity
 |               /\$\w+/                          process_gvar
 
