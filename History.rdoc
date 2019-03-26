@@ -1,3 +1,35 @@
+=== 3.13.1 / 2019-03-25
+
+* 1 major enhancement:
+
+  * Overhauled RubyLexer#lex_state to allow for multi-state value.
+
+* 5 minor enhancements:
+
+  * Added RubyParser#current so scripts can poke around inside.
+  * Cleaned up and modernized bin/ruby_parse_extract_error.
+  * Removed RubyLexer#in_lex_state? in favor of State#=~ and #==.
+  * Renamed RubyLexer#in_arg_state? to is_after_operator?.
+  * Replaced all use of :expr_<*> symbols w/ bitfields.
+
+* 15 bug fixes:
+
+  * Added tests to show #233 already fixed.
+  * Fixed a lexer state bug dealing with complex edge case in hash  key w/ interpolated symbol and an array value. Not a great fix. (presidentbeef)
+  * Fixed a number of lex_state check problems.
+  * Fixed alias and undef keyword data.
+  * Fixed bug normalizing to utf-8 on tail of dstr (post-interpolation). (mvz)
+  * Fixed handling of hex chars for bare unicode escape. (mvz)
+  * Fixed handling of invalid string octals more gracefully. Needs generalization.
+  * Fixed lexing of regexps w/ backslashed unicode. I hope.
+  * Fixed parse_percent for EXPR_FITEM edge cases. Fixed bug #125.
+  * Fixed parsing of op_asgn on constants (eg ::X ||= 1).
+  * Fixed precedence of rescue modifier on assignments. (mvz/whitequark)
+  * Fixed some EXPR_FNAME edge cases.
+  * Fixed using unicode in gvars. Fixed bug 202. (331299)
+  * Handle invalid string literals more gracefully.
+  * Minor fix lexing %s[]
+
 === 3.13.0 / 2019-03-12
 
 * 3 major enhancements:
