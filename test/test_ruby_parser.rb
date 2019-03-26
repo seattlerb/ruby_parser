@@ -49,6 +49,18 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_bug236
+    rb = "x{|a|}"
+    pt = s(:iter, s(:call, nil, :x), s(:args, :a))
+
+    assert_parse rb, pt
+
+    rb = "x{|a,|}"
+    pt = s(:iter, s(:call, nil, :x), s(:args, :a, nil))
+
+    assert_parse rb, pt
+  end
+
   def test_double_block_error_01
     assert_syntax_error "a(1, &b) { }", BLOCK_DUP_MSG
   end

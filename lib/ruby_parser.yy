@@ -1509,7 +1509,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | f_arg tCOMMA
                     {
-                      result = args val
+                      result = args(val) << nil
                     }
                 | f_arg tCOMMA f_rest_arg tCOMMA f_arg opt_block_args_tail
                     {
