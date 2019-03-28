@@ -461,7 +461,7 @@ class TestRubyLexer < Minitest::Test
     setup_lexer_class RubyParser::V20
 
     assert_lex("-> (a) { }",
-               s(:iter, s(:call, nil, :lambda),
+               s(:iter, s(:lambda),
                  s(:args, :a)),
 
                :tLAMBDA,     nil, EXPR_ENDFN,  0, 0,
@@ -489,7 +489,7 @@ class TestRubyLexer < Minitest::Test
     setup_lexer_class RubyParser::V20
 
     assert_lex("-> (a=nil) { }",
-               s(:iter, s(:call, nil, :lambda),
+               s(:iter, s(:lambda),
                  s(:args, s(:lasgn, :a, s(:nil)))),
 
                :tLAMBDA,     nil, EXPR_ENDFN,  0, 0,
@@ -506,7 +506,7 @@ class TestRubyLexer < Minitest::Test
     setup_lexer_class RubyParser::V20
 
     assert_lex("-> (a={}) { }",
-               s(:iter, s(:call, nil, :lambda),
+               s(:iter, s(:lambda),
                  s(:args, s(:lasgn, :a, s(:hash)))),
 
                :tLAMBDA,     nil, EXPR_ENDFN,  0, 0,

@@ -1971,7 +1971,7 @@ module TestRubyParserShared19Plus
 
   def test_stabby_proc_scope
     rb = "->(a; b) {}"
-    pt = s(:iter, s(:call, nil, :lambda), s(:args, :a, s(:shadow, :b)))
+    pt = s(:iter, s(:lambda), s(:args, :a, s(:shadow, :b)))
 
     assert_parse rb, pt
   end
@@ -1979,7 +1979,7 @@ module TestRubyParserShared19Plus
   def test_stabby_arg_opt_splat_arg_block_omfg
     rb = "->(b, c=1, *d, e, &f){}"
     pt = s(:iter,
-           s(:call, nil, :lambda),
+           s(:lambda),
            s(:args, :b, s(:lasgn, :c, s(:lit, 1)), :"*d", :e, :"&f"))
 
     assert_parse rb, pt
@@ -2082,21 +2082,21 @@ module TestRubyParserShared19Plus
 
   def test_stabby_arg_no_paren
     rb = "->a{}"
-    pt = s(:iter, s(:call, nil, :lambda), s(:args, :a))
+    pt = s(:iter, s(:lambda), s(:args, :a))
 
     assert_parse rb, pt
   end
 
   def test_call_stabby_with_braces_block
-    rb = "a -> {} do\nend"
-    pt = s(:iter, s(:call, nil, :a, s(:iter, s(:call, nil, :lambda), 0)), 0)
+    rb = "a -> { 1 } do 2 end"
+    pt = s(:iter, s(:call, nil, :a, s(:iter, s(:lambda), 0, s(:lit, 1))), 0, s(:lit, 2))
 
     assert_parse rb, pt
   end
 
   def test_call_stabby_do_end_with_block
-    rb = "a -> do end do end"
-    pt = s(:iter, s(:call, nil, :a, s(:iter, s(:call, nil, :lambda), 0)), 0)
+    rb = "a -> do 1 end do 2 end"
+    pt = s(:iter, s(:call, nil, :a, s(:iter, s(:lambda), 0, s(:lit, 1))), 0, s(:lit, 2))
 
     assert_parse rb, pt
   end
@@ -2240,7 +2240,7 @@ module TestRubyParserShared19Plus
 
   def test_do_lambda
     rb = "->() do end"
-    pt = s(:iter, s(:call, nil, :lambda), s(:args))
+    pt = s(:iter, s(:lambda), s(:args))
 
     assert_parse rb, pt
   end
@@ -2633,7 +2633,7 @@ module TestRubyParserShared19Plus
 
     rb = "->(a, b=nil) { p [a, b] }"
     pt = s(:iter,
-           s(:call, nil, :lambda),
+           s(:lambda),
            s(:args, :a, s(:lasgn, :b, s(:nil))),
            s(:call, nil, :p, s(:array, s(:lvar, :a), s(:lvar, :b))))
 
@@ -2730,7 +2730,7 @@ module TestRubyParserShared19Plus
     rb = "f ->() { g do end }"
     pt = s(:call, nil, :f,
            s(:iter,
-             s(:call, nil, :lambda),
+             s(:lambda),
              s(:args),
              s(:iter, s(:call, nil, :g), 0)))
 
@@ -2942,7 +2942,7 @@ module TestRubyParserShared19Plus
   end
 
   def test_lambda_do_vs_brace
-    pt = s(:call, nil, :f, s(:iter, s(:call, nil, :lambda), s(:args)))
+    pt = s(:call, nil, :f, s(:iter, s(:lambda), s(:args)))
 
     rb = "f ->() {}"
     assert_parse rb, pt
@@ -2950,7 +2950,7 @@ module TestRubyParserShared19Plus
     rb = "f ->() do end"
     assert_parse rb, pt
 
-    pt = s(:call, nil, :f, s(:iter, s(:call, nil, :lambda), 0))
+    pt = s(:call, nil, :f, s(:iter, s(:lambda), 0))
 
     rb = "f -> {}"
     assert_parse rb, pt
@@ -3098,7 +3098,7 @@ module TestRubyParserShared20Plus
     rb = "x -> () do\na.b do\nend\nend"
     pt = s(:call, nil, :x,
            s(:iter,
-             s(:call, nil, :lambda),
+             s(:lambda),
              s(:args),
              s(:iter, s(:call, s(:call, nil, :a), :b), 0)))
 
@@ -3109,7 +3109,7 @@ module TestRubyParserShared20Plus
     rb = "x -> () do\na(1) do\nend\nend"
     pt = s(:call, nil, :x,
            s(:iter,
-             s(:call, nil, :lambda),
+             s(:lambda),
              s(:args),
              s(:iter,
                s(:call, nil, :a,
@@ -3331,14 +3331,14 @@ module TestRubyParserShared21Plus
 
   def test_stabby_block_kw
     rb = "-> (k:42) { }"
-    pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k, s(:lit, 42))))
+    pt = s(:iter, s(:lambda), s(:args, s(:kwarg, :k, s(:lit, 42))))
 
     assert_parse rb, pt
   end
 
   def test_stabby_block_kw__required
     rb = "-> (k:) { }"
-    pt = s(:iter, s(:call, nil, :lambda), s(:args, s(:kwarg, :k)))
+    pt = s(:iter, s(:lambda), s(:args, s(:kwarg, :k)))
 
     assert_parse rb, pt
   end
@@ -3903,12 +3903,12 @@ RubyParser::VERSIONS.each do |klass|
     end
 
     {
-     "->       {    }" => s(:iter, s(:call, nil, :lambda),           0),
+     "->       {    }" => s(:iter, s(:lambda),                       0),
      "lambda   {    }" => s(:iter, s(:call, nil, :lambda),           0),
      "proc     {    }" => s(:iter, s(:call, nil, :proc),             0),
      "Proc.new {    }" => s(:iter, s(:call, s(:const, :Proc), :new), 0),
 
-     "-> ()    {    }" => s(:iter, s(:call, nil, :lambda),           s(:args)),
+     "-> ()    {    }" => s(:iter, s(:lambda),                       s(:args)),
      "lambda   { || }" => s(:iter, s(:call, nil, :lambda),           s(:args)),
      "proc     { || }" => s(:iter, s(:call, nil, :proc),             s(:args)),
      "Proc.new { || }" => s(:iter, s(:call, s(:const, :Proc), :new), s(:args)),

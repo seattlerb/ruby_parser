@@ -1610,7 +1610,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       lexer.cmdarg.restore cmdarg
                       lexer.cmdarg.lexpop
 
-                      call = new_call nil, :lambda
+                      call = s(:lambda)
                       result = new_iter call, args, body
                       result.line = lineno
                       self.env.unextend
