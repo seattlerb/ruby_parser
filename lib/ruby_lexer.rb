@@ -274,7 +274,8 @@ class RubyLexer
 
     indent         = func =~ STR_FUNC_INDENT ? "[ \t]*" : nil
     expand         = func =~ STR_FUNC_EXPAND
-    eos_re         = /#{indent}#{Regexp.escape eos}(\r*\n|\z)/
+    eol            = last_line && last_line.end_with?("\r\n") ? "\r\n" : "\n"
+    eos_re         = /#{indent}#{Regexp.escape eos}(#{eol}|\z)/
     err_msg        = "can't match #{eos_re.inspect} anywhere in "
 
     rb_compile_error err_msg if end_of_stream?
@@ -299,13 +300,13 @@ class RubyLexer
       end
 
       begin
-        c = tokadd_string func, "\n", nil
+        c = tokadd_string func, eol, nil
 
         rb_compile_error err_msg if
           c == RubyLexer::EOF
 
-        if c != "\n" then
-          return :tSTRING_CONTENT, string_buffer.join.delete("\r")
+        if c != eol then
+          return :tSTRING_CONTENT, string_buffer.join
         else
           string_buffer << scan(/\n/)
         end
@@ -323,9 +324,7 @@ class RubyLexer
 
     string_content = begin
                        s = string_buffer.join
-                       s.delete "\r"
-                     rescue ArgumentError
-                       s.b.delete("\r").force_encoding Encoding::UTF_8
+                       s.b.force_encoding Encoding::UTF_8
                      end
 
     return :tSTRING_CONTENT, string_content
@@ -1147,7 +1146,11 @@ class RubyLexer
     symbol = func =~ STR_FUNC_SYMBOL
 
     paren_re = @@regexp_cache[paren]
-    term_re  = @@regexp_cache[term]
+    term_re  = if term == "\n"
+                 /#{Regexp.escape "\r"}?#{Regexp.escape "\n"}/
+               else
+                 @@regexp_cache[term]
+               end
 
     until end_of_stream? do
       c = nil
@@ -1202,7 +1205,11 @@ class RubyLexer
       end # top case
 
       unless handled then
-        t = Regexp.escape term
+        t = if term == "\n"
+              Regexp.escape "\r\n"
+            else
+              Regexp.escape term
+            end
         x = Regexp.escape paren if paren && paren != "\000"
         re = if qwords then
                /[^#{t}#{x}\#\0\\\s]+|./ # |. to pick up whatever

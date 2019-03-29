@@ -1602,9 +1602,58 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  def test_heredoc_broken_windows_theory_applies_to_microsoft_more_than_anything
-    rb = "<<EOS\r\r\nEOS\r\r\n"
-    pt = s(:str, "")
+  def test_heredoc_with_carriage_return_escapes
+    rb = "<<EOS\nfoo\\rbar\nbaz\\r\nEOS\n"
+    pt = s(:str, "foo\rbar\nbaz\r\n")
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_with_carriage_return_escapes_windows
+    rb = "<<EOS\r\nfoo\\rbar\r\nbaz\\r\r\nEOS\r\n"
+    pt = s(:str, "foo\rbar\nbaz\r\n")
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_with_interpolation_and_carriage_return_escapes
+    rb = "<<EOS\nfoo\\r\#@bar\nEOS\n"
+    pt = s(:dstr, "foo\r", s(:evstr, s(:ivar, :@bar)), s(:str, "\n"))
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_with_interpolation_and_carriage_return_escapes_windows
+    rb = "<<EOS\r\nfoo\\r\#@bar\r\nEOS\r\n"
+    pt = s(:dstr, "foo\r", s(:evstr, s(:ivar, :@bar)), s(:str, "\n"))
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_with_extra_carriage_returns
+    rb = "<<EOS\nfoo\rbar\r\nbaz\nEOS\n"
+    pt = s(:str, "foo\rbar\nbaz\n")
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_with_extra_carriage_returns_windows
+    rb = "<<EOS\r\nfoo\rbar\r\r\nbaz\r\nEOS\r\n"
+    pt = s(:str, "foo\rbar\r\nbaz\n")
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_with_only_carriage_returns
+    rb = "<<EOS\n\r\n\r\r\n\\r\nEOS\n"
+    pt = s(:str, "\n\r\n\r\n")
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_with_only_carriage_returns_windows
+    rb = "<<EOS\r\n\r\r\n\r\r\r\n\\r\r\nEOS\r\n"
+    pt = s(:str, "\r\n\r\r\n\r\n")
 
     assert_parse rb, pt
   end
