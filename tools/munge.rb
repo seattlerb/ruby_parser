@@ -151,7 +151,7 @@ ARGF.each_line do |line|
     next if last_token == token
     puts "next token is %p (%p)" % [token, last_token]
     last_token = token
-  when /^Next token is token (\S+)/ then
+  when /^Next token is token ("[^"]+"|\S+)/ then
     token = munge $1
     next if last_token == token
     puts "next token is %p (%p)" % [token, last_token]
