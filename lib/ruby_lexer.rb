@@ -510,13 +510,13 @@ class RubyLexer
     case matched
     when "}" then
       self.brace_nest -= 1
-      self.lex_state   = EXPR_ENDARG # TODO: EXPR_END ? Look at 2.6
+      self.lex_state   = ruby24minus? ? EXPR_ENDARG : EXPR_END
 
       return :tSTRING_DEND, matched if brace_nest < 0
       return :tRCURLY, matched
     when "]" then
       self.paren_nest -= 1
-      self.lex_state   = EXPR_ENDARG
+      self.lex_state   = ruby24minus? ? EXPR_ENDARG : EXPR_END
       return :tRBRACK, matched
     when ")" then
       self.paren_nest -= 1
@@ -851,7 +851,7 @@ class RubyLexer
   def process_symbol text
     symbol = possibly_escape_string text, /^:"/
 
-    result EXPR_END, :tSYMBOL, symbol
+    result EXPR_END|EXPR_ENDARG, :tSYMBOL, symbol
   end
 
   def was_label?
@@ -1285,6 +1285,10 @@ class RubyLexer
 
   def ruby23plus?
     parser.class.version >= 23
+  end
+
+  def ruby24minus?
+    parser.class.version <= 24
   end
 
   def process_string # TODO: rewrite / remove

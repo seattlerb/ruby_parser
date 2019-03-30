@@ -3269,6 +3269,8 @@ module TestRubyParserShared20Plus
   end
 
   def test_iter_array_curly
+    skip if processor.class.version >= 25
+
     rb = "f :a, [:b] { |c, d| }" # yes, this is bad code... that's their problem
     pt = s(:iter,
            s(:call, nil, :f, s(:lit, :a), s(:array, s(:lit, :b))),
