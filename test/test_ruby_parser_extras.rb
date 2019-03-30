@@ -224,3 +224,40 @@ class TestEnvironment < Minitest::Test
     assert_equal expected0, @env.all
   end
 end
+
+class Fake20
+  include RubyParserStuff
+
+  def initialize
+  end
+
+  def s(*a) # bypass lexer/lineno stuff that RP overrides in
+    Kernel.send :s, *a
+  end
+end
+
+class TestValueExpr < Minitest::Test
+
+  def assert_value_expr exp, input
+    assert_equal exp, Fake20.new.value_expr(input)
+  end
+
+  def assert_remove_begin exp, input
+    assert_equal exp, Fake20.new.remove_begin(input)
+  end
+
+  def test_value_expr
+    assert_value_expr s(:nil),                     s(:begin)
+    assert_value_expr s(:nil),                     s(:begin, s(:nil))
+    assert_value_expr s(:nil),                     s(:begin, s(:begin, s(:nil)))
+    assert_value_expr s(:begin, s(:nil), s(:nil)), s(:begin, s(:nil), s(:nil))
+
+  end
+
+  def test_remove_begin
+    assert_remove_begin s(:nil),                     s(:begin)
+    assert_remove_begin s(:nil),                     s(:begin, s(:nil))
+    assert_remove_begin s(:nil),                     s(:begin, s(:begin, s(:nil)))
+    assert_remove_begin s(:begin, s(:nil), s(:nil)), s(:begin, s(:nil), s(:nil))
+  end
+end

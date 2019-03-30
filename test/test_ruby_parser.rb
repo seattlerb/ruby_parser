@@ -30,6 +30,13 @@ module TestRubyParserShared
 
   BLOCK_DUP_MSG = "Both block arg and actual block given."
 
+  def test_bug169
+    rb = "m () {}"
+    pt = s(:iter, s(:call, nil, :m, s(:nil)), 0)
+
+    assert_parse rb, pt
+  end
+
   def test_bug179
     rb = "p ()..nil"
     pt = s(:call, nil, :p, s(:dot2, s(:begin), s(:nil)))

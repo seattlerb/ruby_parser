@@ -53,7 +53,7 @@ module RubyParserStuff
   end
 
   def arg_blk_pass node1, node2 # TODO: nuke
-    node1 = s(:arglist, node1) unless [:arglist, :call_args, :array, :args].include? node1.sexp_type 
+    node1 = s(:arglist, node1) unless [:arglist, :call_args, :array, :args].include? node1.sexp_type
     node1 << node2 if node2
     node1
   end
@@ -1090,13 +1090,20 @@ module RubyParserStuff
   alias :parse :process
 
   def remove_begin node
-    oldnode = node
-    if node and node.sexp_type == :begin and node.size == 2 then
+    line = node.line
+
+    while node and node.sexp_type == :begin and node.size == 2 do
       node = node.last
-      node.line = oldnode.line
     end
+
+    node = s(:nil) if node == s(:begin)
+
+    node.line line
+
     node
   end
+
+  alias value_expr remove_begin # TODO: for now..? could check the tree, but meh?
 
   def reset
     lexer.reset
@@ -1147,13 +1154,6 @@ module RubyParserStuff
     result.line ||= lexer.lineno if lexer.ss          # otherwise...
     result.file = self.file
     result
-  end
-
-  def value_expr oldnode # HACK: much more to do
-    node = remove_begin oldnode
-    node.line = oldnode.line if oldnode
-    node[2] = value_expr node[2] if node and node.sexp_type == :if
-    node
   end
 
   def void_stmts node
