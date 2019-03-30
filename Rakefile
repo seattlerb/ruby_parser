@@ -204,7 +204,7 @@ task :debug => :isolate do
   time = (ENV["RP_TIMEOUT"] || 10).to_i
 
   n = ENV["BUG"]
-  file = (n && "bug#{n}.rb") || ENV["F"] || ENV["FILE"]
+  file = (n && "bug#{n}.rb") || ENV["F"] || ENV["FILE"] || "bug.rb"
 
   ruby = if file then
            File.read(file)
@@ -225,7 +225,7 @@ task :debug => :isolate do
 end
 
 task :debug3 do
-  file    = ENV["F"]
+  file    = ENV["F"] || "bug.rb"
   verbose = ENV["V"] ? "-v" : ""
   munge    = "./tools/munge.rb #{verbose}"
 
