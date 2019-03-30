@@ -26,6 +26,8 @@ class RubyLexer
   STR_FUNC_SYMBOL = 0x10
   STR_FUNC_INDENT = 0x20 # <<-HEREDOC
   STR_FUNC_ICNTNT = 0x40 # <<~HEREDOC
+  # TODO: check parser25.y on how they do STR_FUNC_INDENT
+  # TODO: STR_FUNC_LABEL, STR_FUNC_LIST & STR_FUNC_TERM
 
   STR_SQUOTE = STR_FUNC_BORING
   STR_DQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
@@ -1301,7 +1303,7 @@ class RubyLexer
 
     token_type, c = token
 
-    # matches parser_string_term
+    # matches parser_string_term from 2.3, but way off from 2.5
     if ruby22plus? && token_type == :tSTRING_END && ["'", '"'].include?(c) then
       if ((lex_state =~ EXPR_BEG|EXPR_ENDFN &&
            !cond.is_in_state) || is_arg?) &&
@@ -1313,7 +1315,7 @@ class RubyLexer
 
     if [:tSTRING_END, :tREGEXP_END, :tLABEL_END].include? token_type then
       self.lex_strterm = nil
-      self.lex_state   = (token_type == :tLABEL_END) ? EXPR_PAR : EXPR_END
+      self.lex_state   = (token_type == :tLABEL_END) ? EXPR_PAR : EXPR_END|EXPR_ENDARG
     end
 
     return token
