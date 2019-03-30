@@ -1093,10 +1093,9 @@ rule
 
                       result.line = val[1]
                     }
-                | tLPAREN_ARG rparen
+                | tLPAREN_ARG { lexer.lex_state = EXPR_ENDARG } rparen
                     {
-                      # TODO: lex_state = EXPR_ENDARG in between
-                      debug20 13, val, result
+                      result = s(:begin)
                     }
                 | tLPAREN_ARG
                     {
