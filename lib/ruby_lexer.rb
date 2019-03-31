@@ -16,26 +16,6 @@ class RubyLexer
 
   EOF = :eof_haha!
 
-  # ruby constants for strings (should this be moved somewhere else?)
-
-  STR_FUNC_BORING = 0x00
-  STR_FUNC_ESCAPE = 0x01 # TODO: remove and replace with REGEXP
-  STR_FUNC_EXPAND = 0x02
-  STR_FUNC_REGEXP = 0x04
-  STR_FUNC_QWORDS = 0x08
-  STR_FUNC_SYMBOL = 0x10
-  STR_FUNC_INDENT = 0x20 # <<-HEREDOC
-  STR_FUNC_ICNTNT = 0x40 # <<~HEREDOC
-  # TODO: check parser25.y on how they do STR_FUNC_INDENT
-  # TODO: STR_FUNC_LABEL, STR_FUNC_LIST & STR_FUNC_TERM
-
-  STR_SQUOTE = STR_FUNC_BORING
-  STR_DQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
-  STR_XQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
-  STR_REGEXP = STR_FUNC_REGEXP | STR_FUNC_ESCAPE | STR_FUNC_EXPAND
-  STR_SSYM   = STR_FUNC_SYMBOL
-  STR_DSYM   = STR_FUNC_SYMBOL | STR_FUNC_EXPAND
-
   class State
     attr_accessor :n
 
@@ -46,7 +26,7 @@ class RubyLexer
     end
 
     def == o
-      o.class == self.class && o.n == self.n
+      self.equal?(o) || (o.class == self.class && o.n == self.n)
     end
 
     def =~ v
@@ -59,8 +39,13 @@ class RubyLexer
 
     def inspect
       return "EXPR_NONE" if n.zero?
-      NAMES.map { |v,k| k if self =~ v }.compact.join "|"
+      NAMES.map { |v,k| k if self =~ v }.
+        compact.
+        join("|").
+        gsub(/(?:EXPR_|STR_(?:FUNC_)?)/, "")
     end
+
+    alias to_s inspect
 
     module Values
       EXPR_NONE    = State.new    0x0
@@ -88,6 +73,29 @@ class RubyLexer
       EXPR_NUM = EXPR_END|EXPR_ENDARG
       EXPR_PAR = EXPR_BEG|EXPR_LABEL
       EXPR_PAD = EXPR_BEG|EXPR_LABELED
+
+      # ruby constants for strings (should this be moved somewhere else?)
+
+      STR_FUNC_BORING = State.new 0x2000
+      STR_FUNC_ESCAPE = State.new 0x4000 # TODO: remove and replace with REGEXP
+      STR_FUNC_EXPAND = State.new 0x8000
+      STR_FUNC_REGEXP = State.new 0x10000
+      STR_FUNC_QWORDS = State.new 0x20000
+      STR_FUNC_SYMBOL = State.new 0x40000
+      STR_FUNC_INDENT = State.new 0x80000  # <<-HEREDOC
+      STR_FUNC_ICNTNT = State.new 0x100000 # <<~HEREDOC
+      STR_FUNC_LABEL  = State.new 0x200000
+      STR_FUNC_LIST   = State.new 0x400000
+      STR_FUNC_TERM   = State.new 0x800000
+
+      # TODO: check parser25.y on how they do STR_FUNC_INDENT
+
+      STR_SQUOTE = STR_FUNC_BORING
+      STR_DQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
+      STR_XQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
+      STR_REGEXP = STR_FUNC_REGEXP | STR_FUNC_ESCAPE | STR_FUNC_EXPAND
+      STR_SSYM   = STR_FUNC_SYMBOL
+      STR_DSYM   = STR_FUNC_SYMBOL | STR_FUNC_EXPAND
     end
 
     include Values
@@ -107,6 +115,24 @@ class RubyLexer
       EXPR_LABEL   => "EXPR_LABEL",
       EXPR_LABELED => "EXPR_LABELED",
       EXPR_FITEM   => "EXPR_FITEM",
+
+      STR_FUNC_BORING => "STR_FUNC_BORING",
+      STR_FUNC_ESCAPE => "STR_FUNC_ESCAPE",
+      STR_FUNC_EXPAND => "STR_FUNC_EXPAND",
+      STR_FUNC_REGEXP => "STR_FUNC_REGEXP",
+      STR_FUNC_QWORDS => "STR_FUNC_QWORDS",
+      STR_FUNC_SYMBOL => "STR_FUNC_SYMBOL",
+      STR_FUNC_INDENT => "STR_FUNC_INDENT",
+      STR_FUNC_ICNTNT => "STR_FUNC_ICNTNT",
+      STR_FUNC_LABEL  => "STR_FUNC_LABEL",
+      STR_FUNC_LIST   => "STR_FUNC_LIST",
+      STR_FUNC_TERM   => "STR_FUNC_TERM",
+      STR_SQUOTE      => "STR_SQUOTE",
+      STR_DQUOTE      => "STR_DQUOTE",
+      STR_XQUOTE      => "STR_XQUOTE",
+      STR_REGEXP      => "STR_REGEXP",
+      STR_SSYM        => "STR_SSYM",
+      STR_DSYM        => "STR_DSYM",
     }
   end
 
@@ -250,9 +276,9 @@ class RubyLexer
   def heredoc here # TODO: rewrite / remove
     _, eos, func, last_line = here
 
-    indent         = (func & STR_FUNC_INDENT) != 0 ? "[ \t]*" : nil
-    content_indent = (func & STR_FUNC_ICNTNT) != 0
-    expand         = (func & STR_FUNC_EXPAND) != 0
+    indent         = func =~ STR_FUNC_INDENT ? "[ \t]*" : nil
+    content_indent = func =~ STR_FUNC_ICNTNT
+    expand         = func =~ STR_FUNC_EXPAND
     eos_re         = /#{indent}#{Regexp.escape eos}(\r*\n|\z)/
     err_msg        = "can't match #{eos_re.inspect} anywhere in "
 
@@ -1160,11 +1186,11 @@ class RubyLexer
   end
 
   def tokadd_string(func, term, paren) # TODO: rewrite / remove
-    qwords = (func & STR_FUNC_QWORDS) != 0
-    escape = (func & STR_FUNC_ESCAPE) != 0
-    expand = (func & STR_FUNC_EXPAND) != 0
-    regexp = (func & STR_FUNC_REGEXP) != 0
-    symbol = (func & STR_FUNC_SYMBOL) != 0
+    qwords = func =~ STR_FUNC_QWORDS
+    escape = func =~ STR_FUNC_ESCAPE
+    expand = func =~ STR_FUNC_EXPAND
+    regexp = func =~ STR_FUNC_REGEXP
+    symbol = func =~ STR_FUNC_SYMBOL
 
     paren_re = @@regexp_cache[paren]
     term_re  = @@regexp_cache[term]
@@ -1386,9 +1412,9 @@ class RubyLexer
     paren = open
     term_re = @@regexp_cache[term]
 
-    qwords = (func & STR_FUNC_QWORDS) != 0
-    regexp = (func & STR_FUNC_REGEXP) != 0
-    expand = (func & STR_FUNC_EXPAND) != 0
+    qwords = func =~ STR_FUNC_QWORDS
+    regexp = func =~ STR_FUNC_REGEXP
+    expand = func =~ STR_FUNC_EXPAND
 
     unless func then # nil'ed from qwords below. *sigh*
       return :tSTRING_END, nil
@@ -1429,7 +1455,11 @@ class RubyLexer
     end
 
     if tokadd_string(func, term, paren) == RubyLexer::EOF then
-      rb_compile_error "unterminated string meets end of file"
+      if func =~ STR_FUNC_REGEXP then
+        rb_compile_error "unterminated regexp meets end of file"
+      else
+        rb_compile_error "unterminated string meets end of file"
+      end
     end
 
     return :tSTRING_CONTENT, string_buffer.join
