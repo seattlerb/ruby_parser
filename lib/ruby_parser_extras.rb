@@ -222,26 +222,28 @@ module RubyParserStuff
     case node.sexp_type
     when :lit then
       if Regexp === node.last then
-        return s(:match, node)
+        s(:match, node)
       else
-        return node
+        node
       end
     when :and then
-      return s(:and, cond(node[1]), cond(node[2]))
+      _, lhs, rhs = node
+      s(:and,  cond(lhs), cond(rhs))
     when :or then
-      return s(:or,  cond(node[1]), cond(node[2]))
+      _, lhs, rhs = node
+      s(:or,  cond(lhs), cond(rhs))
     when :dot2 then
       label = "flip#{node.hash}"
       env[label] = :lvar
       _, lhs, rhs = node
-      return s(:flip2, lhs, rhs)
+      s(:flip2, lhs, rhs) # TODO: recurse?
     when :dot3 then
       label = "flip#{node.hash}"
       env[label] = :lvar
       _, lhs, rhs = node
-      return s(:flip3, lhs, rhs)
+      s(:flip3, lhs, rhs)
     else
-      return node
+      node
     end
   end
 
