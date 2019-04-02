@@ -408,7 +408,8 @@ module RubyParserStuff
         node = rhs
       end
 
-      node[2] = s(type, rhs, right)
+      node.pop
+      node << s(type, rhs, right)
 
       return left
     end
@@ -690,8 +691,7 @@ module RubyParserStuff
                lhs << arg
                s(:op_asgn_and, self.gettable(name), lhs)
              else
-               # TODO: why [2] ?
-               lhs[2] = new_call(self.gettable(name), asgn_op, argl(arg))
+               lhs << new_call(self.gettable(name), asgn_op, argl(arg))
                lhs
              end
     result.line = lhs.line

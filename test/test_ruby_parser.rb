@@ -703,9 +703,12 @@ module TestRubyParserShared
            s(:call, s(:lvar, :x), :+, s(:lvar, :y)))
 
     assert_parse_line rb, pt, 1
-    assert_equal 1, result[1].line,   "call should have line number"
-    assert_equal 1, result[2].line,   "masgn should have line number"
-    assert_equal 2, result[3].line,   "call should have line number"
+
+    _, a, b, c, = result
+
+    assert_equal 1, a.line,   "call should have line number"
+    assert_equal 1, b.line,   "masgn should have line number"
+    assert_equal 2, c.line,   "call should have line number"
   end
 
   def test_parse_line_call_ivar_line_break_paren
@@ -822,9 +825,11 @@ module TestRubyParserShared
 
     assert_parse_line rb, pt, 1
 
-    assert_equal 1, result[1].line,   "call should have line number"
-    assert_equal 1, result[2].line,   "masgn should have line number"
-    assert_equal 2, result[3].line,   "call should have line number"
+    _, a, b, c, = result
+
+    assert_equal 1, a.line,   "call should have line number"
+    assert_equal 1, b.line,   "masgn should have line number"
+    assert_equal 2, c.line,   "call should have line number"
   end
 
   def test_parse_line_iter_call_no_parens

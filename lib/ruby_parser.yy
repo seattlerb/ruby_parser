@@ -1317,9 +1317,8 @@ rule
                     }
                     f_arglist bodystmt k_end
                     {
-                      line, cmdarg = val[5]
+                      _, cmdarg = val[5]
                       result = new_defs val
-                      result[3].line line
 
                       lexer.cmdarg.stack.replace cmdarg
 
