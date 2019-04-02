@@ -205,13 +205,14 @@ task :debug => :isolate do
 
   n = ENV["BUG"]
   file = (n && "bug#{n}.rb") || ENV["F"] || ENV["FILE"] || "bug.rb"
+  ruby = ENV["R"] || ENV["RUBY"]
 
-  ruby = if file then
-           File.read(file)
-         else
-           file = "env"
-           ENV["R"] || ENV["RUBY"]
-         end
+  if ruby then
+    file = "env"
+  else
+    ruby = File.read file
+  end
+
 
   begin
     pp parser.process(ruby, file, time)
