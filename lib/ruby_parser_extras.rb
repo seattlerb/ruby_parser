@@ -589,7 +589,10 @@ module RubyParserStuff
 
   def new_defs val
     recv, (name, _line), args, body = val[1], val[4], val[6], val[7]
+    line, _ = val[5]
     body ||= s(:nil)
+
+    args.line line
 
     result = s(:defs, recv, name.to_sym, args)
 
