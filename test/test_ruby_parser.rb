@@ -1499,7 +1499,7 @@ module TestRubyParserShared
 
   def test_op_asgn_index_command_call
     rb = "a[:b] ||= c 1, 2"
-    pt = s(:op_asgn1, s(:call, nil, :a), s(:array, s(:lit, :b)),
+    pt = s(:op_asgn1, s(:call, nil, :a), s(:arglist, s(:lit, :b)),
            :"||",
            s(:call, nil, :c, s(:lit, 1), s(:lit, 2)))
 

@@ -264,7 +264,9 @@ rule
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN command_rhs
                     {
-                      result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
+                      lhs, _, args, _, op, rhs = val
+                      args.sexp_type = :arglist if args
+                      result = s(:op_asgn1, lhs, args, op.to_sym, rhs)
                     }
                 | primary_value call_op tIDENTIFIER tOP_ASGN command_rhs
                     {
@@ -707,8 +709,10 @@ rule
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN arg_rhs
                     {
-                      val[2].sexp_type = :arglist if val[2]
-                      result = s(:op_asgn1, val[0], val[2], val[4].to_sym, val[5])
+                      lhs, _, args, _, op, rhs = val
+                      args.sexp_type = :arglist if args
+
+                      result = s(:op_asgn1, lhs, args, op.to_sym, rhs)
                     }
                 | primary_value call_op tIDENTIFIER tOP_ASGN arg_rhs
                     {
