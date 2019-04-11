@@ -247,6 +247,120 @@ module RubyParserStuff
     end
   end
 
+  TAB_WIDTH = 8
+
+  def dedent_string string, width
+    characters_skipped = 0
+    indentation_skipped = 0
+
+    string.chars.each do |char|
+      break if indentation_skipped >= width
+      if char == " "
+        characters_skipped += 1
+        indentation_skipped += 1
+      elsif char == "\t"
+        proposed = TAB_WIDTH * (indentation_skipped / TAB_WIDTH + 1)
+        break if proposed > width
+        characters_skipped += 1
+        indentation_skipped = proposed
+      end
+    end
+    string[characters_skipped..-1]
+  end
+
+  def whitespace_width line, remove_width = nil
+    col = 0
+    idx = 0
+
+    line.chars.each do |c|
+      break if remove_width && col >= remove_width
+      case c
+      when " " then
+        col += 1
+      when "\t" then
+        n = TAB_WIDTH * (col / TAB_WIDTH + 1)
+        break if remove_width && n > remove_width
+        col = n
+      else
+        break
+      end
+      idx += 1
+    end
+
+    if remove_width then
+      line[idx..-1]
+    else
+      col
+    end
+  end
+
+  alias remove_whitespace_width whitespace_width
+
+  def dedent_size sexp
+    skip_one = false
+    sexp.flat_map { |s|
+      case s
+      when Symbol then
+        next
+      when String then
+        s.lines
+      when Sexp then
+        case s.sexp_type
+        when :evstr then
+          skip_one = true
+          next
+        when :str then
+          _, str = s
+          lines = str.lines
+          if skip_one then
+            skip_one = false
+            lines.shift
+          end
+          lines
+        else
+          warn "unprocessed sexp %p" % [s]
+        end
+      else
+        warn "unprocessed: %p" % [s]
+      end.map { |l| whitespace_width l[/^[ \t]+/] }
+    }.compact.min
+  end
+
+  def dedent sexp
+    dedent_count = dedent_size sexp
+
+    skip_one = false
+    sexp.map { |obj|
+      case obj
+      when Symbol then
+        obj
+      when String then
+        obj.lines.map { |l| remove_whitespace_width l, dedent_count }.join
+      when Sexp then
+        case obj.sexp_type
+        when :evstr then
+          skip_one = true
+          obj
+        when :str then
+          _, str = obj
+          str = if skip_one then
+                  skip_one = false
+                  s1, *rest = str.lines
+                  s1 + rest.map { |l| remove_whitespace_width l, dedent_count }.join
+                else
+                  str.lines.map { |l| remove_whitespace_width l, dedent_count }.join
+                end
+
+          s(:str, str)
+        else
+          warn "unprocessed sexp %p" % [obj]
+        end
+      else
+        warn "unprocessed: %p" % [obj]
+      end
+    }
+  end
+
   ##
   # for pure ruby systems only
 

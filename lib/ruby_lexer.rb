@@ -39,6 +39,7 @@ class RubyLexer
 
     def inspect
       return "EXPR_NONE" if n.zero?
+
       NAMES.map { |v, k| k if self =~ v }.
         compact.
         join("|").
@@ -130,11 +131,6 @@ class RubyLexer
       STR_FUNC_LIST   => "STR_FUNC_LIST",
       STR_FUNC_TERM   => "STR_FUNC_TERM",
       STR_SQUOTE      => "STR_SQUOTE",
-      STR_DQUOTE      => "STR_DQUOTE",
-      STR_XQUOTE      => "STR_XQUOTE",
-      STR_REGEXP      => "STR_REGEXP",
-      STR_SSYM        => "STR_SSYM",
-      STR_DSYM        => "STR_DSYM",
     }
   end
 
@@ -194,8 +190,6 @@ class RubyLexer
     "=~"  => :tMATCH,
     "->"  => :tLAMBDA,
   }
-
-  TAB_WIDTH = 8
 
   @@regexp_cache = Hash.new { |h, k| h[k] = Regexp.new(Regexp.escape(k)) }
   @@regexp_cache[nil] = nil
@@ -279,7 +273,6 @@ class RubyLexer
     _, eos, func, last_line = here
 
     indent         = func =~ STR_FUNC_INDENT ? "[ \t]*" : nil
-    content_indent = func =~ STR_FUNC_ICNTNT
     expand         = func =~ STR_FUNC_EXPAND
     eos_re         = /#{indent}#{Regexp.escape eos}(\r*\n|\z)/
     err_msg        = "can't match #{eos_re.inspect} anywhere in "
@@ -289,7 +282,7 @@ class RubyLexer
     if beginning_of_line? && scan(eos_re) then
       self.lineno += 1
       ss.unread_many last_line # TODO: figure out how to remove this
-      return :tSTRING_END, eos
+      return :tSTRING_END, [eos, func] # TODO: calculate squiggle width at lex?
     end
 
     self.string_buffer = []
@@ -335,48 +328,7 @@ class RubyLexer
                        s.b.delete("\r").force_encoding Encoding::UTF_8
                      end
 
-    string_content = heredoc_dedent(string_content) if content_indent && ruby23plus?
-
     return :tSTRING_CONTENT, string_content
-  end
-
-  def heredoc_dedent(string_content)
-    width = string_content.scan(/^[ \t]*(?=\S)/).map do |whitespace|
-      heredoc_whitespace_indent_size whitespace
-    end.min || 0
-
-    string_content.split("\n", -1).map do |line|
-      dedent_string line, width
-    end.join "\n"
-  end
-
-  def dedent_string(string, width)
-    characters_skipped = 0
-    indentation_skipped = 0
-
-    string.chars.each do |char|
-      break if indentation_skipped >= width
-      if char == " "
-        characters_skipped += 1
-        indentation_skipped += 1
-      elsif char == "\t"
-        proposed = TAB_WIDTH * (indentation_skipped / TAB_WIDTH + 1)
-        break if proposed > width
-        characters_skipped += 1
-        indentation_skipped = proposed
-      end
-    end
-    string[characters_skipped..-1]
-  end
-
-  def heredoc_whitespace_indent_size(whitespace)
-    whitespace.chars.inject 0 do |size, char|
-      if char == "\t"
-        size + TAB_WIDTH
-      else
-        size + 1
-      end
-    end
   end
 
   def heredoc_identifier # TODO: remove / rewrite
@@ -389,7 +341,7 @@ class RubyLexer
     case
     when scan(/([#{heredoc_indent_mods}]?)([\'\"\`])(.*?)\2/) then
       term = ss[2]
-      func |= STR_FUNC_INDENT unless ss[1].empty?
+      func |= STR_FUNC_INDENT unless ss[1].empty? # TODO: this seems wrong
       func |= STR_FUNC_ICNTNT if ss[1] == "~"
       func |= case term
               when "\'" then
@@ -1251,7 +1203,7 @@ class RubyLexer
 
       unless handled then
         t = Regexp.escape term
-        x = Regexp.escape(paren) if paren && paren != "\000"
+        x = Regexp.escape paren if paren && paren != "\000"
         re = if qwords then
                /[^#{t}#{x}\#\0\\\s]+|./ # |. to pick up whatever
              else

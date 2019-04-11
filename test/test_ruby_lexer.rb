@@ -1249,37 +1249,9 @@ class TestRubyLexer < Minitest::Test
                 :tIDENTIFIER,     "a",           EXPR_CMDARG,
                 :tEQL,            "=",           EXPR_BEG,
                 :tSTRING_BEG,     "\"",          EXPR_BEG,
-                :tSTRING_CONTENT, "blah blah\n", EXPR_BEG,
+                :tSTRING_CONTENT, "  blah blah\n", EXPR_BEG,
                 :tSTRING_END,     "EOF",         EXPR_LIT,
                 :tNL,             nil,           EXPR_BEG)
-  end
-
-  # mri handles tabs in a pretty specific way:
-  # https://github.com/ruby/ruby/blob/trunk/parse.y#L5925
-  def test_yylex_heredoc_double_squiggly_with_tab_indentation_remaining
-    setup_lexer_class Ruby23Parser
-
-    assert_lex3("a = <<~\"EOF\"\n  blah blah\n \tblah blah\n  EOF\n\n",
-                nil,
-                :tIDENTIFIER,     "a",                        EXPR_CMDARG,
-                :tEQL,            "=",                        EXPR_BEG,
-                :tSTRING_BEG,     "\"",                       EXPR_BEG,
-                :tSTRING_CONTENT, "blah blah\n\tblah blah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",                      EXPR_LIT,
-                :tNL,             nil,                        EXPR_BEG)
-  end
-
-  def test_yylex_heredoc_double_squiggly_with_tab_indentation_removed
-    setup_lexer_class Ruby23Parser
-
-    assert_lex3("a = <<~\"EOF\"\n        blah blah\n\t blah blah\n  EOF\n\n",
-                nil,
-                :tIDENTIFIER,     "a",                       EXPR_CMDARG,
-                :tEQL,            "=",                       EXPR_BEG,
-                :tSTRING_BEG,     "\"",                      EXPR_BEG,
-                :tSTRING_CONTENT, "blah blah\n blah blah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",                     EXPR_LIT,
-                :tNL,             nil,                       EXPR_BEG)
   end
 
   def test_yylex_heredoc_double_eos
@@ -1362,7 +1334,7 @@ class TestRubyLexer < Minitest::Test
                 :tIDENTIFIER,     "a",            EXPR_CMDARG,
                 :tEQL,            "=",            EXPR_BEG,
                 :tSTRING_BEG,     "\"",           EXPR_BEG,
-                :tSTRING_CONTENT, "blah\nblah\n", EXPR_BEG,
+                :tSTRING_CONTENT, "  blah\n  blah\n", EXPR_BEG,
                 :tSTRING_END,     "EOF",          EXPR_LIT,
                 :tNL,             nil,            EXPR_BEG)
   end
@@ -1425,7 +1397,7 @@ class TestRubyLexer < Minitest::Test
                 :tIDENTIFIER,     "a",           EXPR_CMDARG,
                 :tEQL,            "=",           EXPR_BEG,
                 :tSTRING_BEG,     "\"",          EXPR_BEG,
-                :tSTRING_CONTENT, "blah blah\n", EXPR_BEG,
+                :tSTRING_CONTENT, "  blah blah\n", EXPR_BEG,
                 :tSTRING_END,     "EOF",         EXPR_LIT,
                 :tNL,             nil,           EXPR_BEG)
   end

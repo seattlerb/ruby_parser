@@ -3548,8 +3548,33 @@ module TestRubyParserShared23Plus
   end
 
   def test_heredoc_squiggly
-    rb = "a = <<~\"EOF\"\n  blah blah\n  EOF\n\n"
-    pt = s(:lasgn, :a, s(:str, "blah blah\n"))
+    rb = "a = <<~\"EOF\"\n  x\n  y\n  z\n  EOF\n\n"
+    pt = s(:lasgn, :a, s(:str, "x\ny\nz\n"))
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_squiggly_interp
+    rb = "a = <<~EOF\n      w\n  x#\{42} y\n    z\n  EOF"
+    pt = s(:lasgn, :a, s(:dstr, "    w\nx",
+                         s(:evstr, s(:lit, 42)),
+                         s(:str, " y\n  z\n")))
+
+    assert_parse rb, pt
+  end
+
+  # mri handles tabs in a pretty specific way:
+  # https://github.com/ruby/ruby/blob/trunk/parse.y#L5925
+  def test_heredoc_squiggly_tabs_extra
+    rb = "a = <<~\"EOF\"\n  blah blah\n \tblah blah\n  EOF\n\n"
+    pt = s(:lasgn, :a, s(:str, "blah blah\n\tblah blah\n"))
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_squiggly_tabs
+    rb = "a = <<~\"EOF\"\n        blah blah\n\t blah blah\n  EOF\n\n"
+    pt = s(:lasgn, :a, s(:str, "blah blah\n blah blah\n"))
 
     assert_parse rb, pt
   end

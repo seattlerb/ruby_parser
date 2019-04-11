@@ -1853,7 +1853,11 @@ opt_block_args_tail: tCOMMA block_args_tail
 
          string1: tSTRING_BEG string_contents tSTRING_END
                     {
-                      result = val[1]
+                      _, str, (_, func) = val
+
+                      str = dedent str if func =~ RubyLexer::STR_FUNC_ICNTNT
+
+                      result = str
                     }
                 | tSTRING
                     {
@@ -1863,6 +1867,7 @@ opt_block_args_tail: tCOMMA block_args_tail
          xstring: tXSTRING_BEG xstring_contents tSTRING_END
                     {
                       result = new_xstring val[1]
+                      # TODO: dedent?!?! SERIOUSLY?!?
                     }
 
           regexp: tREGEXP_BEG regexp_contents tREGEXP_END
