@@ -252,7 +252,7 @@ module RubyParserStuff
 
   def do_parse
     _racc_do_parse_rb(_racc_setup, false)
-  end if ENV['PURE_RUBY']
+  end if ENV["PURE_RUBY"]
 
   def new_match lhs, rhs
     if lhs then
@@ -352,7 +352,7 @@ module RubyParserStuff
 
     htype, ttype = head.sexp_type, tail.sexp_type
 
-    head = s(:dstr, '', head) if htype == :evstr
+    head = s(:dstr, "", head) if htype == :evstr
 
     case ttype
     when :str then
@@ -372,7 +372,7 @@ module RubyParserStuff
       else
         tail.sexp_type = :array
         tail[1] = s(:str, tail[1])
-        tail.delete_at 1 if tail[1] == s(:str, '')
+        tail.delete_at 1 if tail[1] == s(:str, "")
 
         head.push(*tail.sexp_body)
       end
@@ -480,11 +480,11 @@ module RubyParserStuff
     end
   end
 
-  def new_call recv, meth, args = nil, call_op = :'.'
+  def new_call recv, meth, args = nil, call_op = :"."
     result = case call_op.to_sym
-             when :'.'
+             when :"."
                s(:call, recv, meth)
-             when :'&.'
+             when :"&."
                s(:safe_call, recv, meth)
              else
                raise "unknown call operator: `#{type.inspect}`"
@@ -511,9 +511,9 @@ module RubyParserStuff
     meth = :"#{meth}="
 
     result = case call_op.to_sym
-             when :'.'
+             when :"."
                s(:attrasgn, recv, meth)
-             when :'&.'
+             when :"&."
                s(:safe_attrasgn, recv, meth)
              else
                raise "unknown call operator: `#{type.inspect}`"
@@ -724,9 +724,9 @@ module RubyParserStuff
     meth = :"#{meth}="
 
     result = case call_op.to_sym
-             when :'.'
+             when :"."
                s(:op_asgn2, recv, meth, op.to_sym, arg)
-             when :'&.'
+             when :"&."
                s(:safe_op_asgn2, recv, meth, op.to_sym, arg)
              else
                raise "unknown call operator: `#{type.inspect}`"
@@ -737,20 +737,20 @@ module RubyParserStuff
   end
 
   def new_regexp val
-    node = val[1] || s(:str, '')
+    node = val[1] || s(:str, "")
     options = val[2]
 
     o, k = 0, nil
     options.split(//).uniq.each do |c| # FIX: this has a better home
       v = {
-        'x' => Regexp::EXTENDED,
-        'i' => Regexp::IGNORECASE,
-        'm' => Regexp::MULTILINE,
-        'o' => Regexp::ONCE,
-        'n' => Regexp::ENC_NONE,
-        'e' => Regexp::ENC_EUC,
-        's' => Regexp::ENC_SJIS,
-        'u' => Regexp::ENC_UTF8,
+        "x" => Regexp::EXTENDED,
+        "i" => Regexp::IGNORECASE,
+        "m" => Regexp::MULTILINE,
+        "o" => Regexp::ONCE,
+        "n" => Regexp::ENC_NONE,
+        "e" => Regexp::ENC_EUC,
+        "s" => Regexp::ENC_SJIS,
+        "u" => Regexp::ENC_UTF8,
       }[c]
       raise "unknown regexp option: #{c}" unless v
       o += v
@@ -783,7 +783,7 @@ module RubyParserStuff
       end
       node << o if o and o != 0
     else
-      node = s(:dregx, '', node);
+      node = s(:dregx, "", node);
       node.sexp_type = :dregx_once if options =~ /o/
       node << o if o and o != 0
     end
@@ -948,11 +948,11 @@ module RubyParserStuff
       when :dstr
         str.sexp_type = :dxstr
       else
-        str = s(:dxstr, '', str)
+        str = s(:dxstr, "", str)
       end
       str
     else
-      s(:xstr, '')
+      s(:xstr, "")
     end
   end
 
@@ -976,7 +976,7 @@ module RubyParserStuff
     if token and token.first != RubyLexer::EOF then
       return token
     else
-      return [false, '$end']
+      return [false, "$end"]
     end
   end
 
@@ -1034,7 +1034,7 @@ module RubyParserStuff
 
     if encoding then
       if has_enc then
-        encoding.sub!(/utf-8-.+$/, 'utf-8') # HACK for stupid emacs formats
+        encoding.sub!(/utf-8-.+$/, "utf-8") # HACK for stupid emacs formats
         hack_encoding str, encoding
       else
         warn "Skipping magic encoding comment"
@@ -1083,7 +1083,7 @@ module RubyParserStuff
 
       self.file = file.dup
 
-      @yydebug = ENV.has_key? 'DEBUG'
+      @yydebug = ENV.has_key? "DEBUG"
 
       # HACK -- need to get tests passing more than have graceful code
       self.lexer.ss = RPStringScanner.new str
@@ -1097,9 +1097,7 @@ module RubyParserStuff
   def remove_begin node
     line = node.line
 
-    while node and node.sexp_type == :begin and node.size == 2 do
-      node = node.last
-    end
+    node = node.last while node and node.sexp_type == :begin and node.size == 2
 
     node = s(:nil) if node == s(:begin)
 
@@ -1219,8 +1217,10 @@ module RubyParserStuff
     # :expr_fitem   = symbol literal as FNAME.
     # :expr_value   = :expr_beg -- work to remove. Need multi-state support.
 
+    expr_woot = EXPR_FNAME|EXPR_FITEM
+
     wordlist = [
-                ["alias",    [:kALIAS,    :kALIAS      ], EXPR_FNAME|EXPR_FITEM],
+                ["alias",    [:kALIAS,    :kALIAS      ], expr_woot  ],
                 ["and",      [:kAND,      :kAND        ], EXPR_BEG   ],
                 ["begin",    [:kBEGIN,    :kBEGIN      ], EXPR_BEG   ],
                 ["break",    [:kBREAK,    :kBREAK      ], EXPR_MID   ],
@@ -1250,7 +1250,7 @@ module RubyParserStuff
                 ["super",    [:kSUPER,    :kSUPER      ], EXPR_ARG   ],
                 ["then",     [:kTHEN,     :kTHEN       ], EXPR_BEG   ],
                 ["true",     [:kTRUE,     :kTRUE       ], EXPR_END   ],
-                ["undef",    [:kUNDEF,    :kUNDEF      ], EXPR_FNAME|EXPR_FITEM],
+                ["undef",    [:kUNDEF,    :kUNDEF      ], expr_woot  ],
                 ["unless",   [:kUNLESS,   :kUNLESS_MOD ], EXPR_BEG   ],
                 ["until",    [:kUNTIL,    :kUNTIL_MOD  ], EXPR_BEG   ],
                 ["when",     [:kWHEN,     :kWHEN       ], EXPR_BEG   ],

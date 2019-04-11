@@ -16,11 +16,11 @@ class TestStackState < Minitest::Test
     p = RubyParser.latest
     s = nil
 
-    out, err = capture_io do
+    out, err = capture_io {
       s = p.handle_encoding str
-    end
+    }
 
-    assert_equal orig_str.sub(/\357\273\277/, ''), s
+    assert_equal orig_str.sub(/\357\273\277/, ""), s
 
     exp_err = ""
 
@@ -162,7 +162,7 @@ end
 
 class TestEnvironment < Minitest::Test
   def deny t
-    assert ! t
+    assert !t
   end
 
   def setup
@@ -237,7 +237,6 @@ class Fake20
 end
 
 class TestValueExpr < Minitest::Test
-
   def assert_value_expr exp, input
     assert_equal exp, Fake20.new.value_expr(input)
   end
@@ -251,7 +250,6 @@ class TestValueExpr < Minitest::Test
     assert_value_expr s(:nil),                     s(:begin, s(:nil))
     assert_value_expr s(:nil),                     s(:begin, s(:begin, s(:nil)))
     assert_value_expr s(:begin, s(:nil), s(:nil)), s(:begin, s(:nil), s(:nil))
-
   end
 
   def test_remove_begin

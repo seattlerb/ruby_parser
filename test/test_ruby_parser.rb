@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-# ENV['VERBOSE'] = "1"
+# ENV["VERBOSE"] = "1"
 
 require "minitest/autorun"
 require "ruby_parser"
@@ -12,10 +12,10 @@ require "pt_testcase"
 class Sexp
   alias oldeq2 ==
   # TODO: push up to Sexp
-  def ==(obj) # :nodoc:
-    if obj.class == self.class then
+  def == other # :nodoc:
+    if other.class == self.class then
       super and
-        (self.line.nil? or obj.line.nil? or self.line == obj.line)
+        (line.nil? or other.line.nil? or line == other.line)
     else
       false
     end
@@ -324,7 +324,7 @@ module TestRubyParserShared
   end
 
   def test_bug_call_arglist_parens
-    rb = 'g ( 1), 2'
+    rb = "g ( 1), 2"
     pt = s(:call, nil, :g, s(:lit, 1), s(:lit, 2))
 
     assert_parse rb, pt
@@ -350,14 +350,14 @@ module TestRubyParserShared
   end
 
   def test_dstr_evstr
-    rb = "\"#\{'a'}#\{b}\""
+    rb = %q("#{'a'}#{b}")
     pt = s(:dstr, "a", s(:evstr, s(:call, nil, :b)))
 
     assert_parse rb, pt
   end
 
   def test_dstr_str
-    rb = "\"#\{'a'} b\""
+    rb = %q("#{'a'} b")
     pt = s(:str, "a b")
 
     assert_parse rb, pt
@@ -368,14 +368,14 @@ module TestRubyParserShared
   end
 
   def test_evstr_evstr
-    rb = "\"#\{a}#\{b}\""
+    rb = %q("#{a}#{b}")
     pt = s(:dstr, "", s(:evstr, s(:call, nil, :a)), s(:evstr, s(:call, nil, :b)))
 
     assert_parse rb, pt
   end
 
   def test_evstr_str
-    rb = "\"#\{a} b\""
+    rb = %q("#{a} b")
     pt = s(:dstr, "", s(:evstr, s(:call, nil, :a)), s(:str, " b"))
 
     assert_parse rb, pt
@@ -1014,7 +1014,6 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-
   def test_bug_not_parens
     rb = "not(a)"
     pt = s(:call, s(:call, nil, :a), :"!")
@@ -1038,11 +1037,6 @@ module TestRubyParserShared
 
   def test_bug_op_asgn_rescue
     rb = "a ||= b rescue nil"
-    pt = s(:rescue,
-           s(:op_asgn_or, s(:lvar, :a), s(:lasgn, :a, s(:call, nil, :b))),
-           s(:resbody, s(:array), s(:nil)))
-
-    # TODO: HRM: this seems more correct IMO. Check against other versions
     pt = s(:op_asgn_or,
            s(:lvar, :a),
            s(:lasgn, :a,
@@ -1095,7 +1089,7 @@ module TestRubyParserShared
   end
 
   def test_i_fucking_hate_line_numbers
-    rb = <<-END.gsub(/^ {6}/, '')
+    rb = <<-END.gsub(/^ {6}/, "")
       if true
         p 1
         a.b 2
@@ -1136,7 +1130,7 @@ module TestRubyParserShared
   end
 
   def test_i_fucking_hate_line_numbers2
-    rb = <<-EOM.gsub(/^ {6}/, '')
+    rb = <<-EOM.gsub(/^ {6}/, "")
       if true then
         p('a')
         b = 1
@@ -1173,7 +1167,7 @@ module TestRubyParserShared
           # woot
         end
       end
-      CODE
+    CODE
 
     assert_equal "# class comment\n", sexp.comments
     act = sexp.find_nodes(:defn).map(&:comments)
@@ -1198,14 +1192,14 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-    def test_call_args_command
+  def test_call_args_command
     rb = "a.b c.d 1"
     pt = s(:call, s(:call, nil, :a), :b,
            s(:call, s(:call, nil, :c), :d,
              s(:lit, 1)))
 
     assert_parse rb, pt
-    end
+  end
 
   def test_defined_eh_parens
     rb = "defined?(42)"
@@ -1435,7 +1429,6 @@ module TestRubyParserShared
   end
 
   def test_non_interpolated_word_array_line_breaks
-
     rb = "%w(\na\nb\n)\n1"
     pt = s(:block,
            s(:array,
@@ -1446,7 +1439,6 @@ module TestRubyParserShared
   end
 
   def test_interpolated_word_array_line_breaks
-
     rb = "%W(\na\nb\n)\n1"
     pt = s(:block,
            s(:array,
@@ -1713,7 +1705,7 @@ module TestRubyParserShared
 
     assert_kind_of Hash, top_env
 
-    flip = top_env.find { |k,v| k =~ /^flip/ }
+    flip = top_env.find { |k, _| k =~ /^flip/ }
 
     assert flip
     assert_equal :lvar, flip.last
@@ -2426,9 +2418,6 @@ module TestRubyParserShared19Plus
   def test_mlhs_mid_anonsplat
     rb = "a, b, c, *, x, y, z = f"
     pt = s(:masgn,
-           s(:array, s(:lasgn, :a), s(:splat), s(:lasgn, :z)),
-           s(:to_ary, s(:call, nil, :f)))
-    pt = s(:masgn,
            s(:array,
              s(:lasgn, :a), s(:lasgn, :b), s(:lasgn, :c),
              s(:splat),
@@ -2440,9 +2429,6 @@ module TestRubyParserShared19Plus
 
   def test_mlhs_front_splat
     rb = "*s, x, y, z = f"
-    pt = s(:masgn,
-           s(:array, s(:splat, s(:lasgn, :s)), s(:lasgn, :z)),
-           s(:to_ary, s(:call, nil, :f)))
     pt = s(:masgn,
            s(:array,
              s(:splat, s(:lasgn, :s)),
@@ -2494,19 +2480,19 @@ module TestRubyParserShared19Plus
   end
 
   def test_parse_def_xxx1
-    rb = 'def f(a, *b, c = nil) end'
+    rb = "def f(a, *b, c = nil) end"
 
     assert_parse_error rb, '(string):1 :: parse error on value "=" (tEQL)'
   end
 
   def test_parse_def_xxx2
-    rb = 'def f(a = nil, *b, c = nil) end'
+    rb = "def f(a = nil, *b, c = nil) end"
 
     assert_parse_error rb, '(string):1 :: parse error on value "=" (tEQL)'
   end
 
   def test_parse_def_special_name
-    rb = 'def next; end'
+    rb = "def next; end"
     pt = s(:defn, :next, s(:args), s(:nil))
 
     assert_parse rb, pt
@@ -2752,7 +2738,6 @@ module TestRubyParserShared19Plus
              s(:lambda),
              s(:args),
              s(:iter, s(:call, nil, :g), 0)))
-
 
     assert_parse rb, pt
   end
@@ -3000,7 +2985,6 @@ module TestRubyParserShared20Plus
   include TestRubyParserShared19Plus
 
   def test_non_interpolated_symbol_array_line_breaks
-
     rb = "%i(\na\nb\n)\n1"
     pt = s(:block,
            s(:array,
@@ -3011,7 +2995,6 @@ module TestRubyParserShared20Plus
   end
 
   def test_interpolated_symbol_array_line_breaks
-
     rb = "%I(\na\nb\n)\n1"
     pt = s(:block,
            s(:array,
@@ -3148,7 +3131,6 @@ module TestRubyParserShared20Plus
              :e),
            s(:args, :f),
            s(:call, nil, :g))
-
 
     assert_parse rb, pt
   end
@@ -3365,7 +3347,7 @@ module TestRubyParserShared21Plus
   end
 
   def test_parse_line_heredoc_hardnewline
-    rb = <<-'CODE'.gsub(/^      /, '')
+    rb = <<-'CODE'.gsub(/^      /, "")
       <<-EOFOO
       \n\n\n\n\n\n\n\n\n
       EOFOO
@@ -3426,7 +3408,7 @@ module TestRubyParserShared23Plus
   include TestRubyParserShared22Plus
 
   def test_bug_215
-    rb = 'undef %s(foo)'
+    rb = "undef %s(foo)"
     pt = s(:undef, s(:lit, :foo))
 
     assert_parse rb, pt
@@ -3701,7 +3683,7 @@ class RubyParserTestCase < ParseTreeTestCase
 
   def self.generate_test klass, node, data, input_name, output_name
     return if node.to_s =~ /bmethod|dmethod/
-    return if Array === data['Ruby']
+    return if Array === data["Ruby"]
 
     output_name = "ParseTree"
 
@@ -3924,15 +3906,15 @@ RubyParser::VERSIONS.each do |klass|
     end
 
     {
-     "->       {    }" => s(:iter, s(:lambda),                       0),
-     "lambda   {    }" => s(:iter, s(:call, nil, :lambda),           0),
-     "proc     {    }" => s(:iter, s(:call, nil, :proc),             0),
-     "Proc.new {    }" => s(:iter, s(:call, s(:const, :Proc), :new), 0),
+      "->       {    }" => s(:iter, s(:lambda),                       0),
+      "lambda   {    }" => s(:iter, s(:call, nil, :lambda),           0),
+      "proc     {    }" => s(:iter, s(:call, nil, :proc),             0),
+      "Proc.new {    }" => s(:iter, s(:call, s(:const, :Proc), :new), 0),
 
-     "-> ()    {    }" => s(:iter, s(:lambda),                       s(:args)),
-     "lambda   { || }" => s(:iter, s(:call, nil, :lambda),           s(:args)),
-     "proc     { || }" => s(:iter, s(:call, nil, :proc),             s(:args)),
-     "Proc.new { || }" => s(:iter, s(:call, s(:const, :Proc), :new), s(:args)),
+      "-> ()    {    }" => s(:iter, s(:lambda),                       s(:args)),
+      "lambda   { || }" => s(:iter, s(:call, nil, :lambda),           s(:args)),
+      "proc     { || }" => s(:iter, s(:call, nil, :proc),             s(:args)),
+      "Proc.new { || }" => s(:iter, s(:call, s(:const, :Proc), :new), s(:args)),
 
     }.each do |input, expected|
       next if v == 18 and input =~ /->/

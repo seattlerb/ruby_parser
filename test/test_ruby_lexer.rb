@@ -1,4 +1,5 @@
 # encoding: US-ASCII
+
 # TODO: work this out
 
 require "minitest/autorun"
@@ -10,8 +11,8 @@ class TestRubyLexer < Minitest::Test
 
   attr_accessor :processor, :lex, :parser_class, :lex_state
 
-  alias :lexer :lex # lets me copy/paste code from parser
-  alias :lexer= :lex=
+  alias lexer  lex # lets me copy/paste code from parser
+  alias lexer= lex=
 
   def setup
     self.lex_state = EXPR_BEG
@@ -21,7 +22,7 @@ class TestRubyLexer < Minitest::Test
   def setup_lexer input, exp_sexp = nil
     setup_new_parser
     lex.ss = RPStringScanner.new(input)
-    lex.lex_state = self.lex_state
+    lex.lex_state = lex_state
   end
 
   def setup_new_parser
@@ -35,11 +36,11 @@ class TestRubyLexer < Minitest::Test
     setup_lexer "blah blah"
   end
 
-  def assert_lex input, exp_sexp, *args, &b
+  def assert_lex input, exp_sexp, *args
     setup_lexer input
     assert_parse input, exp_sexp if exp_sexp
 
-    b.call if b
+    yield if block_given?
 
     args.each_slice(5) do |token, value, state, paren, brace|
       assert_next_lexeme token, value, state, paren, brace
@@ -84,22 +85,21 @@ class TestRubyLexer < Minitest::Test
     act_token, act_value = adv
 
     msg = message {
-      act = [act_token, act_value, @lex.lex_state,
-             @lex.paren_nest, @lex.brace_nest]
+      act = [act_token, act_value, @lex.lex_state, @lex.paren_nest, @lex.brace_nest]
       exp = [token, value, state, paren, brace]
       "#{exp.inspect} vs #{act.inspect}"
     }
 
     act_value = act_value.first if Array === act_value
 
-    assert_equal token, act_token,       msg
+    assert_equal token, act_token, msg
     case value
     when Float then
       assert_in_epsilon value, act_value, 0.001, msg
     when NilClass then
       assert_nil act_value, msg
     else
-      assert_equal value, act_value,       msg
+      assert_equal value, act_value, msg
     end
     assert_equal state, @lex.lex_state,  msg if state
     assert_equal paren, @lex.paren_nest, msg if paren
@@ -146,7 +146,7 @@ class TestRubyLexer < Minitest::Test
     yield
 
     lexer.lex_state = EXPR_ENDARG
-    assert_next_lexeme :tSTRING_DEND, "}",  EXPR_END, 0
+    assert_next_lexeme :tSTRING_DEND, "}", EXPR_END, 0
 
     lexer.lex_strterm = lex_strterm
     lexer.lex_state   = EXPR_BEG
@@ -347,7 +347,7 @@ class TestRubyLexer < Minitest::Test
     end
 
     assert_next_lexeme :tSTRING_CONTENT, ")",  EXPR_BEG, 0, 0
-    assert_next_lexeme :tSTRING_END,     ")",  EXPR_END|EXPR_ENDARG, 0, 0
+    assert_next_lexeme :tSTRING_END,     ")",  EXPR_LIT, 0, 0
 
     refute_lexeme
   end
@@ -361,15 +361,15 @@ class TestRubyLexer < Minitest::Test
     assert_next_lexeme :tSTRING_DBEG,      nil,    EXPR_BEG, 0, 0
 
     emulate_string_interpolation do
-      assert_next_lexeme :tLPAREN,         "(",     EXPR_PAR, 1, 0
-      assert_next_lexeme :tREGEXP_BEG,     "/",     EXPR_PAR, 1, 0
-      assert_next_lexeme :tSTRING_CONTENT, "abcd",  EXPR_PAR, 1, 0
-      assert_next_lexeme :tREGEXP_END,     "",     EXPR_END|EXPR_ENDARG, 1, 0
+      assert_next_lexeme :tLPAREN,         "(",    EXPR_PAR, 1, 0
+      assert_next_lexeme :tREGEXP_BEG,     "/",    EXPR_PAR, 1, 0
+      assert_next_lexeme :tSTRING_CONTENT, "abcd", EXPR_PAR, 1, 0
+      assert_next_lexeme :tREGEXP_END,     "",     EXPR_LIT, 1, 0
       assert_next_lexeme :tRPAREN,         ")",    EXPR_ENDFN, 0, 0
     end
 
     assert_next_lexeme :tSTRING_CONTENT,   " ",    EXPR_BEG, 0, 0
-    assert_next_lexeme :tSTRING_END,       ")",    EXPR_END|EXPR_ENDARG, 0, 0
+    assert_next_lexeme :tSTRING_END,       ")",    EXPR_LIT, 0, 0
 
     refute_lexeme
   end
@@ -406,22 +406,22 @@ class TestRubyLexer < Minitest::Test
                  s(:call, s(:lit, 1), :*, s(:call, nil, :b)),
                  :*, s(:lit, 3)),
 
-               :tINTEGER,      1,  EXPR_NUM, 0, 0,
+               :tINTEGER,    1,   EXPR_NUM, 0, 0,
                :tSTAR2,      "*", EXPR_BEG, 0, 0,
                :tIDENTIFIER, "b", EXPR_ARG, 0, 0,
                :tSTAR2,      "*", EXPR_BEG, 0, 0,
-               :tINTEGER,      3,  EXPR_NUM, 0, 0)
+               :tINTEGER,    3,   EXPR_NUM, 0, 0)
 
     assert_lex("1 * b *\n 3",
                s(:call,
                  s(:call, s(:lit, 1), :*, s(:call, nil, :b)),
                  :*, s(:lit, 3)),
 
-               :tINTEGER,      1,  EXPR_NUM, 0, 0,
+               :tINTEGER,    1,   EXPR_NUM, 0, 0,
                :tSTAR2,      "*", EXPR_BEG, 0, 0,
                :tIDENTIFIER, "b", EXPR_ARG, 0, 0,
                :tSTAR2,      "*", EXPR_BEG, 0, 0,
-               :tINTEGER,      3,  EXPR_NUM, 0, 0)
+               :tINTEGER,    3,   EXPR_NUM, 0, 0)
   end
 
   def test_yylex_paren_string_parens_interpolated_regexp
@@ -434,15 +434,15 @@ class TestRubyLexer < Minitest::Test
     assert_next_lexeme :tSTRING_DBEG,       nil,   EXPR_BEG, 0, 0
 
     emulate_string_interpolation do
-      assert_next_lexeme :tLPAREN,         "(",     EXPR_PAR, 1, 0
-      assert_next_lexeme :tREGEXP_BEG,     "/",     EXPR_PAR, 1, 0
-      assert_next_lexeme :tSTRING_CONTENT, "abcd",  EXPR_PAR, 1, 0
-      assert_next_lexeme :tREGEXP_END,     "",     EXPR_END|EXPR_ENDARG, 1, 0
+      assert_next_lexeme :tLPAREN,         "(",    EXPR_PAR,   1, 0
+      assert_next_lexeme :tREGEXP_BEG,     "/",    EXPR_PAR,   1, 0
+      assert_next_lexeme :tSTRING_CONTENT, "abcd", EXPR_PAR,   1, 0
+      assert_next_lexeme :tREGEXP_END,     "",     EXPR_LIT,   1, 0
       assert_next_lexeme :tRPAREN,         ")",    EXPR_ENDFN, 0, 0
     end
 
     assert_next_lexeme :tSTRING_CONTENT,   ")",    EXPR_BEG, 0, 0
-    assert_next_lexeme :tSTRING_END,       ")",    EXPR_END|EXPR_ENDARG, 0, 0
+    assert_next_lexeme :tSTRING_END,       ")",    EXPR_LIT, 0, 0
 
     refute_lexeme
   end
@@ -450,11 +450,11 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_method_parens_chevron
     assert_lex("a()<<1",
                s(:call, s(:call, nil, :a), :<<, s(:lit, 1)),
-               :tIDENTIFIER, "a",   EXPR_CMDARG, 0, 0,
-               :tLPAREN2,    "(",    EXPR_PAR,    1, 0,
-               :tRPAREN,     ")",   EXPR_ENDFN,  0, 0,
-               :tLSHFT,      "<<" , EXPR_BEG,    0, 0,
-               :tINTEGER,    1,      EXPR_NUM,    0, 0)
+               :tIDENTIFIER, "a",  EXPR_CMDARG, 0, 0,
+               :tLPAREN2,    "(",  EXPR_PAR,    1, 0,
+               :tRPAREN,     ")",  EXPR_ENDFN,  0, 0,
+               :tLSHFT,      "<<", EXPR_BEG,    0, 0,
+               :tINTEGER,    1,    EXPR_NUM,    0, 0)
   end
 
   def test_yylex_lambda_args
@@ -463,10 +463,10 @@ class TestRubyLexer < Minitest::Test
                  s(:args, :a)),
 
                :tLAMBDA,     nil, EXPR_ENDFN, 0, 0,
-               :tLPAREN2,    "(",  EXPR_PAR,  1, 0,
+               :tLPAREN2,    "(", EXPR_PAR,   1, 0,
                :tIDENTIFIER, "a", EXPR_ARG,   1, 0,
                :tRPAREN,     ")", EXPR_ENDFN, 0, 0,
-               :tLCURLY,     "{",  EXPR_PAR,  0, 1,
+               :tLCURLY,     "{", EXPR_PAR,   0, 1,
                :tRCURLY,     "}", EXPR_END,   0, 0)
   end
 
@@ -478,10 +478,10 @@ class TestRubyLexer < Minitest::Test
                  s(:args, :a)),
 
                :tLAMBDA,     nil, EXPR_ENDFN,  0, 0,
-               :tLPAREN2,    "(",  EXPR_PAR,    1, 0,
+               :tLPAREN2,    "(", EXPR_PAR,    1, 0,
                :tIDENTIFIER, "a", EXPR_ARG,    1, 0,
                :tRPAREN,     ")", EXPR_ENDFN,  0, 0,
-               :tLCURLY,     "{",  EXPR_PAR,    0, 1,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
                :tRCURLY,     "}", EXPR_ENDARG, 0, 0)
   end
 
@@ -501,14 +501,14 @@ class TestRubyLexer < Minitest::Test
                s(:iter, s(:lambda),
                  s(:args, s(:lasgn, :a, s(:nil)))),
 
-               :tLAMBDA,     nil, EXPR_ENDFN, 0, 0,
-               :tLPAREN2,    "(",  EXPR_PAR,  1, 0,
-               :tIDENTIFIER, "a", EXPR_ARG,   1, 0,
-               :tEQL,        "=", EXPR_BEG,   1, 0,
-               :kNIL,        "nil", EXPR_END, 1, 0,
-               :tRPAREN,     ")", EXPR_ENDFN, 0, 0,
-               :tLCURLY,     "{",  EXPR_PAR,  0, 1,
-               :tRCURLY,     "}", EXPR_END,   0, 0)
+               :tLAMBDA,     nil,   EXPR_ENDFN,  0, 0,
+               :tLPAREN2,    "(",   EXPR_PAR,    1, 0,
+               :tIDENTIFIER, "a",   EXPR_ARG,    1, 0,
+               :tEQL,        "=",   EXPR_BEG,    1, 0,
+               :kNIL,        "nil", EXPR_END,    1, 0,
+               :tRPAREN,     ")",   EXPR_ENDFN,  0, 0,
+               :tLCURLY,     "{",   EXPR_PAR,    0, 1,
+               :tRCURLY,     "}",   EXPR_END,    0, 0)
   end
 
   def test_yylex_lambda_args_opt__24
@@ -518,14 +518,14 @@ class TestRubyLexer < Minitest::Test
                s(:iter, s(:lambda),
                  s(:args, s(:lasgn, :a, s(:nil)))),
 
-               :tLAMBDA,     nil, EXPR_ENDFN,  0, 0,
-               :tLPAREN2,    "(",  EXPR_PAR,   1, 0,
-               :tIDENTIFIER, "a", EXPR_ARG,    1, 0,
-               :tEQL,        "=", EXPR_BEG,    1, 0,
-               :kNIL,        "nil", EXPR_END,  1, 0,
-               :tRPAREN,     ")", EXPR_ENDFN,  0, 0,
-               :tLCURLY,     "{",  EXPR_PAR,   0, 1,
-               :tRCURLY,     "}", EXPR_ENDARG, 0, 0)
+               :tLAMBDA,     nil,   EXPR_ENDFN,  0, 0,
+               :tLPAREN2,    "(",   EXPR_PAR,    1, 0,
+               :tIDENTIFIER, "a",   EXPR_ARG,    1, 0,
+               :tEQL,        "=",   EXPR_BEG,    1, 0,
+               :kNIL,        "nil", EXPR_END,    1, 0,
+               :tRPAREN,     ")",   EXPR_ENDFN,  0, 0,
+               :tLCURLY,     "{",   EXPR_PAR,    0, 1,
+               :tRCURLY,     "}",   EXPR_ENDARG, 0, 0)
   end
 
   def test_yylex_lambda_hash
@@ -533,15 +533,15 @@ class TestRubyLexer < Minitest::Test
                s(:iter, s(:lambda),
                  s(:args, s(:lasgn, :a, s(:hash)))),
 
-               :tLAMBDA,     nil, EXPR_ENDFN,  0, 0,
-               :tLPAREN2,    "(",  EXPR_PAR,    1, 0,
-               :tIDENTIFIER, "a", EXPR_ARG,    1, 0,
-               :tEQL,        "=", EXPR_BEG,    1, 0,
-               :tLBRACE,     "{",  EXPR_PAR,    1, 1,
-               :tRCURLY,     "}", EXPR_END, 1, 0,
-               :tRPAREN,     ")", EXPR_ENDFN,  0, 0,
-               :tLCURLY,     "{",  EXPR_PAR,    0, 1,
-               :tRCURLY,     "}", EXPR_END, 0, 0)
+               :tLAMBDA,     nil, EXPR_ENDFN, 0, 0,
+               :tLPAREN2,    "(", EXPR_PAR,   1, 0,
+               :tIDENTIFIER, "a", EXPR_ARG,   1, 0,
+               :tEQL,        "=", EXPR_BEG,   1, 0,
+               :tLBRACE,     "{", EXPR_PAR,   1, 1,
+               :tRCURLY,     "}", EXPR_END,   1, 0,
+               :tRPAREN,     ")", EXPR_ENDFN, 0, 0,
+               :tLCURLY,     "{", EXPR_PAR,   0, 1,
+               :tRCURLY,     "}", EXPR_END,   0, 0)
   end
 
   def test_yylex_lambda_hash__24
@@ -552,13 +552,13 @@ class TestRubyLexer < Minitest::Test
                  s(:args, s(:lasgn, :a, s(:hash)))),
 
                :tLAMBDA,     nil, EXPR_ENDFN,  0, 0,
-               :tLPAREN2,    "(",  EXPR_PAR,    1, 0,
+               :tLPAREN2,    "(", EXPR_PAR,    1, 0,
                :tIDENTIFIER, "a", EXPR_ARG,    1, 0,
                :tEQL,        "=", EXPR_BEG,    1, 0,
-               :tLBRACE,     "{",  EXPR_PAR,    1, 1,
+               :tLBRACE,     "{", EXPR_PAR,    1, 1,
                :tRCURLY,     "}", EXPR_ENDARG, 1, 0,
                :tRPAREN,     ")", EXPR_ENDFN,  0, 0,
-               :tLCURLY,     "{",  EXPR_PAR,    0, 1,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
                :tRCURLY,     "}", EXPR_ENDARG, 0, 0)
   end
 
@@ -568,18 +568,18 @@ class TestRubyLexer < Minitest::Test
                 nil,
 
                :tIDENTIFIER, "f", EXPR_CMDARG, 0, 0,
-               :tSYMBOL,     "a", EXPR_END|EXPR_ENDARG, 0, 0,
-               :tCOMMA,      ",",  EXPR_PAR,    0, 0,
-               :tLBRACK,     "[",  EXPR_PAR,    1, 0,
-               :tSYMBOL,     "b", EXPR_END|EXPR_ENDARG, 1, 0,
+               :tSYMBOL,     "a", EXPR_LIT,    0, 0,
+               :tCOMMA,      ",", EXPR_PAR,    0, 0,
+               :tLBRACK,     "[", EXPR_PAR,    1, 0,
+               :tSYMBOL,     "b", EXPR_LIT,    1, 0,
                :tRBRACK,     "]", EXPR_END,    0, 0,
-               :tLCURLY,     "{", EXPR_BEG|EXPR_LABEL, 0, 1,
-               :tPIPE,       "|",  EXPR_PAR,    0, 1,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
+               :tPIPE,       "|", EXPR_PAR,    0, 1,
                :tIDENTIFIER, "c", EXPR_ARG,    0, 1,
-               :tCOMMA,      ",",  EXPR_PAR,    0, 1,
+               :tCOMMA,      ",", EXPR_PAR,    0, 1,
                :tIDENTIFIER, "d", EXPR_ARG,    0, 1,
-               :tPIPE,       "|",  EXPR_PAR,    0, 1,
-               :tRCURLY,     "}", EXPR_END,     0, 0)
+               :tPIPE,       "|", EXPR_PAR,    0, 1,
+               :tRCURLY,     "}", EXPR_END,    0, 0)
   end
 
   def test_yylex_iter_array_curly__24
@@ -590,18 +590,18 @@ class TestRubyLexer < Minitest::Test
                  s(:call, nil, :f, s(:lit, :a), s(:array, s(:lit, :b))),
                  s(:args, :c, :d)),
 
-               :tIDENTIFIER, "f", EXPR_CMDARG, 0, 0,
-               :tSYMBOL,     "a", EXPR_END|EXPR_ENDARG, 0, 0,
-               :tCOMMA,      ",",  EXPR_PAR,    0, 0,
-               :tLBRACK,     "[",  EXPR_PAR,    1, 0,
-               :tSYMBOL,     "b", EXPR_END|EXPR_ENDARG, 1, 0,
-               :tRBRACK,     "]", EXPR_ENDARG, 0, 0,
-               :tLBRACE_ARG, "{", EXPR_BEG,    0, 1,
-               :tPIPE,       "|",  EXPR_PAR,    0, 1,
-               :tIDENTIFIER, "c", EXPR_ARG,    0, 1,
-               :tCOMMA,      ",",  EXPR_PAR,    0, 1,
-               :tIDENTIFIER, "d", EXPR_ARG,    0, 1,
-               :tPIPE,       "|",  EXPR_PAR,    0, 1,
+               :tIDENTIFIER, "f", EXPR_CMDARG,  0, 0,
+               :tSYMBOL,     "a", EXPR_LIT,     0, 0,
+               :tCOMMA,      ",", EXPR_PAR,     0, 0,
+               :tLBRACK,     "[", EXPR_PAR,     1, 0,
+               :tSYMBOL,     "b", EXPR_LIT,     1, 0,
+               :tRBRACK,     "]", EXPR_ENDARG,  0, 0,
+               :tLBRACE_ARG, "{", EXPR_BEG,     0, 1,
+               :tPIPE,       "|", EXPR_PAR,     0, 1,
+               :tIDENTIFIER, "c", EXPR_ARG,     0, 1,
+               :tCOMMA,      ",", EXPR_PAR,     0, 1,
+               :tIDENTIFIER, "d", EXPR_ARG,     0, 1,
+               :tPIPE,       "|", EXPR_PAR,     0, 1,
                :tRCURLY,     "}", EXPR_ENDARG,  0, 0)
   end
 
@@ -617,14 +617,14 @@ class TestRubyLexer < Minitest::Test
                :tCONSTANT,   "X", EXPR_CMDARG, 0, 0,
                :tEQL,        "=", EXPR_BEG,    0, 0,
                :tIDENTIFIER, "a", EXPR_ARG,    0, 0,
-               :tLCURLY,     "{",  EXPR_PAR,    0, 1,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
                :tRCURLY,     "}", EXPR_END,    0, 0,
                :tSEMI,       ";", EXPR_BEG,    0, 0,
 
                :tIDENTIFIER, "b", EXPR_CMDARG, 0, 0,
-               :tLCURLY,     "{",  EXPR_PAR,    0, 1,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
                :tIDENTIFIER, "f", EXPR_CMDARG, 0, 1, # different
-               :tSYMBOL,     "c", EXPR_END|EXPR_ENDARG, 0, 1,
+               :tSYMBOL,     "c", EXPR_LIT,    0, 1,
                :tRCURLY,     "}", EXPR_END,    0, 0)
 
     assert_lex("X = a { }; b { X :c }",
@@ -638,14 +638,14 @@ class TestRubyLexer < Minitest::Test
                :tCONSTANT,   "X", EXPR_CMDARG, 0, 0,
                :tEQL,        "=", EXPR_BEG,    0, 0,
                :tIDENTIFIER, "a", EXPR_ARG,    0, 0,
-               :tLCURLY,     "{",  EXPR_PAR,    0, 1,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
                :tRCURLY,     "}", EXPR_END,    0, 0,
                :tSEMI,       ";", EXPR_BEG,    0, 0,
 
                :tIDENTIFIER, "b", EXPR_CMDARG, 0, 0,
-               :tLCURLY,     "{",  EXPR_PAR,    0, 1,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
                :tCONSTANT,   "X", EXPR_CMDARG, 0, 1, # same
-               :tSYMBOL,     "c", EXPR_END|EXPR_ENDARG, 0, 1,
+               :tSYMBOL,     "c", EXPR_LIT,    0, 1,
                :tRCURLY,     "}", EXPR_END,    0, 0)
   end
 
@@ -655,34 +655,34 @@ class TestRubyLexer < Minitest::Test
                  s(:call, s(:call, nil, :b), :c,
                    s(:hash, s(:lit, :d), s(:lit, 1)))),
 
-               :tIDENTIFIER, "a", EXPR_CMDARG, 0, 0,
-               :tEQL,        "=", EXPR_BEG,    0, 0,
-               :tIDENTIFIER, "b", EXPR_ARG,    0, 0,
-               :tDOT,        ".", EXPR_DOT,    0, 0,
-               :tIDENTIFIER, "c", EXPR_ARG,    0, 0, # different
-               :tSYMBOL,     "d", EXPR_END|EXPR_ENDARG, 0, 0,
-               :tASSOC,      "=>", EXPR_BEG,   0, 0,
-               :tINTEGER,      1,  EXPR_NUM,    0, 0)
+               :tIDENTIFIER, "a",  EXPR_CMDARG, 0, 0,
+               :tEQL,        "=",  EXPR_BEG,    0, 0,
+               :tIDENTIFIER, "b",  EXPR_ARG,    0, 0,
+               :tDOT,        ".",  EXPR_DOT,    0, 0,
+               :tIDENTIFIER, "c",  EXPR_ARG,    0, 0, # different
+               :tSYMBOL,     "d",  EXPR_LIT,    0, 0,
+               :tASSOC,      "=>", EXPR_BEG,    0, 0,
+               :tINTEGER,    1,    EXPR_NUM,    0, 0)
 
     assert_lex("a = b.a :d => 1",
                s(:lasgn, :a,
                  s(:call, s(:call, nil, :b), :a,
                    s(:hash, s(:lit, :d), s(:lit, 1)))),
 
-               :tIDENTIFIER, "a", EXPR_CMDARG, 0, 0,
-               :tEQL,        "=", EXPR_BEG,    0, 0,
-               :tIDENTIFIER, "b", EXPR_ARG,    0, 0,
-               :tDOT,        ".", EXPR_DOT,    0, 0,
-               :tIDENTIFIER, "a", EXPR_ARG,    0, 0, # same as lvar
-               :tSYMBOL,     "d", EXPR_END|EXPR_ENDARG, 0, 0,
-               :tASSOC,      "=>", EXPR_BEG,   0, 0,
-               :tINTEGER,      1,  EXPR_NUM,    0, 0)
+               :tIDENTIFIER, "a",  EXPR_CMDARG, 0, 0,
+               :tEQL,        "=",  EXPR_BEG,    0, 0,
+               :tIDENTIFIER, "b",  EXPR_ARG,    0, 0,
+               :tDOT,        ".",  EXPR_DOT,    0, 0,
+               :tIDENTIFIER, "a",  EXPR_ARG,    0, 0, # same as lvar
+               :tSYMBOL,     "d",  EXPR_LIT,    0, 0,
+               :tASSOC,      "=>", EXPR_BEG,    0, 0,
+               :tINTEGER,    1,    EXPR_NUM,    0, 0)
   end
 
   def test_yylex_back_ref
     assert_lex3("[$&, $`, $', $+]",
                 nil,
-                :tLBRACK,   "[",   EXPR_PAR,
+                :tLBRACK,   "[",  EXPR_PAR,
                 :tBACK_REF, :&,   EXPR_END, :tCOMMA, ",", EXPR_PAR,
                 :tBACK_REF, :"`", EXPR_END, :tCOMMA, ",", EXPR_PAR,
                 :tBACK_REF, :"'", EXPR_END, :tCOMMA, ",", EXPR_PAR,
@@ -693,9 +693,9 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_backslash
     assert_lex3("1 \\\n+ 2",
                 nil,
-                :tINTEGER, 1,    EXPR_NUM,
+                :tINTEGER, 1,   EXPR_NUM,
                 :tPLUS,    "+", EXPR_BEG,
-                :tINTEGER, 2,    EXPR_NUM)
+                :tINTEGER, 2,   EXPR_NUM)
   end
 
   def test_yylex_backslash_bad
@@ -707,7 +707,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tXSTRING_BEG,    "`",  EXPR_BEG,
                 :tSTRING_CONTENT, "ls", EXPR_BEG,
-                :tSTRING_END,     "`",  EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "`",  EXPR_LIT)
   end
 
   def test_yylex_backtick_cmdarg
@@ -725,8 +725,8 @@ class TestRubyLexer < Minitest::Test
                 :tIDENTIFIER, "a", EXPR_CMDARG,
                 :tDOT,        ".", EXPR_DOT,
                 :tBACK_REF2,  "`", EXPR_ARG,
-                :tLPAREN2,    "(",  EXPR_PAR,
-                :tINTEGER,    3,    EXPR_NUM,
+                :tLPAREN2,    "(", EXPR_PAR,
+                :tINTEGER,    3,   EXPR_NUM,
                 :tRPAREN,     ")", EXPR_ENDFN)
   end
 
@@ -771,7 +771,7 @@ class TestRubyLexer < Minitest::Test
 
                 :tIDENTIFIER, "a",   EXPR_CMDARG,
                 :tEQL,        "=",   EXPR_BEG,
-                :tINTEGER,    1,      EXPR_NUM,
+                :tINTEGER,    1,     EXPR_NUM,
                 :tNL,         nil,   EXPR_BEG,
                 :tIDENTIFIER, "a",   EXPR_CMDARG,
                 :kDO,         "do",  EXPR_BEG,
@@ -783,7 +783,7 @@ class TestRubyLexer < Minitest::Test
                 s(:iter, s(:call, nil, :a), 0),
 
                 :tIDENTIFIER, "a", EXPR_CMDARG, # verified
-                :tLCURLY,     "{",  EXPR_PAR,
+                :tLCURLY,     "{", EXPR_PAR,
                 :tRCURLY,     "}", EXPR_END)
   end
 
@@ -830,9 +830,9 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_comment
     assert_lex3("1 # one\n# two\n2",
                 nil,
-                :tINTEGER, 1,    EXPR_NUM,
+                :tINTEGER, 1,   EXPR_NUM,
                 :tNL,      nil, EXPR_BEG,
-                :tINTEGER, 2,    EXPR_NUM)
+                :tINTEGER, 2,   EXPR_NUM)
 
     assert_equal "# one\n# two\n", @lex.comments
   end
@@ -840,7 +840,7 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_comment_begin
     assert_lex3("=begin\nblah\nblah\n=end\n42",
                 nil,
-                :tINTEGER, 42,  EXPR_NUM)
+                :tINTEGER, 42, EXPR_NUM)
 
     assert_equal "=begin\nblah\nblah\n=end\n", @lex.comments
   end
@@ -856,7 +856,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "beginfoo", EXPR_CMDARG,
                 :tEQL,        "=",        EXPR_BEG,
-                :tINTEGER,    5,           EXPR_NUM,
+                :tINTEGER,    5,          EXPR_NUM,
                 :tNL,         nil,        EXPR_BEG,
                 :tIDENTIFIER, "p",        EXPR_CMDARG,
                 :tIDENTIFIER, "x",        EXPR_ARG,
@@ -911,7 +911,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "a", EXPR_CMDARG,
                 :tDIVIDE,     "/", EXPR_BEG,
-                :tINTEGER,    2,    EXPR_NUM)
+                :tINTEGER,    2,   EXPR_NUM)
   end
 
   def test_yylex_div_equals
@@ -919,7 +919,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "a", EXPR_CMDARG,
                 :tOP_ASGN,    "/", EXPR_BEG,
-                :tINTEGER,    2,    EXPR_NUM)
+                :tINTEGER,    2,   EXPR_NUM)
   end
 
   def test_yylex_do
@@ -927,7 +927,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "x",   EXPR_CMDARG,
                 :kDO,         "do",  EXPR_BEG,
-                :tINTEGER,    42,     EXPR_NUM,
+                :tINTEGER,    42,    EXPR_NUM,
                 :kEND,        "end", EXPR_END)
   end
 
@@ -940,7 +940,7 @@ class TestRubyLexer < Minitest::Test
                 :tDOT,        ".",   EXPR_DOT,
                 :tIDENTIFIER, "y",   EXPR_ARG,
                 :kDO_BLOCK,   "do",  EXPR_BEG,
-                :tINTEGER,    42,     EXPR_NUM,
+                :tINTEGER,    42,    EXPR_NUM,
                 :kEND,        "end", EXPR_END) do
       @lex.cmdarg.push true
     end
@@ -952,16 +952,16 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("do 42 end",
                 nil,
                 :kDO_BLOCK, "do",  EXPR_BEG,
-                :tINTEGER,  42,     EXPR_NUM,
+                :tINTEGER,  42,    EXPR_NUM,
                 :kEND,      "end", EXPR_END)
   end
 
   def test_yylex_is_your_spacebar_broken?
     assert_lex3(":a!=:b",
                 nil,
-                :tSYMBOL, "a",  EXPR_END|EXPR_ENDARG,
+                :tSYMBOL, "a",  EXPR_LIT,
                 :tNEQ,    "!=", EXPR_BEG,
-                :tSYMBOL, "b",  EXPR_END|EXPR_ENDARG)
+                :tSYMBOL, "b",  EXPR_LIT)
   end
 
   def test_yylex_do_cond
@@ -969,7 +969,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "x",   EXPR_CMDARG,
                 :kDO_COND,    "do",  EXPR_BEG,
-                :tINTEGER,    42,     EXPR_NUM,
+                :tINTEGER,    42,    EXPR_NUM,
                 :kEND,        "end", EXPR_END) do
       @lex.cond.push true
     end
@@ -1014,7 +1014,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_float
-    assert_lex3("1.0", nil, :tFLOAT, 1.0,  EXPR_NUM)
+    assert_lex3("1.0", nil, :tFLOAT, 1.0, EXPR_NUM)
   end
 
   def test_yylex_float_bad_no_underscores
@@ -1032,7 +1032,7 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_float_call
     assert_lex3("1.0.to_s",
                 nil,
-                :tFLOAT,      1.0,     EXPR_NUM,
+                :tFLOAT,      1.0,    EXPR_NUM,
                 :tDOT,        ".",    EXPR_DOT,
                 :tIDENTIFIER, "to_s", EXPR_ARG)
   end
@@ -1047,7 +1047,7 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("-1.0E10",
                 nil,
                 :tUMINUS_NUM, "-",           EXPR_BEG,
-                :tFLOAT,      10000000000.0,  EXPR_NUM)
+                :tFLOAT,      10000000000.0, EXPR_NUM)
   end
 
   def test_yylex_float_dot_e
@@ -1060,27 +1060,27 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("-1.0e10",
                 nil,
                 :tUMINUS_NUM, "-",           EXPR_BEG,
-                :tFLOAT,      10000000000.0,  EXPR_NUM)
+                :tFLOAT,      10000000000.0, EXPR_NUM)
   end
 
   def test_yylex_float_e
     assert_lex3("1e10",
                 nil,
-                :tFLOAT, 10000000000.0,  EXPR_NUM)
+                :tFLOAT, 10000000000.0, EXPR_NUM)
   end
 
   def test_yylex_float_e_bad_double_e
     assert_lex3("1e2e3",
                 nil,
-                :tFLOAT, 100,        EXPR_NUM,
+                :tFLOAT, 100,       EXPR_NUM,
                 :tIDENTIFIER, "e3", EXPR_END)
   end
 
   def test_yylex_float_if_modifier
     assert_lex3("1e2if",
                 nil,
-                :tFLOAT, 100,    EXPR_NUM,
-                :kIF_MOD, "if",  EXPR_PAR)
+                :tFLOAT, 100,   EXPR_NUM,
+                :kIF_MOD, "if", EXPR_PAR)
   end
 
   def test_yylex_float_e_bad_trailing_underscore
@@ -1095,21 +1095,21 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("-1e10",
                 nil,
                 :tUMINUS_NUM, "-",           EXPR_BEG,
-                :tFLOAT,      10000000000.0,  EXPR_NUM)
+                :tFLOAT,      10000000000.0, EXPR_NUM)
   end
 
   def test_yylex_float_e_neg_minus
     assert_lex3("-1e-10",
                 nil,
                 :tUMINUS_NUM, "-",     EXPR_BEG,
-                :tFLOAT,      1.0e-10,  EXPR_NUM)
+                :tFLOAT,      1.0e-10, EXPR_NUM)
   end
 
   def test_yylex_float_e_neg_plus
     assert_lex3("-1e+10",
                 nil,
                 :tUMINUS_NUM, "-",           EXPR_BEG,
-                :tFLOAT,      10000000000.0,  EXPR_NUM)
+                :tFLOAT,      10000000000.0, EXPR_NUM)
   end
 
   def test_yylex_float_e_plus
@@ -1124,7 +1124,7 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("-1.0",
                 nil,
                 :tUMINUS_NUM, "-", EXPR_BEG,
-                :tFLOAT,      1.0,  EXPR_NUM)
+                :tFLOAT,      1.0, EXPR_NUM)
   end
 
   def test_yylex_ge
@@ -1132,7 +1132,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "a",  EXPR_CMDARG,
                 :tGEQ,        ">=", EXPR_BEG,
-                :tINTEGER,    2,     EXPR_NUM)
+                :tINTEGER,    2,    EXPR_NUM)
   end
 
   def test_yylex_global
@@ -1205,7 +1205,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "a", EXPR_CMDARG,
                 :tGT,         ">", EXPR_BEG,
-                :tINTEGER,    2,    EXPR_NUM)
+                :tINTEGER,    2,   EXPR_NUM)
   end
 
   def test_yylex_heredoc_backtick
@@ -1215,7 +1215,7 @@ class TestRubyLexer < Minitest::Test
                 :tEQL,            "=",             EXPR_BEG,
                 :tXSTRING_BEG,    "`",             EXPR_BEG,
                 :tSTRING_CONTENT, "  blah blah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",           EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "EOF",           EXPR_LIT,
                 :tNL,             nil,             EXPR_BEG)
   end
 
@@ -1226,7 +1226,7 @@ class TestRubyLexer < Minitest::Test
                 :tEQL,            "=",             EXPR_BEG,
                 :tSTRING_BEG,     "\"",            EXPR_BEG,
                 :tSTRING_CONTENT, "  blah blah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",           EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "EOF",           EXPR_LIT,
                 :tNL,             nil,             EXPR_BEG)
   end
 
@@ -1237,7 +1237,7 @@ class TestRubyLexer < Minitest::Test
                 :tEQL,            "=",             EXPR_BEG,
                 :tSTRING_BEG,     "\"",            EXPR_BEG,
                 :tSTRING_CONTENT, "  blah blah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",           EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "EOF",           EXPR_LIT,
                 :tNL,             nil,             EXPR_BEG)
   end
 
@@ -1250,7 +1250,7 @@ class TestRubyLexer < Minitest::Test
                 :tEQL,            "=",           EXPR_BEG,
                 :tSTRING_BEG,     "\"",          EXPR_BEG,
                 :tSTRING_CONTENT, "blah blah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",         EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "EOF",         EXPR_LIT,
                 :tNL,             nil,           EXPR_BEG)
   end
 
@@ -1265,7 +1265,7 @@ class TestRubyLexer < Minitest::Test
                 :tEQL,            "=",                        EXPR_BEG,
                 :tSTRING_BEG,     "\"",                       EXPR_BEG,
                 :tSTRING_CONTENT, "blah blah\n\tblah blah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",                      EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "EOF",                      EXPR_LIT,
                 :tNL,             nil,                        EXPR_BEG)
   end
 
@@ -1278,7 +1278,7 @@ class TestRubyLexer < Minitest::Test
                 :tEQL,            "=",                       EXPR_BEG,
                 :tSTRING_BEG,     "\"",                      EXPR_BEG,
                 :tSTRING_CONTENT, "blah blah\n blah blah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",                     EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "EOF",                     EXPR_LIT,
                 :tNL,             nil,                       EXPR_BEG)
   end
 
@@ -1311,7 +1311,7 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_CONTENT, "@@d ",  EXPR_BEG, # HUH?
                 :tSTRING_DBEG,    "\#{",   EXPR_BEG,
                 :tSTRING_CONTENT, "3} \n", EXPR_BEG,
-                :tSTRING_END,     "EOF",   EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "EOF",   EXPR_LIT,
                 :tNL,             nil,     EXPR_BEG)
   end
 
@@ -1321,7 +1321,7 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_BEG,     "\"",          EXPR_BEG,
                 :tSTRING_DBEG,    "\#{",         EXPR_BEG,
                 :tSTRING_CONTENT, "x}\nblah2\n", EXPR_BEG,
-                :tSTRING_END,     "",            EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "",            EXPR_LIT,
                 :tNL,             nil,           EXPR_BEG)
   end
 
@@ -1332,7 +1332,7 @@ class TestRubyLexer < Minitest::Test
                 :tEQL,            "=",            EXPR_BEG,
                 :tSTRING_BEG,     "\"",           EXPR_BEG,
                 :tSTRING_CONTENT, "blah\nblah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",          EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "EOF",          EXPR_LIT,
                 :tNL,             nil,            EXPR_BEG)
   end
 
@@ -1350,7 +1350,7 @@ class TestRubyLexer < Minitest::Test
                 :tEQL,            "=",            EXPR_BEG,
                 :tSTRING_BEG,     "\"",           EXPR_BEG,
                 :tSTRING_CONTENT, "blah\nblah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",          EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "EOF",          EXPR_LIT,
                 :tNL,             nil,            EXPR_BEG)
   end
 
@@ -1363,7 +1363,7 @@ class TestRubyLexer < Minitest::Test
                 :tEQL,            "=",            EXPR_BEG,
                 :tSTRING_BEG,     "\"",           EXPR_BEG,
                 :tSTRING_CONTENT, "blah\nblah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",          EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "EOF",          EXPR_LIT,
                 :tNL,             nil,            EXPR_BEG)
   end
 
@@ -1374,7 +1374,7 @@ class TestRubyLexer < Minitest::Test
                 :tEQL,            "=",             EXPR_BEG,
                 :tSTRING_BEG,     "\"",            EXPR_BEG,
                 :tSTRING_CONTENT, "  blah blah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",           EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "EOF",           EXPR_LIT,
                 :tNL,             nil,             EXPR_BEG)
   end
 
@@ -1413,7 +1413,7 @@ class TestRubyLexer < Minitest::Test
                 :tEQL,            "=",             EXPR_BEG,
                 :tSTRING_BEG,     "\"",            EXPR_BEG,
                 :tSTRING_CONTENT, "  blah blah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",           EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "EOF",           EXPR_LIT,
                 :tNL,             nil,             EXPR_BEG)
   end
 
@@ -1426,7 +1426,7 @@ class TestRubyLexer < Minitest::Test
                 :tEQL,            "=",           EXPR_BEG,
                 :tSTRING_BEG,     "\"",          EXPR_BEG,
                 :tSTRING_CONTENT, "blah blah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",         EXPR_END|EXPR_ENDARG,
+                :tSTRING_END,     "EOF",         EXPR_LIT,
                 :tNL,             nil,           EXPR_BEG)
   end
 
@@ -1459,14 +1459,14 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_identifier_equals_arrow
     assert_lex3(":blah==>",
                 nil,
-                :tSYMBOL, "blah=", EXPR_END|EXPR_ENDARG,
+                :tSYMBOL, "blah=", EXPR_LIT,
                 :tASSOC,  "=>",    EXPR_BEG)
   end
 
   def test_yylex_identifier_equals3
     assert_lex3(":a===b",
                 nil,
-                :tSYMBOL,     "a",   EXPR_END|EXPR_ENDARG,
+                :tSYMBOL,     "a",   EXPR_LIT,
                 :tEQQ,        "===", EXPR_BEG,
                 :tIDENTIFIER, "b",   EXPR_ARG)
   end
@@ -1474,7 +1474,7 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_identifier_equals_equals_arrow
     assert_lex3(":a==>b",
                 nil,
-                :tSYMBOL, "a=", EXPR_END|EXPR_ENDARG,
+                :tSYMBOL, "a=", EXPR_LIT,
                 :tASSOC, "=>", EXPR_BEG,
                 :tIDENTIFIER, "b", EXPR_ARG)
   end
@@ -1675,7 +1675,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_integer_zero
-    assert_lex3 "0", nil, :tINTEGER, 0,  EXPR_NUM
+    assert_lex3 "0", nil, :tINTEGER, 0, EXPR_NUM
   end
 
   def test_yylex_ivar
@@ -1687,7 +1687,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_ivar_bad_0_length
-    refute_lex "1+@\n", :tINTEGER, 1, :tPLUS, "+",  EXPR_NUM
+    refute_lex "1+@\n", :tINTEGER, 1, :tPLUS, "+", EXPR_NUM
   end
 
   def test_yylex_keyword_expr
@@ -1723,9 +1723,9 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_minus
     assert_lex3("1 - 2",
                 nil,
-                :tINTEGER, 1,    EXPR_NUM,
+                :tINTEGER, 1,   EXPR_NUM,
                 :tMINUS,   "-", EXPR_BEG,
-                :tINTEGER, 2,    EXPR_NUM)
+                :tINTEGER, 2,   EXPR_NUM)
   end
 
   def test_yylex_minus_equals
@@ -1748,7 +1748,7 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("-42",
                 nil,
                 :tUMINUS_NUM, "-", EXPR_BEG,
-                :tINTEGER,    42,   EXPR_NUM)
+                :tINTEGER,    42,  EXPR_NUM)
   end
 
   def test_yylex_nth_ref
@@ -1794,8 +1794,8 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("m { 3 }",
                 nil,
                 :tIDENTIFIER, "m", EXPR_CMDARG,
-                :tLCURLY,     "{",  EXPR_PAR,
-                :tINTEGER,    3,    EXPR_NUM,
+                :tLCURLY,     "{", EXPR_PAR,
+                :tINTEGER,    3,   EXPR_NUM,
                 :tRCURLY,     "}", EXPR_END)
   end
 
@@ -1805,7 +1805,7 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("{ 4 }",
                 nil,
                 :tLBRACE_ARG, "{", EXPR_BEG,
-                :tINTEGER,    4,    EXPR_NUM,
+                :tINTEGER,    4,   EXPR_NUM,
                 :tRCURLY,     "}", EXPR_END)
   end
 
@@ -1815,8 +1815,8 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("m [ 3 ]",
                 nil,
                 :tIDENTIFIER, "m", EXPR_CMDARG,
-                :tLBRACK,     "[",  EXPR_PAR,
-                :tINTEGER,    3,    EXPR_NUM,
+                :tLBRACK,     "[", EXPR_PAR,
+                :tINTEGER,    3,   EXPR_NUM,
                 :tRBRACK,     "]", EXPR_END)
   end
 
@@ -1824,8 +1824,8 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("[1, 2, 3]",
                 nil,
                 :tLBRACK, "[",  EXPR_PAR,
-                :tINTEGER, 1,   EXPR_NUM, :tCOMMA,  ",",  EXPR_PAR,
-                :tINTEGER, 2,   EXPR_NUM, :tCOMMA,  ",",  EXPR_PAR,
+                :tINTEGER, 1,   EXPR_NUM, :tCOMMA,  ",", EXPR_PAR,
+                :tINTEGER, 2,   EXPR_NUM, :tCOMMA,  ",", EXPR_PAR,
                 :tINTEGER, 3,   EXPR_NUM,
                 :tRBRACK, "]", EXPR_END)
   end
@@ -1834,13 +1834,13 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("m[3]",
                nil,
                :tIDENTIFIER, "m", EXPR_CMDARG,
-               :tLBRACK2,    "[",  EXPR_PAR,
-               :tINTEGER,    3,    EXPR_NUM,
+               :tLBRACK2,    "[", EXPR_PAR,
+               :tINTEGER,    3,   EXPR_NUM,
                :tRBRACK,     "]", EXPR_END)
   end
 
   def test_yylex_or
-    assert_lex3("|", nil, :tPIPE, "|",  EXPR_PAR)
+    assert_lex3("|", nil, :tPIPE, "|", EXPR_PAR)
   end
 
   def test_yylex_or2
@@ -1860,7 +1860,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "a", EXPR_CMDARG,
                 :tPERCENT,    "%", EXPR_BEG,
-                :tINTEGER,    2,    EXPR_NUM)
+                :tINTEGER,    2,   EXPR_NUM)
   end
 
   def test_yylex_percent_equals
@@ -1868,15 +1868,15 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "a", EXPR_CMDARG,
                 :tOP_ASGN,    "%", EXPR_BEG,
-                :tINTEGER,    2,    EXPR_NUM)
+                :tINTEGER,    2,   EXPR_NUM)
   end
 
   def test_yylex_plus
     assert_lex3("1 + 1", # TODO lex_state?
                 nil,
-                :tINTEGER, 1,    EXPR_NUM,
+                :tINTEGER, 1,   EXPR_NUM,
                 :tPLUS,    "+", EXPR_BEG,
-                :tINTEGER, 1,    EXPR_NUM)
+                :tINTEGER, 1,   EXPR_NUM)
   end
 
   def test_yylex_plus_equals
@@ -1902,22 +1902,22 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_numbers
-    assert_lex3("0b10", nil, :tINTEGER, 2,  EXPR_NUM)
-    assert_lex3("0B10", nil, :tINTEGER, 2,  EXPR_NUM)
+    assert_lex3 "0b10", nil, :tINTEGER, 2,  EXPR_NUM
+    assert_lex3 "0B10", nil, :tINTEGER, 2,  EXPR_NUM
 
-    assert_lex3("0d10", nil, :tINTEGER, 10, EXPR_NUM)
-    assert_lex3("0D10", nil, :tINTEGER, 10, EXPR_NUM)
+    assert_lex3 "0d10", nil, :tINTEGER, 10, EXPR_NUM
+    assert_lex3 "0D10", nil, :tINTEGER, 10, EXPR_NUM
 
-    assert_lex3("0x10", nil, :tINTEGER, 16, EXPR_NUM)
-    assert_lex3("0X10", nil, :tINTEGER, 16, EXPR_NUM)
+    assert_lex3 "0x10", nil, :tINTEGER, 16, EXPR_NUM
+    assert_lex3 "0X10", nil, :tINTEGER, 16, EXPR_NUM
 
-    assert_lex3("0o10", nil, :tINTEGER, 8,  EXPR_NUM)
-    assert_lex3("0O10", nil, :tINTEGER, 8,  EXPR_NUM)
+    assert_lex3 "0o10", nil, :tINTEGER, 8,  EXPR_NUM
+    assert_lex3 "0O10", nil, :tINTEGER, 8,  EXPR_NUM
 
-    assert_lex3("0o",   nil, :tINTEGER, 0,  EXPR_NUM)
-    assert_lex3("0O",   nil, :tINTEGER, 0,  EXPR_NUM)
+    assert_lex3 "0o",   nil, :tINTEGER, 0,  EXPR_NUM
+    assert_lex3 "0O",   nil, :tINTEGER, 0,  EXPR_NUM
 
-    assert_lex3("0",    nil, :tINTEGER, 0,  EXPR_NUM)
+    assert_lex3 "0",    nil, :tINTEGER, 0,  EXPR_NUM
 
     refute_lex "0x"
     refute_lex "0X"
@@ -1939,7 +1939,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_plus_unary_number
-    assert_lex3("+42", nil, :tINTEGER, 42,  EXPR_NUM)
+    assert_lex3("+42", nil, :tINTEGER, 42, EXPR_NUM)
   end
 
   def test_yylex_question_bad_eos
@@ -1981,7 +1981,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",      EXPR_BEG,
                 :tSTRING_CONTENT, "regexp", EXPR_BEG,
-                :tREGEXP_END,     "",       EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",       EXPR_LIT)
   end
 
   def test_yylex_regexp_ambiguous
@@ -1990,7 +1990,7 @@ class TestRubyLexer < Minitest::Test
                 :tIDENTIFIER,     "method", EXPR_CMDARG,
                 :tREGEXP_BEG,     "/",      EXPR_CMDARG,
                 :tSTRING_CONTENT, "regexp", EXPR_CMDARG,
-                :tREGEXP_END,     "",       EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",       EXPR_LIT)
   end
 
   def test_yylex_regexp_bad
@@ -2004,7 +2004,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",          EXPR_BEG,
                 :tSTRING_CONTENT, "regex\\C-x", EXPR_BEG,
-                :tREGEXP_END,     "",           EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",           EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_C_M
@@ -2012,7 +2012,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",              EXPR_BEG,
                 :tSTRING_CONTENT, "regex\\C-\\M-x", EXPR_BEG,
-                :tREGEXP_END,     "",               EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",               EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_C_M_craaaazy
@@ -2020,7 +2020,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",              EXPR_BEG,
                 :tSTRING_CONTENT, "regex\\C-\\M-x", EXPR_BEG,
-                :tREGEXP_END,     "",               EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",               EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_C_bad_dash
@@ -2048,7 +2048,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",          EXPR_BEG,
                 :tSTRING_CONTENT, "regex\\M-x", EXPR_BEG,
-                :tREGEXP_END,     "",           EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",           EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_M_C
@@ -2056,7 +2056,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",              EXPR_BEG,
                 :tSTRING_CONTENT, "regex\\M-\\C-x", EXPR_BEG,
-                :tREGEXP_END,     "",               EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",               EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_M_bad_dash
@@ -2080,7 +2080,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",   EXPR_BEG,
                 :tSTRING_CONTENT, "\\/", EXPR_BEG,
-                :tREGEXP_END,     "",    EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",    EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_backslash_terminator
@@ -2088,7 +2088,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "%r\000",      EXPR_BEG,
                 :tSTRING_CONTENT, "blah\\%blah", EXPR_BEG,
-                :tREGEXP_END,     "",            EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",            EXPR_LIT)
   end
 
   def test_yylex_regexp_escaped_delim
@@ -2096,7 +2096,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "%r\000",       EXPR_BEG,
                 :tSTRING_CONTENT, "blah(?!blah)", EXPR_BEG,
-                :tREGEXP_END,     "",             EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",             EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_backslash_terminator_meta1
@@ -2104,7 +2104,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "%r{",         EXPR_BEG, # FIX ?!?
                 :tSTRING_CONTENT, "blah\\}blah", EXPR_BEG,
-                :tREGEXP_END,     "",            EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",            EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_backslash_terminator_meta2
@@ -2112,7 +2112,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "%r\000",      EXPR_BEG,
                 :tSTRING_CONTENT, "blah\\/blah", EXPR_BEG,
-                :tREGEXP_END,     "",            EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",            EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_backslash_terminator_meta3
@@ -2120,7 +2120,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "%r\000",      EXPR_BEG,
                 :tSTRING_CONTENT, "blah\\%blah", EXPR_BEG,
-                :tREGEXP_END,     "",            EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",            EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_bad_eos
@@ -2132,7 +2132,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",              EXPR_BEG,
                 :tSTRING_CONTENT, "regex\\\\regex", EXPR_BEG,
-                :tREGEXP_END,     "",               EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",               EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_c
@@ -2140,7 +2140,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",           EXPR_BEG,
                 :tSTRING_CONTENT, "regex\\cxxx", EXPR_BEG,
-                :tREGEXP_END,     "",            EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",            EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_c_backslash
@@ -2148,7 +2148,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",           EXPR_BEG,
                 :tSTRING_CONTENT, "regex\\c\\n", EXPR_BEG,
-                :tREGEXP_END,     "",            EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",            EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_chars
@@ -2156,7 +2156,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",            EXPR_BEG,
                 :tSTRING_CONTENT, "re\\tge\\nxp", EXPR_BEG,
-                :tREGEXP_END,     "",             EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",             EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_double_backslash
@@ -2165,7 +2165,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",          EXPR_BEG,
                 :tSTRING_CONTENT, "[\\/\\\\]$", EXPR_BEG,
-                :tREGEXP_END,     "",           EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",           EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_hex
@@ -2173,7 +2173,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",            EXPR_BEG,
                 :tSTRING_CONTENT, "regex\\x61xp", EXPR_BEG,
-                :tREGEXP_END,     "",             EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",             EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_hex_bad
@@ -2185,7 +2185,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",              EXPR_BEG,
                 :tSTRING_CONTENT, "^[\\xd\\xa]{2}", EXPR_BEG,
-                :tREGEXP_END,     "on",             EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "on",             EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_oct1
@@ -2193,7 +2193,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",          EXPR_BEG,
                 :tSTRING_CONTENT, "regex\\0xp", EXPR_BEG,
-                :tREGEXP_END,     "",           EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",           EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_oct2
@@ -2201,7 +2201,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",           EXPR_BEG,
                 :tSTRING_CONTENT, "regex\\07xp", EXPR_BEG,
-                :tREGEXP_END,     "",            EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",            EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_oct3
@@ -2209,7 +2209,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",            EXPR_BEG,
                 :tSTRING_CONTENT, "regex\\10142", EXPR_BEG,
-                :tREGEXP_END,     "",             EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",             EXPR_LIT)
   end
 
   def test_yylex_regexp_escape_return
@@ -2217,7 +2217,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",          EXPR_BEG,
                 :tSTRING_CONTENT, "regexregex", EXPR_BEG,
-                :tREGEXP_END,     "",           EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "",           EXPR_LIT)
   end
 
   def test_yylex_regexp_nm
@@ -2225,7 +2225,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tREGEXP_BEG,     "/",  EXPR_BEG,
                 :tSTRING_CONTENT, ".*", EXPR_BEG,
-                :tREGEXP_END,     "nm", EXPR_END|EXPR_ENDARG)
+                :tREGEXP_END,     "nm", EXPR_LIT)
   end
 
   def test_yylex_rparen
@@ -2237,7 +2237,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "a",  EXPR_CMDARG,
                 :tRSHFT,      ">>", EXPR_BEG,
-                :tINTEGER,    2,     EXPR_NUM)
+                :tINTEGER,    2,    EXPR_NUM)
   end
 
   def test_yylex_rshft_equals
@@ -2245,7 +2245,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "a",  EXPR_CMDARG,
                 :tOP_ASGN,    ">>", EXPR_BEG,
-                :tINTEGER,    2,     EXPR_NUM)
+                :tINTEGER,    2,    EXPR_NUM)
   end
 
   def test_yylex_star
@@ -2313,11 +2313,11 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_string_bad_eos
-    refute_lex('%', :tSTRING_BEG, '%')
+    refute_lex("%", :tSTRING_BEG, "%")
   end
 
   def test_yylex_string_bad_eos_quote
-    refute_lex('%{nest', :tSTRING_BEG, '%}')
+    refute_lex("%{nest", :tSTRING_BEG, "%}")
   end
 
   def test_yylex_string_double
@@ -2333,7 +2333,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tSTRING_BEG,     "\"",   EXPR_BEG,
                 :tSTRING_CONTENT, "\034", EXPR_BEG,
-                :tSTRING_END,     "\"",   EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "\"",   EXPR_LIT)
   end
 
   def test_yylex_string_double_escape_C_escape
@@ -2341,7 +2341,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tSTRING_BEG,     "\"",   EXPR_BEG,
                 :tSTRING_CONTENT, "\201", EXPR_BEG,
-                :tSTRING_END,     "\"",   EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "\"",   EXPR_LIT)
   end
 
   def test_yylex_string_double_escape_C_question
@@ -2379,7 +2379,7 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_BEG,     '"',      EXPR_BEG,
                 :tSTRING_DVAR,    nil,      EXPR_BEG,
                 :tSTRING_CONTENT, "@a"+chr, EXPR_BEG,
-                :tSTRING_END,     '"',      EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     '"',      EXPR_LIT)
   end
 
   def test_yylex_string_utf8_complex_trailing_hex
@@ -2391,7 +2391,7 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_BEG,     '"',      EXPR_BEG,
                 :tSTRING_DVAR,    nil,      EXPR_BEG,
                 :tSTRING_CONTENT, "@a"+str, EXPR_BEG,
-                :tSTRING_END,     '"',      EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     '"',      EXPR_LIT)
   end
 
   def test_yylex_string_utf8_complex_missing_hex
@@ -2432,7 +2432,7 @@ class TestRubyLexer < Minitest::Test
   def test_why_does_ruby_hate_me?
     assert_lex3("\"Nl%\\000\\000A\\000\\999\"", # you should be ashamed
                 nil,
-                :tSTRING, ["Nl%","\x00","\x00","A","\x00","999"].join, EXPR_END)
+                :tSTRING, %W[ Nl% \u0000 \u0000 A \u0000 999 ].join, EXPR_END)
   end
 
   def test_yylex_string_double_escape_M_backslash
@@ -2440,7 +2440,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tSTRING_BEG,     "\"",   EXPR_BEG,
                 :tSTRING_CONTENT, "\334", EXPR_BEG,
-                :tSTRING_END,     "\"",   EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "\"",   EXPR_LIT)
   end
 
   def test_yylex_string_double_escape_M_escape
@@ -2448,7 +2448,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tSTRING_BEG,     "\"",   EXPR_BEG,
                 :tSTRING_CONTENT, "\201", EXPR_BEG,
-                :tSTRING_END,     "\"",   EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "\"",   EXPR_LIT)
   end
 
   def test_yylex_string_double_escape_bs1
@@ -2468,7 +2468,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tSTRING_BEG,     "\"",   EXPR_BEG,
                 :tSTRING_CONTENT, "\034", EXPR_BEG,
-                :tSTRING_END,     "\"",   EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "\"",   EXPR_LIT)
   end
 
   def test_yylex_string_double_escape_c_escape
@@ -2476,7 +2476,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tSTRING_BEG,     "\"",   EXPR_BEG,
                 :tSTRING_CONTENT, "\201", EXPR_BEG,
-                :tSTRING_END,     "\"",   EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "\"",   EXPR_LIT)
   end
 
   def test_yylex_string_double_escape_c_question
@@ -2510,15 +2510,15 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_CONTENT, "$b c ",      EXPR_BEG,
                 :tSTRING_DBEG,    nil,          EXPR_BEG,
                 :tSTRING_CONTENT, "3} # ",      EXPR_BEG,
-                :tSTRING_END,     "\"",         EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "\"",         EXPR_LIT)
   end
 
   def test_yylex_string_double_pound_dollar_bad
     assert_lex3('"#$%"', nil,
 
-                :tSTRING_BEG,     "\"",  EXPR_BEG,
-                :tSTRING_CONTENT, '#$%', EXPR_BEG,
-                :tSTRING_END,     "\"",  EXPR_END|EXPR_ENDARG)
+                :tSTRING_BEG,     "\"",   EXPR_BEG,
+                :tSTRING_CONTENT, "#\$%", EXPR_BEG,
+                :tSTRING_END,     "\"",   EXPR_LIT)
   end
 
   def test_yylex_string_double_nested_curlies
@@ -2526,7 +2526,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tSTRING_BEG,     "%}",                    EXPR_BEG,
                 :tSTRING_CONTENT, "nest{one{two}one}nest", EXPR_BEG,
-                :tSTRING_END,     "}",                     EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "}",                     EXPR_LIT)
   end
 
   def test_yylex_string_double_no_interp
@@ -2548,7 +2548,7 @@ class TestRubyLexer < Minitest::Test
                 :tSPACE,          nil,   EXPR_BEG,
                 :tSTRING_CONTENT, "s3",  EXPR_BEG,
                 :tSPACE,          nil,   EXPR_BEG,
-                :tSTRING_END,     nil,   EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     nil,   EXPR_LIT)
   end
 
   def test_yylex_string_pct_I
@@ -2561,7 +2561,7 @@ class TestRubyLexer < Minitest::Test
                 :tSPACE,          nil,   EXPR_BEG,
                 :tSTRING_CONTENT, "s3",  EXPR_BEG,
                 :tSPACE,          nil,   EXPR_BEG,
-                :tSTRING_END,     nil,   EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     nil,   EXPR_LIT)
   end
 
   def test_yylex_string_pct_i_extra_space
@@ -2574,7 +2574,7 @@ class TestRubyLexer < Minitest::Test
                 :tSPACE,          nil,   EXPR_BEG,
                 :tSTRING_CONTENT, "s3",  EXPR_BEG,
                 :tSPACE,          nil,   EXPR_BEG,
-                :tSTRING_END,     nil,   EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     nil,   EXPR_LIT)
   end
 
   def test_yylex_string_pct_I_extra_space
@@ -2587,7 +2587,7 @@ class TestRubyLexer < Minitest::Test
                 :tSPACE,          nil,   EXPR_BEG,
                 :tSTRING_CONTENT, "s3",  EXPR_BEG,
                 :tSPACE,          nil,   EXPR_BEG,
-                :tSTRING_END,     nil,   EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     nil,   EXPR_LIT)
   end
 
   def test_yylex_string_pct_q
@@ -2595,7 +2595,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tSTRING_BEG,     "%q[",   EXPR_BEG,
                 :tSTRING_CONTENT, "s1 s2", EXPR_BEG,
-                :tSTRING_END,     "]",     EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "]",     EXPR_LIT)
   end
 
   def test_yylex_string_pct_Q
@@ -2603,7 +2603,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tSTRING_BEG,     "%Q[",   EXPR_BEG,
                 :tSTRING_CONTENT, "s1 s2", EXPR_BEG,
-                :tSTRING_END,     "]",     EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "]",     EXPR_LIT)
   end
 
   def test_yylex_string_pct_s
@@ -2611,7 +2611,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tSYMBEG,         "%s[",   EXPR_FNAME, # TODO: :tSYM_BEG ?
                 :tSTRING_CONTENT, "s1 s2", EXPR_FNAME, # man... I don't like this
-                :tSTRING_END,     "]",     EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "]",     EXPR_LIT)
   end
 
   def test_yylex_string_pct_W
@@ -2624,7 +2624,7 @@ class TestRubyLexer < Minitest::Test
                 :tSPACE,          nil,   EXPR_BEG,
                 :tSTRING_CONTENT, "s3",  EXPR_BEG,
                 :tSPACE,          nil,   EXPR_BEG,
-                :tSTRING_END,     nil,   EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     nil,   EXPR_LIT)
   end
 
   def test_yylex_string_pct_W_bs_nl
@@ -2635,7 +2635,7 @@ class TestRubyLexer < Minitest::Test
                 :tSPACE,          nil,    EXPR_BEG,
                 :tSTRING_CONTENT, "\ns2", EXPR_BEG,
                 :tSPACE,          nil,    EXPR_BEG,
-                :tSTRING_END,     nil,    EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     nil,    EXPR_LIT)
   end
 
   def test_yylex_string_pct_angle
@@ -2643,7 +2643,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tSTRING_BEG,     "%>",   EXPR_BEG,
                 :tSTRING_CONTENT, "blah", EXPR_BEG,
-                :tSTRING_END,     ">",    EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     ">",    EXPR_LIT)
   end
 
   def test_yylex_string_pct_other
@@ -2651,7 +2651,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tSTRING_BEG,     "%%",   EXPR_BEG,
                 :tSTRING_CONTENT, "blah", EXPR_BEG,
-                :tSTRING_END,     "%",    EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "%",    EXPR_LIT)
   end
 
   def test_yylex_string_pct_w
@@ -2671,7 +2671,7 @@ class TestRubyLexer < Minitest::Test
                 :tSPACE,          nil,    EXPR_BEG,
                 :tSTRING_CONTENT, "\ns2", EXPR_BEG,
                 :tSPACE,          nil,    EXPR_BEG,
-                :tSTRING_END,     nil,    EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     nil,    EXPR_LIT)
   end
 
   def test_yylex_string_pct_w_bs_sp
@@ -2682,7 +2682,7 @@ class TestRubyLexer < Minitest::Test
                 :tSPACE,          nil,   EXPR_BEG,
                 :tSTRING_CONTENT, "s 2", EXPR_BEG,
                 :tSPACE,          nil,   EXPR_BEG,
-                :tSTRING_END,     nil,   EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     nil,   EXPR_LIT)
   end
 
   def test_yylex_string_single
@@ -2702,18 +2702,18 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_symbol
-    assert_lex3(":symbol", nil, :tSYMBOL, "symbol", EXPR_END|EXPR_ENDARG) 
+    assert_lex3(":symbol", nil, :tSYMBOL, "symbol", EXPR_LIT)
   end
 
   def test_yylex_symbol_zero_byte
     assert_lex(":\"symbol\0\"", nil,
-                :tSYMBOL,         "symbol\0", EXPR_END|EXPR_ENDARG)
+                :tSYMBOL, "symbol\0", EXPR_LIT)
   end
 
   def test_yylex_symbol_double
     assert_lex3(":\"symbol\"",
                 nil,
-                :tSYMBOL,         "symbol", EXPR_END|EXPR_ENDARG)
+                :tSYMBOL, "symbol", EXPR_LIT)
   end
 
   def test_yylex_symbol_double_interp
@@ -2723,30 +2723,30 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_CONTENT, "symbol", EXPR_FNAME,
                 :tSTRING_DBEG,    nil,      EXPR_FNAME,
                 :tSTRING_CONTENT, "1+1}",   EXPR_FNAME, # HUH? this is BS
-                :tSTRING_END,     "\"",     EXPR_END|EXPR_ENDARG)
+                :tSTRING_END,     "\"",     EXPR_LIT)
   end
 
   def test_yylex_symbol_single
     assert_lex3(":'symbol'",
                 nil,
-                :tSYMBOL,         "symbol", EXPR_END|EXPR_ENDARG)
+                :tSYMBOL, "symbol", EXPR_LIT)
   end
 
   def test_yylex_symbol_single_noninterp
     assert_lex3(':\'symbol#{1+1}\'',
                 nil,
-                :tSYMBOL,   'symbol#{1+1}', EXPR_END|EXPR_ENDARG)
+                :tSYMBOL, 'symbol#{1+1}', EXPR_LIT)
   end
 
   def test_yylex_symbol_single_escape_chars
     assert_lex3(":'s\\tri\\ng'",
                 nil,
-                :tSYMBOL,   "s\\tri\\ng", EXPR_END|EXPR_ENDARG)
+                :tSYMBOL, "s\\tri\\ng", EXPR_LIT)
   end
 
   def test_yylex_string_single_escape_quote_and_backslash
     assert_lex3(":'foo\\'bar\\\\baz'", nil, :tSYMBOL, "foo'bar\\baz",
-                EXPR_END|EXPR_ENDARG)
+                EXPR_LIT)
   end
 
   def test_yylex_ternary1
@@ -2768,7 +2768,7 @@ class TestRubyLexer < Minitest::Test
 
     assert_lex3("42 ?",
                 nil,
-                :tINTEGER, 42,   EXPR_NUM,
+                :tINTEGER, 42,  EXPR_NUM,
                 :tEH,      "?", EXPR_BEG)
   end
 
@@ -2811,14 +2811,14 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :kDEF,        "def",        EXPR_FNAME,
                 :tIDENTIFIER, "initialize", EXPR_ENDFN,
-                :tLPAREN2,    "(",           EXPR_PAR,
+                :tLPAREN2,    "(",          EXPR_PAR,
                 :tIDENTIFIER, "u",          EXPR_ARG,
                 :tEQL,        "=",          EXPR_BEG,
-                :tFLOAT,      0.0,           EXPR_NUM,
-                :tCOMMA,      ",",           EXPR_PAR,
+                :tFLOAT,      0.0,          EXPR_NUM,
+                :tCOMMA,      ",",          EXPR_PAR,
                 :tIDENTIFIER, "s",          EXPR_ARG,
                 :tEQL,        "=",          EXPR_BEG,
-                :tFLOAT,      0.0,           EXPR_NUM)
+                :tFLOAT,      0.0,          EXPR_NUM)
   end
 
   def test_zbug_id_equals
@@ -2826,7 +2826,7 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tIDENTIFIER, "a", EXPR_CMDARG,
                 :tEQL,        "=", EXPR_BEG,
-                :tFLOAT,      0.0,  EXPR_NUM)
+                :tFLOAT,      0.0, EXPR_NUM)
   end
 
   def test_zbug_no_spaces_in_decl
@@ -2834,14 +2834,14 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :kDEF,        "def",        EXPR_FNAME,
                 :tIDENTIFIER, "initialize", EXPR_ENDFN,
-                :tLPAREN2,    "(",           EXPR_PAR,
+                :tLPAREN2,    "(",          EXPR_PAR,
                 :tIDENTIFIER, "u",          EXPR_ARG,
                 :tEQL,        "=",          EXPR_BEG,
-                :tFLOAT,      0.0,           EXPR_NUM,
-                :tCOMMA,      ",",           EXPR_PAR,
+                :tFLOAT,      0.0,          EXPR_NUM,
+                :tCOMMA,      ",",          EXPR_PAR,
                 :tIDENTIFIER, "s",          EXPR_ARG,
                 :tEQL,        "=",          EXPR_BEG,
-                :tFLOAT,      0.0,           EXPR_NUM)
+                :tFLOAT,      0.0,          EXPR_NUM)
   end
 
   def test_pct_w_backslashes
@@ -2856,7 +2856,7 @@ class TestRubyLexer < Minitest::Test
                  :tSPACE,          nil,   EXPR_BEG, 0, 0,
                  :tSTRING_CONTENT, "bar", EXPR_BEG, 0, 0,
                  :tSPACE,          nil,   EXPR_BEG, 0, 0,
-                 :tSTRING_END,     nil,   EXPR_END|EXPR_ENDARG, 0, 0)
+                 :tSTRING_END,     nil,   EXPR_LIT, 0, 0)
     end
   end
 
@@ -2864,7 +2864,7 @@ class TestRubyLexer < Minitest::Test
     assert_lex(":'a'",
                s(:lit, :a),
 
-               :tSYMBOL, "a", EXPR_END|EXPR_ENDARG, 0, 0)
+               :tSYMBOL, "a", EXPR_LIT, 0, 0)
   end
 
   def test_yylex_hash_colon
@@ -2883,20 +2883,20 @@ class TestRubyLexer < Minitest::Test
     assert_lex("{'a':1}",
                s(:hash, s(:lit, :a), s(:lit, 1)),
 
-               :tLBRACE, "{",  EXPR_PAR,    0, 1,
-               :tLABEL,  "a",  EXPR_LAB,    0, 1,
-               :tINTEGER, 1,   EXPR_NUM,    0, 1,
-               :tRCURLY, "}", EXPR_ENDARG,  0, 0)
+               :tLBRACE, "{", EXPR_PAR,    0, 1,
+               :tLABEL,  "a", EXPR_LAB,    0, 1,
+               :tINTEGER, 1,  EXPR_NUM,    0, 1,
+               :tRCURLY, "}", EXPR_ENDARG, 0, 0)
   end
 
   def test_yylex_hash_colon_quoted_symbol
     assert_lex("{'abc': :b}",
                s(:hash, s(:lit, :abc), s(:lit, :b)),
 
-               :tLBRACE, "{",    EXPR_PAR,    0, 1,
-               :tLABEL,  "abc",  EXPR_LAB,    0, 1,
-               :tSYMBOL, "b",   EXPR_END|EXPR_ENDARG, 0, 1,
-               :tRCURLY, "}",   EXPR_END,     0, 0)
+               :tLBRACE, "{",   EXPR_PAR, 0, 1,
+               :tLABEL,  "abc", EXPR_LAB, 0, 1,
+               :tSYMBOL, "b",   EXPR_LIT, 0, 1,
+               :tRCURLY, "}",   EXPR_END, 0, 0)
   end
 
   def test_yylex_hash_colon_quoted_symbol_22
@@ -2905,20 +2905,20 @@ class TestRubyLexer < Minitest::Test
     assert_lex("{'abc': :b}",
                s(:hash, s(:lit, :abc), s(:lit, :b)),
 
-               :tLBRACE, "{",    EXPR_PAR,    0, 1,
-               :tLABEL,  "abc",  EXPR_LAB,    0, 1,
-               :tSYMBOL, "b",   EXPR_END|EXPR_ENDARG, 0, 1,
-               :tRCURLY, "}",   EXPR_ENDARG,  0, 0)
+               :tLBRACE, "{",   EXPR_PAR,    0, 1,
+               :tLABEL,  "abc", EXPR_LAB,    0, 1,
+               :tSYMBOL, "b",   EXPR_LIT,    0, 1,
+               :tRCURLY, "}",   EXPR_ENDARG, 0, 0)
   end
 
   def test_yylex_hash_colon_double_quoted_symbol
     assert_lex('{"abc": :b}',
                s(:hash, s(:lit, :abc), s(:lit, :b)),
 
-               :tLBRACE, "{",    EXPR_PAR,    0, 1,
-               :tLABEL,  "abc",  EXPR_LAB,    0, 1,
-               :tSYMBOL, "b",   EXPR_END|EXPR_ENDARG,    0, 1,
-               :tRCURLY, "}",   EXPR_END,    0, 0)
+               :tLBRACE, "{",   EXPR_PAR, 0, 1,
+               :tLABEL,  "abc", EXPR_LAB, 0, 1,
+               :tSYMBOL, "b",   EXPR_LIT, 0, 1,
+               :tRCURLY, "}",   EXPR_END, 0, 0)
   end
 
   def test_yylex_hash_colon_double_quoted_symbol_22
@@ -2927,9 +2927,9 @@ class TestRubyLexer < Minitest::Test
     assert_lex('{"abc": :b}',
                s(:hash, s(:lit, :abc), s(:lit, :b)),
 
-               :tLBRACE, "{",    EXPR_PAR,    0, 1,
-               :tLABEL,  "abc",  EXPR_LAB,    0, 1,
-               :tSYMBOL, "b",   EXPR_END|EXPR_ENDARG, 0, 1,
+               :tLBRACE, "{",   EXPR_PAR,    0, 1,
+               :tLABEL,  "abc", EXPR_LAB,    0, 1,
+               :tSYMBOL, "b",   EXPR_LIT,    0, 1,
                :tRCURLY, "}",   EXPR_ENDARG, 0, 0)
   end
 
@@ -2940,9 +2940,9 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :kDEF,        "def", EXPR_FNAME,
                 :tIDENTIFIER, "foo", EXPR_ENDFN,
-                :tLABEL,      "a",    EXPR_LAB,
-                :tCOMMA,      ",",    EXPR_PAR,
-                :tLABEL,      "b",    EXPR_LAB,
+                :tLABEL,      "a",   EXPR_LAB,
+                :tCOMMA,      ",",   EXPR_PAR,
+                :tLABEL,      "b",   EXPR_LAB,
                 :kEND,        "end", EXPR_END)
   end
 
@@ -2980,9 +2980,10 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("1.5e3r",  nil, :tRATIONAL, Rational(1500),      EXPR_NUM)
     assert_lex3("1.5e-3r", nil, :tRATIONAL, Rational(15, 10000), EXPR_NUM)
 
+    r10 = Rational(10)
     assert_lex3("-10r", nil,
                 :tUMINUS_NUM, "-", EXPR_BEG,
-                :tRATIONAL, Rational(10), EXPR_NUM)
+                :tRATIONAL,   r10, EXPR_NUM)
   end
 
   def test_ruby21_imaginary_literal
@@ -2999,9 +3000,10 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("1.5e3i",  nil, :tIMAGINARY, Complex(0, 1500),   EXPR_NUM)
     assert_lex3("1.5e-3i", nil, :tIMAGINARY, Complex(0, 0.0015), EXPR_NUM)
 
+    c010 = Complex(0, 10)
     assert_lex3("-10i", nil,
-                :tUMINUS_NUM, "-", EXPR_BEG,
-                :tIMAGINARY, Complex(0, 10), EXPR_NUM)
+                :tUMINUS_NUM, "-",  EXPR_BEG,
+                :tIMAGINARY,  c010, EXPR_NUM)
   end
 
   def test_ruby21_rational_imaginary_literal

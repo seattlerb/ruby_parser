@@ -39,7 +39,7 @@ class RubyLexer
 
     def inspect
       return "EXPR_NONE" if n.zero?
-      NAMES.map { |v,k| k if self =~ v }.
+      NAMES.map { |v, k| k if self =~ v }.
         compact.
         join("|").
         gsub(/(?:EXPR_|STR_(?:FUNC_)?)/, "")
@@ -73,6 +73,8 @@ class RubyLexer
       EXPR_NUM = EXPR_END|EXPR_ENDARG
       EXPR_PAR = EXPR_BEG|EXPR_LABEL
       EXPR_PAD = EXPR_BEG|EXPR_LABELED
+
+      EXPR_LIT = EXPR_NUM # TODO: migrate to EXPR_LIT
 
       # ruby constants for strings (should this be moved somewhere else?)
 
@@ -195,7 +197,7 @@ class RubyLexer
 
   TAB_WIDTH = 8
 
-  @@regexp_cache = Hash.new { |h,k| h[k] = Regexp.new(Regexp.escape(k)) }
+  @@regexp_cache = Hash.new { |h, k| h[k] = Regexp.new(Regexp.escape(k)) }
   @@regexp_cache[nil] = nil
 
   # :startdoc:
@@ -300,7 +302,7 @@ class RubyLexer
       when scan(/#[{]/) then
         return :tSTRING_DBEG, matched
       when scan(/#/) then
-        string_buffer << '#'
+        string_buffer << "#"
       end
 
       begin
@@ -354,12 +356,12 @@ class RubyLexer
 
     string.chars.each do |char|
       break if indentation_skipped >= width
-      if char == ' '
+      if char == " "
         characters_skipped += 1
         indentation_skipped += 1
       elsif char == "\t"
         proposed = TAB_WIDTH * (indentation_skipped / TAB_WIDTH + 1)
-        break if (proposed > width)
+        break if proposed > width
         characters_skipped += 1
         indentation_skipped = proposed
       end
@@ -381,14 +383,14 @@ class RubyLexer
     term, func = nil, STR_FUNC_BORING
     self.string_buffer = []
 
-    heredoc_indent_mods = '-'
+    heredoc_indent_mods = "-"
     heredoc_indent_mods += '\~' if ruby23plus?
 
     case
     when scan(/([#{heredoc_indent_mods}]?)([\'\"\`])(.*?)\2/) then
       term = ss[2]
       func |= STR_FUNC_INDENT unless ss[1].empty?
-      func |= STR_FUNC_ICNTNT if ss[1] == '~'
+      func |= STR_FUNC_ICNTNT if ss[1] == "~"
       func |= case term
               when "\'" then
                 STR_SQUOTE
@@ -405,7 +407,7 @@ class RubyLexer
       func |= STR_DQUOTE
       unless ss[1].empty? then
         func |= STR_FUNC_INDENT
-        func |= STR_FUNC_ICNTNT if ss[1] == '~'
+        func |= STR_FUNC_ICNTNT if ss[1] == "~"
       end
       string_buffer << ss[2]
     else
@@ -421,7 +423,7 @@ class RubyLexer
 
     self.lex_strterm = [:heredoc, string_buffer.join, func, line]
 
-    if term == '`' then
+    if term == "`" then
       result nil, :tXSTRING_BEG, "`"
     else
       result nil, :tSTRING_BEG, "\""
@@ -441,11 +443,11 @@ class RubyLexer
 
     text = matched
     case
-    when text.end_with?('ri')
+    when text.end_with?("ri")
       return result(EXPR_NUM, :tIMAGINARY, Complex(0, Rational(text.chop.chop.to_i(base))))
-    when text.end_with?('r')
+    when text.end_with?("r")
       return result(EXPR_NUM, :tRATIONAL, Rational(text.chop.to_i(base)))
-    when text.end_with?('i')
+    when text.end_with?("i")
       return result(EXPR_NUM, :tIMAGINARY, Complex(0, text.chop.to_i(base)))
     else
       return result(EXPR_NUM, :tINTEGER, text.to_i(base))
@@ -594,7 +596,7 @@ class RubyLexer
             when lex_state =~ EXPR_LABELED then
               :tLBRACE     # hash
             when lex_state =~ EXPR_ARG_ANY|EXPR_END|EXPR_ENDFN then
-              :tLCURLY     # block (primary) '{' in parse.y
+              :tLCURLY     # block (primary) "{" in parse.y
             when lex_state =~ EXPR_ENDARG then
               :tLBRACE_ARG # block (expr)
             else
@@ -613,11 +615,11 @@ class RubyLexer
     rb_compile_error "Invalid numeric format" if text =~ /__/
 
     case
-    when text.end_with?('ri')
+    when text.end_with?("ri")
       return result EXPR_NUM, :tIMAGINARY, Complex(0, Rational(text.chop.chop))
-    when text.end_with?('i')
+    when text.end_with?("i")
       return result EXPR_NUM, :tIMAGINARY, Complex(0, text.chop.to_f)
-    when text.end_with?('r')
+    when text.end_with?("r")
       return result EXPR_NUM, :tRATIONAL,  Rational(text.chop)
     else
       return result EXPR_NUM, :tFLOAT, text.to_f
@@ -662,14 +664,14 @@ class RubyLexer
     c = matched
     hit = false
 
-    if c == '#' then
+    if c == "#" then
       ss.pos -= 1
 
       # TODO: handle magic comments
       while scan(/\s*\#.*(\n+|\z)/) do
         hit = true
         self.lineno += matched.lines.to_a.size
-        @comments << matched.gsub(/^ +#/, '#').gsub(/^ +$/, '')
+        @comments << matched.gsub(/^ +#/, "#").gsub(/^ +$/, "")
       end
 
       return nil if end_of_stream?
@@ -725,7 +727,7 @@ class RubyLexer
               #      "an argument list, not a decomposed argument")
               :tLPAREN2
             else
-              :tLPAREN2 # plain '(' in parse.y
+              :tLPAREN2 # plain "(" in parse.y
             end
 
     self.paren_nest += 1
@@ -763,7 +765,7 @@ class RubyLexer
 
     return result(EXPR_BEG, :tOP_ASGN, sign) if scan(/\=/)
 
-    if (is_beg? || (is_arg? && space_seen && !check(/\s/))) then
+    if is_beg? || (is_arg? && space_seen && !check(/\s/)) then
       arg_ambiguous if is_arg?
 
       if check(/\d/) then
@@ -788,12 +790,12 @@ class RubyLexer
 
     if check(/\s|\v/) then
       unless is_arg? then
-        c2 = { " " => 's',
-              "\n" => 'n',
-              "\t" => 't',
-              "\v" => 'v',
-              "\r" => 'r',
-              "\f" => 'f' }[matched]
+        c2 = { " " => "s",
+              "\n" => "n",
+              "\t" => "t",
+              "\v" => "v",
+              "\r" => "r",
+              "\f" => "f" }[matched]
 
         if c2 then
           warning("invalid character syntax; use ?\\" + c2)
@@ -1223,7 +1225,7 @@ class RubyLexer
           string_buffer << "\n"
           next
         when qwords && scan(/\\\s/) then
-          c = ' '
+          c = " "
         when expand && scan(/\\\n/) then
           next
         when regexp && check(/\\/) then
@@ -1354,7 +1356,7 @@ class RubyLexer
       rb_compile_error "unknown type of %string" if ss.matched_size == 2
       c, beg, short_hand = matched, ss.getch, false
     else                               # Short-hand (e.g. %{, %., %!, etc)
-      c, beg, short_hand = 'Q', ss.getch, true
+      c, beg, short_hand = "Q", ss.getch, true
     end
 
     if end_of_stream? or c == RubyLexer::EOF or beg == RubyLexer::EOF then
@@ -1367,29 +1369,29 @@ class RubyLexer
 
     token_type, text = nil, "%#{c}#{beg}"
     token_type, string_type = case c
-                              when 'Q' then
+                              when "Q" then
                                 ch = short_hand ? nnd : c + beg
                                 text = "%#{ch}"
                                 [:tSTRING_BEG,   STR_DQUOTE]
-                              when 'q' then
+                              when "q" then
                                 [:tSTRING_BEG,   STR_SQUOTE]
-                              when 'W' then
+                              when "W" then
                                 eat_whitespace
                                 [:tWORDS_BEG,    STR_DQUOTE | STR_FUNC_QWORDS]
-                              when 'w' then
+                              when "w" then
                                 eat_whitespace
                                 [:tQWORDS_BEG,   STR_SQUOTE | STR_FUNC_QWORDS]
-                              when 'x' then
+                              when "x" then
                                 [:tXSTRING_BEG,  STR_XQUOTE]
-                              when 'r' then
+                              when "r" then
                                 [:tREGEXP_BEG,   STR_REGEXP]
-                              when 's' then
+                              when "s" then
                                 self.lex_state = EXPR_FNAME
                                 [:tSYMBEG,       STR_SSYM]
-                              when 'I' then
+                              when "I" then
                                 eat_whitespace
                                 [:tSYMBOLS_BEG, STR_DQUOTE | STR_FUNC_QWORDS]
-                              when 'i' then
+                              when "i" then
                                 eat_whitespace
                                 [:tQSYMBOLS_BEG, STR_SQUOTE | STR_FUNC_QWORDS]
                               end
@@ -1450,7 +1452,7 @@ class RubyLexer
         self.command_start = true
         return :tSTRING_DBEG, nil
       when scan(/#/) then
-        string_buffer << '#'
+        string_buffer << "#"
       end
     end
 
@@ -1479,7 +1481,7 @@ if ENV["RP_LINENO_DEBUG"] then
     def lineno= n
       self.old_lineno= n
       where = caller.first.split(/:/).first(2).join(":")
-      d :lineno => [n, where, ss && ss.rest[0,40]]
+      d :lineno => [n, where, ss && ss.rest[0, 40]]
     end
   end
 end
