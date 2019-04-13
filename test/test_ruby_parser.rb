@@ -30,6 +30,36 @@ module TestRubyParserShared
 
   BLOCK_DUP_MSG = "Both block arg and actual block given."
 
+  def test_bug120
+    skip "not ready for this yet"
+
+    rb = "def f; if /(?<foo>bar)/ =~ 'bar' && p(foo); foo; end; end; f"
+    pt = s(:if,
+           s(:and,
+             s(:match2, s(:lit, /(?<foo>bar)/), s(:str, "bar")),
+             s(:call, nil, :p, s(:lvar, :foo))),
+           s(:lvar, :foo),
+           nil)
+
+    assert_parse rb, pt
+  end
+
+  def test_bug121
+    skip "not ready for this yet"
+
+    rb = "if (/a/../b/)../c/; end"
+    pt = s(:if,
+           s(:flip2,
+             s(:flip2,
+               s(:match, s(:lit, /a/)),
+               s(:match, s(:lit, /b/))),
+             s(:match, (s(:lit, /c/)))),
+             nil,
+             nil) # maybe?
+
+    assert_parse rb, pt
+  end
+
   def test_bug169
     rb = "m () {}"
     pt = s(:iter, s(:call, nil, :m, s(:nil)), 0)
@@ -37,9 +67,33 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_bug170
+    skip "not ready for this yet"
+
+    # TODO: needs to fail on 2.1 and up
+    rb = '$-'
+    pt = s(:gvar, :"$-")
+
+    assert_parse rb, pt
+  end
+
   def test_bug179
     rb = "p ()..nil"
     pt = s(:call, nil, :p, s(:dot2, s(:begin), s(:nil)))
+
+    assert_parse rb, pt
+  end
+
+  def test_bug190
+    skip "not ready for this yet"
+
+    rb = %{%r'\\''}
+
+    assert_parse rb, :FUCK
+    assert_syntax_error rb, "FUCK"
+
+    rb = %{%r'\\''}
+    pt = s(:lit, /'/)
 
     assert_parse rb, pt
   end
@@ -3340,6 +3394,13 @@ end
 module TestRubyParserShared21Plus
   include TestRubyParserShared20Plus
 
+  def test_bug162__21plus
+    rb = %q(<<E\nfoo\nE\rO)
+    emsg = "can't match /E(\n|\\z)/ anywhere in . near line 1: \"\""
+
+    assert_syntax_error rb, emsg
+  end
+
   def test_defn_unary_not
     rb = "def !@; true; end" # I seriously HATE this
     pt = s(:defn, :"!@", s(:args), s(:true))
@@ -3818,6 +3879,17 @@ class TestRubyParserV20 < RubyParserTestCase
     super
 
     self.processor = RubyParser::V20.new
+  end
+
+  def test_bug162__20
+    skip "not ready for this yet"
+
+    # Ignore everything after \r in heredoc marker in <= 2.0 #162
+
+    rb = %q(<<E\nfoo\nE\rO)
+    pt = s(:str, "foo\n")
+
+    assert_parse rb, pt
   end
 end
 
