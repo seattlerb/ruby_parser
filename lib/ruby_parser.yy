@@ -112,8 +112,13 @@ rule
                     }
                     begin_block
                     {
-                      _, _, block = val
-                      result = block
+                      (_, lineno), _, iter = val
+                      iter.line lineno
+
+                      (_, preexe,) = iter
+                      preexe.line lineno
+
+                      result = iter
                     }
 
      begin_block: tLCURLY top_compstmt tRCURLY
