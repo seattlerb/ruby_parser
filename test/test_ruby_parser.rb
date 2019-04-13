@@ -976,6 +976,24 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_parse_line_op_asgn
+    rb = <<-CODE
+      foo +=
+        bar
+      baz
+    CODE
+
+    pt = s(:block,
+           s(:lasgn, :foo,
+             s(:call,
+               s(:lvar, :foo).line(1),
+               :+,
+               s(:call, nil, :bar).line(2)).line(1)).line(1),
+           s(:call, nil, :baz).line(3)).line(1)
+
+    assert_parse_line rb, pt, 1
+  end
+
   def test_parse_line_heredoc
     rb = <<-CODE
       string = <<-HEREDOC
