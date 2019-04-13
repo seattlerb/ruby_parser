@@ -1630,6 +1630,13 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_BEGIN_not_toplevel
+    rb = "class Foo\nBEGIN {\n42\n}\nend"
+
+    assert_syntax_error rb, "BEGIN is permitted only at toplevel"
+  end
+
+
   def test_attrasgn_primary_dot_constant
     rb = "a.B = 1"
     pt = s(:attrasgn, s(:call, nil, :a), :"B=", s(:lit, 1))

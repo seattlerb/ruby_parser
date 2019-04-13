@@ -167,16 +167,7 @@ rule
    stmt_or_begin: stmt
                 | klBEGIN
                     {
-                      if (self.in_def || self.in_single > 0) then
-                        debug20 1
-                        yyerror "BEGIN in method"
-                      end
-                      self.env.extend
-                    }
-                    begin_block
-                    {
-                      _, _, stmt = val
-                      result = stmt
+                      yyerror "BEGIN is permitted only at toplevel"
                     }
 
             stmt: kALIAS fitem
