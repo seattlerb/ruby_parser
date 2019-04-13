@@ -112,7 +112,9 @@ rule
                     }
                     begin_block
                     {
-                      _, _, block = val
+                      (_, lineno), _, block = val
+                      block.line(lineno)
+                      block[1].line(lineno)
                       result = block
                     }
 
