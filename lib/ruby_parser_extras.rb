@@ -802,15 +802,17 @@ module RubyParserStuff
     lhs, asgn_op, arg = val[0], val[1].to_sym, val[2]
     name = lhs.value
     arg = remove_begin(arg)
+    value = self.gettable(name)
+    value.line = lhs.line
     result = case asgn_op # REFACTOR
              when :"||" then
                lhs << arg
-               s(:op_asgn_or, self.gettable(name), lhs)
+               s(:op_asgn_or, value, lhs)
              when :"&&" then
                lhs << arg
-               s(:op_asgn_and, self.gettable(name), lhs)
+               s(:op_asgn_and, value, lhs)
              else
-               lhs << new_call(self.gettable(name), asgn_op, argl(arg))
+               lhs << new_call(value, asgn_op, argl(arg))
                lhs
              end
     result.line = lhs.line
