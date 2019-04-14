@@ -615,9 +615,6 @@ module RubyParserStuff
       end
     end
 
-    line = result.grep(Sexp).map(&:line).compact.min
-    result.line = line if line
-
     result
   end
 
@@ -1268,6 +1265,8 @@ module RubyParserStuff
 
   def s(*args)
     result = Sexp.new(*args)
+    line = result.grep(Sexp).map(&:line).compact.min
+    result.line = line if line
     result.line ||= lexer.lineno if lexer.ss          # otherwise...
     result.file = self.file
     result
