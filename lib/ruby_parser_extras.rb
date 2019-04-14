@@ -1090,7 +1090,7 @@ module RubyParserStuff
     if token and token.first != RubyLexer::EOF then
       return token
     else
-      return [false, "$end"]
+      return [false, false]
     end
   end
 

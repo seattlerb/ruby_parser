@@ -3799,7 +3799,7 @@ class TestRubyParser < Minitest::Test
       end
     end
 
-    assert_includes e.message, 'parse error on value "$end"'
+    assert_includes e.message, 'parse error on value false ($end)'
   end
 
   def test_parse_error_from_first
@@ -3812,7 +3812,7 @@ class TestRubyParser < Minitest::Test
     end
 
     # This is a 2.x error, will fail on 1.8/1.9.
-    assert_includes e.message, 'parse error on value "$end"'
+    assert_includes e.message, 'parse error on value false ($end)'
   end
 end
 
