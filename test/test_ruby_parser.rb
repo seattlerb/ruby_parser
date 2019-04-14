@@ -987,6 +987,17 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_parse_line_to_ary
+    rb = "a, b = c\nd"
+    pt = s(:block,
+           s(:masgn,
+             s(:array, s(:lasgn, :a).line(1), s(:lasgn, :b).line(1)).line(1),
+             s(:to_ary, s(:call, nil, :c).line(1)).line(1)).line(1),
+           s(:call, nil, :d).line(2)).line(1)
+
+    assert_parse_line rb, pt, 1
+  end
+
   def test_parse_line_trailing_newlines
     rb = "a \nb"
     pt = s(:block,

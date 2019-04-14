@@ -805,7 +805,7 @@ module RubyParserStuff
 
   def new_masgn_arg rhs, wrap = false
     rhs = value_expr(rhs)
-    rhs = s(:to_ary, rhs) if wrap # HACK: could be array if lhs isn't right
+    rhs = s(:to_ary, rhs).line rhs.line if wrap # HACK: could be array if lhs isn't right
     rhs
   end
 
@@ -813,7 +813,11 @@ module RubyParserStuff
     _, ary = lhs
 
     rhs = value_expr(rhs)
-    rhs = ary ? s(:to_ary, rhs) : s(:array, rhs) if wrap
+    if wrap
+      line = rhs.line
+      rhs = ary ? s(:to_ary, rhs) : s(:array, rhs)
+      rhs = rhs.line line
+    end
 
     lhs.delete_at 1 if ary.nil?
     lhs << rhs
