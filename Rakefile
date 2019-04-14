@@ -73,10 +73,6 @@ task :huh? do
   puts "ruby #{Hoe::RUBY_FLAGS} bin/ruby_parse -q -g ..."
 end
 
-task :irb => [:isolate] do
-  sh "GEM_HOME=#{Gem.path.first} irb -rubygems -Ilib -rruby_parser;"
-end
-
 def (task(:phony)).timestamp
   Time.at 0
 end
