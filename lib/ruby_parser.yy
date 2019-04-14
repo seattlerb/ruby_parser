@@ -226,11 +226,13 @@ rule
                     }
                 | klEND tLCURLY compstmt tRCURLY
                     {
+                      (_, lineno), _, stmt, _ = val
                       if (self.in_def || self.in_single > 0) then
                         debug20 3
                         yyerror "END in method; use at_exit"
                       end
-                      result = new_iter s(:postexe), 0, val[2]
+                      iter = new_iter s(:postexe).line(lineno), 0, stmt
+                      result = iter.line lineno
                     }
                 | command_asgn
                 | mlhs tEQL command_call
