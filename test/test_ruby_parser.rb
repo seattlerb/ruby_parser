@@ -1033,6 +1033,15 @@ module TestRubyParserShared
     assert_parse_line rb, pt, 1
   end
 
+  def test_parse_line_postexe
+    rb = "END {\nfoo\n}"
+    pt = s(:iter,
+           s(:postexe).line(1), 0,
+           s(:call, nil, :foo).line(2)).line(1)
+
+    assert_parse_line rb, pt, 1
+  end
+
   def test_parse_line_preexe
     rb = "BEGIN {\nfoo\n}"
     pt = s(:iter,
