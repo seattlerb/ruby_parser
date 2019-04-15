@@ -6,6 +6,15 @@ require "timeout"
 require "rp_extensions"
 require "rp_stringscanner"
 
+class Sexp
+  ##
+  # Returns the maximum line number of the children of self.
+
+  def line_min
+    @line_min ||= [self.deep_each.map(&:line).min, self.line].compact.min
+  end
+end
+
 module RubyParserStuff
   VERSION = "3.13.1"
 
@@ -366,7 +375,29 @@ module RubyParserStuff
 
   def do_parse
     _racc_do_parse_rb(_racc_setup, false)
-  end if ENV["PURE_RUBY"]
+  end if ENV["PURE_RUBY"] || ENV["CHECK_LINE_NUMS"]
+
+  if ENV["CHECK_LINE_NUMS"] then
+    def _racc_do_reduce arg, act
+      x = super
+      @racc_vstack.grep(Sexp).each do |sexp|
+        check_line_numbers sexp
+      end
+      x
+    end
+
+    def check_line_numbers sexp
+      raise "bad line number for %p" % [sexp] unless
+        Integer === sexp.line &&
+        sexp.line >= 1 &&
+        sexp.line <= sexp.line_min
+
+      lines = sexp.deep_each.map(&:line)
+
+      raise "Out of order? %p" % [sexp] unless
+        lines == lines.sort
+    end
+  end
 
   def new_match lhs, rhs
     if lhs then
