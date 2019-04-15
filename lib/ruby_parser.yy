@@ -45,30 +45,30 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
        tLONELY
 #endif
 
-prechigh
-  right    tBANG tTILDE tUPLUS
-  right    tPOW
-  right    tUMINUS_NUM tUMINUS
-  left     tSTAR2 tDIVIDE tPERCENT
-  left     tPLUS tMINUS
-  left     tLSHFT tRSHFT
-  left     tAMPER2
-  left     tPIPE tCARET
-  left     tGT tGEQ tLT tLEQ
-  nonassoc tCMP tEQ tEQQ tNEQ tMATCH tNMATCH
-  left     tANDOP
-  left     tOROP
-  nonassoc tDOT2 tDOT3
-  right    tEH tCOLON
-  left     kRESCUE_MOD
-  right    tEQL tOP_ASGN
-  nonassoc kDEFINED
-  right    kNOT
-  left     kOR kAND
-  nonassoc kIF_MOD kUNLESS_MOD kWHILE_MOD kUNTIL_MOD
-  nonassoc tLBRACE_ARG
-  nonassoc tLOWEST
 preclow
+  nonassoc tLOWEST
+  nonassoc tLBRACE_ARG
+  nonassoc kIF_MOD kUNLESS_MOD kWHILE_MOD kUNTIL_MOD
+  left     kOR kAND
+  right    kNOT
+  nonassoc kDEFINED
+  right    tEQL tOP_ASGN
+  left     kRESCUE_MOD
+  right    tEH tCOLON
+  nonassoc tDOT2 tDOT3
+  left     tOROP
+  left     tANDOP
+  nonassoc tCMP tEQ tEQQ tNEQ tMATCH tNMATCH
+  left     tGT tGEQ tLT tLEQ
+  left     tPIPE tCARET
+  left     tAMPER2
+  left     tLSHFT tRSHFT
+  left     tPLUS tMINUS
+  left     tSTAR2 tDIVIDE tPERCENT # TODO: tSTAR2 -> tMULT
+  right    tUMINUS_NUM tUMINUS
+  right    tPOW
+  right    tBANG tTILDE tUPLUS
+prechigh
 
 rule
 
@@ -121,10 +121,10 @@ rule
                       result = iter
                     }
 
-     begin_block: tLCURLY top_compstmt tRCURLY
+     begin_block: tLCURLY { result = lexer.lineno } top_compstmt tRCURLY
                     {
-                      _, stmt, _ = val
-                      result = new_iter s(:preexe), 0, stmt
+                      _, line, stmt, _ = val
+                      result = new_iter s(:preexe).line(line), 0, stmt
                     }
 
         bodystmt: compstmt opt_rescue k_else
@@ -269,13 +269,12 @@ rule
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN command_rhs
                     {
-                      lhs, _, args, _, op, rhs = val
-                      args.sexp_type = :arglist if args
-                      result = s(:op_asgn1, lhs, args, op.to_sym, rhs)
+                      result = new_op_asgn1 val
                     }
                 | primary_value call_op tIDENTIFIER tOP_ASGN command_rhs
                     {
-                      result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
+                      prim, _, id, opasgn, rhs = val
+                      result = s(:op_asgn, prim, rhs, id.to_sym, opasgn.to_sym)
                       if val[1] == '&.'
                         result.sexp_type = :safe_op_asgn
                       end
@@ -328,13 +327,19 @@ rule
                     {
                       result = logical_op :or, val[0], val[2]
                     }
-                | kNOT opt_nl expr
+                | kNOT { result = lexer.lineno } opt_nl expr
                     {
-                      result = s(:call, val[2], :"!")
+                      _, line, _, expr = val
+                      result = s(:call, expr, :"!").line line
+                      # REFACTOR: call_uni_op
                     }
                 | tBANG command_call
                     {
-                      result = s(:call, val[1], :"!")
+                      _, cmd = val
+                      result = s(:call, cmd, :"!")
+                      result.line cmd.line
+                      # TODO: fix line number to tBANG... but causes BAD shift/reduce conflict
+                      # REFACTOR: call_uni_op -- see parse26.y
                     }
                 | arg
 
@@ -638,7 +643,8 @@ rule
 
            cpath: tCOLON3 cname
                     {
-                      result = s(:colon3, val[1].to_sym)
+                      _, name = val
+                      result = s(:colon3, name.to_sym)
                     }
                 | cname
                     {
@@ -646,7 +652,10 @@ rule
                     }
                 | primary_value tCOLON2 cname
                     {
-                      result = s(:colon2, val[0], val[2].to_sym)
+                      pval, _, name = val
+
+                      result = s(:colon2, pval, name.to_sym)
+                      result.line pval.line
                     }
 
            fname: tIDENTIFIER | tCONSTANT | tFID
@@ -691,6 +700,7 @@ rule
                 |   tSTAR    | tDIVIDE | tPERCENT | tPOW  | tDSTAR | tBANG   | tTILDE
                 |   tUPLUS   | tUMINUS | tAREF    | tASET | tBACK_REF2
 #if V >= 20
+                    # TODO: tUBANG dead?
                 |   tUBANG
 #endif
 
@@ -714,10 +724,7 @@ rule
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket tOP_ASGN arg_rhs
                     {
-                      lhs, _, args, _, op, rhs = val
-                      args.sexp_type = :arglist if args
-
-                      result = s(:op_asgn1, lhs, args, op.to_sym, rhs)
+                      result = new_op_asgn1 val
                     }
                 | primary_value call_op tIDENTIFIER tOP_ASGN arg_rhs
                     {
@@ -874,7 +881,9 @@ rule
                     }
                 | tBANG arg
                     {
-                      result = new_call val[1], :"!"
+                      _, arg = val
+                      result = new_call arg, :"!"
+                      result.line arg.line
                     }
                 | tTILDE arg
                     {
@@ -902,11 +911,13 @@ rule
                     }
                 | kDEFINED opt_nl arg
                     {
-                      result = s(:defined, val[2])
+                      (_, line), _, arg = val
+                      result = s(:defined, arg).line line
                     }
                 | arg tEH arg opt_nl tCOLON arg
                     {
-                      result = s(:if, val[0], val[2], val[5])
+                      c, _, t, _, _, f = val
+                      result = s(:if, c, t, f).line c.line
                     }
                 | primary
 
@@ -1031,7 +1042,9 @@ rule
 
             args: arg_value
                     {
-                      result = s(:array, val[0])
+                      arg, = val
+
+                      result = s(:array, arg).line arg.line
                     }
                 | tSTAR arg_value
                     {
@@ -1136,10 +1149,12 @@ rule
                     {
                       result = s(:colon3, val[1].to_sym)
                     }
-                | tLBRACK aref_args tRBRACK
+                | tLBRACK { result = lexer.lineno } aref_args tRBRACK
                     {
-                      result = val[1] || s(:array)
+                      _, line, args, _ = val
+                      result = args || s(:array)
                       result.sexp_type = :array # aref_args is :args
+                      result.line line
                     }
                 | tLBRACE
                     {
@@ -1815,7 +1830,8 @@ opt_block_args_tail: tCOMMA block_args_tail
 
         exc_list: arg_value
                     {
-                      result = s(:array, val[0])
+                      arg, = val
+                      result = s(:array, arg).line arg.line
                     }
                 | mrhs
                 | none
@@ -2356,11 +2372,13 @@ keyword_variable: kNIL      { result = s(:nil)   }
 #endif
                     {
                       # TODO: call_args
-                      label, _ = val[0] # TODO: fix lineno?
+                      (label, line), arg = val
+
                       identifier = label.to_sym
                       self.env[identifier] = :lvar
 
-                      result = s(:array, s(:kwarg, identifier, val[1]))
+                      kwarg  = s(:kwarg, identifier, arg).line line
+                      result = s(:array, kwarg).line line
                     }
 #if V >= 21
                 | f_label
@@ -2538,8 +2556,10 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     }
                 | tLABEL arg_value
                     {
-                      (label, _), arg = val
-                      result = s(:array, s(:lit, label.to_sym), arg)
+                      (label, line), arg = val
+
+                      lit = s(:lit, label.to_sym).line line
+                      result = s(:array, lit, arg).line line
                     }
 #if V >= 22
                 | tSTRING_BEG string_contents tLABEL_END arg_value

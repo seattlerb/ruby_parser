@@ -105,12 +105,15 @@ module RubyParserStuff
     when :kwsplat then
       array
     else
-      s(:hash, *array.sexp_body)
+      s(:hash, *array.sexp_body).line array.line
     end
   end
 
   def call_args args
     result = s(:call_args)
+
+    a = args.grep(Sexp).first
+    result.line a.line if a
 
     args.each do |arg|
       case arg
@@ -135,6 +138,11 @@ module RubyParserStuff
 
   def args args
     result = s(:args)
+
+    ss = args.grep Sexp
+    unless ss.empty? then
+      result.line ss.first.line
+    end
 
     args.each do |arg|
       case arg
@@ -253,7 +261,7 @@ module RubyParserStuff
       s(:flip3, lhs, rhs)
     else
       node
-    end
+    end.line node.line
   end
 
   TAB_WIDTH = 8
@@ -387,15 +395,10 @@ module RubyParserStuff
     end
 
     def check_line_numbers sexp
-      raise "bad line number for %p" % [sexp] unless
+      raise "bad line number for:\n%s" % [sexp.pretty_inspect] unless
         Integer === sexp.line &&
         sexp.line >= 1 &&
         sexp.line <= sexp.line_min
-
-      lines = sexp.deep_each.map(&:line)
-
-      raise "Out of order? %p" % [sexp] unless
-        lines == lines.sort
     end
   end
 
@@ -561,7 +564,9 @@ module RubyParserStuff
       return left
     end
 
-    return s(type, left, right)
+    result = s(type, left, right)
+    result.line left.line if left.line
+    result
   end
 
   def new_aref val
@@ -593,11 +598,11 @@ module RubyParserStuff
 
     if elsebody and not resbody then
       warning("else without rescue is useless")
-      result = s(:begin, result) if result
+      result = s(:begin, result).line result.line if result
       result = block_append(result, elsebody)
     end
 
-    result = s(:ensure, result, ensurebody).compact if ensurebody
+    result = s(:ensure, result, ensurebody).compact.line result.line if ensurebody
 
     result
   end
@@ -788,7 +793,12 @@ module RubyParserStuff
     result << args
     result << body if body
 
-    args.sexp_type = :args unless args == 0
+    result.line call.line if call
+
+    unless args == 0 then
+      args.line call.line if call
+      args.sexp_type = :args
+    end
 
     result
   end
@@ -831,20 +841,30 @@ module RubyParserStuff
 
   def new_op_asgn val
     lhs, asgn_op, arg = val[0], val[1].to_sym, val[2]
-    name = lhs.value
+    name = gettable(lhs.value).line lhs.line
     arg = remove_begin(arg)
     result = case asgn_op # REFACTOR
              when :"||" then
                lhs << arg
-               s(:op_asgn_or, self.gettable(name), lhs)
+               s(:op_asgn_or, name, lhs)
              when :"&&" then
                lhs << arg
-               s(:op_asgn_and, self.gettable(name), lhs)
+               s(:op_asgn_and, name, lhs)
              else
-               lhs << new_call(self.gettable(name), asgn_op, argl(arg))
+               lhs << new_call(name, asgn_op, argl(arg))
                lhs
              end
     result.line = lhs.line
+    result
+  end
+
+  def new_op_asgn1 val
+    lhs, _, args, _, op, rhs = val
+
+    args.sexp_type = :arglist if args
+
+    result = s(:op_asgn1, lhs, args, op.to_sym, rhs)
+    result.line lhs.line
     result
   end
 

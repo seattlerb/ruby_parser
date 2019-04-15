@@ -533,9 +533,9 @@ module TestRubyParserShared
   end
 
   def test_logical_op_12
-    lhs = s(:lit, 1)
-    rhs = s(:lit, 2)
-    exp = s(:and, s(:lit, 1), s(:lit, 2))
+    lhs = s(:lit, 1).line 1
+    rhs = s(:lit, 2).line 2
+    exp = s(:and, s(:lit, 1).line(1), s(:lit, 2).line(2)).line 1
 
     assert_equal exp, processor.logical_op(:and, lhs, rhs)
   end
@@ -1481,13 +1481,12 @@ module TestRubyParserShared
     # is an element to create it with. That seems to mess up line numbers
     # for the array. Luckily, the arary elements all seemt to get the correct
     # line number.
-    start_line = self.class.to_s =~ /1[89]/ ? 2 : 3
     rb = "[\n'a',\n'b']\n1"
     pt = s(:block,
            s(:array,
              s(:str, "a").line(2),
-             s(:str, "b").line(3)).line(start_line),
-           s(:lit, 1).line(4))
+             s(:str, "b").line(3)).line(1),
+           s(:lit, 1).line(4)).line 1
     assert_parse rb, pt
   end
 

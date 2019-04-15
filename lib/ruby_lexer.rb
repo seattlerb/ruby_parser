@@ -883,6 +883,7 @@ class RubyLexer
 
     if is_label_possible? and is_label_suffix? then
       scan(/:/)
+      # TODO: propagate the lineno to ALL results
       return result EXPR_LAB, :tLABEL, [token, self.lineno]
     end
 
