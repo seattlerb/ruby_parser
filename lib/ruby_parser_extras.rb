@@ -805,15 +805,18 @@ module RubyParserStuff
 
   def new_masgn_arg rhs, wrap = false
     rhs = value_expr(rhs)
-    rhs = s(:to_ary, rhs) if wrap # HACK: could be array if lhs isn't right
+    # HACK: could be array if lhs isn't right
+    rhs = s(:to_ary, rhs).line rhs.line if wrap
     rhs
   end
 
   def new_masgn lhs, rhs, wrap = false
     _, ary = lhs
 
+    line = rhs.line
     rhs = value_expr(rhs)
     rhs = ary ? s(:to_ary, rhs) : s(:array, rhs) if wrap
+    rhs.line line if wrap
 
     lhs.delete_at 1 if ary.nil?
     lhs << rhs
@@ -1319,6 +1322,7 @@ module RubyParserStuff
 
   def s(*args)
     result = Sexp.new(*args)
+    # TODO: remove and run like hell
     result.line ||= lexer.lineno if lexer.ss          # otherwise...
     result.file = self.file
     result

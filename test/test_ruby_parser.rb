@@ -830,6 +830,30 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_parse_line_dot2
+    rb = "0..\n4\na..\nb\nc"
+    pt = s(:block,
+           s(:lit, 0..4).line(1),
+           s(:dot2,
+             s(:call, nil, :a).line(3),
+             s(:call, nil, :b).line(4)).line(3),
+           s(:call, nil, :c).line(5)).line(1)
+
+    assert_parse_line rb, pt, 1
+  end
+
+  def test_parse_line_dot3
+    rb = "0...\n4\na...\nb\nc"
+    pt = s(:block,
+           s(:lit, 0...4).line(1),
+           s(:dot3,
+             s(:call, nil, :a).line(3),
+             s(:call, nil, :b).line(4)).line(3),
+           s(:call, nil, :c).line(5)).line(1)
+
+    assert_parse_line rb, pt, 1
+  end
+
   def test_parse_line_hash_lit
     rb = "{\n:s1 => 1,\n}"
     pt = s(:hash,
@@ -985,6 +1009,17 @@ module TestRubyParserShared
            s(:true).line(1))
 
     assert_parse rb, pt
+  end
+
+  def test_parse_line_to_ary
+    rb = "a,\nb = c\nd"
+    pt = s(:block,
+           s(:masgn,
+             s(:array, s(:lasgn, :a).line(1), s(:lasgn, :b).line(2)).line(1),
+             s(:to_ary, s(:call, nil, :c).line(2)).line(2)).line(1),
+           s(:call, nil, :d).line(3)).line(1)
+
+    assert_parse_line rb, pt, 1
   end
 
   def test_parse_line_trailing_newlines
@@ -4048,6 +4083,27 @@ class TestRubyParserV26 < RubyParserTestCase
 
     self.processor = RubyParser::V26.new
   end
+
+  def test_parse_line_dot2_open
+    rb = "0..\n; a..\n; c"
+    pt = s(:block,
+           s(:dot2, s(:lit, 0).line(1), nil).line(1),
+           s(:dot2, s(:call, nil, :a).line(2), nil).line(2),
+           s(:call, nil, :c).line(3)).line(1)
+
+    assert_parse_line rb, pt, 1
+  end
+
+  def test_parse_line_dot3_open
+    rb = "0...\n; a...\n; c"
+    pt = s(:block,
+           s(:dot3, s(:lit, 0).line(1), nil).line(1),
+           s(:dot3, s(:call, nil, :a).line(2), nil).line(2),
+           s(:call, nil, :c).line(3)).line(1)
+
+    assert_parse_line rb, pt, 1
+  end
+
 end
 
 RubyParser::VERSIONS.each do |klass|
