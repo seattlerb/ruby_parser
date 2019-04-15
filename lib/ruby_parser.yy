@@ -82,7 +82,8 @@ rule
 
     top_compstmt: top_stmts opt_terms
                     {
-                      result = val[0]
+                      stmt, _ = val
+                      result = stmt
                     }
 
        top_stmts: none
@@ -181,19 +182,21 @@ rule
             stmt: kALIAS fitem
                     {
                       lexer.lex_state = EXPR_FNAME
-                      result = self.lexer.lineno
                     }
                     fitem
                     {
-                      result = s(:alias, val[1], val[3]).line(val[2])
+                      (_, line), lhs, _, rhs = val
+                      result = s(:alias, lhs, rhs).line(line).line line
                     }
                 | kALIAS tGVAR tGVAR
                     {
-                      result = s(:valias, val[1].to_sym, val[2].to_sym)
+                      (_, line), lhs, rhs = val
+                      result = s(:valias, lhs.to_sym, rhs.to_sym).line line
                     }
                 | kALIAS tGVAR tBACK_REF
                     {
-                      result = s(:valias, val[1].to_sym, :"$#{val[2]}")
+                      (_, line), lhs, rhs = val
+                      result = s(:valias, lhs.to_sym, :"$#{rhs}").line line
                     }
                 | kALIAS tGVAR tNTH_REF
                     {
@@ -222,15 +225,20 @@ rule
                 | stmt kRESCUE_MOD stmt
                     {
                       body, _, resbody = val
-                      result = new_rescue body, new_resbody(s(:array), resbody)
+
+                      resbody = new_resbody s(:array).line(resbody.line), resbody
+                      result = new_rescue body, resbody
                     }
                 | klEND tLCURLY compstmt tRCURLY
                     {
+                      (_, line), _, stmt, _ = val
+
                       if (self.in_def || self.in_single > 0) then
                         debug20 3
                         yyerror "END in method; use at_exit"
                       end
-                      result = new_iter s(:postexe), 0, val[2]
+
+                      result = new_iter s(:postexe).line(line), 0, stmt
                     }
                 | command_asgn
                 | mlhs tEQL command_call
@@ -239,7 +247,8 @@ rule
                     }
                 | lhs tEQL mrhs
                     {
-                      result = new_assign val[0], s(:svalue, val[2])
+                      lhs, _, rhs = val
+                      result = new_assign lhs, s(:svalue, rhs).line(rhs.line)
                     }
 #if V == 20
                 | mlhs tEQL arg_value
@@ -311,9 +320,11 @@ rule
 #if V >= 24
                 | command_call kRESCUE_MOD stmt
                     {
-                      expr, _, resbody = val
+                      expr, (_, line), resbody = val
+
                       expr = value_expr expr
-                      result = new_rescue(expr, new_resbody(s(:array), resbody))
+                      ary  = s(:array).line line
+                      result = new_rescue(expr, new_resbody(ary, resbody))
                     }
 #endif
                 | command_asgn
@@ -330,14 +341,13 @@ rule
                 | kNOT { result = lexer.lineno } opt_nl expr
                     {
                       _, line, _, expr = val
-                      result = s(:call, expr, :"!").line line
+                      result = new_call(expr, :"!").line line
                       # REFACTOR: call_uni_op
                     }
                 | tBANG command_call
                     {
                       _, cmd = val
-                      result = s(:call, cmd, :"!")
-                      result.line cmd.line
+                      result = new_call(cmd, :"!").line cmd.line
                       # TODO: fix line number to tBANG... but causes BAD shift/reduce conflict
                       # REFACTOR: call_uni_op -- see parse26.y
                     }
@@ -366,7 +376,8 @@ rule
    block_command: block_call
                 | block_call call_op2 operation2 command_args
                     {
-                      result = new_call val[0], val[2].to_sym, val[3]
+                      blk, _, msg, args = val
+                      result = new_call(blk, msg.to_sym, args).line blk.line
                     }
 
  cmd_brace_block: tLBRACE_ARG
@@ -386,7 +397,8 @@ rule
 
            fcall: operation
                     {
-                      result = new_call nil, val[0].to_sym
+                      msg, = val
+                      result = new_call(nil, msg.to_sym).line lexer.lineno
                     }
 
          command: fcall command_args =tLOWEST
@@ -405,7 +417,8 @@ rule
                     }
                 | primary_value call_op operation2 command_args =tLOWEST
                     {
-                      result = new_call val[0], val[2].to_sym, val[3], val[1]
+                      lhs, callop, op, args = val
+                      result = new_call lhs, op.to_sym, args, callop
                     }
                 | primary_value call_op operation2 command_args cmd_brace_block
                     {
@@ -437,7 +450,9 @@ rule
                     }
                 | kYIELD command_args
                     {
-                      result = new_yield val[1]
+                      (_, line), args = val
+                      result = new_yield args
+                      result.line line # TODO: push to new_yield
                     }
                 | k_return call_args
                     {
@@ -446,8 +461,8 @@ rule
                     }
                 | kBREAK call_args
                     {
-                      line = val[0].last
-                      result = s(:break, ret_args(val[1])).line(line)
+                      (_, line), args = val
+                      result = s(:break, ret_args(args)).line line
                     }
                 | kNEXT call_args
                     {
@@ -464,12 +479,16 @@ rule
       mlhs_inner: mlhs_basic
                 | tLPAREN mlhs_inner rparen
                     {
-                      result = s(:masgn, s(:array, val[1]))
+                      _, arg, _ = val
+                      l = arg.line
+
+                      result = s(:masgn, s(:array, arg).line(l)).line l
                     }
 
       mlhs_basic: mlhs_head
                     {
-                      result = s(:masgn, val[0])
+                      head, = val
+                      result = s(:masgn, head).line head.line
                     }
                 | mlhs_head mlhs_item
                     {
@@ -478,43 +497,61 @@ rule
                     }
                 | mlhs_head tSTAR mlhs_node
                     {
-                      result = s(:masgn, val[0] << s(:splat, val[2]))
+                      head, _, tail = val
+                      head << s(:splat, tail).line(tail.line)
+                      result = s(:masgn, head).line head.line
                     }
                 | mlhs_head tSTAR mlhs_node tCOMMA mlhs_post
                     {
                       ary1, _, splat, _, ary2 = val
 
-                      result = list_append ary1, s(:splat, splat)
+                      result = list_append ary1, s(:splat, splat).line(splat.line)
                       result.concat ary2.sexp_body
-                      result = s(:masgn, result)
+                      result = s(:masgn, result).line result.line
                     }
                 | mlhs_head tSTAR
                     {
-                      result = s(:masgn, val[0] << s(:splat))
+                      head, _ = val
+                      l = head.line
+                      result = s(:masgn, head << s(:splat).line(l)).line l
                     }
                 | mlhs_head tSTAR tCOMMA mlhs_post
                     {
-                      ary = list_append val[0], s(:splat)
-                      ary.concat val[3].sexp_body
-                      result = s(:masgn, ary)
+                      head, _, _, post = val
+                      ary = list_append head, s(:splat).line(head.line)
+                      ary.concat post.sexp_body
+                      result = s(:masgn, ary).line ary.line
                     }
                 | tSTAR mlhs_node
                     {
-                      result = s(:masgn, s(:array, s(:splat, val[1])))
+                      _, node = val
+                      l = node.line
+                      splat  = s(:splat, node).line l
+                      ary    = s(:array, splat).line l
+                      result = s(:masgn, ary).line l
                     }
                 | tSTAR mlhs_node tCOMMA mlhs_post
                     {
-                      ary = s(:array, s(:splat, val[1]))
-                      ary.concat val[3].sexp_body
-                      result = s(:masgn, ary)
+                      _, node, _, post = val
+
+                      splat = s(:splat, node).line node.line
+                      ary = s(:array, splat).line splat.line
+                      ary.concat post.sexp_body
+                      result = s(:masgn, ary).line ary.line
                     }
                 | tSTAR
                     {
-                      result = s(:masgn, s(:array, s(:splat)))
+                      l = lexer.lineno
+                      result = s(:masgn, s(:array, s(:splat).line(l)).line(l)).line l
                     }
                 | tSTAR tCOMMA mlhs_post
                     {
-                      result = s(:masgn, s(:array, s(:splat), *val[2].sexp_body))
+                      _, _, post = val
+                      l = post.line
+
+                      splat = s(:splat).line l
+                      ary = s(:array, splat, *post.sexp_body).line l
+                      result = s(:masgn, ary).line l
                     }
 
        mlhs_item: mlhs_node
@@ -525,7 +562,8 @@ rule
 
        mlhs_head: mlhs_item tCOMMA
                     {
-                      result = s(:array, val[0])
+                      lhs, _ = val
+                      result = s(:array, lhs).line lhs.line
                     }
                 | mlhs_head mlhs_item tCOMMA
                     {
@@ -534,7 +572,8 @@ rule
 
        mlhs_post: mlhs_item
                     {
-                      result = s(:array, val[0])
+                      item, = val
+                      result = s(:array, item).line item.line
                     }
                 | mlhs_post tCOMMA mlhs_item
                     {
@@ -559,7 +598,8 @@ rule
                     }
                 | primary_value tCOLON2 tIDENTIFIER
                     {
-                      result = s(:attrasgn, val[0], :"#{val[2]}=")
+                      recv, _, id = val
+                      result = new_attrasgn recv, id
                     }
                 | primary_value call_op tCONSTANT
                     {
@@ -572,7 +612,10 @@ rule
                         yyerror "dynamic constant assignment"
                       end
 
-                      result = s(:const, s(:colon2, val[0], val[2].to_sym), nil)
+                      expr, _, id = val
+                      l = expr.line
+
+                      result = s(:const, s(:colon2, expr, id.to_sym).line(l), nil).line l
                     }
                 | tCOLON3 tCONSTANT
                     {
@@ -581,7 +624,10 @@ rule
                         yyerror "dynamic constant assignment"
                       end
 
-                      result = s(:const, nil, s(:colon3, val[1].to_sym))
+                      _, id = val
+                      l = lexer.lineno
+
+                      result = s(:const, nil, s(:colon3, id.to_sym).line(l)).line l
                     }
                 | backref
                     {
@@ -590,24 +636,31 @@ rule
 
              lhs: user_variable
                     {
+                      line = lexer.lineno
                       result = self.assignable val[0]
+                      result.line = line
                     }
                 | keyword_variable
                     {
+                      line = lexer.lineno
                       result = self.assignable val[0]
+                      result.line = line
                       debug20 9, val, result
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket
                     {
-                      result = self.aryset val[0], val[2]
+                      lhs, _, args, _ = val
+                      result = self.aryset lhs, args
                     }
                 | primary_value call_op tIDENTIFIER # REFACTOR
                     {
-                      result = new_attrasgn val[0], val[2], val[1]
+                      lhs, op, id = val
+                      result = new_attrasgn lhs, id, op
                     }
                 | primary_value tCOLON2 tIDENTIFIER
                     {
-                      result = s(:attrasgn, val[0], :"#{val[2]}=")
+                      lhs, _, id = val
+                      result = new_attrasgn lhs, id
                     }
                 | primary_value call_op tCONSTANT # REFACTOR?
                     {
@@ -615,21 +668,27 @@ rule
                     }
                 | primary_value tCOLON2 tCONSTANT
                     {
+                      expr, _, id = val
+
                       if (self.in_def || self.in_single > 0) then
                         debug20 10
                         yyerror "dynamic constant assignment"
                       end
 
-                      result = s(:const, s(:colon2, val[0], val[2].to_sym))
+                      l = expr.line
+                      result = s(:const, s(:colon2, expr, id.to_sym).line(l)).line l
                     }
                 | tCOLON3 tCONSTANT
                     {
+                      _, id = val
+
                       if (self.in_def || self.in_single > 0) then
                         debug20 11
                         yyerror "dynamic constant assignment"
                       end
 
-                      result = s(:const, s(:colon3, val[1].to_sym))
+                      l = lexer.lineno
+                      result = s(:const, s(:colon3, id.to_sym).line(l)).line l
                     }
                 | backref
                     {
@@ -645,7 +704,7 @@ rule
            cpath: tCOLON3 cname
                     {
                       _, name = val
-                      result = s(:colon3, name.to_sym)
+                      result = s(:colon3, name.to_sym).line lexer.lineno
                     }
                 | cname
                     {
@@ -677,7 +736,8 @@ rule
 
            fitem: fsym
                     {
-                      result = s(:lit, val[0].to_sym)
+                      id, = val
+                      result = s(:lit, id.to_sym).line lexer.lineno
                     }
                 | dsym
 
@@ -737,7 +797,9 @@ rule
                     }
                 | primary_value tCOLON2 tIDENTIFIER tOP_ASGN arg_rhs
                     {
-                      result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
+                      lhs, _, id, op, rhs = val
+
+                      result = s(:op_asgn, lhs, rhs, id.to_sym, op.to_sym).line lhs.line
                     }
                 | primary_value tCOLON2 tCONSTANT tOP_ASGN arg_rhs
                     {
@@ -824,14 +886,17 @@ rule
 #if V == 20
                 | tUMINUS_NUM tINTEGER tPOW arg
                     {
-                      result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
+                      lit = s(:lit, val[1]).line lexer.lineno
+                      result = new_call(new_call(lit, :"**", argl(val[3])), :"-@")
                     }
                 | tUMINUS_NUM tFLOAT tPOW arg
 #else
                 | tUMINUS_NUM simple_numeric tPOW arg
 #endif
                     {
-                      result = new_call(new_call(s(:lit, val[1]), :"**", argl(val[3])), :"-@")
+                      lit = s(:lit, val[1]).line lexer.lineno
+                      result = new_call(new_call(lit, :"**", argl(val[3])), :"-@")
+
 #if V == 20
                       ## TODO: why is this 2.0 only?
                       debug20 12, val, result
@@ -876,11 +941,13 @@ rule
                     }
                 | arg tMATCH arg
                     {
-                      result = new_match val[0], val[2]
+                      lhs, _, rhs = val
+                      result = new_match lhs, rhs
                     }
                 | arg tNMATCH arg
                     {
-                      result = s(:not, new_match(val[0], val[2]))
+                      lhs, _, rhs = val
+                      result = s(:not, new_match(lhs, rhs)).line lhs.line
                     }
                 | tBANG arg
                     {
@@ -963,10 +1030,12 @@ rule
          arg_rhs: arg                   =tOP_ASGN
                 | arg kRESCUE_MOD arg
                     {
-                      body, _, resbody = val
+                      body, (_, line), resbody = val
                       body    = value_expr body
                       resbody = remove_begin resbody
-                      result  = new_rescue(body, new_resbody(s(:array), resbody))
+
+                      ary = s(:array).line line
+                      result  = new_rescue(body, new_resbody(ary, resbody))
                     }
 
       paren_args: tLPAREN2 opt_call_args rparen
@@ -1034,7 +1103,8 @@ rule
 
        block_arg: tAMPER arg_value
                     {
-                      result = s(:block_pass, val[1])
+                      _, arg = val
+                      result = s(:block_pass, arg).line arg.line
                     }
 
    opt_block_arg: tCOMMA block_arg
@@ -1051,15 +1121,18 @@ rule
                     }
                 | tSTAR arg_value
                     {
-                      result = s(:array, s(:splat, val[1]))
+                      _, arg = val
+                      result = s(:array, s(:splat, arg).line(arg.line)).line arg.line
                     }
                 | args tCOMMA arg_value
                     {
-                      result = self.list_append val[0], val[2]
+                      args, _, id = val
+                      result = self.list_append args, id
                     }
-                | args tCOMMA tSTAR arg_value
+                | args tCOMMA tSTAR { result = lexer.lineno } arg_value
                     {
-                      result = self.list_append val[0], s(:splat, val[3])
+                      args, _, _, line, id = val
+                      result = self.list_append args, s(:splat, id).line(line)
                     }
 
 #if V >= 21
@@ -1079,11 +1152,15 @@ rule
                     }
                 | args tCOMMA tSTAR arg_value
                     {
-                      result = self.arg_concat val[0], val[3]
+                      # FIX: bad shift/reduce conflict with rhs' comma star prod
+                      # TODO: make all tXXXX terminals include lexer.lineno
+                      arg, _, _, splat = val
+                      result = self.arg_concat arg, splat
                     }
                 | tSTAR arg_value
                     {
-                      result = s(:splat, val[1])
+                      _, arg = val
+                      result = s(:splat, arg).line arg.line
                     }
 
          primary: literal
@@ -1118,9 +1195,15 @@ rule
 
                       result.line = val[1]
                     }
-                | tLPAREN_ARG { lexer.lex_state = EXPR_ENDARG } rparen
+                | tLPAREN_ARG
                     {
-                      result = s(:begin)
+                      lexer.lex_state = EXPR_ENDARG
+                      result = lexer.lineno
+                    }
+                    rparen
+                    {
+                      _, line, _ = val
+                      result = s(:begin).line line
                     }
                 | tLPAREN_ARG
                     {
@@ -1141,16 +1224,22 @@ rule
                     }
                 | tLPAREN compstmt tRPAREN
                     {
-                      result = val[1] || s(:nil)
+                      _, stmt, _ = val
+                      result = stmt
+                      result ||= s(:nil).line lexer.lineno
                       result.paren = true
                     }
                 | primary_value tCOLON2 tCONSTANT
                     {
-                      result = s(:colon2, val[0], val[2].to_sym)
+                      expr, _, id = val
+
+                      result = s(:colon2, expr, id.to_sym).line expr.line
                     }
                 | tCOLON3 tCONSTANT
                     {
-                      result = s(:colon3, val[1].to_sym)
+                      _, id = val
+
+                      result = s(:colon3, id.to_sym).line lexer.lineno
                     }
                 | tLBRACK { result = lexer.lineno } aref_args tRBRACK
                     {
@@ -1169,7 +1258,8 @@ rule
                     }
                 | k_return
                     {
-                      result = s(:return)
+                      (_, line), = val
+                      result = s(:return).line line
                     }
                 | kYIELD tLPAREN2 call_args rparen
                     {
@@ -1185,11 +1275,14 @@ rule
                     }
                 | kDEFINED opt_nl tLPAREN2 expr rparen
                     {
-                      result = s(:defined, val[3])
+                      (_, line), _, _, arg, _ = val
+
+                      result = s(:defined, arg).line line
                     }
                 | kNOT tLPAREN2 expr rparen
                     {
-                      result = s(:call, val[2], :"!")
+                      _, _, lhs, _ = val
+                      result = new_call lhs, :"!"
                     }
                 | kNOT tLPAREN2 rparen
                     {
@@ -1355,19 +1448,23 @@ rule
                     }
                 | kBREAK
                     {
-                      result = s(:break)
+                      (_, line), = val
+                      result = s(:break).line line
                     }
                 | kNEXT
                     {
-                      result = s(:next)
+                      (_, line), = val
+                      result = s(:next).line line
                     }
                 | kREDO
                     {
-                      result = s(:redo)
+                      (_, line), = val
+                      result = s(:redo).line line
                     }
                 | kRETRY
                     {
-                      result = s(:retry)
+                      (_, line), = val
+                      result = s(:retry).line line
                     }
 
    primary_value: primary
@@ -1406,7 +1503,9 @@ rule
          if_tail: opt_else
                 | k_elsif expr_value then compstmt if_tail
                     {
-                      result = s(:if, val[1], val[3], val[4])
+                      (_, line), c, _, t, rest = val
+
+                      result = s(:if, c, t, rest).line line
                     }
 
         opt_else: none
@@ -1429,7 +1528,9 @@ rule
 
      f_marg_list: f_marg
                     {
-                      result = s(:array, val[0])
+                      sym, = val
+
+                      result = s(:array, sym).line lexer.lineno
                     }
                 | f_marg_list tCOMMA f_marg
                     {
@@ -1503,7 +1604,9 @@ rule
                     }
                 | f_block_arg
                     {
-                      result = call_args val
+                      line = lexer.lineno
+                      result = call_args val # TODO: push line down
+                      result.line line
                     }
 
 opt_block_args_tail: tCOMMA block_args_tail
@@ -1586,7 +1689,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | tOROP
                     {
-                      result = s(:args)
+                      result = s(:args).line lexer.lineno
                     }
                 | tPIPE block_param opt_bv_decl tPIPE
                     {
@@ -1611,33 +1714,33 @@ opt_block_args_tail: tCOMMA block_args_tail
 
             bvar: tIDENTIFIER
                     {
-                      result = s(:shadow, val[0].to_sym)
+                      id, = val
+                      line = lexer.lineno
+                      result = s(:shadow, id.to_sym).line line
                     }
                 | f_bad_arg
 
           lambda:   {
                       self.env.extend :dynamic
-                      result = self.lexer.lineno
-
-                      result = lexer.lpar_beg
+                      result = [lexer.lineno, lexer.lpar_beg]
                       lexer.paren_nest += 1
                       lexer.lpar_beg = lexer.paren_nest
                     }
                     f_larglist
                     {
-                      result = [lexer.cmdarg.store(false), self.lexer.lineno]
+                      result = lexer.cmdarg.store(false)
                     }
                     lambda_body
                     {
-                      lpar, args, (cmdarg, lineno), body = val
+                      (line, lpar), args, cmdarg, body = val
                       lexer.lpar_beg = lpar
 
                       lexer.cmdarg.restore cmdarg
                       lexer.cmdarg.lexpop
 
-                      call = s(:lambda)
+                      call = s(:lambda).line line
                       result = new_iter call, args, body
-                      result.line = lineno
+                      result.line = line
                       self.env.unextend
                     }
 
@@ -1662,8 +1765,8 @@ opt_block_args_tail: tCOMMA block_args_tail
 
         do_block: k_do_block do_body kEND
                     {
-                      # TODO: maybe fix lineno to kDO's lineno?
-                      result = val[1]
+                      (_, line), iter, _ = val
+                      result = iter.line line
                     }
 
       block_call: command do_block
@@ -1677,8 +1780,10 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       val = invert_block_call val if inverted? val
 
-                      result = val[1]
-                      result.insert 1, val[0]
+                      cmd, blk = val
+
+                      result = blk
+                      result.insert 1, cmd
                     }
                 | block_call call_op2 operation2 opt_paren_args
                     {
@@ -1738,7 +1843,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | kSUPER
                     {
-                      result = s(:zsuper)
+                      result = s(:zsuper).line lexer.lineno
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket
                     {
@@ -1820,7 +1925,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       (_, line), klasses, var, _, body, rest = val
 
                       klasses ||= s(:array)
-                      klasses << new_assign(var, s(:gvar, :"$!")) if var
+                      klasses << new_assign(var, s(:gvar, :"$!").line(var.line)) if var
                       klasses.line line
 
                       result = new_resbody(klasses, body)
@@ -1847,19 +1952,23 @@ opt_block_args_tail: tCOMMA block_args_tail
 
       opt_ensure: k_ensure compstmt
                     {
-                      _, body = val
+                      (_, line), body = val
 
-                      result = body || s(:nil)
+                      result = body || s(:nil).line(line)
                     }
                 | none
 
          literal: numeric
                     {
+                      line = lexer.lineno
                       result = s(:lit, val[0])
+                      result.line = line
                     }
                 | symbol
                     {
+                      line = lexer.lineno
                       result = s(:lit, val[0])
+                      result.line = line
                     }
                 | dsym
 
@@ -1905,7 +2014,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
            words: tWORDS_BEG tSPACE tSTRING_END
                     {
-                      result = s(:array)
+                      result = s(:array).line lexer.lineno
                     }
                 | tWORDS_BEG word_list tSTRING_END
                     {
@@ -1929,25 +2038,28 @@ opt_block_args_tail: tCOMMA block_args_tail
 
          symbols: tSYMBOLS_BEG tSPACE tSTRING_END
                     {
-                      result = s(:array)
+                      result = s(:array).line lexer.lineno
                     }
-                | tSYMBOLS_BEG symbol_list tSTRING_END
+                | tSYMBOLS_BEG { result = lexer.lineno } symbol_list tSTRING_END
                     {
-                      result = val[1]
+                      _, line, list, _, = val
+                      list.line = line
+                      result = list
                     }
 
      symbol_list: none
                     {
-                      result = new_symbol_list
+                      result = new_symbol_list.line lexer.lineno
                     }
                 | symbol_list word tSPACE
                     {
-                      result = val[0].dup << new_symbol_list_entry(val)
+                      list, * = val
+                      result = list.dup << new_symbol_list_entry(val)
                     }
 
           qwords: tQWORDS_BEG tSPACE tSTRING_END
                     {
-                      result = s(:array)
+                      result = s(:array).line lexer.lineno
                     }
                 | tQWORDS_BEG qword_list tSTRING_END
                     {
@@ -1956,7 +2068,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
         qsymbols: tQSYMBOLS_BEG tSPACE tSTRING_END
                     {
-                      result = s(:array)
+                      result = s(:array).line lexer.lineno # FIX
                     }
                 | tQSYMBOLS_BEG qsym_list tSTRING_END
                     {
@@ -1983,11 +2095,12 @@ opt_block_args_tail: tCOMMA block_args_tail
 
  string_contents: none
                     {
-                      result = s(:str, "")
+                      result = s(:str, "").line lexer.lineno
                     }
                 | string_contents string_content
                     {
-                      result = literal_concat(val[0], val[1])
+                      v1, v2 = val
+                      result = literal_concat v1, v2
                     }
 
 xstring_contents: none
@@ -1996,7 +2109,8 @@ xstring_contents: none
                     }
                 | xstring_contents string_content
                     {
-                      result = literal_concat(val[0], val[1])
+                      v1, v2 = val
+                      result = literal_concat v1, v2
                     }
 
 regexp_contents: none
@@ -2005,7 +2119,8 @@ regexp_contents: none
                     }
                 | regexp_contents string_content
                     {
-                      result = literal_concat(val[0], val[1])
+                      v1, v2 = val
+                      result = literal_concat v1, v2
                     }
 
   string_content: tSTRING_CONTENT
@@ -2021,8 +2136,9 @@ regexp_contents: none
                     }
                     string_dvar
                     {
-                      lexer.lex_strterm = val[1]
-                      result = s(:evstr, val[2])
+                      _, strterm, str = val
+                      lexer.lex_strterm = strterm
+                      result = s(:evstr, str).line str.line
                     }
                 | tSTRING_DBEG
                     {
@@ -2032,6 +2148,7 @@ regexp_contents: none
                                 lexer.cond.store,
                                 lexer.cmdarg.store,
                                 lexer.lex_state,
+                                lexer.lineno,
                                ]
 
                       lexer.lex_strterm = nil
@@ -2045,7 +2162,7 @@ regexp_contents: none
                     {
                       _, memo, stmt, _ = val
 
-                      lex_strterm, brace_nest, string_nest, oldcond, oldcmdarg, oldlex_state = memo
+                      lex_strterm, brace_nest, string_nest, oldcond, oldcmdarg, oldlex_state, line = memo
 
                       lexer.lex_strterm = lex_strterm
                       lexer.brace_nest  = brace_nest
@@ -2062,19 +2179,19 @@ regexp_contents: none
                         when :str, :dstr, :evstr then
                           result = stmt
                         else
-                          result = s(:evstr, stmt)
+                          result = s(:evstr, stmt).line line
                         end
                       when nil then
-                        result = s(:evstr)
+                        result = s(:evstr).line line
                       else
                         debug20 25
                         raise "unknown string body: #{stmt.inspect}"
                       end
                     }
 
-     string_dvar: tGVAR { result = s(:gvar, val[0].to_sym) }
-                | tIVAR { result = s(:ivar, val[0].to_sym) }
-                | tCVAR { result = s(:cvar, val[0].to_sym) }
+     string_dvar: tGVAR { result = s(:gvar, val[0].to_sym).line lexer.lineno }
+                | tIVAR { result = s(:ivar, val[0].to_sym).line lexer.lineno }
+                | tCVAR { result = s(:cvar, val[0].to_sym).line lexer.lineno }
                 | backref
 
           symbol: tSYMBEG sym
@@ -2091,18 +2208,19 @@ regexp_contents: none
 
             dsym: tSYMBEG xstring_contents tSTRING_END
                     {
-                      lexer.lex_state = EXPR_END
-                      result = val[1]
+                      _, result, _ = val
 
-                      result ||= s(:str, "")
+                      lexer.lex_state = EXPR_END
+
+                      result ||= s(:str, "").line lexer.lineno
 
                       case result.sexp_type
                       when :dstr then
                         result.sexp_type = :dsym
                       when :str then
-                        result = s(:lit, result.last.to_sym)
+                        result = s(:lit, result.last.to_sym).line result.line
                       when :evstr then
-                        result = s(:dsym, "", result)
+                        result = s(:dsym, "", result).line result.line
                       else
                         debug20 26, val, result
                       end
@@ -2139,19 +2257,20 @@ regexp_contents: none
                 | tCONSTANT
                 | tCVAR
 
-keyword_variable: kNIL      { result = s(:nil)   }
-                | kSELF     { result = s(:self)  }
-                | kTRUE     { result = s(:true)  }
-                | kFALSE    { result = s(:false) }
-                | k__FILE__ { result = s(:str, self.file) }
-                | k__LINE__ { result = s(:lit, lexer.lineno) }
+keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
+                | kSELF     { result = s(:self).line lexer.lineno }
+                | kTRUE     { result = s(:true).line lexer.lineno }
+                | kFALSE    { result = s(:false).line lexer.lineno }
+                | k__FILE__ { result = s(:str, self.file).line lexer.lineno }
+                | k__LINE__ { result = s(:lit, lexer.lineno).line lexer.lineno }
                 | k__ENCODING__
                     {
+                      l = lexer.lineno
                       result =
                         if defined? Encoding then
-                          s(:colon2, s(:const, :Encoding), :UTF_8)
+                          s(:colon2, s(:const, :Encoding).line(l), :UTF_8).line l
                         else
-                          s(:str, "Unsupported!")
+                          s(:str, "Unsupported!").line l
                         end
                     }
 
@@ -2176,8 +2295,8 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       debug20 29, val, result
                     }
 
-         backref: tNTH_REF  { result = s(:nth_ref,  val[0]) }
-                | tBACK_REF { result = s(:back_ref, val[0]) }
+         backref: tNTH_REF  { result = s(:nth_ref,  val[0]).line lexer.lineno }
+                | tBACK_REF { result = s(:back_ref, val[0]).line lexer.lineno }
 
       superclass: tLT
                     {
@@ -2342,12 +2461,13 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
            f_arg: f_arg_item
                     {
-                      case val[0]
+                      arg, = val
+
+                      case arg
                       when Symbol then
-                        result = s(:args)
-                        result << val[0]
+                        result = s(:args, arg).line lexer.lineno
                       when Sexp then
-                        result = val[0]
+                        result = arg
                       else
                         debug20 32
                         raise "Unknown f_arg type: #{val.inspect}"
@@ -2360,7 +2480,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
                       if list.sexp_type == :args then
                         result = list
                       else
-                        result = s(:args, list)
+                        result = s(:args, list).line list.line
                       end
 
                       result << item
@@ -2374,7 +2494,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
             f_kw: f_label arg_value
 #endif
                     {
-                      # TODO: call_args
+                      # TODO: new_kw_arg
                       (label, line), arg = val
 
                       identifier = label.to_sym
@@ -2386,11 +2506,12 @@ keyword_variable: kNIL      { result = s(:nil)   }
 #if V >= 21
                 | f_label
                     {
-                      label, _ = val[0] # TODO: fix lineno?
-                      identifier = label.to_sym
-                      self.env[identifier] = :lvar
+                      (label, line), = val
 
-                      result = s(:array, s(:kwarg, identifier))
+                      id = label.to_sym
+                      self.env[id] = :lvar
+
+                      result = s(:array, s(:kwarg, id).line(line)).line line
                     }
 #endif
 
@@ -2400,21 +2521,22 @@ keyword_variable: kNIL      { result = s(:nil)   }
       f_block_kw: f_label primary_value
 #endif
                     {
-                      # TODO: call_args
-                      label, _ = val[0] # TODO: fix lineno?
-                      identifier = label.to_sym
-                      self.env[identifier] = :lvar
+                      # TODO: new_kw_arg
+                      (label, line), expr = val
+                      id = label.to_sym
+                      self.env[id] = :lvar
 
-                      result = s(:array, s(:kwarg, identifier, val[1]))
+                      result = s(:array, s(:kwarg, id, expr).line(line)).line line
                     }
 #if V >= 21
                 | f_label
                     {
-                      label, _ = val[0] # TODO: fix lineno?
-                      identifier = label.to_sym
-                      self.env[identifier] = :lvar
+                      # TODO: new_kw_arg
+                      (label, line), = val
+                      id = label.to_sym
+                      self.env[id] = :lvar
 
-                      result = s(:array, s(:kwarg, identifier))
+                      result = s(:array, s(:kwarg, id).line(line)).line line
                     }
 #endif
 
@@ -2470,17 +2592,20 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
   f_block_optarg: f_block_opt
                     {
-                      result = s(:block, val[0])
+                      optblk, = val
+                      result = s(:block, optblk).line optblk.line
                     }
                 | f_block_optarg tCOMMA f_block_opt
                     {
-                      result = val[0]
-                      result << val[2]
+                      optarg, _, optblk = val
+                      result = optarg
+                      result << optblk
                     }
 
         f_optarg: f_opt
                     {
-                      result = s(:block, val[0])
+                      opt, = val
+                      result = s(:block, opt).line opt.line
                     }
                 | f_optarg tCOMMA f_opt
                     {
@@ -2536,7 +2661,7 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
       assoc_list: none # [!nil]
                     {
-                      result = s(:array)
+                      result = s(:array).line lexer.lineno
                     }
                 | assocs trailer # [!nil]
                     {
@@ -2555,7 +2680,8 @@ keyword_variable: kNIL      { result = s(:nil)   }
 
            assoc: arg_value tASSOC arg_value
                     {
-                      result = s(:array, val[0], val[2])
+                      v1, _, v2 = val
+                      result = s(:array, v1, v2).line v1.line
                     }
                 | tLABEL arg_value
                     {
@@ -2569,12 +2695,14 @@ keyword_variable: kNIL      { result = s(:nil)   }
                     {
                       _, sym, _, value = val
                       sym.sexp_type = :dsym
-                      result = s(:array, sym, value)
+                      result = s(:array, sym, value).line sym.line
                     }
 #endif
                 | tDSTAR arg_value
                     {
-                      result = s(:array, s(:kwsplat, val[1]))
+                      _, arg = val
+                      line = arg.line
+                      result = s(:array, s(:kwsplat, arg).line(line)).line line
                     }
 
        operation: tIDENTIFIER | tCONSTANT | tFID

@@ -238,11 +238,11 @@ end
 
 class TestValueExpr < Minitest::Test
   def assert_value_expr exp, input
-    assert_equal exp, Fake20.new.value_expr(input)
+    assert_equal exp, Fake20.new.value_expr(input.line(1))
   end
 
   def assert_remove_begin exp, input
-    assert_equal exp, Fake20.new.remove_begin(input)
+    assert_equal exp, Fake20.new.remove_begin(input.line(1))
   end
 
   def test_value_expr

@@ -212,23 +212,30 @@ module TestRubyParserShared
   end
 
   def test_block_append
-    head = s(:args)
-    tail = s(:zsuper)
-    expected = s(:block, s(:args), s(:zsuper))
+    head = s(:args).line 1
+    tail = s(:zsuper).line 2
+    expected = s(:block,
+                 s(:args).line(1),
+                 s(:zsuper).line(2)).line 1
     assert_equal expected, processor.block_append(head, tail)
   end
 
   def test_block_append_begin_begin
-    head = s(:begin, s(:args))
-    tail = s(:begin, s(:args))
-    expected = s(:block, s(:args), s(:begin, s(:args)))
+    head = s(:begin, s(:args).line(1)).line 1
+    tail = s(:begin, s(:args).line(2)).line 2
+    expected = s(:block,
+                 s(:args).line(1),
+                 s(:begin,
+                   s(:args).line(2)).line(2)).line 1
     assert_equal expected, processor.block_append(head, tail)
   end
 
   def test_block_append_block
-    head = s(:block, s(:args))
-    tail = s(:zsuper)
-    expected = s(:block, s(:args), s(:zsuper))
+    head = s(:block, s(:args).line(1)).line(1)
+    tail = s(:zsuper).line(2)
+    expected = s(:block,
+                 s(:args).line(1),
+                 s(:zsuper).line(2)).line 1
     assert_equal expected, processor.block_append(head, tail)
   end
 
@@ -247,11 +254,15 @@ module TestRubyParserShared
   end
 
   def test_block_append_tail_block
-    head = s(:call, nil, :f1)
-    tail = s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y)))
+    head = s(:call, nil, :f1).line 1
+    tail = s(:block,
+             s(:undef, s(:lit, :x)).line(2),
+             s(:undef, s(:lit, :y)).line(3)).line 2
     expected = s(:block,
-                 s(:call, nil, :f1),
-                 s(:block, s(:undef, s(:lit, :x)), s(:undef, s(:lit, :y))))
+                 s(:call, nil, :f1).line(1),
+                 s(:block,
+                   s(:undef, s(:lit, :x)).line(2),
+                   s(:undef, s(:lit, :y)).line(3)).line(2)).line 1
     assert_equal expected, processor.block_append(head, tail)
   end
 
@@ -498,9 +509,10 @@ module TestRubyParserShared
                  s(:evstr, s(:call, nil, :spec_name)),
                  s(:str, " from "),
                  s(:evstr, s(:call, nil, :source_uri)),
-                 s(:str, ":\n"))
+                 s(:str, ":\n")).line 1
     rhs      = s(:dstr, "\t",
-                 s(:evstr, s(:call, s(:ivar, :@fetch_error), :message)))
+                 s(:evstr, s(:call, s(:ivar, :@fetch_error), :message))).line 2
+
     expected = s(:dstr, "Failed to download spec ",
                  s(:evstr, s(:call, nil, :spec_name)),
                  s(:str, " from "),
@@ -508,6 +520,14 @@ module TestRubyParserShared
                  s(:str, ":\n"),
                  s(:str, "\t"),
                  s(:evstr, s(:call, s(:ivar, :@fetch_error), :message)))
+
+    lhs.deep_each do |s|
+      s.line = 1
+    end
+
+    rhs.deep_each do |s|
+      s.line = 1
+    end
 
     assert_equal expected, processor.literal_concat(lhs, rhs)
   end
@@ -520,14 +540,16 @@ module TestRubyParserShared
   end
 
   def test_literal_concat_evstr_evstr
-    lhs, rhs = s(:evstr, s(:lit, 1)), s(:evstr, s(:lit, 2))
+    lhs = s(:evstr, s(:lit, 1)).line 1
+    rhs = s(:evstr, s(:lit, 2)).line 2
     expected = s(:dstr, "", s(:evstr, s(:lit, 1)), s(:evstr, s(:lit, 2)))
 
     assert_equal expected, processor.literal_concat(lhs, rhs)
   end
 
   def test_literal_concat_str_evstr
-    lhs, rhs = s(:str, ""), s(:evstr, s(:str, "blah"))
+    lhs = s(:str, "").line 1
+    rhs = s(:evstr, s(:str, "blah").line(2)).line 2
 
     assert_equal s(:str, "blah"), processor.literal_concat(lhs, rhs)
   end
@@ -541,49 +563,71 @@ module TestRubyParserShared
   end
 
   def test_logical_op_1234_5
-    lhs = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:and, s(:lit, 3), s(:lit, 4))))
-    rhs = s(:lit, 5)
-    exp = s(:and,
-            s(:lit, 1),
+    lhs = s(:and,
+            s(:lit, 1).line(1),
             s(:and,
-              s(:lit, 2),
+              s(:lit, 2).line(2),
               s(:and,
-                s(:lit, 3),
+                s(:lit, 3).line(3),
+                s(:lit, 4).line(4)).line(3)).line(2)).line 1
+    rhs = s(:lit, 5).line(5)
+    exp = s(:and,
+            s(:lit, 1).line(1),
+            s(:and,
+              s(:lit, 2).line(2),
+              s(:and,
+                s(:lit, 3).line(3),
                 s(:and,
-                  s(:lit, 4),
-                  s(:lit, 5)))))
+                  s(:lit, 4).line(4),
+                  s(:lit, 5).line(5)).line(4)).line(3)).line(2)).line 1
 
     assert_equal exp, processor.logical_op(:and, lhs, rhs)
   end
 
   def test_logical_op_123_4
-    lhs = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:lit, 3)))
-    rhs = s(:lit, 4)
-    exp = s(:and,
-            s(:lit, 1),
+    lhs = s(:and,
+            s(:lit, 1).line(1),
             s(:and,
-              s(:lit, 2),
+              s(:lit, 2).line(2),
+              s(:lit, 3).line(3)).line(2)).line 1
+    rhs = s(:lit, 4).line 4
+    exp = s(:and,
+            s(:lit, 1).line(1),
+            s(:and,
+              s(:lit, 2).line(2),
               s(:and,
-                s(:lit, 3),
-                s(:lit, 4))))
+                s(:lit, 3).line(3),
+                s(:lit, 4).line(4)).line(3)).line(2)).line 1
 
     assert_equal exp, processor.logical_op(:and, lhs, rhs)
   end
 
   def test_logical_op_12_3
-    lhs = s(:and, s(:lit, 1), s(:lit, 2))
-    rhs = s(:lit, 3)
-    exp = s(:and, s(:lit, 1), s(:and, s(:lit, 2), s(:lit, 3)))
+    lhs = s(:and,
+            s(:lit, 1).line(1),
+            s(:lit, 2).line(2)).line 1
+    rhs = s(:lit, 3).line 3
+    exp = s(:and,
+            s(:lit, 1).line(1),
+            s(:and, s(:lit, 2).line(2), s(:lit, 3).line(3)).line(1)).line 1
 
     assert_equal exp, processor.logical_op(:and, lhs, rhs)
   end
 
   def test_logical_op_nested_mix
-    lhs = s(:or, s(:call, nil, :a), s(:call, nil, :b))
-    rhs = s(:and, s(:call, nil, :c), s(:call, nil, :d))
+    lhs = s(:or,
+            s(:call, nil, :a).line(1),
+            s(:call, nil, :b).line(2)).line 1
+    rhs = s(:and,
+            s(:call, nil, :c).line(3),
+            s(:call, nil, :d).line(4)).line 3
     exp = s(:or,
-            s(:or, s(:call, nil, :a), s(:call, nil, :b)),
-            s(:and, s(:call, nil, :c), s(:call, nil, :d)))
+            s(:or,
+              s(:call, nil, :a).line(1),
+              s(:call, nil, :b).line(2)).line(1),
+            s(:and,
+              s(:call, nil, :c).line(3),
+              s(:call, nil, :d).line(4)).line(3)).line 1
 
     lhs.paren = true
     rhs.paren = true
@@ -1638,8 +1682,13 @@ module TestRubyParserShared
   def test_masgn_arg_colon_arg
     rb = "a, b::c = d"
     pt = s(:masgn,
-           s(:array, s(:lasgn, :a), s(:attrasgn, s(:call, nil, :b), :c=)),
-           s(:to_ary, s(:call, nil, :d)))
+           s(:array,
+             s(:lasgn, :a).line(1),
+             s(:attrasgn,
+               s(:call, nil, :b).line(1),
+               :c=).line(1)).line(1),
+           s(:to_ary,
+             s(:call, nil, :d).line(1)).line(1)).line(1)
 
     assert_parse rb, pt
   end
@@ -3789,8 +3838,8 @@ module TestRubyParserShared26Plus
   def test_symbol_list
     rb = '%I[#{a} #{b}]'
     pt = s(:array,
-           s(:dsym, "", s(:evstr, s(:call, nil, :a))),
-           s(:dsym, "", s(:evstr, s(:call, nil, :b))))
+           s(:dsym, "", s(:evstr, s(:call, nil, :a)).line(1)).line(1),
+           s(:dsym, "", s(:evstr, s(:call, nil, :b)).line(1)).line(1)).line 1
 
     assert_parse rb, pt
   end
