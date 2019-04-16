@@ -208,19 +208,23 @@ rule
                     }
                 | stmt kIF_MOD expr_value
                     {
-                      result = new_if val[2], val[0], nil
+                      t, _, c = val
+                      result = new_if c, t, nil
                     }
                 | stmt kUNLESS_MOD expr_value
                     {
-                      result = new_if val[2], nil, val[0]
+                      f, _, c = val
+                      result = new_if c, nil, f
                     }
                 | stmt kWHILE_MOD expr_value
                     {
-                      result = new_while val[0], val[2], true
+                      e, _, c = val
+                      result = new_while e, c, true
                     }
                 | stmt kUNTIL_MOD expr_value
                     {
-                      result = new_until val[0], val[2], true
+                      e, _, c = val
+                      result = new_until e, c, true
                     }
                 | stmt kRESCUE_MOD stmt
                     {
@@ -332,15 +336,17 @@ rule
             expr: command_call
                 | expr kAND expr
                     {
-                      result = logical_op :and, val[0], val[2]
+                      lhs, _, rhs = val
+                      result = logical_op :and, lhs, rhs
                     }
                 | expr kOR expr
                     {
-                      result = logical_op :or, val[0], val[2]
+                      lhs, _, rhs = val
+                      result = logical_op :or, lhs, rhs
                     }
-                | kNOT { result = lexer.lineno } opt_nl expr
+                | kNOT opt_nl expr
                     {
-                      _, line, _, expr = val
+                      (_, line), _, expr = val
                       result = new_call(expr, :"!").line line
                       # REFACTOR: call_uni_op
                     }
