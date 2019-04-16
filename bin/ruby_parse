@@ -26,6 +26,8 @@ class File
 end
 
 begin
+  time = (ENV["RP_TIMEOUT"] || 10).to_i
+
   ARGV.each do |file|
     rp = RubyParser.new
     loc = `wc -l #{file}`.strip.to_i
@@ -45,7 +47,7 @@ begin
     begin
       begin
         rp.reset
-        r = rp.parse(File.binread(file), file)
+        r = rp.process(File.binread(file), file, time)
         pp r unless $q
         good += 1
       rescue SyntaxError => e
