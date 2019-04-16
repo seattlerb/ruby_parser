@@ -1417,7 +1417,7 @@ rule
                       # TODO: port local_push_gen and local_pop_gen
                       lexer.cmdarg.stack.replace [false]
                     }
-                    f_arglist bodystmt k_end
+                    f_arglist bodystmt { result = lexer.lineno } k_end
                     {
                       in_def, cmdarg = val[2]
 

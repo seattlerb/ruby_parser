@@ -250,7 +250,7 @@ p :FUCK2 => ss.first unless ss.first.line
            when Sexp then
              lhs.line
            else
-             lexer.lineno
+             value && value.line || lexer.lineno
            end
 
     result << value if value
@@ -430,9 +430,6 @@ p :FUCK2 => ss.first unless ss.first.line
       x = super
 
       @racc_vstack.grep(Sexp).each do |sexp|
-        # sexp.deep_each do |exp|
-        #   exp.check_line_numbers
-        # end
         sexp.check_line_numbers
       end
       x
@@ -759,10 +756,10 @@ p :FUCK2 => ss.first unless ss.first.line
   end
 
   def new_defn val
-    (_, line), (name, _), _, args, body, * = val
-    body ||= s(:nil).line line
+    (_, line), name, _, args, body, nil_body_line, * = val
+    body ||= s(:nil).line nil_body_line
 
-    result = s(:defn, name.to_sym, args)
+    result = s(:defn, name.to_sym, args).line line
 
     if body then
       if body.sexp_type == :block then
@@ -772,8 +769,6 @@ p :FUCK2 => ss.first unless ss.first.line
       end
     end
 
-    args.line line
-    result.line = line
     result.comments = self.comments.pop
 
     result

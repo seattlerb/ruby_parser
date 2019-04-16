@@ -2241,6 +2241,15 @@ module TestRubyParserShared19Plus
     assert_parse rb, pt
   end
 
+  def test_defn_opt_last_arg
+    rb = "def m arg = false\nend"
+    pt = s(:defn, :m,
+           s(:args, s(:lasgn, :arg, s(:false).line(1)).line(1)).line(1),
+           s(:nil).line(2)).line(1)
+
+    assert_parse rb, pt
+  end
+
   def test_defn_opt_splat_arg
     rb = "def f (a = 1, *b, c) end"
     pt = s(:defn, :f, s(:args, s(:lasgn, :a, s(:lit, 1)), :"*b", :c), s(:nil))
