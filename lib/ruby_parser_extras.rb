@@ -598,7 +598,7 @@ p :FUCK2 => ss.first unless ss.first.line
       end
 
       node.pop
-      node << s(type, rhs, right)
+      node << s(type, rhs, right).line(rhs.line)
 
       return left
     end

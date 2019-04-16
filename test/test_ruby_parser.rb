@@ -609,7 +609,9 @@ module TestRubyParserShared
     rhs = s(:lit, 3).line 3
     exp = s(:and,
             s(:lit, 1).line(1),
-            s(:and, s(:lit, 2).line(2), s(:lit, 3).line(3)).line(1)).line 1
+            s(:and,
+              s(:lit, 2).line(2),
+              s(:lit, 3).line(3)).line(2)).line 1
 
     assert_equal exp, processor.logical_op(:and, lhs, rhs)
   end
@@ -1083,6 +1085,17 @@ module TestRubyParserShared
 
     rb = "true and\ntrue"
     pt = s(:and, s(:true), s(:true))
+
+    assert_parse rb, pt
+  end
+
+  def test_and_multi
+    rb = "true and\nnot false and\ntrue"
+    pt = s(:and,
+           s(:true).line(1),
+           s(:and,
+             s(:call, s(:false).line(2), :!).line(2),
+             s(:true).line(3)).line(2)).line(1)
 
     assert_parse rb, pt
   end
