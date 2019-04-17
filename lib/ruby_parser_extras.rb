@@ -831,6 +831,8 @@ module RubyParserStuff
     (_, line), name, _, args, body, nil_body_line, * = val
     body ||= s(:nil).line nil_body_line
 
+    args.line line
+
     result = s(:defn, name.to_sym, args).line line
 
     if body then

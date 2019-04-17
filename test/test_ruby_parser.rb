@@ -1514,6 +1514,13 @@ module TestRubyParserShared
     assert_equal 2, c.line,   "call should have line number"
   end
 
+  def test_parse_line_defn_no_parens_args
+    rb = "def f a\nend"
+    pt = s(:defn, :f, s(:args, :a).line(1), s(:nil).line(2)).line(1)
+
+    assert_parse_line rb, pt, 1
+  end
+
   def test_parse_line_defn_complex
     rb = "def x(y)\n  p(y)\n  y *= 2\n  return y;\nend" # TODO: remove () & ;
     pt = s(:defn, :x, s(:args, :y),
@@ -1530,7 +1537,7 @@ module TestRubyParserShared
   end
 
   def test_parse_line_defn_no_parens
-    pt = s(:defn, :f, s(:args), s(:nil))
+    pt = s(:defn, :f, s(:args).line(1), s(:nil)).line(1)
 
     rb = "def f\nend"
     assert_parse_line rb, pt, 1
