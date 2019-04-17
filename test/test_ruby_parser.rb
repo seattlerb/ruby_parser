@@ -129,6 +129,13 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_bug290
+    rb = "begin\n  foo\nend"
+    pt = s(:call, nil, :foo).line(2)
+
+    assert_parse rb, pt
+  end
+
   def test_double_block_error_01
     assert_syntax_error "a(1, &b) { }", BLOCK_DUP_MSG
   end
@@ -742,7 +749,8 @@ module TestRubyParserShared
   end
 
   def after_process_hook klass, node, data, input_name, output_name
-    assert_equal 1, @result.line, "should have proper line number"
+    assert_equal 1, @result.line, "should have proper line number" if
+      node !~ /rescue|begin|ensure/ # remove_begin keeps inner line number
   end
 
   def test_parse_line_block
@@ -1017,15 +1025,15 @@ module TestRubyParserShared
   end
 
   def test_parse_line_rescue
-    rb = "begin\n a\n rescue\n b\n rescue\n c\n end\n"
+    rb = "begin\n  a\nrescue\n  b\nrescue\n  c\nend\n"
     pt = s(:rescue,
            s(:call, nil, :a).line(2),
            s(:resbody, s(:array).line(3),
              s(:call, nil, :b).line(4)).line(3),
            s(:resbody, s(:array).line(5),
-             s(:call, nil, :c).line(6)).line(5)).line(1)
+             s(:call, nil, :c).line(6)).line(5)).line(2)
 
-    assert_parse_line rb, pt, 1
+    assert_parse_line rb, pt, 2
   end
 
   def test_parse_line_return

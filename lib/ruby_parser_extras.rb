@@ -166,7 +166,6 @@ module RubyParserStuff
     if ss.empty? then
       result.line lexer.lineno
     else
-p :FUCK2 => ss.first unless ss.first.line
       result.line ss.first.line
     end
 
@@ -1313,7 +1312,7 @@ p :FUCK2 => ss.first unless ss.first.line
 
     node = s(:nil) if node == s(:begin)
 
-    node.line line # if line # HACK remove if?
+    node.line ||= line
 
     node
   end
