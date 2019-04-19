@@ -95,14 +95,6 @@ rule
                 | error top_stmt
 
         top_stmt: stmt
-                    {
-                      result = val[0]
-
-                      # TODO: remove once I have more confidence this is fixed
-                      # result.each_of_type :call_args do |s|
-                      #   debug20 666, s, result
-                      # end
-                    }
                 | klBEGIN
                     {
                       if (self.in_def || self.in_single > 0) then
@@ -400,15 +392,19 @@ rule
 
          command: fcall command_args =tLOWEST
                     {
-                      result = val[0].concat val[1].sexp_body # REFACTOR pattern
+                      call, args = val
+                      result = call.concat args.sexp_body
                     }
                 | fcall command_args cmd_brace_block
                     {
-                      result = val[0].concat val[1].sexp_body
-                      if val[2] then
-                        block_dup_check result, val[2]
+                      call, args, block = val
 
-                        result, operation = val[2], result
+                      result = call.concat args.sexp_body
+
+                      if block then
+                        block_dup_check result, block
+
+                        result, operation = block, result
                         result.insert 1, operation
                       end
                     }
@@ -1037,20 +1033,15 @@ rule
 
       paren_args: tLPAREN2 opt_call_args rparen
                     {
-                      result = val[1]
+                      _, args, _ = val
+                      result = args
                     }
 
   opt_paren_args: none
                 | paren_args
 
    opt_call_args: none
-                    {
-                      result = val[0]
-                    }
                 | call_args
-                    {
-                      result = val[0]
-                    }
                 | args tCOMMA
                     {
                       result = args val
@@ -1172,7 +1163,8 @@ rule
                 | backref
                 | tFID
                     {
-                      result = new_call nil, val[0].to_sym
+                      msg, = val
+                      result = new_call nil, msg.to_sym
                     }
                 | k_begin
                     {
@@ -1205,8 +1197,6 @@ rule
                 | tLPAREN_ARG
                     {
                       result = lexer.cmdarg.store false
-                      # result = self.lexer.cmdarg.stack.dup
-                      # lexer.cmdarg.stack.replace [false] # TODO add api for these
                     }
                     stmt
                     {
@@ -1287,11 +1277,11 @@ rule
                     }
                 | fcall brace_block
                     {
-                      oper, iter = val[0], val[1]
-                      call = oper # FIX
+                      call, iter = val
+
                       iter.insert 1, call
                       result = iter
-                      call.line = iter.line
+                      # FIX: probably not: call.line = iter.line
                     }
                 | method_call
                 | method_call brace_block
@@ -1811,8 +1801,10 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                     paren_args
                     {
-                      args = self.call_args val[2..-1]
-                      result = val[0].concat args.sexp_body
+                      call, lineno, args = val
+
+                      result = call.concat args.sexp_body if args
+                      result.line lineno
                     }
                 | primary_value call_op operation2 opt_paren_args
                     {
@@ -1971,8 +1963,9 @@ opt_block_args_tail: tCOMMA block_args_tail
 
          strings: string
                     {
-                      val[0] = s(:dstr, val[0].value) if val[0].sexp_type == :evstr
-                      result = val[0]
+                      str, = val
+                      str = s(:dstr, str.value) if str.sexp_type == :evstr
+                      result = str
                     }
 
           string: tCHAR
@@ -2656,14 +2649,11 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                         result.sexp_type == :lit
                     }
 
-      assoc_list: none # [!nil]
+      assoc_list: none
                     {
                       result = s(:array).line lexer.lineno
                     }
-                | assocs trailer # [!nil]
-                    {
-                      result = val[0]
-                    }
+                | assocs trailer
 
           assocs: assoc
                 | assocs tCOMMA assoc
