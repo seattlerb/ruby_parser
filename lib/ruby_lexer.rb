@@ -1295,11 +1295,14 @@ class RubyLexer
 
   class State
     attr_accessor :n
+    attr_accessor :names
 
-    def initialize o
+    # TODO: take a shared hash of strings for inspect/to_s
+    def initialize o, names
       raise ArgumentError, "bad state: %p" % [o] unless Integer === o # TODO: remove
 
       self.n = o
+      self.names = names
     end
 
     def == o
@@ -1311,13 +1314,15 @@ class RubyLexer
     end
 
     def | v
-      self.class.new(self.n | v.n)
+      raise ArgumentError, "Incompatible State: %p vs %p" % [self, v] unless
+        self.names == v.names
+      self.class.new(self.n | v.n, self.names)
     end
 
     def inspect
-      return "EXPR_NONE" if n.zero?
+      return "Value(0)" if n.zero? # HACK?
 
-      NAMES.map { |v, k| k if self =~ v }.
+      names.map { |v, k| k if self =~ v }.
         compact.
         join("|").
         gsub(/(?:EXPR_|STR_(?:FUNC_)?)/, "")
@@ -1326,20 +1331,22 @@ class RubyLexer
     alias to_s inspect
 
     module Values
-      EXPR_NONE    = State.new    0x0
-      EXPR_BEG     = State.new    0x1
-      EXPR_END     = State.new    0x2
-      EXPR_ENDARG  = State.new    0x4
-      EXPR_ENDFN   = State.new    0x8
-      EXPR_ARG     = State.new   0x10
-      EXPR_CMDARG  = State.new   0x20
-      EXPR_MID     = State.new   0x40
-      EXPR_FNAME   = State.new   0x80
-      EXPR_DOT     = State.new  0x100
-      EXPR_CLASS   = State.new  0x200
-      EXPR_LABEL   = State.new  0x400
-      EXPR_LABELED = State.new  0x800
-      EXPR_FITEM   = State.new 0x1000
+      expr_names = {}
+
+      EXPR_NONE    = State.new    0x0, expr_names
+      EXPR_BEG     = State.new    0x1, expr_names
+      EXPR_END     = State.new    0x2, expr_names
+      EXPR_ENDARG  = State.new    0x4, expr_names
+      EXPR_ENDFN   = State.new    0x8, expr_names
+      EXPR_ARG     = State.new   0x10, expr_names
+      EXPR_CMDARG  = State.new   0x20, expr_names
+      EXPR_MID     = State.new   0x40, expr_names
+      EXPR_FNAME   = State.new   0x80, expr_names
+      EXPR_DOT     = State.new  0x100, expr_names
+      EXPR_CLASS   = State.new  0x200, expr_names
+      EXPR_LABEL   = State.new  0x400, expr_names
+      EXPR_LABELED = State.new  0x800, expr_names
+      EXPR_FITEM   = State.new 0x1000, expr_names
 
       EXPR_BEG_ANY = EXPR_BEG | EXPR_MID    | EXPR_CLASS
       EXPR_ARG_ANY = EXPR_ARG | EXPR_CMDARG
@@ -1354,61 +1361,62 @@ class RubyLexer
 
       EXPR_LIT = EXPR_NUM # TODO: migrate to EXPR_LIT
 
-      # ruby constants for strings (should this be moved somewhere else?)
+      expr_names.merge!(EXPR_NONE    => "EXPR_NONE",
+                        EXPR_BEG     => "EXPR_BEG",
+                        EXPR_END     => "EXPR_END",
+                        EXPR_ENDARG  => "EXPR_ENDARG",
+                        EXPR_ENDFN   => "EXPR_ENDFN",
+                        EXPR_ARG     => "EXPR_ARG",
+                        EXPR_CMDARG  => "EXPR_CMDARG",
+                        EXPR_MID     => "EXPR_MID",
+                        EXPR_FNAME   => "EXPR_FNAME",
+                        EXPR_DOT     => "EXPR_DOT",
+                        EXPR_CLASS   => "EXPR_CLASS",
+                        EXPR_LABEL   => "EXPR_LABEL",
+                        EXPR_LABELED => "EXPR_LABELED",
+                        EXPR_FITEM   => "EXPR_FITEM")
 
-      STR_FUNC_BORING = State.new 0x2000
-      STR_FUNC_ESCAPE = State.new 0x4000 # TODO: remove and replace with REGEXP
-      STR_FUNC_EXPAND = State.new 0x8000
-      STR_FUNC_REGEXP = State.new 0x10000
-      STR_FUNC_QWORDS = State.new 0x20000
-      STR_FUNC_SYMBOL = State.new 0x40000
-      STR_FUNC_INDENT = State.new 0x80000  # <<-HEREDOC
-      STR_FUNC_ICNTNT = State.new 0x100000 # <<~HEREDOC
-      STR_FUNC_LABEL  = State.new 0x200000
-      STR_FUNC_LIST   = State.new 0x400000
-      STR_FUNC_TERM   = State.new 0x800000
+      # ruby constants for strings
+
+      str_func_names = {}
+
+      STR_FUNC_BORING = State.new 0x00,    str_func_names
+      STR_FUNC_ESCAPE = State.new 0x01,    str_func_names
+      STR_FUNC_EXPAND = State.new 0x02,    str_func_names
+      STR_FUNC_REGEXP = State.new 0x04,    str_func_names
+      STR_FUNC_QWORDS = State.new 0x08,    str_func_names
+      STR_FUNC_SYMBOL = State.new 0x10,    str_func_names
+      STR_FUNC_INDENT = State.new 0x20,    str_func_names # <<-HEREDOC
+      STR_FUNC_LABEL  = State.new 0x40,    str_func_names
+      STR_FUNC_LIST   = State.new 0x4000,  str_func_names
+      STR_FUNC_TERM   = State.new 0x8000,  str_func_names
+      STR_FUNC_ICNTNT = State.new 0x10000, str_func_names # <<~HEREDOC -- TODO: remove?
 
       # TODO: check parser25.y on how they do STR_FUNC_INDENT
 
       STR_SQUOTE = STR_FUNC_BORING
-      STR_DQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
-      STR_XQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
+      STR_DQUOTE = STR_FUNC_EXPAND
+      STR_XQUOTE = STR_FUNC_EXPAND
       STR_REGEXP = STR_FUNC_REGEXP | STR_FUNC_ESCAPE | STR_FUNC_EXPAND
+      STR_SWORD  = STR_FUNC_QWORDS | STR_FUNC_LIST
+      STR_DWORD  = STR_FUNC_QWORDS | STR_FUNC_EXPAND | STR_FUNC_LIST
       STR_SSYM   = STR_FUNC_SYMBOL
       STR_DSYM   = STR_FUNC_SYMBOL | STR_FUNC_EXPAND
+
+      str_func_names.merge!(STR_FUNC_ESCAPE => "STR_FUNC_ESCAPE",
+                            STR_FUNC_EXPAND => "STR_FUNC_EXPAND",
+                            STR_FUNC_REGEXP => "STR_FUNC_REGEXP",
+                            STR_FUNC_QWORDS => "STR_FUNC_QWORDS",
+                            STR_FUNC_SYMBOL => "STR_FUNC_SYMBOL",
+                            STR_FUNC_INDENT => "STR_FUNC_INDENT",
+                            STR_FUNC_LABEL  => "STR_FUNC_LABEL",
+                            STR_FUNC_LIST   => "STR_FUNC_LIST",
+                            STR_FUNC_TERM   => "STR_FUNC_TERM",
+                            STR_FUNC_ICNTNT => "STR_FUNC_ICNTNT",
+                            STR_SQUOTE      => "STR_SQUOTE")
     end
 
     include Values
-
-    NAMES = {
-      EXPR_NONE    => "EXPR_NONE",
-      EXPR_BEG     => "EXPR_BEG",
-      EXPR_END     => "EXPR_END",
-      EXPR_ENDARG  => "EXPR_ENDARG",
-      EXPR_ENDFN   => "EXPR_ENDFN",
-      EXPR_ARG     => "EXPR_ARG",
-      EXPR_CMDARG  => "EXPR_CMDARG",
-      EXPR_MID     => "EXPR_MID",
-      EXPR_FNAME   => "EXPR_FNAME",
-      EXPR_DOT     => "EXPR_DOT",
-      EXPR_CLASS   => "EXPR_CLASS",
-      EXPR_LABEL   => "EXPR_LABEL",
-      EXPR_LABELED => "EXPR_LABELED",
-      EXPR_FITEM   => "EXPR_FITEM",
-
-      STR_FUNC_BORING => "STR_FUNC_BORING",
-      STR_FUNC_ESCAPE => "STR_FUNC_ESCAPE",
-      STR_FUNC_EXPAND => "STR_FUNC_EXPAND",
-      STR_FUNC_REGEXP => "STR_FUNC_REGEXP",
-      STR_FUNC_QWORDS => "STR_FUNC_QWORDS",
-      STR_FUNC_SYMBOL => "STR_FUNC_SYMBOL",
-      STR_FUNC_INDENT => "STR_FUNC_INDENT",
-      STR_FUNC_ICNTNT => "STR_FUNC_ICNTNT",
-      STR_FUNC_LABEL  => "STR_FUNC_LABEL",
-      STR_FUNC_LIST   => "STR_FUNC_LIST",
-      STR_FUNC_TERM   => "STR_FUNC_TERM",
-      STR_SQUOTE      => "STR_SQUOTE",
-    }
   end
 
   include State::Values
