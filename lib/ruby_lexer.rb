@@ -4,160 +4,8 @@
 $DEBUG = true if ENV["DEBUG"]
 
 class RubyLexer
-
   # :stopdoc:
-  HAS_ENC = "".respond_to? :encoding
-
-  IDENT_CHAR = if HAS_ENC then
-                 /[\w\u0080-\u{10ffff}]/u
-               else
-                 /[\w\x80-\xFF]/n
-               end
-
   EOF = :eof_haha!
-
-  class State
-    attr_accessor :n
-
-    def initialize o
-      raise ArgumentError, "bad state: %p" % [o] unless Integer === o # TODO: remove
-
-      self.n = o
-    end
-
-    def == o
-      self.equal?(o) || (o.class == self.class && o.n == self.n)
-    end
-
-    def =~ v
-      (self.n & v.n) != 0
-    end
-
-    def | v
-      self.class.new(self.n | v.n)
-    end
-
-    def inspect
-      return "EXPR_NONE" if n.zero?
-
-      NAMES.map { |v, k| k if self =~ v }.
-        compact.
-        join("|").
-        gsub(/(?:EXPR_|STR_(?:FUNC_)?)/, "")
-    end
-
-    alias to_s inspect
-
-    module Values
-      EXPR_NONE    = State.new    0x0
-      EXPR_BEG     = State.new    0x1
-      EXPR_END     = State.new    0x2
-      EXPR_ENDARG  = State.new    0x4
-      EXPR_ENDFN   = State.new    0x8
-      EXPR_ARG     = State.new   0x10
-      EXPR_CMDARG  = State.new   0x20
-      EXPR_MID     = State.new   0x40
-      EXPR_FNAME   = State.new   0x80
-      EXPR_DOT     = State.new  0x100
-      EXPR_CLASS   = State.new  0x200
-      EXPR_LABEL   = State.new  0x400
-      EXPR_LABELED = State.new  0x800
-      EXPR_FITEM   = State.new 0x1000
-
-      EXPR_BEG_ANY = EXPR_BEG | EXPR_MID    | EXPR_CLASS
-      EXPR_ARG_ANY = EXPR_ARG | EXPR_CMDARG
-      EXPR_END_ANY = EXPR_END | EXPR_ENDARG | EXPR_ENDFN
-
-      # extra fake lex_state names to make things a bit cleaner
-
-      EXPR_LAB = EXPR_ARG|EXPR_LABELED
-      EXPR_NUM = EXPR_END|EXPR_ENDARG
-      EXPR_PAR = EXPR_BEG|EXPR_LABEL
-      EXPR_PAD = EXPR_BEG|EXPR_LABELED
-
-      EXPR_LIT = EXPR_NUM # TODO: migrate to EXPR_LIT
-
-      # ruby constants for strings (should this be moved somewhere else?)
-
-      STR_FUNC_BORING = State.new 0x2000
-      STR_FUNC_ESCAPE = State.new 0x4000 # TODO: remove and replace with REGEXP
-      STR_FUNC_EXPAND = State.new 0x8000
-      STR_FUNC_REGEXP = State.new 0x10000
-      STR_FUNC_QWORDS = State.new 0x20000
-      STR_FUNC_SYMBOL = State.new 0x40000
-      STR_FUNC_INDENT = State.new 0x80000  # <<-HEREDOC
-      STR_FUNC_ICNTNT = State.new 0x100000 # <<~HEREDOC
-      STR_FUNC_LABEL  = State.new 0x200000
-      STR_FUNC_LIST   = State.new 0x400000
-      STR_FUNC_TERM   = State.new 0x800000
-
-      # TODO: check parser25.y on how they do STR_FUNC_INDENT
-
-      STR_SQUOTE = STR_FUNC_BORING
-      STR_DQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
-      STR_XQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
-      STR_REGEXP = STR_FUNC_REGEXP | STR_FUNC_ESCAPE | STR_FUNC_EXPAND
-      STR_SSYM   = STR_FUNC_SYMBOL
-      STR_DSYM   = STR_FUNC_SYMBOL | STR_FUNC_EXPAND
-    end
-
-    include Values
-
-    NAMES = {
-      EXPR_NONE    => "EXPR_NONE",
-      EXPR_BEG     => "EXPR_BEG",
-      EXPR_END     => "EXPR_END",
-      EXPR_ENDARG  => "EXPR_ENDARG",
-      EXPR_ENDFN   => "EXPR_ENDFN",
-      EXPR_ARG     => "EXPR_ARG",
-      EXPR_CMDARG  => "EXPR_CMDARG",
-      EXPR_MID     => "EXPR_MID",
-      EXPR_FNAME   => "EXPR_FNAME",
-      EXPR_DOT     => "EXPR_DOT",
-      EXPR_CLASS   => "EXPR_CLASS",
-      EXPR_LABEL   => "EXPR_LABEL",
-      EXPR_LABELED => "EXPR_LABELED",
-      EXPR_FITEM   => "EXPR_FITEM",
-
-      STR_FUNC_BORING => "STR_FUNC_BORING",
-      STR_FUNC_ESCAPE => "STR_FUNC_ESCAPE",
-      STR_FUNC_EXPAND => "STR_FUNC_EXPAND",
-      STR_FUNC_REGEXP => "STR_FUNC_REGEXP",
-      STR_FUNC_QWORDS => "STR_FUNC_QWORDS",
-      STR_FUNC_SYMBOL => "STR_FUNC_SYMBOL",
-      STR_FUNC_INDENT => "STR_FUNC_INDENT",
-      STR_FUNC_ICNTNT => "STR_FUNC_ICNTNT",
-      STR_FUNC_LABEL  => "STR_FUNC_LABEL",
-      STR_FUNC_LIST   => "STR_FUNC_LIST",
-      STR_FUNC_TERM   => "STR_FUNC_TERM",
-      STR_SQUOTE      => "STR_SQUOTE",
-    }
-  end
-
-  include State::Values
-
-  if $DEBUG then
-    def lex_state= o
-      return if @lex_state == o
-      raise ArgumentError, "bad state: %p" % [o] unless State === o
-      if ENV["V"] then
-        c = caller[0]
-        c = caller[1] if c =~ /\b(expr_)?result\b/
-        c = caller[2] if c =~ /\b(expr_)?result\b/
-        warn "lex_state: %p -> %p from %s" % [lex_state, o, c.clean_caller]
-      else
-        warn "lex_state: %p -> %p" % [lex_state, o]
-      end
-      @lex_state = o
-    end
-  else
-    def lex_state= o
-      raise ArgumentError, "bad state: %p" % [o] unless State === o
-      @lex_state = o
-    end
-  end
-
-  attr_reader :lex_state
 
   ESCAPES = {
     "a"    => "\007",
@@ -174,6 +22,14 @@ class RubyLexer
     "C-\?" => 127.chr,
     "c\?"  => 127.chr,
   }
+
+  HAS_ENC = "".respond_to? :encoding
+
+  IDENT_CHAR = if HAS_ENC then
+                 /[\w\u0080-\u{10ffff}]/u
+               else
+                 /[\w\x80-\xFF]/n
+               end
 
   TOKENS = {
     "!"   => :tBANG,
@@ -194,7 +50,22 @@ class RubyLexer
   @@regexp_cache = Hash.new { |h, k| h[k] = Regexp.new(Regexp.escape(k)) }
   @@regexp_cache[nil] = nil
 
+  if $DEBUG then
+    attr_reader :lex_state
+
+    def lex_state= o
+      return if @lex_state == o
+      raise ArgumentError, "bad state: %p" % [o] unless State === o
+
+      warn "lex_state: %p -> %p" % [lex_state, o]
+
+      @lex_state = o
+    end
+  end
+
   # :startdoc:
+
+  attr_accessor :lex_state unless $DEBUG
 
   attr_accessor :lineno # we're bypassing oedipus' lineno handling.
   attr_accessor :brace_nest
@@ -233,7 +104,7 @@ class RubyLexer
   end
 
   def arg_ambiguous
-    self.warning("Ambiguous first argument. make sure.")
+    self.warning "Ambiguous first argument. make sure."
   end
 
   def arg_state
@@ -243,12 +114,23 @@ class RubyLexer
   def beginning_of_line?
     ss.bol?
   end
-  alias :bol? :beginning_of_line? # to make .rex file more readable
+
+  alias bol? beginning_of_line? # to make .rex file more readable
+
+  def check re
+    ss.check re
+  end
 
   def comments # TODO: remove this... maybe comment_string + attr_accessor
     c = @comments.join
     @comments.clear
     c
+  end
+
+  def eat_whitespace
+    r = scan(/\s+/)
+    self.extra_lineno += r.count("\n") if r
+    r
   end
 
   def end_of_stream?
@@ -267,6 +149,11 @@ class RubyLexer
     cond.push false
     cmdarg.push false
     result EXPR_BEG, token, text
+  end
+
+  def fixup_lineno extra = 0
+    self.lineno += self.extra_lineno + extra
+    self.extra_lineno = 0
   end
 
   def heredoc here # TODO: rewrite / remove
@@ -385,10 +272,6 @@ class RubyLexer
     lex_state =~ EXPR_FNAME
   end
 
-  def is_after_operator?
-    lex_state =~ EXPR_FNAME|EXPR_DOT
-  end
-
   def int_with_base base
     rb_compile_error "Invalid numeric format" if matched =~ /__/
 
@@ -405,6 +288,10 @@ class RubyLexer
     end
   end
 
+  def is_after_operator?
+    lex_state =~ EXPR_FNAME|EXPR_DOT
+  end
+
   def is_arg?
     lex_state =~ EXPR_ARG_ANY
   end
@@ -415,15 +302,6 @@ class RubyLexer
 
   def is_end?
     lex_state =~ EXPR_END_ANY
-  end
-
-  def lvar_defined? id
-    # TODO: (dyna_in_block? && dvar_defined?(id)) || local_id?(id)
-    self.parser.env[id.to_sym] == :lvar
-  end
-
-  def ruby22_label?
-    ruby22plus? and is_label_possible?
   end
 
   def is_label_possible?
@@ -442,12 +320,145 @@ class RubyLexer
     lpar_beg && lpar_beg == paren_nest
   end
 
+  def lvar_defined? id
+    # TODO: (dyna_in_block? && dvar_defined?(id)) || local_id?(id)
+    self.parser.env[id.to_sym] == :lvar
+  end
+
   def matched
     ss.matched
   end
 
   def not_end?
     not is_end?
+  end
+
+  def parse_quote # TODO: remove / rewrite
+    beg, nnd, short_hand, c = nil, nil, false, nil
+
+    if scan(/[a-z0-9]{1,2}/i) then # Long-hand (e.g. %Q{}).
+      rb_compile_error "unknown type of %string" if ss.matched_size == 2
+      c, beg, short_hand = matched, ss.getch, false
+    else                               # Short-hand (e.g. %{, %., %!, etc)
+      c, beg, short_hand = "Q", ss.getch, true
+    end
+
+    if end_of_stream? or c == RubyLexer::EOF or beg == RubyLexer::EOF then
+      rb_compile_error "unterminated quoted string meets end of file"
+    end
+
+    # Figure nnd-char.  "\0" is special to indicate beg=nnd and that no nesting?
+    nnd = { "(" => ")", "[" => "]", "{" => "}", "<" => ">" }[beg]
+    nnd, beg = beg, "\0" if nnd.nil?
+
+    token_type, text = nil, "%#{c}#{beg}"
+    token_type, string_type = case c
+                              when "Q" then
+                                ch = short_hand ? nnd : c + beg
+                                text = "%#{ch}"
+                                [:tSTRING_BEG,   STR_DQUOTE]
+                              when "q" then
+                                [:tSTRING_BEG,   STR_SQUOTE]
+                              when "W" then
+                                eat_whitespace
+                                [:tWORDS_BEG,    STR_DQUOTE | STR_FUNC_QWORDS]
+                              when "w" then
+                                eat_whitespace
+                                [:tQWORDS_BEG,   STR_SQUOTE | STR_FUNC_QWORDS]
+                              when "x" then
+                                [:tXSTRING_BEG,  STR_XQUOTE]
+                              when "r" then
+                                [:tREGEXP_BEG,   STR_REGEXP]
+                              when "s" then
+                                self.lex_state = EXPR_FNAME
+                                [:tSYMBEG,       STR_SSYM]
+                              when "I" then
+                                eat_whitespace
+                                [:tSYMBOLS_BEG, STR_DQUOTE | STR_FUNC_QWORDS]
+                              when "i" then
+                                eat_whitespace
+                                [:tQSYMBOLS_BEG, STR_SQUOTE | STR_FUNC_QWORDS]
+                              end
+
+    rb_compile_error "Bad %string type. Expected [QqWwIixrs], found '#{c}'." if
+      token_type.nil?
+
+    raise "huh" unless string_type
+
+    string string_type, nnd, beg
+
+    return token_type, text
+  end
+
+  def parse_string quote # TODO: rewrite / remove
+    _, string_type, term, open = quote
+
+    space = false # FIX: remove these
+    func = string_type
+    paren = open
+    term_re = @@regexp_cache[term]
+
+    qwords = func =~ STR_FUNC_QWORDS
+    regexp = func =~ STR_FUNC_REGEXP
+    expand = func =~ STR_FUNC_EXPAND
+
+    unless func then # nil'ed from qwords below. *sigh*
+      return :tSTRING_END, nil
+    end
+
+    space = true if qwords and eat_whitespace
+
+    if self.string_nest == 0 && scan(/#{term_re}/) then
+      if qwords then
+        quote[1] = nil
+        return :tSPACE, nil
+      elsif regexp then
+        return :tREGEXP_END, self.regx_options
+      else
+        return :tSTRING_END, term
+      end
+    end
+
+    return :tSPACE, nil if space
+
+    self.string_buffer = []
+
+    if expand
+      case
+      when scan(/#(?=\$(-.|[a-zA-Z_0-9~\*\$\?!@\/\\;,\.=:<>\"\&\`\'+]))/) then
+        # TODO: !ISASCII
+        # ?! see parser_peek_variable_name
+        return :tSTRING_DVAR, nil
+      when scan(/#(?=\@\@?[a-zA-Z_])/) then
+        # TODO: !ISASCII
+        return :tSTRING_DVAR, nil
+      when scan(/#[{]/) then
+        self.command_start = true
+        return :tSTRING_DBEG, nil
+      when scan(/#/) then
+        string_buffer << "#"
+      end
+    end
+
+    if tokadd_string(func, term, paren) == RubyLexer::EOF then
+      if func =~ STR_FUNC_REGEXP then
+        rb_compile_error "unterminated regexp meets end of file"
+      else
+        rb_compile_error "unterminated string meets end of file"
+      end
+    end
+
+    return :tSTRING_CONTENT, string_buffer.join
+  end
+
+  def possibly_escape_string text, check
+    content = match[1]
+
+    if text =~ check then
+      content.gsub(ESC) { unescape $1 }
+    else
+      content.gsub(/\\\\/, "\\").gsub(/\\'/, "'")
+    end
   end
 
   def process_amper text
@@ -508,30 +519,6 @@ class RubyLexer
     end
   end
 
-  def process_colon1 text
-    # ?: / then / when
-    if is_end? || check(/\s/) then
-      return result EXPR_BEG, :tCOLON, text
-    end
-
-    case
-    when scan(/\'/) then
-      string STR_SSYM
-    when scan(/\"/) then
-      string STR_DSYM
-    end
-
-    result EXPR_FNAME, :tSYMBEG, text
-  end
-
-  def process_colon2 text
-    if is_beg? || lex_state =~ EXPR_CLASS || is_space_arg? then
-      result EXPR_BEG, :tCOLON3, text
-    else
-      result EXPR_DOT, :tCOLON2, text
-    end
-  end
-
   def process_brace_open text
     # matching compare/parse23.y:8694
     self.brace_nest += 1
@@ -560,6 +547,30 @@ class RubyLexer
     cond.push false
     cmdarg.push false
     result state, token, text
+  end
+
+  def process_colon1 text
+    # ?: / then / when
+    if is_end? || check(/\s/) then
+      return result EXPR_BEG, :tCOLON, text
+    end
+
+    case
+    when scan(/\'/) then
+      string STR_SSYM
+    when scan(/\"/) then
+      string STR_DSYM
+    end
+
+    result EXPR_FNAME, :tSYMBEG, text
+  end
+
+  def process_colon2 text
+    if is_beg? || lex_state =~ EXPR_CLASS || is_space_arg? then
+      result EXPR_BEG, :tCOLON3, text
+    else
+      result EXPR_DOT, :tCOLON2, text
+    end
   end
 
   def process_float text
@@ -591,6 +602,24 @@ class RubyLexer
     tok_id = text =~ /^@@/ ? :tCVAR : :tIVAR
     text.lineno = self.lineno
     result EXPR_END, tok_id, text
+  end
+
+  def process_label text
+    symbol = possibly_escape_string text, /^"/
+
+    result EXPR_LAB, :tLABEL, [symbol, self.lineno]
+  end
+
+  def process_label_or_string text
+    if @was_label && text =~ /:\Z/ then
+      @was_label = nil
+      return process_label text
+    elsif text =~ /:\Z/ then
+      ss.pos -= 1 # put back ":"
+      text = text[0..-2]
+    end
+
+    result EXPR_END, :tSTRING, text[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'")
   end
 
   def process_lchevron text
@@ -819,43 +848,38 @@ class RubyLexer
     result EXPR_PAR, token, text
   end
 
-  def possibly_escape_string text, check
-    content = match[1]
+  def process_string # TODO: rewrite / remove
+    # matches top of parser_yylex in compare/parse23.y:8113
+    token = if lex_strterm[0] == :heredoc then
+              self.heredoc lex_strterm
+            else
+              self.parse_string lex_strterm
+            end
 
-    if text =~ check then
-      content.gsub(ESC) { unescape $1 }
-    else
-      content.gsub(/\\\\/, "\\").gsub(/\\'/, "'")
+    token_type, c = token
+
+    # matches parser_string_term from 2.3, but way off from 2.5
+    if ruby22plus? && token_type == :tSTRING_END && ["'", '"'].include?(c) then
+      if ((lex_state =~ EXPR_BEG|EXPR_ENDFN &&
+           !cond.is_in_state) || is_arg?) &&
+          is_label_suffix? then
+        scan(/:/)
+        token_type = token[0] = :tLABEL_END
+      end
     end
+
+    if [:tSTRING_END, :tREGEXP_END, :tLABEL_END].include? token_type then
+      self.lex_strterm = nil
+      self.lex_state   = (token_type == :tLABEL_END) ? EXPR_PAR : EXPR_END|EXPR_ENDARG
+    end
+
+    return token
   end
 
   def process_symbol text
     symbol = possibly_escape_string text, /^:"/
 
     result EXPR_END|EXPR_ENDARG, :tSYMBOL, symbol
-  end
-
-  def was_label?
-    @was_label = ruby22_label?
-    true
-  end
-
-  def process_label_or_string text
-    if @was_label && text =~ /:\Z/ then
-      @was_label = nil
-      return process_label text
-    elsif text =~ /:\Z/ then
-      ss.pos -= 1 # put back ":"
-      text = text[0..-2]
-    end
-
-    result EXPR_END, :tSTRING, text[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'")
-  end
-
-  def process_label text
-    symbol = possibly_escape_string text, /^"/
-
-    result EXPR_LAB, :tLABEL, [symbol, self.lineno]
   end
 
   def process_token text
@@ -1066,23 +1090,24 @@ class RubyLexer
     [token, text]
   end
 
+  def ruby22_label?
+    ruby22plus? and is_label_possible?
+  end
+
+  def ruby22plus?
+    parser.class.version >= 22
+  end
+
+  def ruby23plus?
+    parser.class.version >= 23
+  end
+
+  def ruby24minus?
+    parser.class.version <= 24
+  end
+
   def scan re
     ss.scan re
-  end
-
-  def check re
-    ss.check re
-  end
-
-  def eat_whitespace
-    r = scan(/\s+/)
-    self.extra_lineno += r.count("\n") if r
-    r
-  end
-
-  def fixup_lineno extra = 0
-    self.lineno += self.extra_lineno + extra
-    self.extra_lineno = 0
   end
 
   def scanner_class # TODO: design this out of oedipus_lex. or something.
@@ -1104,12 +1129,6 @@ class RubyLexer
   def string type, beg = matched, nnd = "\0"
     self.lex_strterm = [:strterm, type, beg, nnd]
   end
-
-  # TODO: consider
-  # def src= src
-  #   raise "bad src: #{src.inspect}" unless String === src
-  #   @src = RPStringScanner.new(src)
-  # end
 
   def tokadd_escape term # TODO: rewrite / remove
     case
@@ -1269,174 +1288,141 @@ class RubyLexer
     # do nothing for now
   end
 
-  def ruby22plus?
-    parser.class.version >= 22
+  def was_label?
+    @was_label = ruby22_label?
+    true
   end
 
-  def ruby23plus?
-    parser.class.version >= 23
+  class State
+    attr_accessor :n
+
+    def initialize o
+      raise ArgumentError, "bad state: %p" % [o] unless Integer === o # TODO: remove
+
+      self.n = o
+    end
+
+    def == o
+      self.equal?(o) || (o.class == self.class && o.n == self.n)
+    end
+
+    def =~ v
+      (self.n & v.n) != 0
+    end
+
+    def | v
+      self.class.new(self.n | v.n)
+    end
+
+    def inspect
+      return "EXPR_NONE" if n.zero?
+
+      NAMES.map { |v, k| k if self =~ v }.
+        compact.
+        join("|").
+        gsub(/(?:EXPR_|STR_(?:FUNC_)?)/, "")
+    end
+
+    alias to_s inspect
+
+    module Values
+      EXPR_NONE    = State.new    0x0
+      EXPR_BEG     = State.new    0x1
+      EXPR_END     = State.new    0x2
+      EXPR_ENDARG  = State.new    0x4
+      EXPR_ENDFN   = State.new    0x8
+      EXPR_ARG     = State.new   0x10
+      EXPR_CMDARG  = State.new   0x20
+      EXPR_MID     = State.new   0x40
+      EXPR_FNAME   = State.new   0x80
+      EXPR_DOT     = State.new  0x100
+      EXPR_CLASS   = State.new  0x200
+      EXPR_LABEL   = State.new  0x400
+      EXPR_LABELED = State.new  0x800
+      EXPR_FITEM   = State.new 0x1000
+
+      EXPR_BEG_ANY = EXPR_BEG | EXPR_MID    | EXPR_CLASS
+      EXPR_ARG_ANY = EXPR_ARG | EXPR_CMDARG
+      EXPR_END_ANY = EXPR_END | EXPR_ENDARG | EXPR_ENDFN
+
+      # extra fake lex_state names to make things a bit cleaner
+
+      EXPR_LAB = EXPR_ARG|EXPR_LABELED
+      EXPR_NUM = EXPR_END|EXPR_ENDARG
+      EXPR_PAR = EXPR_BEG|EXPR_LABEL
+      EXPR_PAD = EXPR_BEG|EXPR_LABELED
+
+      EXPR_LIT = EXPR_NUM # TODO: migrate to EXPR_LIT
+
+      # ruby constants for strings (should this be moved somewhere else?)
+
+      STR_FUNC_BORING = State.new 0x2000
+      STR_FUNC_ESCAPE = State.new 0x4000 # TODO: remove and replace with REGEXP
+      STR_FUNC_EXPAND = State.new 0x8000
+      STR_FUNC_REGEXP = State.new 0x10000
+      STR_FUNC_QWORDS = State.new 0x20000
+      STR_FUNC_SYMBOL = State.new 0x40000
+      STR_FUNC_INDENT = State.new 0x80000  # <<-HEREDOC
+      STR_FUNC_ICNTNT = State.new 0x100000 # <<~HEREDOC
+      STR_FUNC_LABEL  = State.new 0x200000
+      STR_FUNC_LIST   = State.new 0x400000
+      STR_FUNC_TERM   = State.new 0x800000
+
+      # TODO: check parser25.y on how they do STR_FUNC_INDENT
+
+      STR_SQUOTE = STR_FUNC_BORING
+      STR_DQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
+      STR_XQUOTE = STR_FUNC_BORING | STR_FUNC_EXPAND
+      STR_REGEXP = STR_FUNC_REGEXP | STR_FUNC_ESCAPE | STR_FUNC_EXPAND
+      STR_SSYM   = STR_FUNC_SYMBOL
+      STR_DSYM   = STR_FUNC_SYMBOL | STR_FUNC_EXPAND
+    end
+
+    include Values
+
+    NAMES = {
+      EXPR_NONE    => "EXPR_NONE",
+      EXPR_BEG     => "EXPR_BEG",
+      EXPR_END     => "EXPR_END",
+      EXPR_ENDARG  => "EXPR_ENDARG",
+      EXPR_ENDFN   => "EXPR_ENDFN",
+      EXPR_ARG     => "EXPR_ARG",
+      EXPR_CMDARG  => "EXPR_CMDARG",
+      EXPR_MID     => "EXPR_MID",
+      EXPR_FNAME   => "EXPR_FNAME",
+      EXPR_DOT     => "EXPR_DOT",
+      EXPR_CLASS   => "EXPR_CLASS",
+      EXPR_LABEL   => "EXPR_LABEL",
+      EXPR_LABELED => "EXPR_LABELED",
+      EXPR_FITEM   => "EXPR_FITEM",
+
+      STR_FUNC_BORING => "STR_FUNC_BORING",
+      STR_FUNC_ESCAPE => "STR_FUNC_ESCAPE",
+      STR_FUNC_EXPAND => "STR_FUNC_EXPAND",
+      STR_FUNC_REGEXP => "STR_FUNC_REGEXP",
+      STR_FUNC_QWORDS => "STR_FUNC_QWORDS",
+      STR_FUNC_SYMBOL => "STR_FUNC_SYMBOL",
+      STR_FUNC_INDENT => "STR_FUNC_INDENT",
+      STR_FUNC_ICNTNT => "STR_FUNC_ICNTNT",
+      STR_FUNC_LABEL  => "STR_FUNC_LABEL",
+      STR_FUNC_LIST   => "STR_FUNC_LIST",
+      STR_FUNC_TERM   => "STR_FUNC_TERM",
+      STR_SQUOTE      => "STR_SQUOTE",
+    }
   end
 
-  def ruby24minus?
-    parser.class.version <= 24
-  end
-
-  def process_string # TODO: rewrite / remove
-    # matches top of parser_yylex in compare/parse23.y:8113
-    token = if lex_strterm[0] == :heredoc then
-              self.heredoc lex_strterm
-            else
-              self.parse_string lex_strterm
-            end
-
-    token_type, c = token
-
-    # matches parser_string_term from 2.3, but way off from 2.5
-    if ruby22plus? && token_type == :tSTRING_END && ["'", '"'].include?(c) then
-      if ((lex_state =~ EXPR_BEG|EXPR_ENDFN &&
-           !cond.is_in_state) || is_arg?) &&
-          is_label_suffix? then
-        scan(/:/)
-        token_type = token[0] = :tLABEL_END
-      end
-    end
-
-    if [:tSTRING_END, :tREGEXP_END, :tLABEL_END].include? token_type then
-      self.lex_strterm = nil
-      self.lex_state   = (token_type == :tLABEL_END) ? EXPR_PAR : EXPR_END|EXPR_ENDARG
-    end
-
-    return token
-  end
-
-  def parse_quote # TODO: remove / rewrite
-    beg, nnd, short_hand, c = nil, nil, false, nil
-
-    if scan(/[a-z0-9]{1,2}/i) then # Long-hand (e.g. %Q{}).
-      rb_compile_error "unknown type of %string" if ss.matched_size == 2
-      c, beg, short_hand = matched, ss.getch, false
-    else                               # Short-hand (e.g. %{, %., %!, etc)
-      c, beg, short_hand = "Q", ss.getch, true
-    end
-
-    if end_of_stream? or c == RubyLexer::EOF or beg == RubyLexer::EOF then
-      rb_compile_error "unterminated quoted string meets end of file"
-    end
-
-    # Figure nnd-char.  "\0" is special to indicate beg=nnd and that no nesting?
-    nnd = { "(" => ")", "[" => "]", "{" => "}", "<" => ">" }[beg]
-    nnd, beg = beg, "\0" if nnd.nil?
-
-    token_type, text = nil, "%#{c}#{beg}"
-    token_type, string_type = case c
-                              when "Q" then
-                                ch = short_hand ? nnd : c + beg
-                                text = "%#{ch}"
-                                [:tSTRING_BEG,   STR_DQUOTE]
-                              when "q" then
-                                [:tSTRING_BEG,   STR_SQUOTE]
-                              when "W" then
-                                eat_whitespace
-                                [:tWORDS_BEG,    STR_DQUOTE | STR_FUNC_QWORDS]
-                              when "w" then
-                                eat_whitespace
-                                [:tQWORDS_BEG,   STR_SQUOTE | STR_FUNC_QWORDS]
-                              when "x" then
-                                [:tXSTRING_BEG,  STR_XQUOTE]
-                              when "r" then
-                                [:tREGEXP_BEG,   STR_REGEXP]
-                              when "s" then
-                                self.lex_state = EXPR_FNAME
-                                [:tSYMBEG,       STR_SSYM]
-                              when "I" then
-                                eat_whitespace
-                                [:tSYMBOLS_BEG, STR_DQUOTE | STR_FUNC_QWORDS]
-                              when "i" then
-                                eat_whitespace
-                                [:tQSYMBOLS_BEG, STR_SQUOTE | STR_FUNC_QWORDS]
-                              end
-
-    rb_compile_error "Bad %string type. Expected [QqWwIixrs], found '#{c}'." if
-      token_type.nil?
-
-    raise "huh" unless string_type
-
-    string string_type, nnd, beg
-
-    return token_type, text
-  end
-
-  def parse_string quote # TODO: rewrite / remove
-    _, string_type, term, open = quote
-
-    space = false # FIX: remove these
-    func = string_type
-    paren = open
-    term_re = @@regexp_cache[term]
-
-    qwords = func =~ STR_FUNC_QWORDS
-    regexp = func =~ STR_FUNC_REGEXP
-    expand = func =~ STR_FUNC_EXPAND
-
-    unless func then # nil'ed from qwords below. *sigh*
-      return :tSTRING_END, nil
-    end
-
-    space = true if qwords and eat_whitespace
-
-    if self.string_nest == 0 && scan(/#{term_re}/) then
-      if qwords then
-        quote[1] = nil
-        return :tSPACE, nil
-      elsif regexp then
-        return :tREGEXP_END, self.regx_options
-      else
-        return :tSTRING_END, term
-      end
-    end
-
-    return :tSPACE, nil if space
-
-    self.string_buffer = []
-
-    if expand
-      case
-      when scan(/#(?=\$(-.|[a-zA-Z_0-9~\*\$\?!@\/\\;,\.=:<>\"\&\`\'+]))/) then
-        # TODO: !ISASCII
-        # ?! see parser_peek_variable_name
-        return :tSTRING_DVAR, nil
-      when scan(/#(?=\@\@?[a-zA-Z_])/) then
-        # TODO: !ISASCII
-        return :tSTRING_DVAR, nil
-      when scan(/#[{]/) then
-        self.command_start = true
-        return :tSTRING_DBEG, nil
-      when scan(/#/) then
-        string_buffer << "#"
-      end
-    end
-
-    if tokadd_string(func, term, paren) == RubyLexer::EOF then
-      if func =~ STR_FUNC_REGEXP then
-        rb_compile_error "unterminated regexp meets end of file"
-      else
-        rb_compile_error "unterminated string meets end of file"
-      end
-    end
-
-    return :tSTRING_CONTENT, string_buffer.join
-  end
+  include State::Values
 end
 
 require "ruby_lexer.rex"
 
 if ENV["RP_LINENO_DEBUG"] then
   class RubyLexer
-    alias :old_lineno= :lineno=
-
     def d o
       $stderr.puts o.inspect
     end
+
+    alias old_lineno= lineno=
 
     def lineno= n
       self.old_lineno= n

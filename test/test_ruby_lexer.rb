@@ -25,15 +25,15 @@ class TestRubyLexer < Minitest::Test
     lex.lex_state = lex_state
   end
 
-  def setup_new_parser
-    self.processor = parser_class.new
-    self.lex = processor.lexer
-  end
-
   def setup_lexer_class parser_class
     self.parser_class = parser_class
     setup_new_parser
     setup_lexer "blah blah"
+  end
+
+  def setup_new_parser
+    self.processor = parser_class.new
+    self.lex = processor.lexer
   end
 
   def assert_lex input, exp_sexp, *args
@@ -53,20 +53,6 @@ class TestRubyLexer < Minitest::Test
     args = args.each_slice(3).map { |a, b, c| [a, b, c, nil, nil] }.flatten
 
     assert_lex(input, exp_sexp, *args, &block)
-  end
-
-  def refute_lex input, *args # TODO: re-sort
-    args = args.each_slice(2).map { |a, b| [a, b, nil, nil, nil] }.flatten
-
-    assert_raises RubyParser::SyntaxError do
-      assert_lex(input, nil, *args)
-    end
-  end
-
-  def refute_lex5 input, *args
-    assert_raises RubyParser::SyntaxError do
-      assert_lex(input, *args)
-    end
   end
 
   def assert_lex_fname name, type, end_state = EXPR_ARG # TODO: swap name/type
@@ -122,6 +108,20 @@ class TestRubyLexer < Minitest::Test
     end
   end
 
+  def refute_lex input, *args # TODO: re-sort
+    args = args.each_slice(2).map { |a, b| [a, b, nil, nil, nil] }.flatten
+
+    assert_raises RubyParser::SyntaxError do
+      assert_lex(input, nil, *args)
+    end
+  end
+
+  def refute_lex5 input, *args
+    assert_raises RubyParser::SyntaxError do
+      assert_lex(input, *args)
+    end
+  end
+
   def refute_lexeme
     x = y = @lex.next_token
 
@@ -165,9 +165,20 @@ class TestRubyLexer < Minitest::Test
     assert_nil @lex.next_token
   end
 
-  def test_unicode_ident
-    s = "@\u1088\u1077\u1093\u1072"
-    assert_lex3(s.dup, nil, :tIVAR, s.dup, EXPR_END)
+  def test_pct_w_backslashes
+    ["\t", "\n", "\r", "\v", "\f"].each do |char|
+      next if !RubyLexer::HAS_ENC and char == "\v"
+
+      assert_lex("%w[foo#{char}bar]",
+                 s(:array, s(:str, "foo"), s(:str, "bar")),
+
+                 :tQWORDS_BEG,     "%w[", EXPR_BEG, 0, 0,
+                 :tSTRING_CONTENT, "foo", EXPR_BEG, 0, 0,
+                 :tSPACE,          nil,   EXPR_BEG, 0, 0,
+                 :tSTRING_CONTENT, "bar", EXPR_BEG, 0, 0,
+                 :tSPACE,          nil,   EXPR_BEG, 0, 0,
+                 :tSTRING_END,     nil,   EXPR_LIT, 0, 0)
+    end
   end
 
   def test_read_escape
@@ -223,6 +234,90 @@ class TestRubyLexer < Minitest::Test
     assert_read_escape "\230", 'M-\cx'
   end
 
+  def test_ruby21_imaginary_literal
+    setup_lexer_class RubyParser::V21
+
+    assert_lex3("1i",      nil, :tIMAGINARY, Complex(0, 1),      EXPR_NUM)
+    assert_lex3("0x10i",   nil, :tIMAGINARY, Complex(0, 16),     EXPR_NUM)
+    assert_lex3("0o10i",   nil, :tIMAGINARY, Complex(0, 8),      EXPR_NUM)
+    assert_lex3("0oi",     nil, :tIMAGINARY, Complex(0, 0),      EXPR_NUM)
+    assert_lex3("0b10i",   nil, :tIMAGINARY, Complex(0, 2),      EXPR_NUM)
+    assert_lex3("1.5i",    nil, :tIMAGINARY, Complex(0, 1.5),    EXPR_NUM)
+    assert_lex3("15e3i",   nil, :tIMAGINARY, Complex(0, 15000),  EXPR_NUM)
+    assert_lex3("15e-3i",  nil, :tIMAGINARY, Complex(0, 0.015),  EXPR_NUM)
+    assert_lex3("1.5e3i",  nil, :tIMAGINARY, Complex(0, 1500),   EXPR_NUM)
+    assert_lex3("1.5e-3i", nil, :tIMAGINARY, Complex(0, 0.0015), EXPR_NUM)
+
+    c010 = Complex(0, 10)
+    assert_lex3("-10i", nil,
+                :tUMINUS_NUM, "-",  EXPR_BEG,
+                :tIMAGINARY,  c010, EXPR_NUM)
+  end
+
+  def test_ruby21_imaginary_literal_with_succeeding_keyword
+    setup_lexer_class RubyParser::V21
+
+    # 2/4 scenarios are syntax errors on all tested versions so I
+    # deleted them.
+
+    assert_lex3("1if", nil,
+                :tINTEGER, 1,    EXPR_NUM,
+                :kIF_MOD,  "if", EXPR_PAR)
+    assert_lex3("1.0if", nil,
+                :tFLOAT,  1.0,  EXPR_NUM,
+                :kIF_MOD, "if", EXPR_PAR)
+  end
+
+  def test_ruby21_rational_imaginary_literal
+    setup_lexer_class RubyParser::V21
+
+    assert_lex3 "1ri",      nil, :tIMAGINARY, Complex(0, Rational(1)),        EXPR_NUM
+    assert_lex3 "0x10ri",   nil, :tIMAGINARY, Complex(0, Rational(16)),       EXPR_NUM
+    assert_lex3 "0o10ri",   nil, :tIMAGINARY, Complex(0, Rational(8)),        EXPR_NUM
+    assert_lex3 "0ori",     nil, :tIMAGINARY, Complex(0, Rational(0)),        EXPR_NUM
+    assert_lex3 "0b10ri",   nil, :tIMAGINARY, Complex(0, Rational(2)),        EXPR_NUM
+    assert_lex3 "1.5ri",    nil, :tIMAGINARY, Complex(0, Rational("1.5")),    EXPR_NUM
+    assert_lex3 "15e3ri",   nil, :tIMAGINARY, Complex(0, Rational("15e3")),   EXPR_NUM
+    assert_lex3 "15e-3ri",  nil, :tIMAGINARY, Complex(0, Rational("15e-3")),  EXPR_NUM
+    assert_lex3 "1.5e3ri",  nil, :tIMAGINARY, Complex(0, Rational("1.5e3")),  EXPR_NUM
+    assert_lex3 "1.5e-3ri", nil, :tIMAGINARY, Complex(0, Rational("1.5e-3")), EXPR_NUM
+
+    assert_lex3("-10ri", nil,
+                :tUMINUS_NUM, "-", EXPR_BEG,
+                :tIMAGINARY, Complex(0, Rational(10)), EXPR_NUM)
+  end
+
+  def test_ruby21_rational_literal
+    setup_lexer_class RubyParser::V21
+
+    assert_lex3("10r",     nil, :tRATIONAL, Rational(10),        EXPR_NUM)
+    assert_lex3("0x10r",   nil, :tRATIONAL, Rational(16),        EXPR_NUM)
+    assert_lex3("0o10r",   nil, :tRATIONAL, Rational(8),         EXPR_NUM)
+    assert_lex3("0or",     nil, :tRATIONAL, Rational(0),         EXPR_NUM)
+    assert_lex3("0b10r",   nil, :tRATIONAL, Rational(2),         EXPR_NUM)
+    assert_lex3("1.5r",    nil, :tRATIONAL, Rational(15, 10),    EXPR_NUM)
+    assert_lex3("15e3r",   nil, :tRATIONAL, Rational(15000),     EXPR_NUM)
+    assert_lex3("15e-3r",  nil, :tRATIONAL, Rational(15, 1000),  EXPR_NUM)
+    assert_lex3("1.5e3r",  nil, :tRATIONAL, Rational(1500),      EXPR_NUM)
+    assert_lex3("1.5e-3r", nil, :tRATIONAL, Rational(15, 10000), EXPR_NUM)
+
+    r10 = Rational(10)
+    assert_lex3("-10r", nil,
+                :tUMINUS_NUM, "-", EXPR_BEG,
+                :tRATIONAL,   r10, EXPR_NUM)
+  end
+
+  def test_unicode_ident
+    s = "@\u1088\u1077\u1093\u1072"
+    assert_lex3(s.dup, nil, :tIVAR, s.dup, EXPR_END)
+  end
+
+  def test_why_does_ruby_hate_me?
+    assert_lex3("\"Nl%\\000\\000A\\000\\999\"", # you should be ashamed
+                nil,
+                :tSTRING, %W[ Nl% \u0000 \u0000 A \u0000 999 ].join, EXPR_END)
+  end
+
   def test_yylex_ambiguous_uminus
     assert_lex3("m -3",
                 nil,
@@ -254,6 +349,15 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("&&=", nil, :tOP_ASGN, "&&", EXPR_BEG)
   end
 
+  def test_yylex_and_arg
+    self.lex_state = EXPR_ARG
+
+    assert_lex3(" &y",
+                nil,
+                :tAMPER,      "&", EXPR_BEG,
+                :tIDENTIFIER, "y", EXPR_ARG)
+  end
+
   def test_yylex_and_dot
     setup_lexer_class RubyParser::V23
 
@@ -278,15 +382,6 @@ class TestRubyLexer < Minitest::Test
                 :tIDENTIFIER, "y")
   end
 
-  def test_yylex_and_arg
-    self.lex_state = EXPR_ARG
-
-    assert_lex3(" &y",
-                nil,
-                :tAMPER,      "&", EXPR_BEG,
-                :tIDENTIFIER, "y", EXPR_ARG)
-  end
-
   def test_yylex_and_equals
     assert_lex3("&=", nil, :tOP_ASGN, "&", EXPR_BEG)
   end
@@ -307,376 +402,6 @@ class TestRubyLexer < Minitest::Test
 
   def test_yylex_assoc
     assert_lex3 "=>", nil, :tASSOC, "=>", EXPR_BEG
-  end
-
-  def test_yylex_label
-    assert_lex3("{a:",
-                nil,
-                :tLBRACE, "{",  EXPR_PAR,
-                :tLABEL,  "a",  EXPR_LAB)
-  end
-
-  def test_yylex_label_in_params
-    assert_lex3("foo(a:",
-                nil,
-                :tIDENTIFIER, "foo", EXPR_CMDARG,
-                :tLPAREN2,    "(",    EXPR_PAR,
-                :tLABEL,      "a",    EXPR_LAB)
-  end
-
-  def test_yylex_paren_string_parens_interpolated
-    setup_lexer('%((#{b}#{d}))',
-                s(:dstr,
-                  "(",
-                  s(:evstr, s(:call, nil, :b)),
-                  s(:evstr, s(:call, nil, :d)),
-                  s(:str, ")")))
-
-    assert_next_lexeme :tSTRING_BEG,     "%)", EXPR_BEG, 0, 0
-    assert_next_lexeme :tSTRING_CONTENT, "(",  EXPR_BEG, 0, 0
-    assert_next_lexeme :tSTRING_DBEG,    nil,  EXPR_BEG, 0, 0
-
-    emulate_string_interpolation do
-      assert_next_lexeme :tIDENTIFIER,   "b",  EXPR_CMDARG, 0, 0
-    end
-
-    assert_next_lexeme :tSTRING_DBEG,    nil,  EXPR_BEG, 0, 0
-
-    emulate_string_interpolation do
-      assert_next_lexeme :tIDENTIFIER,   "d",  EXPR_CMDARG, 0, 0
-    end
-
-    assert_next_lexeme :tSTRING_CONTENT, ")",  EXPR_BEG, 0, 0
-    assert_next_lexeme :tSTRING_END,     ")",  EXPR_LIT, 0, 0
-
-    refute_lexeme
-  end
-
-  def test_yylex_paren_string_interpolated_regexp
-    setup_lexer('%( #{(/abcd/)} )',
-                s(:dstr, " ", s(:evstr, s(:lit, /abcd/)), s(:str, " ")))
-
-    assert_next_lexeme :tSTRING_BEG,       "%)",   EXPR_BEG, 0, 0
-    assert_next_lexeme :tSTRING_CONTENT,   " ",    EXPR_BEG, 0, 0
-    assert_next_lexeme :tSTRING_DBEG,      nil,    EXPR_BEG, 0, 0
-
-    emulate_string_interpolation do
-      assert_next_lexeme :tLPAREN,         "(",    EXPR_PAR, 1, 0
-      assert_next_lexeme :tREGEXP_BEG,     "/",    EXPR_PAR, 1, 0
-      assert_next_lexeme :tSTRING_CONTENT, "abcd", EXPR_PAR, 1, 0
-      assert_next_lexeme :tREGEXP_END,     "",     EXPR_LIT, 1, 0
-      assert_next_lexeme :tRPAREN,         ")",    EXPR_ENDFN, 0, 0
-    end
-
-    assert_next_lexeme :tSTRING_CONTENT,   " ",    EXPR_BEG, 0, 0
-    assert_next_lexeme :tSTRING_END,       ")",    EXPR_LIT, 0, 0
-
-    refute_lexeme
-  end
-
-  def test_yylex_not_at_defn
-    assert_lex("def +@; end",
-               s(:defn, :+@, s(:args), s(:nil)),
-
-               :kDEF,   "def", EXPR_FNAME, 0, 0,
-               :tUPLUS, "+@",  EXPR_ARG,   0, 0,
-               :tSEMI,  ";",   EXPR_BEG,   0, 0,
-               :kEND,   "end", EXPR_END,   0, 0)
-
-    assert_lex("def !@; end",
-               s(:defn, :"!@", s(:args), s(:nil)),
-
-               :kDEF,   "def", EXPR_FNAME, 0, 0,
-               :tUBANG, "!@",  EXPR_ARG,   0, 0,
-               :tSEMI,  ";",   EXPR_BEG,   0, 0,
-               :kEND,   "end", EXPR_END,   0, 0)
-  end
-
-  def test_yylex_not_at_ivar
-    assert_lex("!@ivar",
-               s(:call, s(:ivar, :@ivar), :"!"),
-
-               :tBANG, "!",     EXPR_BEG, 0, 0,
-               :tIVAR, "@ivar", EXPR_END, 0, 0)
-  end
-
-  def test_yylex_number_times_ident_times_return_number
-    assert_lex("1 * b * 3",
-               s(:call,
-                 s(:call, s(:lit, 1), :*, s(:call, nil, :b)),
-                 :*, s(:lit, 3)),
-
-               :tINTEGER,    1,   EXPR_NUM, 0, 0,
-               :tSTAR2,      "*", EXPR_BEG, 0, 0,
-               :tIDENTIFIER, "b", EXPR_ARG, 0, 0,
-               :tSTAR2,      "*", EXPR_BEG, 0, 0,
-               :tINTEGER,    3,   EXPR_NUM, 0, 0)
-
-    assert_lex("1 * b *\n 3",
-               s(:call,
-                 s(:call, s(:lit, 1), :*, s(:call, nil, :b)),
-                 :*, s(:lit, 3)),
-
-               :tINTEGER,    1,   EXPR_NUM, 0, 0,
-               :tSTAR2,      "*", EXPR_BEG, 0, 0,
-               :tIDENTIFIER, "b", EXPR_ARG, 0, 0,
-               :tSTAR2,      "*", EXPR_BEG, 0, 0,
-               :tINTEGER,    3,   EXPR_NUM, 0, 0)
-  end
-
-  def test_yylex_paren_string_parens_interpolated_regexp
-    setup_lexer('%((#{(/abcd/)}))',
-                s(:dstr, "(", s(:evstr, s(:lit, /abcd/)), s(:str, ")")))
-
-    assert_next_lexeme :tSTRING_BEG,       "%)",   EXPR_BEG, 0, 0
-    assert_next_lexeme :tSTRING_CONTENT,   "(",    EXPR_BEG, 0, 0
-
-    assert_next_lexeme :tSTRING_DBEG,       nil,   EXPR_BEG, 0, 0
-
-    emulate_string_interpolation do
-      assert_next_lexeme :tLPAREN,         "(",    EXPR_PAR,   1, 0
-      assert_next_lexeme :tREGEXP_BEG,     "/",    EXPR_PAR,   1, 0
-      assert_next_lexeme :tSTRING_CONTENT, "abcd", EXPR_PAR,   1, 0
-      assert_next_lexeme :tREGEXP_END,     "",     EXPR_LIT,   1, 0
-      assert_next_lexeme :tRPAREN,         ")",    EXPR_ENDFN, 0, 0
-    end
-
-    assert_next_lexeme :tSTRING_CONTENT,   ")",    EXPR_BEG, 0, 0
-    assert_next_lexeme :tSTRING_END,       ")",    EXPR_LIT, 0, 0
-
-    refute_lexeme
-  end
-
-  def test_yylex_method_parens_chevron
-    assert_lex("a()<<1",
-               s(:call, s(:call, nil, :a), :<<, s(:lit, 1)),
-               :tIDENTIFIER, "a",  EXPR_CMDARG, 0, 0,
-               :tLPAREN2,    "(",  EXPR_PAR,    1, 0,
-               :tRPAREN,     ")",  EXPR_ENDFN,  0, 0,
-               :tLSHFT,      "<<", EXPR_BEG,    0, 0,
-               :tINTEGER,    1,    EXPR_NUM,    0, 0)
-  end
-
-  def test_yylex_lambda_args
-    assert_lex("-> (a) { }",
-               s(:iter, s(:lambda),
-                 s(:args, :a)),
-
-               :tLAMBDA,     nil, EXPR_ENDFN, 0, 0,
-               :tLPAREN2,    "(", EXPR_PAR,   1, 0,
-               :tIDENTIFIER, "a", EXPR_ARG,   1, 0,
-               :tRPAREN,     ")", EXPR_ENDFN, 0, 0,
-               :tLCURLY,     "{", EXPR_PAR,   0, 1,
-               :tRCURLY,     "}", EXPR_END,   0, 0)
-  end
-
-  def test_yylex_lambda_args__24
-    setup_lexer_class RubyParser::V24
-
-    assert_lex("-> (a) { }",
-               s(:iter, s(:lambda),
-                 s(:args, :a)),
-
-               :tLAMBDA,     nil, EXPR_ENDFN,  0, 0,
-               :tLPAREN2,    "(", EXPR_PAR,    1, 0,
-               :tIDENTIFIER, "a", EXPR_ARG,    1, 0,
-               :tRPAREN,     ")", EXPR_ENDFN,  0, 0,
-               :tLCURLY,     "{", EXPR_PAR,    0, 1,
-               :tRCURLY,     "}", EXPR_ENDARG, 0, 0)
-  end
-
-  def test_yylex_lambda_as_args_with_block
-    assert_lex3("a -> do end do end",
-                nil,
-                :tIDENTIFIER, "a",   EXPR_CMDARG,
-                :tLAMBDA,     nil,   EXPR_ENDFN,
-                :kDO,         "do",  EXPR_BEG,
-                :kEND,        "end", EXPR_END,
-                :kDO,         "do",  EXPR_BEG,
-                :kEND,        "end", EXPR_END)
-  end
-
-  def test_yylex_lambda_args_opt
-    assert_lex("-> (a=nil) { }",
-               s(:iter, s(:lambda),
-                 s(:args, s(:lasgn, :a, s(:nil)))),
-
-               :tLAMBDA,     nil,   EXPR_ENDFN,  0, 0,
-               :tLPAREN2,    "(",   EXPR_PAR,    1, 0,
-               :tIDENTIFIER, "a",   EXPR_ARG,    1, 0,
-               :tEQL,        "=",   EXPR_BEG,    1, 0,
-               :kNIL,        "nil", EXPR_END,    1, 0,
-               :tRPAREN,     ")",   EXPR_ENDFN,  0, 0,
-               :tLCURLY,     "{",   EXPR_PAR,    0, 1,
-               :tRCURLY,     "}",   EXPR_END,    0, 0)
-  end
-
-  def test_yylex_lambda_args_opt__24
-    setup_lexer_class RubyParser::V24
-
-    assert_lex("-> (a=nil) { }",
-               s(:iter, s(:lambda),
-                 s(:args, s(:lasgn, :a, s(:nil)))),
-
-               :tLAMBDA,     nil,   EXPR_ENDFN,  0, 0,
-               :tLPAREN2,    "(",   EXPR_PAR,    1, 0,
-               :tIDENTIFIER, "a",   EXPR_ARG,    1, 0,
-               :tEQL,        "=",   EXPR_BEG,    1, 0,
-               :kNIL,        "nil", EXPR_END,    1, 0,
-               :tRPAREN,     ")",   EXPR_ENDFN,  0, 0,
-               :tLCURLY,     "{",   EXPR_PAR,    0, 1,
-               :tRCURLY,     "}",   EXPR_ENDARG, 0, 0)
-  end
-
-  def test_yylex_lambda_hash
-    assert_lex("-> (a={}) { }",
-               s(:iter, s(:lambda),
-                 s(:args, s(:lasgn, :a, s(:hash)))),
-
-               :tLAMBDA,     nil, EXPR_ENDFN, 0, 0,
-               :tLPAREN2,    "(", EXPR_PAR,   1, 0,
-               :tIDENTIFIER, "a", EXPR_ARG,   1, 0,
-               :tEQL,        "=", EXPR_BEG,   1, 0,
-               :tLBRACE,     "{", EXPR_PAR,   1, 1,
-               :tRCURLY,     "}", EXPR_END,   1, 0,
-               :tRPAREN,     ")", EXPR_ENDFN, 0, 0,
-               :tLCURLY,     "{", EXPR_PAR,   0, 1,
-               :tRCURLY,     "}", EXPR_END,   0, 0)
-  end
-
-  def test_yylex_lambda_hash__24
-    setup_lexer_class RubyParser::V24
-
-    assert_lex("-> (a={}) { }",
-               s(:iter, s(:lambda),
-                 s(:args, s(:lasgn, :a, s(:hash)))),
-
-               :tLAMBDA,     nil, EXPR_ENDFN,  0, 0,
-               :tLPAREN2,    "(", EXPR_PAR,    1, 0,
-               :tIDENTIFIER, "a", EXPR_ARG,    1, 0,
-               :tEQL,        "=", EXPR_BEG,    1, 0,
-               :tLBRACE,     "{", EXPR_PAR,    1, 1,
-               :tRCURLY,     "}", EXPR_ENDARG, 1, 0,
-               :tRPAREN,     ")", EXPR_ENDFN,  0, 0,
-               :tLCURLY,     "{", EXPR_PAR,    0, 1,
-               :tRCURLY,     "}", EXPR_ENDARG, 0, 0)
-  end
-
-  def test_yylex_iter_array_curly
-    # this will lex, but doesn't parse... don't freak out.
-    assert_lex("f :a, [:b] { |c, d| }", # yes, this is bad code
-                nil,
-
-               :tIDENTIFIER, "f", EXPR_CMDARG, 0, 0,
-               :tSYMBOL,     "a", EXPR_LIT,    0, 0,
-               :tCOMMA,      ",", EXPR_PAR,    0, 0,
-               :tLBRACK,     "[", EXPR_PAR,    1, 0,
-               :tSYMBOL,     "b", EXPR_LIT,    1, 0,
-               :tRBRACK,     "]", EXPR_END,    0, 0,
-               :tLCURLY,     "{", EXPR_PAR,    0, 1,
-               :tPIPE,       "|", EXPR_PAR,    0, 1,
-               :tIDENTIFIER, "c", EXPR_ARG,    0, 1,
-               :tCOMMA,      ",", EXPR_PAR,    0, 1,
-               :tIDENTIFIER, "d", EXPR_ARG,    0, 1,
-               :tPIPE,       "|", EXPR_PAR,    0, 1,
-               :tRCURLY,     "}", EXPR_END,    0, 0)
-  end
-
-  def test_yylex_iter_array_curly__24
-    setup_lexer_class RubyParser::V24
-
-    assert_lex("f :a, [:b] { |c, d| }", # yes, this is bad code
-               s(:iter,
-                 s(:call, nil, :f, s(:lit, :a), s(:array, s(:lit, :b))),
-                 s(:args, :c, :d)),
-
-               :tIDENTIFIER, "f", EXPR_CMDARG,  0, 0,
-               :tSYMBOL,     "a", EXPR_LIT,     0, 0,
-               :tCOMMA,      ",", EXPR_PAR,     0, 0,
-               :tLBRACK,     "[", EXPR_PAR,     1, 0,
-               :tSYMBOL,     "b", EXPR_LIT,     1, 0,
-               :tRBRACK,     "]", EXPR_ENDARG,  0, 0,
-               :tLBRACE_ARG, "{", EXPR_BEG,     0, 1,
-               :tPIPE,       "|", EXPR_PAR,     0, 1,
-               :tIDENTIFIER, "c", EXPR_ARG,     0, 1,
-               :tCOMMA,      ",", EXPR_PAR,     0, 1,
-               :tIDENTIFIER, "d", EXPR_ARG,     0, 1,
-               :tPIPE,       "|", EXPR_PAR,     0, 1,
-               :tRCURLY,     "}", EXPR_ENDARG,  0, 0)
-  end
-
-  def test_yylex_const_call_same_name
-    assert_lex("X = a { }; b { f :c }",
-               s(:block,
-                 s(:cdecl, :X, s(:iter, s(:call, nil, :a), 0)),
-                 s(:iter,
-                   s(:call, nil, :b),
-                   0,
-                   s(:call, nil, :f, s(:lit, :c)))),
-
-               :tCONSTANT,   "X", EXPR_CMDARG, 0, 0,
-               :tEQL,        "=", EXPR_BEG,    0, 0,
-               :tIDENTIFIER, "a", EXPR_ARG,    0, 0,
-               :tLCURLY,     "{", EXPR_PAR,    0, 1,
-               :tRCURLY,     "}", EXPR_END,    0, 0,
-               :tSEMI,       ";", EXPR_BEG,    0, 0,
-
-               :tIDENTIFIER, "b", EXPR_CMDARG, 0, 0,
-               :tLCURLY,     "{", EXPR_PAR,    0, 1,
-               :tIDENTIFIER, "f", EXPR_CMDARG, 0, 1, # different
-               :tSYMBOL,     "c", EXPR_LIT,    0, 1,
-               :tRCURLY,     "}", EXPR_END,    0, 0)
-
-    assert_lex("X = a { }; b { X :c }",
-               s(:block,
-                 s(:cdecl, :X, s(:iter, s(:call, nil, :a), 0)),
-                 s(:iter,
-                   s(:call, nil, :b),
-                   0,
-                   s(:call, nil, :X, s(:lit, :c)))),
-
-               :tCONSTANT,   "X", EXPR_CMDARG, 0, 0,
-               :tEQL,        "=", EXPR_BEG,    0, 0,
-               :tIDENTIFIER, "a", EXPR_ARG,    0, 0,
-               :tLCURLY,     "{", EXPR_PAR,    0, 1,
-               :tRCURLY,     "}", EXPR_END,    0, 0,
-               :tSEMI,       ";", EXPR_BEG,    0, 0,
-
-               :tIDENTIFIER, "b", EXPR_CMDARG, 0, 0,
-               :tLCURLY,     "{", EXPR_PAR,    0, 1,
-               :tCONSTANT,   "X", EXPR_CMDARG, 0, 1, # same
-               :tSYMBOL,     "c", EXPR_LIT,    0, 1,
-               :tRCURLY,     "}", EXPR_END,    0, 0)
-  end
-
-  def test_yylex_lasgn_call_same_name
-    assert_lex("a = b.c :d => 1",
-               s(:lasgn, :a,
-                 s(:call, s(:call, nil, :b), :c,
-                   s(:hash, s(:lit, :d), s(:lit, 1)))),
-
-               :tIDENTIFIER, "a",  EXPR_CMDARG, 0, 0,
-               :tEQL,        "=",  EXPR_BEG,    0, 0,
-               :tIDENTIFIER, "b",  EXPR_ARG,    0, 0,
-               :tDOT,        ".",  EXPR_DOT,    0, 0,
-               :tIDENTIFIER, "c",  EXPR_ARG,    0, 0, # different
-               :tSYMBOL,     "d",  EXPR_LIT,    0, 0,
-               :tASSOC,      "=>", EXPR_BEG,    0, 0,
-               :tINTEGER,    1,    EXPR_NUM,    0, 0)
-
-    assert_lex("a = b.a :d => 1",
-               s(:lasgn, :a,
-                 s(:call, s(:call, nil, :b), :a,
-                   s(:hash, s(:lit, :d), s(:lit, 1)))),
-
-               :tIDENTIFIER, "a",  EXPR_CMDARG, 0, 0,
-               :tEQL,        "=",  EXPR_BEG,    0, 0,
-               :tIDENTIFIER, "b",  EXPR_ARG,    0, 0,
-               :tDOT,        ".",  EXPR_DOT,    0, 0,
-               :tIDENTIFIER, "a",  EXPR_ARG,    0, 0, # same as lvar
-               :tSYMBOL,     "d",  EXPR_LIT,    0, 0,
-               :tASSOC,      "=>", EXPR_BEG,    0, 0,
-               :tINTEGER,    1,    EXPR_NUM,    0, 0)
   end
 
   def test_yylex_back_ref
@@ -880,6 +605,50 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("# comment", nil)
   end
 
+  def test_yylex_const_call_same_name
+    assert_lex("X = a { }; b { f :c }",
+               s(:block,
+                 s(:cdecl, :X, s(:iter, s(:call, nil, :a), 0)),
+                 s(:iter,
+                   s(:call, nil, :b),
+                   0,
+                   s(:call, nil, :f, s(:lit, :c)))),
+
+               :tCONSTANT,   "X", EXPR_CMDARG, 0, 0,
+               :tEQL,        "=", EXPR_BEG,    0, 0,
+               :tIDENTIFIER, "a", EXPR_ARG,    0, 0,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
+               :tRCURLY,     "}", EXPR_END,    0, 0,
+               :tSEMI,       ";", EXPR_BEG,    0, 0,
+
+               :tIDENTIFIER, "b", EXPR_CMDARG, 0, 0,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
+               :tIDENTIFIER, "f", EXPR_CMDARG, 0, 1, # different
+               :tSYMBOL,     "c", EXPR_LIT,    0, 1,
+               :tRCURLY,     "}", EXPR_END,    0, 0)
+
+    assert_lex("X = a { }; b { X :c }",
+               s(:block,
+                 s(:cdecl, :X, s(:iter, s(:call, nil, :a), 0)),
+                 s(:iter,
+                   s(:call, nil, :b),
+                   0,
+                   s(:call, nil, :X, s(:lit, :c)))),
+
+               :tCONSTANT,   "X", EXPR_CMDARG, 0, 0,
+               :tEQL,        "=", EXPR_BEG,    0, 0,
+               :tIDENTIFIER, "a", EXPR_ARG,    0, 0,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
+               :tRCURLY,     "}", EXPR_END,    0, 0,
+               :tSEMI,       ";", EXPR_BEG,    0, 0,
+
+               :tIDENTIFIER, "b", EXPR_CMDARG, 0, 0,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
+               :tCONSTANT,   "X", EXPR_CMDARG, 0, 1, # same
+               :tSYMBOL,     "c", EXPR_LIT,    0, 1,
+               :tRCURLY,     "}", EXPR_END,    0, 0)
+  end
+
   def test_yylex_constant
     assert_lex3("ArgumentError", nil, :tCONSTANT, "ArgumentError", EXPR_CMDARG)
   end
@@ -954,14 +723,6 @@ class TestRubyLexer < Minitest::Test
                 :kDO_BLOCK, "do",  EXPR_BEG,
                 :tINTEGER,  42,    EXPR_NUM,
                 :kEND,      "end", EXPR_END)
-  end
-
-  def test_yylex_is_your_spacebar_broken?
-    assert_lex3(":a!=:b",
-                nil,
-                :tSYMBOL, "a",  EXPR_LIT,
-                :tNEQ,    "!=", EXPR_BEG,
-                :tSYMBOL, "b",  EXPR_LIT)
   end
 
   def test_yylex_do_cond
@@ -1076,13 +837,6 @@ class TestRubyLexer < Minitest::Test
                 :tIDENTIFIER, "e3", EXPR_END)
   end
 
-  def test_yylex_float_if_modifier
-    assert_lex3("1e2if",
-                nil,
-                :tFLOAT, 100,   EXPR_NUM,
-                :kIF_MOD, "if", EXPR_PAR)
-  end
-
   def test_yylex_float_e_bad_trailing_underscore
     refute_lex "123_e10"
   end
@@ -1118,6 +872,13 @@ class TestRubyLexer < Minitest::Test
 
   def test_yylex_float_e_zero
     assert_lex3("0e0", nil, :tFLOAT, 0.0, EXPR_NUM)
+  end
+
+  def test_yylex_float_if_modifier
+    assert_lex3("1e2if",
+                nil,
+                :tFLOAT, 100,   EXPR_NUM,
+                :kIF_MOD, "if", EXPR_PAR)
   end
 
   def test_yylex_float_neg
@@ -1208,6 +969,92 @@ class TestRubyLexer < Minitest::Test
                 :tINTEGER,    2,   EXPR_NUM)
   end
 
+  def test_yylex_hash_colon
+    assert_lex("{a:1}",
+               s(:hash, s(:lit, :a), s(:lit, 1)),
+
+               :tLBRACE, "{",  EXPR_PAR,    0, 1,
+               :tLABEL,  "a",  EXPR_LAB,    0, 1,
+               :tINTEGER, 1,   EXPR_NUM,    0, 1,
+               :tRCURLY, "}", EXPR_END,     0, 0)
+  end
+
+  def test_yylex_hash_colon_double_quoted_symbol
+    assert_lex('{"abc": :b}',
+               s(:hash, s(:lit, :abc), s(:lit, :b)),
+
+               :tLBRACE, "{",   EXPR_PAR, 0, 1,
+               :tLABEL,  "abc", EXPR_LAB, 0, 1,
+               :tSYMBOL, "b",   EXPR_LIT, 0, 1,
+               :tRCURLY, "}",   EXPR_END, 0, 0)
+  end
+
+  def test_yylex_hash_colon_double_quoted_symbol_22
+    setup_lexer_class RubyParser::V22
+
+    assert_lex('{"abc": :b}',
+               s(:hash, s(:lit, :abc), s(:lit, :b)),
+
+               :tLBRACE, "{",   EXPR_PAR,    0, 1,
+               :tLABEL,  "abc", EXPR_LAB,    0, 1,
+               :tSYMBOL, "b",   EXPR_LIT,    0, 1,
+               :tRCURLY, "}",   EXPR_ENDARG, 0, 0)
+  end
+
+  def test_yylex_hash_colon_double_quoted_with_escapes
+    assert_lex3("{\"s\\tr\\i\\ng\\\\foo\\'bar\":1}",
+               nil,
+
+               :tLBRACE, "{",                  EXPR_PAR,
+               :tLABEL,  "s\tr\i\ng\\foo'bar", EXPR_LAB,
+               :tINTEGER, 1,                   EXPR_NUM,
+               :tRCURLY, "}",                  EXPR_END)
+  end
+
+  def test_yylex_hash_colon_quoted_22
+    setup_lexer_class RubyParser::V22
+
+    assert_lex("{'a':1}",
+               s(:hash, s(:lit, :a), s(:lit, 1)),
+
+               :tLBRACE, "{", EXPR_PAR,    0, 1,
+               :tLABEL,  "a", EXPR_LAB,    0, 1,
+               :tINTEGER, 1,  EXPR_NUM,    0, 1,
+               :tRCURLY, "}", EXPR_ENDARG, 0, 0)
+  end
+
+  def test_yylex_hash_colon_quoted_symbol
+    assert_lex("{'abc': :b}",
+               s(:hash, s(:lit, :abc), s(:lit, :b)),
+
+               :tLBRACE, "{",   EXPR_PAR, 0, 1,
+               :tLABEL,  "abc", EXPR_LAB, 0, 1,
+               :tSYMBOL, "b",   EXPR_LIT, 0, 1,
+               :tRCURLY, "}",   EXPR_END, 0, 0)
+  end
+
+  def test_yylex_hash_colon_quoted_symbol_22
+    setup_lexer_class RubyParser::V22
+
+    assert_lex("{'abc': :b}",
+               s(:hash, s(:lit, :abc), s(:lit, :b)),
+
+               :tLBRACE, "{",   EXPR_PAR,    0, 1,
+               :tLABEL,  "abc", EXPR_LAB,    0, 1,
+               :tSYMBOL, "b",   EXPR_LIT,    0, 1,
+               :tRCURLY, "}",   EXPR_ENDARG, 0, 0)
+  end
+
+  def test_yylex_hash_colon_quoted_with_escapes
+    assert_lex3("{'s\\tr\\i\\ng\\\\foo\\'bar':1}",
+               nil,
+
+               :tLBRACE, "{",                     EXPR_PAR,
+               :tLABEL,  "s\\tr\\i\\ng\\foo'bar", EXPR_LAB,
+               :tINTEGER, 1,                      EXPR_NUM,
+               :tRCURLY, "}",                     EXPR_END)
+  end
+
   def test_yylex_heredoc_backtick
     assert_lex3("a = <<`EOF`\n  blah blah\nEOF\n\n",
                 nil,
@@ -1241,19 +1088,6 @@ class TestRubyLexer < Minitest::Test
                 :tNL,             nil,             EXPR_BEG)
   end
 
-  def test_yylex_heredoc_double_squiggly
-    setup_lexer_class Ruby23Parser
-
-    assert_lex3("a = <<~\"EOF\"\n  blah blah\n  EOF\n\n",
-                nil,
-                :tIDENTIFIER,     "a",           EXPR_CMDARG,
-                :tEQL,            "=",           EXPR_BEG,
-                :tSTRING_BEG,     "\"",          EXPR_BEG,
-                :tSTRING_CONTENT, "  blah blah\n", EXPR_BEG,
-                :tSTRING_END,     "EOF",         EXPR_LIT,
-                :tNL,             nil,           EXPR_BEG)
-  end
-
   def test_yylex_heredoc_double_eos
     refute_lex("a = <<\"EOF\"\nblah",
                :tIDENTIFIER, "a",
@@ -1285,6 +1119,19 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_CONTENT, "3} \n", EXPR_BEG,
                 :tSTRING_END,     "EOF",   EXPR_LIT,
                 :tNL,             nil,     EXPR_BEG)
+  end
+
+  def test_yylex_heredoc_double_squiggly
+    setup_lexer_class Ruby23Parser
+
+    assert_lex3("a = <<~\"EOF\"\n  blah blah\n  EOF\n\n",
+                nil,
+                :tIDENTIFIER,     "a",           EXPR_CMDARG,
+                :tEQL,            "=",           EXPR_BEG,
+                :tSTRING_BEG,     "\"",          EXPR_BEG,
+                :tSTRING_CONTENT, "  blah blah\n", EXPR_BEG,
+                :tSTRING_END,     "EOF",         EXPR_LIT,
+                :tNL,             nil,           EXPR_BEG)
   end
 
   def test_yylex_heredoc_empty
@@ -1428,13 +1275,6 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("identifier?", nil, :tFID, "identifier?", EXPR_CMDARG)
   end
 
-  def test_yylex_identifier_equals_arrow
-    assert_lex3(":blah==>",
-                nil,
-                :tSYMBOL, "blah=", EXPR_LIT,
-                :tASSOC,  "=>",    EXPR_BEG)
-  end
-
   def test_yylex_identifier_equals3
     assert_lex3(":a===b",
                 nil,
@@ -1443,16 +1283,19 @@ class TestRubyLexer < Minitest::Test
                 :tIDENTIFIER, "b",   EXPR_ARG)
   end
 
-  def test_yylex_identifier_equals_equals_arrow
-    assert_lex3(":a==>b",
+  def test_yylex_identifier_equals_arrow
+    assert_lex3(":blah==>",
                 nil,
-                :tSYMBOL, "a=", EXPR_LIT,
-                :tASSOC, "=>", EXPR_BEG,
-                :tIDENTIFIER, "b", EXPR_ARG)
+                :tSYMBOL, "blah=", EXPR_LIT,
+                :tASSOC,  "=>",    EXPR_BEG)
   end
 
   def test_yylex_identifier_equals_caret
     assert_lex_fname "^", :tCARET
+  end
+
+  def test_yylex_identifier_equals_def2
+    assert_lex_fname "==", :tEQ
   end
 
   def test_yylex_identifier_equals_def__20
@@ -1461,8 +1304,12 @@ class TestRubyLexer < Minitest::Test
     assert_lex_fname "identifier=", :tIDENTIFIER, EXPR_ENDFN
   end
 
-  def test_yylex_identifier_equals_def2
-    assert_lex_fname "==", :tEQ
+  def test_yylex_identifier_equals_equals_arrow
+    assert_lex3(":a==>b",
+                nil,
+                :tSYMBOL, "a=", EXPR_LIT,
+                :tASSOC, "=>", EXPR_BEG,
+                :tIDENTIFIER, "b", EXPR_ARG)
   end
 
   def test_yylex_identifier_equals_expr
@@ -1551,25 +1398,6 @@ class TestRubyLexer < Minitest::Test
     refute_lex "0d42__24"
   end
 
-  def test_yylex_integer_if_modifier
-    assert_lex3("123if",
-                nil,
-                :tINTEGER, 123, EXPR_NUM,
-                :kIF_MOD, "if", EXPR_PAR)
-  end
-
-  def test_yylex_question_eh_a__20
-    setup_lexer_class RubyParser::V20
-
-    assert_lex3("?a", nil, :tSTRING, "a", EXPR_END)
-  end
-
-  def test_yylex_question_eh_escape_M_escape_C__20
-    setup_lexer_class RubyParser::V20
-
-    assert_lex3("?\\M-\\C-a", nil, :tSTRING, "\M-\C-a", EXPR_END)
-  end
-
   def test_yylex_integer_hex
     assert_lex3 "0x2a", nil, :tINTEGER, 42, EXPR_NUM
   end
@@ -1582,20 +1410,15 @@ class TestRubyLexer < Minitest::Test
     refute_lex "0xab__cd"
   end
 
+  def test_yylex_integer_if_modifier
+    assert_lex3("123if",
+                nil,
+                :tINTEGER, 123, EXPR_NUM,
+                :kIF_MOD, "if", EXPR_PAR)
+  end
+
   def test_yylex_integer_oct
     assert_lex3("052", nil, :tINTEGER, 42, EXPR_NUM)
-  end
-
-  def test_yylex_integer_oct_bad_range
-    refute_lex "08"
-  end
-
-  def test_yylex_integer_oct_bad_range2
-    refute_lex "08"
-  end
-
-  def test_yylex_integer_oct_bad_underscores
-    refute_lex "01__23"
   end
 
   def test_yylex_integer_oct_O
@@ -1612,6 +1435,18 @@ class TestRubyLexer < Minitest::Test
 
   def test_yylex_integer_oct_O_not_bad_none
     assert_lex3 "0O ", nil, :tINTEGER, 0, EXPR_NUM
+  end
+
+  def test_yylex_integer_oct_bad_range
+    refute_lex "08"
+  end
+
+  def test_yylex_integer_oct_bad_range2
+    refute_lex "08"
+  end
+
+  def test_yylex_integer_oct_bad_underscores
+    refute_lex "01__23"
   end
 
   def test_yylex_integer_oct_o
@@ -1650,6 +1485,57 @@ class TestRubyLexer < Minitest::Test
     assert_lex3 "0", nil, :tINTEGER, 0, EXPR_NUM
   end
 
+  def test_yylex_is_your_spacebar_broken?
+    assert_lex3(":a!=:b",
+                nil,
+                :tSYMBOL, "a",  EXPR_LIT,
+                :tNEQ,    "!=", EXPR_BEG,
+                :tSYMBOL, "b",  EXPR_LIT)
+  end
+
+  def test_yylex_iter_array_curly
+    # this will lex, but doesn't parse... don't freak out.
+    assert_lex("f :a, [:b] { |c, d| }", # yes, this is bad code
+                nil,
+
+               :tIDENTIFIER, "f", EXPR_CMDARG, 0, 0,
+               :tSYMBOL,     "a", EXPR_LIT,    0, 0,
+               :tCOMMA,      ",", EXPR_PAR,    0, 0,
+               :tLBRACK,     "[", EXPR_PAR,    1, 0,
+               :tSYMBOL,     "b", EXPR_LIT,    1, 0,
+               :tRBRACK,     "]", EXPR_END,    0, 0,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
+               :tPIPE,       "|", EXPR_PAR,    0, 1,
+               :tIDENTIFIER, "c", EXPR_ARG,    0, 1,
+               :tCOMMA,      ",", EXPR_PAR,    0, 1,
+               :tIDENTIFIER, "d", EXPR_ARG,    0, 1,
+               :tPIPE,       "|", EXPR_PAR,    0, 1,
+               :tRCURLY,     "}", EXPR_END,    0, 0)
+  end
+
+  def test_yylex_iter_array_curly__24
+    setup_lexer_class RubyParser::V24
+
+    assert_lex("f :a, [:b] { |c, d| }", # yes, this is bad code
+               s(:iter,
+                 s(:call, nil, :f, s(:lit, :a), s(:array, s(:lit, :b))),
+                 s(:args, :c, :d)),
+
+               :tIDENTIFIER, "f", EXPR_CMDARG,  0, 0,
+               :tSYMBOL,     "a", EXPR_LIT,     0, 0,
+               :tCOMMA,      ",", EXPR_PAR,     0, 0,
+               :tLBRACK,     "[", EXPR_PAR,     1, 0,
+               :tSYMBOL,     "b", EXPR_LIT,     1, 0,
+               :tRBRACK,     "]", EXPR_ENDARG,  0, 0,
+               :tLBRACE_ARG, "{", EXPR_BEG,     0, 1,
+               :tPIPE,       "|", EXPR_PAR,     0, 1,
+               :tIDENTIFIER, "c", EXPR_ARG,     0, 1,
+               :tCOMMA,      ",", EXPR_PAR,     0, 1,
+               :tIDENTIFIER, "d", EXPR_ARG,     0, 1,
+               :tPIPE,       "|", EXPR_PAR,     0, 1,
+               :tRCURLY,     "}", EXPR_ENDARG,  0, 0)
+  end
+
   def test_yylex_ivar
     assert_lex3("@blah", nil, :tIVAR, "@blah", EXPR_END)
   end
@@ -1666,6 +1552,156 @@ class TestRubyLexer < Minitest::Test
     self.lex_state = EXPR_ENDARG
 
     assert_lex3("if", nil, :kIF_MOD, "if", EXPR_PAR)
+  end
+
+  def test_yylex_label
+    assert_lex3("{a:",
+                nil,
+                :tLBRACE, "{",  EXPR_PAR,
+                :tLABEL,  "a",  EXPR_LAB)
+  end
+
+  def test_yylex_label_in_params
+    assert_lex3("foo(a:",
+                nil,
+                :tIDENTIFIER, "foo", EXPR_CMDARG,
+                :tLPAREN2,    "(",    EXPR_PAR,
+                :tLABEL,      "a",    EXPR_LAB)
+  end
+
+  def test_yylex_lambda_args
+    assert_lex("-> (a) { }",
+               s(:iter, s(:lambda),
+                 s(:args, :a)),
+
+               :tLAMBDA,     nil, EXPR_ENDFN, 0, 0,
+               :tLPAREN2,    "(", EXPR_PAR,   1, 0,
+               :tIDENTIFIER, "a", EXPR_ARG,   1, 0,
+               :tRPAREN,     ")", EXPR_ENDFN, 0, 0,
+               :tLCURLY,     "{", EXPR_PAR,   0, 1,
+               :tRCURLY,     "}", EXPR_END,   0, 0)
+  end
+
+  def test_yylex_lambda_args__24
+    setup_lexer_class RubyParser::V24
+
+    assert_lex("-> (a) { }",
+               s(:iter, s(:lambda),
+                 s(:args, :a)),
+
+               :tLAMBDA,     nil, EXPR_ENDFN,  0, 0,
+               :tLPAREN2,    "(", EXPR_PAR,    1, 0,
+               :tIDENTIFIER, "a", EXPR_ARG,    1, 0,
+               :tRPAREN,     ")", EXPR_ENDFN,  0, 0,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
+               :tRCURLY,     "}", EXPR_ENDARG, 0, 0)
+  end
+
+  def test_yylex_lambda_args_opt
+    assert_lex("-> (a=nil) { }",
+               s(:iter, s(:lambda),
+                 s(:args, s(:lasgn, :a, s(:nil)))),
+
+               :tLAMBDA,     nil,   EXPR_ENDFN,  0, 0,
+               :tLPAREN2,    "(",   EXPR_PAR,    1, 0,
+               :tIDENTIFIER, "a",   EXPR_ARG,    1, 0,
+               :tEQL,        "=",   EXPR_BEG,    1, 0,
+               :kNIL,        "nil", EXPR_END,    1, 0,
+               :tRPAREN,     ")",   EXPR_ENDFN,  0, 0,
+               :tLCURLY,     "{",   EXPR_PAR,    0, 1,
+               :tRCURLY,     "}",   EXPR_END,    0, 0)
+  end
+
+  def test_yylex_lambda_args_opt__24
+    setup_lexer_class RubyParser::V24
+
+    assert_lex("-> (a=nil) { }",
+               s(:iter, s(:lambda),
+                 s(:args, s(:lasgn, :a, s(:nil)))),
+
+               :tLAMBDA,     nil,   EXPR_ENDFN,  0, 0,
+               :tLPAREN2,    "(",   EXPR_PAR,    1, 0,
+               :tIDENTIFIER, "a",   EXPR_ARG,    1, 0,
+               :tEQL,        "=",   EXPR_BEG,    1, 0,
+               :kNIL,        "nil", EXPR_END,    1, 0,
+               :tRPAREN,     ")",   EXPR_ENDFN,  0, 0,
+               :tLCURLY,     "{",   EXPR_PAR,    0, 1,
+               :tRCURLY,     "}",   EXPR_ENDARG, 0, 0)
+  end
+
+  def test_yylex_lambda_as_args_with_block
+    assert_lex3("a -> do end do end",
+                nil,
+                :tIDENTIFIER, "a",   EXPR_CMDARG,
+                :tLAMBDA,     nil,   EXPR_ENDFN,
+                :kDO,         "do",  EXPR_BEG,
+                :kEND,        "end", EXPR_END,
+                :kDO,         "do",  EXPR_BEG,
+                :kEND,        "end", EXPR_END)
+  end
+
+  def test_yylex_lambda_hash
+    assert_lex("-> (a={}) { }",
+               s(:iter, s(:lambda),
+                 s(:args, s(:lasgn, :a, s(:hash)))),
+
+               :tLAMBDA,     nil, EXPR_ENDFN, 0, 0,
+               :tLPAREN2,    "(", EXPR_PAR,   1, 0,
+               :tIDENTIFIER, "a", EXPR_ARG,   1, 0,
+               :tEQL,        "=", EXPR_BEG,   1, 0,
+               :tLBRACE,     "{", EXPR_PAR,   1, 1,
+               :tRCURLY,     "}", EXPR_END,   1, 0,
+               :tRPAREN,     ")", EXPR_ENDFN, 0, 0,
+               :tLCURLY,     "{", EXPR_PAR,   0, 1,
+               :tRCURLY,     "}", EXPR_END,   0, 0)
+  end
+
+  def test_yylex_lambda_hash__24
+    setup_lexer_class RubyParser::V24
+
+    assert_lex("-> (a={}) { }",
+               s(:iter, s(:lambda),
+                 s(:args, s(:lasgn, :a, s(:hash)))),
+
+               :tLAMBDA,     nil, EXPR_ENDFN,  0, 0,
+               :tLPAREN2,    "(", EXPR_PAR,    1, 0,
+               :tIDENTIFIER, "a", EXPR_ARG,    1, 0,
+               :tEQL,        "=", EXPR_BEG,    1, 0,
+               :tLBRACE,     "{", EXPR_PAR,    1, 1,
+               :tRCURLY,     "}", EXPR_ENDARG, 1, 0,
+               :tRPAREN,     ")", EXPR_ENDFN,  0, 0,
+               :tLCURLY,     "{", EXPR_PAR,    0, 1,
+               :tRCURLY,     "}", EXPR_ENDARG, 0, 0)
+  end
+
+  def test_yylex_lasgn_call_same_name
+    assert_lex("a = b.c :d => 1",
+               s(:lasgn, :a,
+                 s(:call, s(:call, nil, :b), :c,
+                   s(:hash, s(:lit, :d), s(:lit, 1)))),
+
+               :tIDENTIFIER, "a",  EXPR_CMDARG, 0, 0,
+               :tEQL,        "=",  EXPR_BEG,    0, 0,
+               :tIDENTIFIER, "b",  EXPR_ARG,    0, 0,
+               :tDOT,        ".",  EXPR_DOT,    0, 0,
+               :tIDENTIFIER, "c",  EXPR_ARG,    0, 0, # different
+               :tSYMBOL,     "d",  EXPR_LIT,    0, 0,
+               :tASSOC,      "=>", EXPR_BEG,    0, 0,
+               :tINTEGER,    1,    EXPR_NUM,    0, 0)
+
+    assert_lex("a = b.a :d => 1",
+               s(:lasgn, :a,
+                 s(:call, s(:call, nil, :b), :a,
+                   s(:hash, s(:lit, :d), s(:lit, 1)))),
+
+               :tIDENTIFIER, "a",  EXPR_CMDARG, 0, 0,
+               :tEQL,        "=",  EXPR_BEG,    0, 0,
+               :tIDENTIFIER, "b",  EXPR_ARG,    0, 0,
+               :tDOT,        ".",  EXPR_DOT,    0, 0,
+               :tIDENTIFIER, "a",  EXPR_ARG,    0, 0, # same as lvar
+               :tSYMBOL,     "d",  EXPR_LIT,    0, 0,
+               :tASSOC,      "=>", EXPR_BEG,    0, 0,
+               :tINTEGER,    1,    EXPR_NUM,    0, 0)
   end
 
   def test_yylex_lt
@@ -1690,6 +1726,16 @@ class TestRubyLexer < Minitest::Test
 
   def test_yylex_lt_equals
     assert_lex3("<=", nil, :tLEQ, "<=", EXPR_BEG)
+  end
+
+  def test_yylex_method_parens_chevron
+    assert_lex("a()<<1",
+               s(:call, s(:call, nil, :a), :<<, s(:lit, 1)),
+               :tIDENTIFIER, "a",  EXPR_CMDARG, 0, 0,
+               :tLPAREN2,    "(",  EXPR_PAR,    1, 0,
+               :tRPAREN,     ")",  EXPR_ENDFN,  0, 0,
+               :tLSHFT,      "<<", EXPR_BEG,    0, 0,
+               :tINTEGER,    1,    EXPR_NUM,    0, 0)
   end
 
   def test_yylex_minus
@@ -1723,6 +1769,38 @@ class TestRubyLexer < Minitest::Test
                 :tINTEGER,    42,  EXPR_NUM)
   end
 
+  def test_yylex_not_at_defn
+    assert_lex("def +@; end",
+               s(:defn, :+@, s(:args), s(:nil)),
+
+               :kDEF,   "def", EXPR_FNAME, 0, 0,
+               :tUPLUS, "+@",  EXPR_ARG,   0, 0,
+               :tSEMI,  ";",   EXPR_BEG,   0, 0,
+               :kEND,   "end", EXPR_END,   0, 0)
+
+    assert_lex("def !@; end",
+               s(:defn, :"!@", s(:args), s(:nil)),
+
+               :kDEF,   "def", EXPR_FNAME, 0, 0,
+               :tUBANG, "!@",  EXPR_ARG,   0, 0,
+               :tSEMI,  ";",   EXPR_BEG,   0, 0,
+               :kEND,   "end", EXPR_END,   0, 0)
+  end
+
+  def test_yylex_not_at_ivar
+    assert_lex("!@ivar",
+               s(:call, s(:ivar, :@ivar), :"!"),
+
+               :tBANG, "!",     EXPR_BEG, 0, 0,
+               :tIVAR, "@ivar", EXPR_END, 0, 0)
+  end
+
+  def test_yylex_not_unary_method
+    self.lex_state = EXPR_FNAME
+
+    assert_lex3("!@", nil, :tUBANG, "!@", EXPR_ARG)
+  end
+
   def test_yylex_nth_ref
     assert_lex3("[$1, $2, $3, $4, $5, $6, $7, $8, $9]",
                nil,
@@ -1737,6 +1815,67 @@ class TestRubyLexer < Minitest::Test
                :tNTH_REF, 8,   EXPR_END, :tCOMMA,   ",", EXPR_PAR,
                :tNTH_REF, 9,   EXPR_END,
                :tRBRACK,  "]", EXPR_END)
+  end
+
+  def test_yylex_number_times_ident_times_return_number
+    assert_lex("1 * b * 3",
+               s(:call,
+                 s(:call, s(:lit, 1), :*, s(:call, nil, :b)),
+                 :*, s(:lit, 3)),
+
+               :tINTEGER,    1,   EXPR_NUM, 0, 0,
+               :tSTAR2,      "*", EXPR_BEG, 0, 0,
+               :tIDENTIFIER, "b", EXPR_ARG, 0, 0,
+               :tSTAR2,      "*", EXPR_BEG, 0, 0,
+               :tINTEGER,    3,   EXPR_NUM, 0, 0)
+
+    assert_lex("1 * b *\n 3",
+               s(:call,
+                 s(:call, s(:lit, 1), :*, s(:call, nil, :b)),
+                 :*, s(:lit, 3)),
+
+               :tINTEGER,    1,   EXPR_NUM, 0, 0,
+               :tSTAR2,      "*", EXPR_BEG, 0, 0,
+               :tIDENTIFIER, "b", EXPR_ARG, 0, 0,
+               :tSTAR2,      "*", EXPR_BEG, 0, 0,
+               :tINTEGER,    3,   EXPR_NUM, 0, 0)
+  end
+
+  def test_yylex_numbers
+    assert_lex3 "0b10", nil, :tINTEGER, 2,  EXPR_NUM
+    assert_lex3 "0B10", nil, :tINTEGER, 2,  EXPR_NUM
+
+    assert_lex3 "0d10", nil, :tINTEGER, 10, EXPR_NUM
+    assert_lex3 "0D10", nil, :tINTEGER, 10, EXPR_NUM
+
+    assert_lex3 "0x10", nil, :tINTEGER, 16, EXPR_NUM
+    assert_lex3 "0X10", nil, :tINTEGER, 16, EXPR_NUM
+
+    assert_lex3 "0o10", nil, :tINTEGER, 8,  EXPR_NUM
+    assert_lex3 "0O10", nil, :tINTEGER, 8,  EXPR_NUM
+
+    assert_lex3 "0o",   nil, :tINTEGER, 0,  EXPR_NUM
+    assert_lex3 "0O",   nil, :tINTEGER, 0,  EXPR_NUM
+
+    assert_lex3 "0",    nil, :tINTEGER, 0,  EXPR_NUM
+
+    refute_lex "0x"
+    refute_lex "0X"
+    refute_lex "0b"
+    refute_lex "0B"
+    refute_lex "0d"
+    refute_lex "0D"
+
+    refute_lex "08"
+    refute_lex "09"
+    refute_lex "0o8"
+    refute_lex "0o9"
+    refute_lex "0O8"
+    refute_lex "0O9"
+
+    refute_lex "1_e1"
+    refute_lex "1_.1"
+    refute_lex "1__1"
   end
 
   def test_yylex_open_bracket
@@ -1827,6 +1966,79 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("|=", nil, :tOP_ASGN, "|", EXPR_BEG)
   end
 
+  def test_yylex_paren_string_interpolated_regexp
+    setup_lexer('%( #{(/abcd/)} )',
+                s(:dstr, " ", s(:evstr, s(:lit, /abcd/)), s(:str, " ")))
+
+    assert_next_lexeme :tSTRING_BEG,       "%)",   EXPR_BEG, 0, 0
+    assert_next_lexeme :tSTRING_CONTENT,   " ",    EXPR_BEG, 0, 0
+    assert_next_lexeme :tSTRING_DBEG,      nil,    EXPR_BEG, 0, 0
+
+    emulate_string_interpolation do
+      assert_next_lexeme :tLPAREN,         "(",    EXPR_PAR, 1, 0
+      assert_next_lexeme :tREGEXP_BEG,     "/",    EXPR_PAR, 1, 0
+      assert_next_lexeme :tSTRING_CONTENT, "abcd", EXPR_PAR, 1, 0
+      assert_next_lexeme :tREGEXP_END,     "",     EXPR_LIT, 1, 0
+      assert_next_lexeme :tRPAREN,         ")",    EXPR_ENDFN, 0, 0
+    end
+
+    assert_next_lexeme :tSTRING_CONTENT,   " ",    EXPR_BEG, 0, 0
+    assert_next_lexeme :tSTRING_END,       ")",    EXPR_LIT, 0, 0
+
+    refute_lexeme
+  end
+
+  def test_yylex_paren_string_parens_interpolated
+    setup_lexer('%((#{b}#{d}))',
+                s(:dstr,
+                  "(",
+                  s(:evstr, s(:call, nil, :b)),
+                  s(:evstr, s(:call, nil, :d)),
+                  s(:str, ")")))
+
+    assert_next_lexeme :tSTRING_BEG,     "%)", EXPR_BEG, 0, 0
+    assert_next_lexeme :tSTRING_CONTENT, "(",  EXPR_BEG, 0, 0
+    assert_next_lexeme :tSTRING_DBEG,    nil,  EXPR_BEG, 0, 0
+
+    emulate_string_interpolation do
+      assert_next_lexeme :tIDENTIFIER,   "b",  EXPR_CMDARG, 0, 0
+    end
+
+    assert_next_lexeme :tSTRING_DBEG,    nil,  EXPR_BEG, 0, 0
+
+    emulate_string_interpolation do
+      assert_next_lexeme :tIDENTIFIER,   "d",  EXPR_CMDARG, 0, 0
+    end
+
+    assert_next_lexeme :tSTRING_CONTENT, ")",  EXPR_BEG, 0, 0
+    assert_next_lexeme :tSTRING_END,     ")",  EXPR_LIT, 0, 0
+
+    refute_lexeme
+  end
+
+  def test_yylex_paren_string_parens_interpolated_regexp
+    setup_lexer('%((#{(/abcd/)}))',
+                s(:dstr, "(", s(:evstr, s(:lit, /abcd/)), s(:str, ")")))
+
+    assert_next_lexeme :tSTRING_BEG,       "%)",   EXPR_BEG, 0, 0
+    assert_next_lexeme :tSTRING_CONTENT,   "(",    EXPR_BEG, 0, 0
+
+    assert_next_lexeme :tSTRING_DBEG,       nil,   EXPR_BEG, 0, 0
+
+    emulate_string_interpolation do
+      assert_next_lexeme :tLPAREN,         "(",    EXPR_PAR,   1, 0
+      assert_next_lexeme :tREGEXP_BEG,     "/",    EXPR_PAR,   1, 0
+      assert_next_lexeme :tSTRING_CONTENT, "abcd", EXPR_PAR,   1, 0
+      assert_next_lexeme :tREGEXP_END,     "",     EXPR_LIT,   1, 0
+      assert_next_lexeme :tRPAREN,         ")",    EXPR_ENDFN, 0, 0
+    end
+
+    assert_next_lexeme :tSTRING_CONTENT,   ")",    EXPR_BEG, 0, 0
+    assert_next_lexeme :tSTRING_END,       ")",    EXPR_LIT, 0, 0
+
+    refute_lexeme
+  end
+
   def test_yylex_percent
     assert_lex3("a % 2",
                 nil,
@@ -1867,55 +2079,24 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("+@", nil, :tUPLUS, "+@", EXPR_ARG)
   end
 
-  def test_yylex_not_unary_method
-    self.lex_state = EXPR_FNAME
-
-    assert_lex3("!@", nil, :tUBANG, "!@", EXPR_ARG)
-  end
-
-  def test_yylex_numbers
-    assert_lex3 "0b10", nil, :tINTEGER, 2,  EXPR_NUM
-    assert_lex3 "0B10", nil, :tINTEGER, 2,  EXPR_NUM
-
-    assert_lex3 "0d10", nil, :tINTEGER, 10, EXPR_NUM
-    assert_lex3 "0D10", nil, :tINTEGER, 10, EXPR_NUM
-
-    assert_lex3 "0x10", nil, :tINTEGER, 16, EXPR_NUM
-    assert_lex3 "0X10", nil, :tINTEGER, 16, EXPR_NUM
-
-    assert_lex3 "0o10", nil, :tINTEGER, 8,  EXPR_NUM
-    assert_lex3 "0O10", nil, :tINTEGER, 8,  EXPR_NUM
-
-    assert_lex3 "0o",   nil, :tINTEGER, 0,  EXPR_NUM
-    assert_lex3 "0O",   nil, :tINTEGER, 0,  EXPR_NUM
-
-    assert_lex3 "0",    nil, :tINTEGER, 0,  EXPR_NUM
-
-    refute_lex "0x"
-    refute_lex "0X"
-    refute_lex "0b"
-    refute_lex "0B"
-    refute_lex "0d"
-    refute_lex "0D"
-
-    refute_lex "08"
-    refute_lex "09"
-    refute_lex "0o8"
-    refute_lex "0o9"
-    refute_lex "0O8"
-    refute_lex "0O9"
-
-    refute_lex "1_e1"
-    refute_lex "1_.1"
-    refute_lex "1__1"
-  end
-
   def test_yylex_plus_unary_number
     assert_lex3("+42", nil, :tINTEGER, 42, EXPR_NUM)
   end
 
   def test_yylex_question_bad_eos
     refute_lex "?"
+  end
+
+  def test_yylex_question_eh_a__20
+    setup_lexer_class RubyParser::V20
+
+    assert_lex3("?a", nil, :tSTRING, "a", EXPR_END)
+  end
+
+  def test_yylex_question_eh_escape_M_escape_C__20
+    setup_lexer_class RubyParser::V20
+
+    assert_lex3("?\\M-\\C-a", nil, :tSTRING, "\M-\C-a", EXPR_END)
   end
 
   def test_yylex_question_ws
@@ -2063,14 +2244,6 @@ class TestRubyLexer < Minitest::Test
                 :tREGEXP_END,     "",            EXPR_LIT)
   end
 
-  def test_yylex_regexp_escaped_delim
-    assert_lex3("%r!blah(?\\!blah)!",
-                nil,
-                :tREGEXP_BEG,     "%r\000",       EXPR_BEG,
-                :tSTRING_CONTENT, "blah(?!blah)", EXPR_BEG,
-                :tREGEXP_END,     "",             EXPR_LIT)
-  end
-
   def test_yylex_regexp_escape_backslash_terminator_meta1
     assert_lex3("%r{blah\\}blah}",
                 nil,
@@ -2192,12 +2365,33 @@ class TestRubyLexer < Minitest::Test
                 :tREGEXP_END,     "",           EXPR_LIT)
   end
 
+  def test_yylex_regexp_escaped_delim
+    assert_lex3("%r!blah(?\\!blah)!",
+                nil,
+                :tREGEXP_BEG,     "%r\000",       EXPR_BEG,
+                :tSTRING_CONTENT, "blah(?!blah)", EXPR_BEG,
+                :tREGEXP_END,     "",             EXPR_LIT)
+  end
+
   def test_yylex_regexp_nm
     assert_lex3("/.*/nm",
                 nil,
                 :tREGEXP_BEG,     "/",  EXPR_BEG,
                 :tSTRING_CONTENT, ".*", EXPR_BEG,
                 :tREGEXP_END,     "nm", EXPR_LIT)
+  end
+
+  def test_yylex_required_kwarg_no_value_22
+    setup_lexer_class RubyParser::V22
+
+    assert_lex3("def foo a:, b:\nend",
+                nil,
+                :kDEF,        "def", EXPR_FNAME,
+                :tIDENTIFIER, "foo", EXPR_ENDFN,
+                :tLABEL,      "a",   EXPR_LAB,
+                :tCOMMA,      ",",   EXPR_PAR,
+                :tLABEL,      "b",   EXPR_LAB,
+                :kEND,        "end", EXPR_END)
   end
 
   def test_yylex_rparen
@@ -2320,91 +2514,10 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("\"\\C-?\"", nil, :tSTRING, "\177", EXPR_END)
   end
 
-  def test_yylex_string_utf8_simple
-    chr = [0x3024].pack("U")
-
-    assert_lex3('"\u{3024}"',
-                s(:str, chr),
-                :tSTRING, chr, EXPR_END)
-  end
-
-  def test_yylex_string_utf8_trailing_hex
-    chr = [0x3024].pack("U")
-    str = "#{chr}abz"
-
-    assert_lex3('"\u3024abz"',
-                s(:str, str),
-                :tSTRING, str, EXPR_END)
-  end
-
-  def test_yylex_string_utf8_missing_hex
-    refute_lex('"\u3zzz"')
-    refute_lex('"\u30zzz"')
-    refute_lex('"\u302zzz"')
-  end
-
-  def test_yylex_string_utf8_complex
-    chr = [0x3024].pack("U")
-
-    assert_lex3('"#@a\u{3024}"',
-                s(:dstr, "", s(:evstr, s(:ivar, :@a)), s(:str, chr)),
-                :tSTRING_BEG,     '"',      EXPR_BEG,
-                :tSTRING_DVAR,    nil,      EXPR_BEG,
-                :tSTRING_CONTENT, "@a"+chr, EXPR_BEG,
-                :tSTRING_END,     '"',      EXPR_LIT)
-  end
-
-  def test_yylex_string_utf8_complex_trailing_hex
-    chr = [0x3024].pack("U")
-    str = "#{chr}abz"
-
-    assert_lex3('"#@a\u3024abz"',
-                s(:dstr, "", s(:evstr, s(:ivar, :@a)), s(:str, str)),
-                :tSTRING_BEG,     '"',      EXPR_BEG,
-                :tSTRING_DVAR,    nil,      EXPR_BEG,
-                :tSTRING_CONTENT, "@a"+str, EXPR_BEG,
-                :tSTRING_END,     '"',      EXPR_LIT)
-  end
-
-  def test_yylex_string_utf8_complex_missing_hex
-    chr = [0x302].pack("U")
-    str = "#{chr}zzz"
-
-    refute_lex('"#@a\u302zzz"',
-                :tSTRING_BEG,     '"',
-                :tSTRING_DVAR,    nil,
-                :tSTRING_CONTENT, "@a"+str,
-                :tSTRING_END,     '"')
-
-    chr = [0x30].pack("U")
-    str = "#{chr}zzz"
-
-    refute_lex('"#@a\u30zzz"',
-                :tSTRING_BEG,     '"',
-                :tSTRING_DVAR,    nil,
-                :tSTRING_CONTENT, "@a"+str,
-                :tSTRING_END,     '"')
-
-    chr = [0x3].pack("U")
-    str = "#{chr}zzz"
-
-    refute_lex('"#@a\u3zzz"',
-                :tSTRING_BEG,     '"',
-                :tSTRING_DVAR,    nil,
-                :tSTRING_CONTENT, "@a"+str,
-                :tSTRING_END,     '"')
-  end
-
   def test_yylex_string_double_escape_M
     chr = "\341"
 
     assert_lex3("\"\\M-a\"", nil, :tSTRING, chr, EXPR_END)
-  end
-
-  def test_why_does_ruby_hate_me?
-    assert_lex3("\"Nl%\\000\\000A\\000\\999\"", # you should be ashamed
-                nil,
-                :tSTRING, %W[ Nl% \u0000 \u0000 A \u0000 999 ].join, EXPR_END)
   end
 
   def test_yylex_string_double_escape_M_backslash
@@ -2485,14 +2598,6 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_END,     "\"",         EXPR_LIT)
   end
 
-  def test_yylex_string_double_pound_dollar_bad
-    assert_lex3('"#$%"', nil,
-
-                :tSTRING_BEG,     "\"",   EXPR_BEG,
-                :tSTRING_CONTENT, "#\$%", EXPR_BEG,
-                :tSTRING_END,     "\"",   EXPR_LIT)
-  end
-
   def test_yylex_string_double_nested_curlies
     assert_lex3("%{nest{one{two}one}nest}",
                 nil,
@@ -2506,40 +2611,22 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("\"blah # blah\"", nil, :tSTRING, "blah # blah", EXPR_END)
   end
 
-  def test_yylex_string_escape_x_single
-    assert_lex3("\"\\x0\"", nil, :tSTRING, "\000", EXPR_END)
+  def test_yylex_string_double_pound_dollar_bad
+    assert_lex3('"#$%"', nil,
+
+                :tSTRING_BEG,     "\"",   EXPR_BEG,
+                :tSTRING_CONTENT, "#\$%", EXPR_BEG,
+                :tSTRING_END,     "\"",   EXPR_LIT)
   end
 
-  def test_yylex_string_pct_i
-    assert_lex3("%i[s1 s2\ns3]",
-                nil,
-                :tQSYMBOLS_BEG,   "%i[", EXPR_BEG,
-                :tSTRING_CONTENT, "s1",  EXPR_BEG,
-                :tSPACE,          nil,   EXPR_BEG,
-                :tSTRING_CONTENT, "s2",  EXPR_BEG,
-                :tSPACE,          nil,   EXPR_BEG,
-                :tSTRING_CONTENT, "s3",  EXPR_BEG,
-                :tSPACE,          nil,   EXPR_BEG,
-                :tSTRING_END,     nil,   EXPR_LIT)
+  def test_yylex_string_escape_x_single
+    assert_lex3("\"\\x0\"", nil, :tSTRING, "\000", EXPR_END)
   end
 
   def test_yylex_string_pct_I
     assert_lex3("%I[s1 s2\ns3]",
                 nil,
                 :tSYMBOLS_BEG,    "%I[", EXPR_BEG,
-                :tSTRING_CONTENT, "s1",  EXPR_BEG,
-                :tSPACE,          nil,   EXPR_BEG,
-                :tSTRING_CONTENT, "s2",  EXPR_BEG,
-                :tSPACE,          nil,   EXPR_BEG,
-                :tSTRING_CONTENT, "s3",  EXPR_BEG,
-                :tSPACE,          nil,   EXPR_BEG,
-                :tSTRING_END,     nil,   EXPR_LIT)
-  end
-
-  def test_yylex_string_pct_i_extra_space
-    assert_lex3("%i[ s1 s2\ns3 ]",
-                nil,
-                :tQSYMBOLS_BEG,   "%i[", EXPR_BEG,
                 :tSTRING_CONTENT, "s1",  EXPR_BEG,
                 :tSPACE,          nil,   EXPR_BEG,
                 :tSTRING_CONTENT, "s2",  EXPR_BEG,
@@ -2562,27 +2649,11 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_END,     nil,   EXPR_LIT)
   end
 
-  def test_yylex_string_pct_q
-    assert_lex3("%q[s1 s2]",
-                nil,
-                :tSTRING_BEG,     "%q[",   EXPR_BEG,
-                :tSTRING_CONTENT, "s1 s2", EXPR_BEG,
-                :tSTRING_END,     "]",     EXPR_LIT)
-  end
-
   def test_yylex_string_pct_Q
     assert_lex3("%Q[s1 s2]",
                 nil,
                 :tSTRING_BEG,     "%Q[",   EXPR_BEG,
                 :tSTRING_CONTENT, "s1 s2", EXPR_BEG,
-                :tSTRING_END,     "]",     EXPR_LIT)
-  end
-
-  def test_yylex_string_pct_s
-    assert_lex3("%s[s1 s2]",
-                nil,
-                :tSYMBEG,         "%s[",   EXPR_FNAME, # TODO: :tSYM_BEG ?
-                :tSTRING_CONTENT, "s1 s2", EXPR_FNAME, # man... I don't like this
                 :tSTRING_END,     "]",     EXPR_LIT)
   end
 
@@ -2618,12 +2689,54 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_END,     ">",    EXPR_LIT)
   end
 
+  def test_yylex_string_pct_i
+    assert_lex3("%i[s1 s2\ns3]",
+                nil,
+                :tQSYMBOLS_BEG,   "%i[", EXPR_BEG,
+                :tSTRING_CONTENT, "s1",  EXPR_BEG,
+                :tSPACE,          nil,   EXPR_BEG,
+                :tSTRING_CONTENT, "s2",  EXPR_BEG,
+                :tSPACE,          nil,   EXPR_BEG,
+                :tSTRING_CONTENT, "s3",  EXPR_BEG,
+                :tSPACE,          nil,   EXPR_BEG,
+                :tSTRING_END,     nil,   EXPR_LIT)
+  end
+
+  def test_yylex_string_pct_i_extra_space
+    assert_lex3("%i[ s1 s2\ns3 ]",
+                nil,
+                :tQSYMBOLS_BEG,   "%i[", EXPR_BEG,
+                :tSTRING_CONTENT, "s1",  EXPR_BEG,
+                :tSPACE,          nil,   EXPR_BEG,
+                :tSTRING_CONTENT, "s2",  EXPR_BEG,
+                :tSPACE,          nil,   EXPR_BEG,
+                :tSTRING_CONTENT, "s3",  EXPR_BEG,
+                :tSPACE,          nil,   EXPR_BEG,
+                :tSTRING_END,     nil,   EXPR_LIT)
+  end
+
   def test_yylex_string_pct_other
     assert_lex3("%%blah%",
                 nil,
                 :tSTRING_BEG,     "%%",   EXPR_BEG,
                 :tSTRING_CONTENT, "blah", EXPR_BEG,
                 :tSTRING_END,     "%",    EXPR_LIT)
+  end
+
+  def test_yylex_string_pct_q
+    assert_lex3("%q[s1 s2]",
+                nil,
+                :tSTRING_BEG,     "%q[",   EXPR_BEG,
+                :tSTRING_CONTENT, "s1 s2", EXPR_BEG,
+                :tSTRING_END,     "]",     EXPR_LIT)
+  end
+
+  def test_yylex_string_pct_s
+    assert_lex3("%s[s1 s2]",
+                nil,
+                :tSYMBEG,         "%s[",   EXPR_FNAME, # TODO: :tSYM_BEG ?
+                :tSTRING_CONTENT, "s1 s2", EXPR_FNAME, # man... I don't like this
+                :tSTRING_END,     "]",     EXPR_LIT)
   end
 
   def test_yylex_string_pct_w
@@ -2665,21 +2778,103 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("'s\\tri\\ng'", nil, :tSTRING, "s\\tri\\ng", EXPR_END)
   end
 
-  def test_yylex_string_single_nl
-    assert_lex3("'blah\\\nblah'", nil, :tSTRING, "blah\\\nblah", EXPR_END)
+  def test_yylex_string_single_escape_quote_and_backslash
+    assert_lex3(":'foo\\'bar\\\\baz'", nil, :tSYMBOL, "foo'bar\\baz",
+                EXPR_LIT)
   end
 
   def test_yylex_string_single_escaped_quote
     assert_lex3("'foo\\'bar'", nil, :tSTRING, "foo'bar", EXPR_END)
   end
 
-  def test_yylex_symbol
-    assert_lex3(":symbol", nil, :tSYMBOL, "symbol", EXPR_LIT)
+  def test_yylex_string_single_nl
+    assert_lex3("'blah\\\nblah'", nil, :tSTRING, "blah\\\nblah", EXPR_END)
   end
 
-  def test_yylex_symbol_zero_byte
-    assert_lex(":\"symbol\0\"", nil,
-                :tSYMBOL, "symbol\0", EXPR_LIT)
+  def test_yylex_string_utf8_complex
+    chr = [0x3024].pack("U")
+
+    assert_lex3('"#@a\u{3024}"',
+                s(:dstr, "", s(:evstr, s(:ivar, :@a)), s(:str, chr)),
+                :tSTRING_BEG,     '"',      EXPR_BEG,
+                :tSTRING_DVAR,    nil,      EXPR_BEG,
+                :tSTRING_CONTENT, "@a"+chr, EXPR_BEG,
+                :tSTRING_END,     '"',      EXPR_LIT)
+  end
+
+  def test_yylex_string_utf8_complex_missing_hex
+    chr = [0x302].pack("U")
+    str = "#{chr}zzz"
+
+    refute_lex('"#@a\u302zzz"',
+                :tSTRING_BEG,     '"',
+                :tSTRING_DVAR,    nil,
+                :tSTRING_CONTENT, "@a"+str,
+                :tSTRING_END,     '"')
+
+    chr = [0x30].pack("U")
+    str = "#{chr}zzz"
+
+    refute_lex('"#@a\u30zzz"',
+                :tSTRING_BEG,     '"',
+                :tSTRING_DVAR,    nil,
+                :tSTRING_CONTENT, "@a"+str,
+                :tSTRING_END,     '"')
+
+    chr = [0x3].pack("U")
+    str = "#{chr}zzz"
+
+    refute_lex('"#@a\u3zzz"',
+                :tSTRING_BEG,     '"',
+                :tSTRING_DVAR,    nil,
+                :tSTRING_CONTENT, "@a"+str,
+                :tSTRING_END,     '"')
+  end
+
+  def test_yylex_string_utf8_complex_trailing_hex
+    chr = [0x3024].pack("U")
+    str = "#{chr}abz"
+
+    assert_lex3('"#@a\u3024abz"',
+                s(:dstr, "", s(:evstr, s(:ivar, :@a)), s(:str, str)),
+                :tSTRING_BEG,     '"',      EXPR_BEG,
+                :tSTRING_DVAR,    nil,      EXPR_BEG,
+                :tSTRING_CONTENT, "@a"+str, EXPR_BEG,
+                :tSTRING_END,     '"',      EXPR_LIT)
+  end
+
+  def test_yylex_string_utf8_missing_hex
+    refute_lex('"\u3zzz"')
+    refute_lex('"\u30zzz"')
+    refute_lex('"\u302zzz"')
+  end
+
+  def test_yylex_string_utf8_simple
+    chr = [0x3024].pack("U")
+
+    assert_lex3('"\u{3024}"',
+                s(:str, chr),
+                :tSTRING, chr, EXPR_END)
+  end
+
+  def test_yylex_string_utf8_trailing_hex
+    chr = [0x3024].pack("U")
+    str = "#{chr}abz"
+
+    assert_lex3('"\u3024abz"',
+                s(:str, str),
+                :tSTRING, str, EXPR_END)
+  end
+
+  def test_yylex_sym_quoted
+    assert_lex(":'a'",
+               s(:lit, :a),
+
+               :tSYMBOL, "a", EXPR_LIT, 0, 0)
+  end
+
+  def test_yylex_symbol
+    assert_lex3(":symbol", nil, :tSYMBOL, "symbol", EXPR_LIT)
   end
 
   def test_yylex_symbol_double
@@ -2704,21 +2899,21 @@ class TestRubyLexer < Minitest::Test
                 :tSYMBOL, "symbol", EXPR_LIT)
   end
 
-  def test_yylex_symbol_single_noninterp
-    assert_lex3(':\'symbol#{1+1}\'',
-                nil,
-                :tSYMBOL, 'symbol#{1+1}', EXPR_LIT)
-  end
-
   def test_yylex_symbol_single_escape_chars
     assert_lex3(":'s\\tri\\ng'",
                 nil,
                 :tSYMBOL, "s\\tri\\ng", EXPR_LIT)
   end
 
-  def test_yylex_string_single_escape_quote_and_backslash
-    assert_lex3(":'foo\\'bar\\\\baz'", nil, :tSYMBOL, "foo'bar\\baz",
-                EXPR_LIT)
+  def test_yylex_symbol_single_noninterp
+    assert_lex3(':\'symbol#{1+1}\'',
+                nil,
+                :tSYMBOL, 'symbol#{1+1}', EXPR_LIT)
+  end
+
+  def test_yylex_symbol_zero_byte
+    assert_lex(":\"symbol\0\"", nil,
+                :tSYMBOL, "symbol\0", EXPR_LIT)
   end
 
   def test_yylex_ternary1
@@ -2814,200 +3009,5 @@ class TestRubyLexer < Minitest::Test
                 :tIDENTIFIER, "s",          EXPR_ARG,
                 :tEQL,        "=",          EXPR_BEG,
                 :tFLOAT,      0.0,          EXPR_NUM)
-  end
-
-  def test_pct_w_backslashes
-    ["\t", "\n", "\r", "\v", "\f"].each do |char|
-      next if !RubyLexer::HAS_ENC and char == "\v"
-
-      assert_lex("%w[foo#{char}bar]",
-                 s(:array, s(:str, "foo"), s(:str, "bar")),
-
-                 :tQWORDS_BEG,     "%w[", EXPR_BEG, 0, 0,
-                 :tSTRING_CONTENT, "foo", EXPR_BEG, 0, 0,
-                 :tSPACE,          nil,   EXPR_BEG, 0, 0,
-                 :tSTRING_CONTENT, "bar", EXPR_BEG, 0, 0,
-                 :tSPACE,          nil,   EXPR_BEG, 0, 0,
-                 :tSTRING_END,     nil,   EXPR_LIT, 0, 0)
-    end
-  end
-
-  def test_yylex_sym_quoted
-    assert_lex(":'a'",
-               s(:lit, :a),
-
-               :tSYMBOL, "a", EXPR_LIT, 0, 0)
-  end
-
-  def test_yylex_hash_colon
-    assert_lex("{a:1}",
-               s(:hash, s(:lit, :a), s(:lit, 1)),
-
-               :tLBRACE, "{",  EXPR_PAR,    0, 1,
-               :tLABEL,  "a",  EXPR_LAB,    0, 1,
-               :tINTEGER, 1,   EXPR_NUM,    0, 1,
-               :tRCURLY, "}", EXPR_END,     0, 0)
-  end
-
-  def test_yylex_hash_colon_quoted_22
-    setup_lexer_class RubyParser::V22
-
-    assert_lex("{'a':1}",
-               s(:hash, s(:lit, :a), s(:lit, 1)),
-
-               :tLBRACE, "{", EXPR_PAR,    0, 1,
-               :tLABEL,  "a", EXPR_LAB,    0, 1,
-               :tINTEGER, 1,  EXPR_NUM,    0, 1,
-               :tRCURLY, "}", EXPR_ENDARG, 0, 0)
-  end
-
-  def test_yylex_hash_colon_quoted_symbol
-    assert_lex("{'abc': :b}",
-               s(:hash, s(:lit, :abc), s(:lit, :b)),
-
-               :tLBRACE, "{",   EXPR_PAR, 0, 1,
-               :tLABEL,  "abc", EXPR_LAB, 0, 1,
-               :tSYMBOL, "b",   EXPR_LIT, 0, 1,
-               :tRCURLY, "}",   EXPR_END, 0, 0)
-  end
-
-  def test_yylex_hash_colon_quoted_symbol_22
-    setup_lexer_class RubyParser::V22
-
-    assert_lex("{'abc': :b}",
-               s(:hash, s(:lit, :abc), s(:lit, :b)),
-
-               :tLBRACE, "{",   EXPR_PAR,    0, 1,
-               :tLABEL,  "abc", EXPR_LAB,    0, 1,
-               :tSYMBOL, "b",   EXPR_LIT,    0, 1,
-               :tRCURLY, "}",   EXPR_ENDARG, 0, 0)
-  end
-
-  def test_yylex_hash_colon_double_quoted_symbol
-    assert_lex('{"abc": :b}',
-               s(:hash, s(:lit, :abc), s(:lit, :b)),
-
-               :tLBRACE, "{",   EXPR_PAR, 0, 1,
-               :tLABEL,  "abc", EXPR_LAB, 0, 1,
-               :tSYMBOL, "b",   EXPR_LIT, 0, 1,
-               :tRCURLY, "}",   EXPR_END, 0, 0)
-  end
-
-  def test_yylex_hash_colon_double_quoted_symbol_22
-    setup_lexer_class RubyParser::V22
-
-    assert_lex('{"abc": :b}',
-               s(:hash, s(:lit, :abc), s(:lit, :b)),
-
-               :tLBRACE, "{",   EXPR_PAR,    0, 1,
-               :tLABEL,  "abc", EXPR_LAB,    0, 1,
-               :tSYMBOL, "b",   EXPR_LIT,    0, 1,
-               :tRCURLY, "}",   EXPR_ENDARG, 0, 0)
-  end
-
-  def test_yylex_required_kwarg_no_value_22
-    setup_lexer_class RubyParser::V22
-
-    assert_lex3("def foo a:, b:\nend",
-                nil,
-                :kDEF,        "def", EXPR_FNAME,
-                :tIDENTIFIER, "foo", EXPR_ENDFN,
-                :tLABEL,      "a",   EXPR_LAB,
-                :tCOMMA,      ",",   EXPR_PAR,
-                :tLABEL,      "b",   EXPR_LAB,
-                :kEND,        "end", EXPR_END)
-  end
-
-  def test_yylex_hash_colon_double_quoted_with_escapes
-    assert_lex3("{\"s\\tr\\i\\ng\\\\foo\\'bar\":1}",
-               nil,
-
-               :tLBRACE, "{",                  EXPR_PAR,
-               :tLABEL,  "s\tr\i\ng\\foo'bar", EXPR_LAB,
-               :tINTEGER, 1,                   EXPR_NUM,
-               :tRCURLY, "}",                  EXPR_END)
-  end
-
-  def test_yylex_hash_colon_quoted_with_escapes
-    assert_lex3("{'s\\tr\\i\\ng\\\\foo\\'bar':1}",
-               nil,
-
-               :tLBRACE, "{",                     EXPR_PAR,
-               :tLABEL,  "s\\tr\\i\\ng\\foo'bar", EXPR_LAB,
-               :tINTEGER, 1,                      EXPR_NUM,
-               :tRCURLY, "}",                     EXPR_END)
-  end
-
-  def test_ruby21_rational_literal
-    setup_lexer_class RubyParser::V21
-
-    assert_lex3("10r",     nil, :tRATIONAL, Rational(10),        EXPR_NUM)
-    assert_lex3("0x10r",   nil, :tRATIONAL, Rational(16),        EXPR_NUM)
-    assert_lex3("0o10r",   nil, :tRATIONAL, Rational(8),         EXPR_NUM)
-    assert_lex3("0or",     nil, :tRATIONAL, Rational(0),         EXPR_NUM)
-    assert_lex3("0b10r",   nil, :tRATIONAL, Rational(2),         EXPR_NUM)
-    assert_lex3("1.5r",    nil, :tRATIONAL, Rational(15, 10),    EXPR_NUM)
-    assert_lex3("15e3r",   nil, :tRATIONAL, Rational(15000),     EXPR_NUM)
-    assert_lex3("15e-3r",  nil, :tRATIONAL, Rational(15, 1000),  EXPR_NUM)
-    assert_lex3("1.5e3r",  nil, :tRATIONAL, Rational(1500),      EXPR_NUM)
-    assert_lex3("1.5e-3r", nil, :tRATIONAL, Rational(15, 10000), EXPR_NUM)
-
-    r10 = Rational(10)
-    assert_lex3("-10r", nil,
-                :tUMINUS_NUM, "-", EXPR_BEG,
-                :tRATIONAL,   r10, EXPR_NUM)
-  end
-
-  def test_ruby21_imaginary_literal
-    setup_lexer_class RubyParser::V21
-
-    assert_lex3("1i",      nil, :tIMAGINARY, Complex(0, 1),      EXPR_NUM)
-    assert_lex3("0x10i",   nil, :tIMAGINARY, Complex(0, 16),     EXPR_NUM)
-    assert_lex3("0o10i",   nil, :tIMAGINARY, Complex(0, 8),      EXPR_NUM)
-    assert_lex3("0oi",     nil, :tIMAGINARY, Complex(0, 0),      EXPR_NUM)
-    assert_lex3("0b10i",   nil, :tIMAGINARY, Complex(0, 2),      EXPR_NUM)
-    assert_lex3("1.5i",    nil, :tIMAGINARY, Complex(0, 1.5),    EXPR_NUM)
-    assert_lex3("15e3i",   nil, :tIMAGINARY, Complex(0, 15000),  EXPR_NUM)
-    assert_lex3("15e-3i",  nil, :tIMAGINARY, Complex(0, 0.015),  EXPR_NUM)
-    assert_lex3("1.5e3i",  nil, :tIMAGINARY, Complex(0, 1500),   EXPR_NUM)
-    assert_lex3("1.5e-3i", nil, :tIMAGINARY, Complex(0, 0.0015), EXPR_NUM)
-
-    c010 = Complex(0, 10)
-    assert_lex3("-10i", nil,
-                :tUMINUS_NUM, "-",  EXPR_BEG,
-                :tIMAGINARY,  c010, EXPR_NUM)
-  end
-
-  def test_ruby21_rational_imaginary_literal
-    setup_lexer_class RubyParser::V21
-
-    assert_lex3 "1ri",      nil, :tIMAGINARY, Complex(0, Rational(1)),        EXPR_NUM
-    assert_lex3 "0x10ri",   nil, :tIMAGINARY, Complex(0, Rational(16)),       EXPR_NUM
-    assert_lex3 "0o10ri",   nil, :tIMAGINARY, Complex(0, Rational(8)),        EXPR_NUM
-    assert_lex3 "0ori",     nil, :tIMAGINARY, Complex(0, Rational(0)),        EXPR_NUM
-    assert_lex3 "0b10ri",   nil, :tIMAGINARY, Complex(0, Rational(2)),        EXPR_NUM
-    assert_lex3 "1.5ri",    nil, :tIMAGINARY, Complex(0, Rational("1.5")),    EXPR_NUM
-    assert_lex3 "15e3ri",   nil, :tIMAGINARY, Complex(0, Rational("15e3")),   EXPR_NUM
-    assert_lex3 "15e-3ri",  nil, :tIMAGINARY, Complex(0, Rational("15e-3")),  EXPR_NUM
-    assert_lex3 "1.5e3ri",  nil, :tIMAGINARY, Complex(0, Rational("1.5e3")),  EXPR_NUM
-    assert_lex3 "1.5e-3ri", nil, :tIMAGINARY, Complex(0, Rational("1.5e-3")), EXPR_NUM
-
-    assert_lex3("-10ri", nil,
-                :tUMINUS_NUM, "-", EXPR_BEG,
-                :tIMAGINARY, Complex(0, Rational(10)), EXPR_NUM)
-  end
-
-  def test_ruby21_imaginary_literal_with_succeeding_keyword
-    setup_lexer_class RubyParser::V21
-
-    # 2/4 scenarios are syntax errors on all tested versions so I
-    # deleted them.
-
-    assert_lex3("1if", nil,
-                :tINTEGER, 1,    EXPR_NUM,
-                :kIF_MOD,  "if", EXPR_PAR)
-    assert_lex3("1.0if", nil,
-                :tFLOAT,  1.0,  EXPR_NUM,
-                :kIF_MOD, "if", EXPR_PAR)
   end
 end

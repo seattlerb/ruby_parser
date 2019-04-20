@@ -11,23 +11,22 @@ class RubyParser
 
   attr_accessor :current
 
-  class Parser < Racc::Parser
-    include RubyParserStuff
+  def self.for_current_ruby
+    name  = "V#{RUBY_VERSION[/^\d+\.\d+/].delete "."}"
+    klass = if const_defined? name then
+              const_get name
+            else
+              latest = VERSIONS.first
+              warn "NOTE: RubyParser::#{name} undefined, using #{latest}."
+              latest
+            end
 
-    def self.inherited x
-      RubyParser::VERSIONS << x
-    end
-
-    def self.version= v
-       @version = v
-    end
-
-    def self.version
-      @version ||= Parser > self && self.name[/(?:V|Ruby)(\d+)/, 1].to_i
-    end
+    klass.new
   end
 
-  class SyntaxError < RuntimeError; end
+  def self.latest
+    VERSIONS.first.new
+  end
 
   def process s, f = "(string)", t = 10
     e = nil
@@ -48,22 +47,23 @@ class RubyParser
     # do nothing
   end
 
-  def self.latest
-    VERSIONS.first.new
+  class Parser < Racc::Parser
+    include RubyParserStuff
+
+    def self.inherited x
+      RubyParser::VERSIONS << x
+    end
+
+    def self.version= v
+       @version = v
+    end
+
+    def self.version
+      @version ||= Parser > self && self.name[/(?:V|Ruby)(\d+)/, 1].to_i
+    end
   end
 
-  def self.for_current_ruby
-    name  = "V#{RUBY_VERSION[/^\d+\.\d+/].delete "."}"
-    klass = if const_defined? name then
-              const_get name
-            else
-              latest = VERSIONS.first
-              warn "NOTE: RubyParser::#{name} undefined, using #{latest}."
-              latest
-            end
-
-    klass.new
-  end
+  class SyntaxError < RuntimeError; end
 end
 
 ##
