@@ -435,7 +435,7 @@ module RubyParserStuff
         end
       else
         warn "unprocessed: %p" % [s]
-      end.map { |l| whitespace_width l[/^[ \t]+/] }
+      end.map { |l| whitespace_width l[/^[ \t]*/] }
     }.compact.min
   end
 
