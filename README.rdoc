@@ -7,9 +7,9 @@ rdoc :: http://docs.seattlerb.org/ruby_parser
 == DESCRIPTION:
 
 ruby_parser (RP) is a ruby parser written in pure ruby (utilizing
-racc--which does by default use a C extension). RP's output is
-the same as ParseTree's output: s-expressions using ruby's arrays and
-base types.
+racc--which does by default use a C extension). It outputs
+s-expressions which can be manipulated and converted back to ruby via
+the ruby2ruby gem.
 
 As an example:
 
