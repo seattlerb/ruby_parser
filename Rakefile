@@ -103,7 +103,7 @@ def ruby_parse version
   ruby_dir  = "ruby-#{version}"
   diff      = "diff#{v}.diff"
   rp_out    = "lib/ruby#{v}_parser.output"
-  rp_y      = "lib/ruby#{v}_parser.y"
+  _rp_y     = "lib/ruby#{v}_parser.y"
   rp_y_rb   = "lib/ruby#{v}_parser.rb"
 
   c_diff    = "compare/#{diff}"
