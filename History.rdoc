@@ -1,3 +1,41 @@
+=== 3.14.0 / 2019-09-24
+
+* 8 minor enhancements:
+
+  * Added Sexp#line_min & new line number debugging feature.
+  * Allow bin/ruby_parse to use RP_TIMEOUT to tweak default timeout for large files & slow debugging modes.
+  * Did you know that custom inspect can't be > 65 chars? 65! Me neither. Fixed.
+  * For now, value_expr == remove_begin.
+  * Improved error messages for unterminated regexps.
+  * Moved all STR_* consts into State::Values and made them State instances.
+  * Overhauled RubyLexer::State + Values to allow for completely separate groups of States.
+  * RubyParserExtras#remove_begin removes nested begins and patches line numbers.
+
+* 22 bug fixes:
+
+  * Changed EOF signaling to return [false, false] per doco.
+  * Changed RubyParserStuff#remove_begin to keep inner line number, if any. (mvz)
+  * Differentiated between lambda call and stabby proc. Added :lambda sexp. (whitequark)
+  * Extended State#== to check equal? first as an optimization.
+  * Fixed a bug in tab indent width.
+  * Fixed a line numbering bug for assignables.
+  * Fixed a line numbering bug for defns w/ nil bodies.
+  * Fixed another missing line number, driven out by ruby_to_ruby bootstrap.
+  * Fixed dedenting squiggle heredocs if interpolation is in the mix. (mvz)
+  * Fixed differentiation of `{ |a| ... }` vs `{ |a,| ... }`. Fixes #236 (whitequark).
+  * Fixed lex_state for symbols.
+  * Fixed lex_state for tSTRING_END and tREGEXP_END.
+  * Fixed line numbers for BEGIN block. (mvz)
+  * Fixed op_asgn1 w/ command_call having array instead of arglist. (mvz)
+  * Fixed parsing of () in a command-call (eg p).
+  * Fixed remaining missing line numbers by forcing extra checks during test and blowing up. They may still be wrong (esp after heredocs, ugh), but they're there! Special thank you to mvz for pushing on this and providing tests and PRs.
+  * Fixed some lex_state versioning issues with closing braces/bracket on ruby<25.
+  * Keep carriage return escapes in heredocs. (mvz)
+  * Massive overhaul of line number code.
+  * More line number fixes and extra tests from mvz. Thank you!
+  * Parsing BEGIN block when not at top level should raise an error. (mvz)
+  * Removed irb task from Rakefile as it has been pushed up to Hoe and doubles up here.
+
 === 3.13.1 / 2019-03-25
 
 * 1 major enhancement:
