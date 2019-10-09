@@ -24,6 +24,8 @@ Hoe.spec "ruby_parser" do
   dependency "rake", "< 11", :developer
   dependency "oedipus_lex", "~> 2.5", :developer
 
+  require_ruby_version "~> 2.2"
+
   if plugin? :perforce then     # generated files
     V2.each do |n|
       self.perforce_ignore << "lib/ruby#{n}_parser.rb"
