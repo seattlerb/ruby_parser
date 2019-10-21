@@ -162,6 +162,16 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_backticks_interpolation_line
+    rb = 'x `#{y}`'
+    pt = s(:call, nil, :x,
+           s(:dxstr, "",
+             s(:evstr,
+               s(:call, nil, :y).line(1)).line(1))).line(1)
+
+    assert_parse rb, pt
+  end
+
   def test_bang_eq
     rb = "1 != 2"
     pt = s(:not, s(:call, s(:lit, 1), :"==", s(:lit, 2)))
