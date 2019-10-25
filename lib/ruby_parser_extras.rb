@@ -1242,7 +1242,7 @@ module RubyParserStuff
       when :dstr
         str.sexp_type = :dxstr
       else
-        str = s(:dxstr, "", str)
+        str = s(:dxstr, "", str).line str.line
       end
       str
     else
