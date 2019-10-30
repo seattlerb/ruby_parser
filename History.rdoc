@@ -1,3 +1,15 @@
+=== 3.14.1 / 2019-10-29
+
+* 1 minor enhancement:
+
+  * Declared that ruby_parser supports ruby 2.2 and up.
+
+* 3 bug fixes:
+
+  * Fixed a problem with %W with a null-byte terminator. (wtf?) (spohlenz)
+  * Fixed line numbering for command (eg methods without parentheses) arguments. (mvz)
+  * Fixed lineno on new dxstrs. (presidentbeef)
+
 === 3.14.0 / 2019-09-24
 
 * 8 minor enhancements:

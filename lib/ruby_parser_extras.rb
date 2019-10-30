@@ -28,7 +28,7 @@ class Sexp
 end
 
 module RubyParserStuff
-  VERSION = "3.14.0"
+  VERSION = "3.14.1"
 
   attr_accessor :lexer, :in_def, :in_single, :file
   attr_accessor :in_kwarg
