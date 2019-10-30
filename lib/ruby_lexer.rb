@@ -1177,8 +1177,6 @@ class RubyLexer
       handled = true
 
       case
-      when paren_re && scan(paren_re) then
-        self.string_nest += 1
       when scan(term_re) then
         if self.string_nest == 0 then
           ss.pos -= 1
@@ -1186,6 +1184,8 @@ class RubyLexer
         else
           self.string_nest -= 1
         end
+      when paren_re && scan(paren_re) then
+        self.string_nest += 1
       when expand && scan(/#(?=[\$\@\{])/) then # TODO: this seems wrong
         ss.pos -= 1
         break
@@ -1232,9 +1232,9 @@ class RubyLexer
             end
         x = Regexp.escape paren if paren && paren != "\000"
         re = if qwords then
-               /[^#{t}#{x}\#\0\\\s]+|./ # |. to pick up whatever
+               /[^#{t}#{x}\#\\\s]+|./ # |. to pick up whatever
              else
-               /[^#{t}#{x}\#\0\\]+|./
+               /[^#{t}#{x}\#\\]+|./
              end
 
         scan re

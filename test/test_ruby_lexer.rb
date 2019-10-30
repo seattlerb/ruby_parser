@@ -2657,6 +2657,22 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_END,     "]",     EXPR_LIT)
   end
 
+  def test_yylex_string_pct_Q_null_wtf?
+    assert_lex3("%Q\0s1 s2\0",
+                nil,
+                :tSTRING_BEG,     "%Q\0",  EXPR_BEG,
+                :tSTRING_CONTENT, "s1 s2", EXPR_BEG,
+                :tSTRING_END,     "\0",    EXPR_LIT)
+  end
+
+  def test_yylex_string_pct_Q_bang
+    assert_lex3("%Q!s1 s2!",
+                nil,
+                :tSTRING_BEG,     "%Q\0",  EXPR_BEG,
+                :tSTRING_CONTENT, "s1 s2", EXPR_BEG,
+                :tSTRING_END,     "!",     EXPR_LIT)
+  end
+
   def test_yylex_string_pct_W
     assert_lex3("%W[s1 s2\ns3]", # TODO: add interpolation to these
                 nil,
