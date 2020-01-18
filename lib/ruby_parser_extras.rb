@@ -124,12 +124,6 @@ module RubyParserStuff
     self.reset
   end
 
-  def arg_blk_pass node1, node2 # TODO: nuke
-    node1 = s(:arglist, node1) unless ARG_TYPES[node1.sexp_type]
-    node1 << node2 if node2
-    node1
-  end
-
   def arg_concat node1, node2 # TODO: nuke
     raise "huh" unless node2
 

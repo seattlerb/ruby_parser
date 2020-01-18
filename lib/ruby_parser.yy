@@ -1063,17 +1063,14 @@ rule
                 | args opt_block_arg
                     {
                       result = call_args val
-                      result = self.arg_blk_pass val[0], val[1]
                     }
                 | assocs opt_block_arg
                     {
-                      result = call_args [array_to_hash(val[0])]
-                      result = self.arg_blk_pass result, val[1]
+                      result = call_args [array_to_hash(val[0]), val[1]]
                     }
                 | args tCOMMA assocs opt_block_arg
                     {
-                      result = call_args [val[0], array_to_hash(val[2])]
-                      result = self.arg_blk_pass result, val[3]
+                      result = call_args [val[0], array_to_hash(val[2]), val[3]]
                     }
                 | block_arg
                     {
