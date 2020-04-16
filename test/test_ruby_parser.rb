@@ -900,6 +900,13 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_heredoc_with_not_global_interpolation
+    rb = "<<-HEREDOC\n#${\nHEREDOC"
+    pt = s(:str, "\#${\n")
+
+    assert_parse rb, pt
+  end
+
   def test_i_fucking_hate_line_numbers
     rb = <<-END.gsub(/^ {6}/, "")
       if true
