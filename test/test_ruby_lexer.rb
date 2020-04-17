@@ -1,6 +1,4 @@
-# encoding: US-ASCII
-
-# TODO: work this out
+# encoding: UTF-8
 
 require "minitest/autorun"
 require "ruby_lexer"
@@ -84,6 +82,8 @@ class TestRubyLexer < Minitest::Test
       assert_in_epsilon value, act_value, 0.001, msg
     when NilClass then
       assert_nil act_value, msg
+    when String then
+      assert_equal value, act_value.dup.force_encoding(Encoding::UTF_8), msg
     else
       assert_equal value, act_value, msg
     end
@@ -98,7 +98,7 @@ class TestRubyLexer < Minitest::Test
 
   def assert_read_escape expected, input
     @lex.ss.string = input.dup
-    assert_equal expected, @lex.read_escape.b, input
+    assert_equal expected, @lex.read_escape.dup.force_encoding(Encoding::UTF_8), input
   end
 
   def assert_read_escape_bad input # TODO: rename refute_read_escape
