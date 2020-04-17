@@ -876,6 +876,16 @@ class RubyLexer
     return token
   end
 
+  def process_string_literal text
+    content = text[1..-2]
+    unescaped = begin
+      content.gsub(ESC) { unescape $1 }
+    rescue Encoding::CompatibilityError
+      content.force_encoding(Encoding::ASCII_8BIT).gsub(ESC) { unescape $1 }
+    end
+    result EXPR_END, :tSTRING, unescaped
+  end
+
   def process_symbol text
     symbol = possibly_escape_string text, /^:"/
 

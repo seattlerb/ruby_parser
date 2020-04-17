@@ -312,6 +312,11 @@ class TestRubyLexer < Minitest::Test
     assert_lex3(s.dup, nil, :tIVAR, s.dup, EXPR_END)
   end
 
+  def test_invalid_enocoding_string_literal
+    s = "\"\\xBA\\xBBƮ\\xC1\\xF7\\xB1\\xB8\""
+    assert_lex3(s.dup, nil, :tSTRING, "\xBA\xBBƮ\xC1\xF7\xB1\xB8", EXPR_END)
+  end
+
   def test_why_does_ruby_hate_me?
     assert_lex3("\"Nl%\\000\\000A\\000\\999\"", # you should be ashamed
                 nil,
