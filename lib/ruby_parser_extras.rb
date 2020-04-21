@@ -723,7 +723,9 @@ module RubyParserStuff
       result = block_append(result, elsebody)
     end
 
-    result = s(:ensure, result, ensurebody).compact.line result.line if ensurebody
+    if ensurebody
+      result = s(:ensure, result, ensurebody).compact.line (result || ensurebody).line
+    end
 
     result
   end

@@ -185,6 +185,13 @@ module TestRubyParserShared
     assert_syntax_error rb, "else without rescue is useless"
   end
 
+  def test_begin_rescue_ensure_no_bodies
+    rb = "begin\nensure\nend"
+    pt = s(:ensure, s(:nil).line(2)).line(2)
+
+    assert_parse rb, pt
+  end
+
   def test_block_append
     head = s(:args).line 1
     tail = s(:zsuper).line 2
