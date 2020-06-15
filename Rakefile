@@ -232,6 +232,7 @@ task :debug3 do
 
   ENV.delete "V"
 
+  sh "ruby -v"
   sh "ruby -y #{file} 2>&1 | #{munge} > tmp/ruby"
   sh "./tools/ripper.rb -d #{file} | #{munge} > tmp/rip"
   sh "rake debug F=#{file} DEBUG=1 V=25 2>&1 | #{munge} > tmp/rp"
