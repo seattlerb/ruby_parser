@@ -1,5 +1,44 @@
 # Quick Notes to Help with Debugging
 
+## Reducing
+
+One of the most important steps is reducing the code sample to a
+minimal reproduction. For example, one thing I'm debugging right now
+was reported as:
+
+```ruby
+a, b, c, d, e, f, g, h, i, j = 1, *[p1, p2, p3], *[p1, p2, p3], *[p4, p5, p6]
+```
+
+This original sample has 10 items on the left-hand-side (LHS) and 1 +
+3 groups of 3 (calls) on the RHS + 3 arrays + 3 splats. That's a lot.
+
+It's already been reported (perhaps incorrectly) that this has to do
+with multiple splats on the RHS, so let's focus on that. At a minimum
+the code can be reduced to 2 splats on the RHS and some
+experimentation shows that it needs a non-splat item to fail:
+
+```
+_, _, _ = 1, *[2], *[3]
+```
+
+and some intuition further removed the arrays:
+
+```
+_, _, _ = 1, *2, *3
+```
+
+the difference is huge and will make a ton of difference when
+debugging.
+
+## Getting something to compare
+
+```
+% rake debug3 F=file.rb
+```
+
+TODO
+
 ## Comparing against ruby / ripper:
 
 ```
