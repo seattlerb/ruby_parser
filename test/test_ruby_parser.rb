@@ -185,6 +185,57 @@ module TestRubyParserShared
     assert_syntax_error rb, "else without rescue is useless"
   end
 
+  def test_begin_ensure_no_bodies
+    rb = "begin\nensure\nend"
+    pt = s(:ensure, s(:nil).line(2)).line(2)
+
+    assert_parse rb, pt
+  end
+
+  def test_begin_rescue_ensure_no_bodies
+    rb = "begin\nrescue\nensure\nend"
+    pt = s(:ensure,
+           s(:rescue,
+             s(:resbody, s(:array).line(2),
+               nil).line(2)
+            ).line(2),
+           s(:nil).line(3)
+          ).line(2)
+
+    assert_parse rb, pt
+  end
+
+  def test_begin_rescue_else_ensure_bodies
+    rb = "begin\n  1\nrescue\n  2\nelse\n  3\nensure\n  4\nend"
+    pt = s(:ensure,
+           s(:rescue,
+             s(:lit, 1).line(2),
+             s(:resbody, s(:array).line(3),
+               s(:lit, 2).line(4)).line(3),
+             s(:lit, 3).line(6)).line(2),
+           s(:lit, 4).line(8)).line(2)
+
+    s(:ensure, s(:rescue, s(:resbody, s(:array), nil)), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_begin_rescue_else_ensure_no_bodies
+    rb = "begin\n\nrescue\n\nelse\n\nensure\n\nend"
+    pt = s(:ensure,
+           s(:rescue,
+             s(:resbody, s(:array).line(3),
+               # TODO: s(:nil)
+               nil
+              ).line(3),
+            ).line(3),
+          s(:nil).line(7)).line(3)
+
+    s(:ensure, s(:rescue, s(:resbody, s(:array), nil)), s(:nil))
+
+    assert_parse rb, pt
+  end
+
   def test_block_append
     head = s(:args).line 1
     tail = s(:zsuper).line 2
