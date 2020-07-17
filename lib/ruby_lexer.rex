@@ -62,7 +62,7 @@ rule
 |               /\=(?=begin\b)/         { result arg_state, TOKENS[text], text }
 
 ruby22_label?   /\"#{SIMPLE_STRING}\":/o process_label
-                /\"(#{SIMPLE_STRING})\"/o { result EXPR_END, :tSTRING, text[1..-2].gsub(ESC) { unescape $1 } }
+                /\"(#{SIMPLE_STRING})\"/o process_simple_string
                 /\"/                    { string STR_DQUOTE; result nil, :tSTRING_BEG, text }
 
                 /\@\@?\d/               { rb_compile_error "`#{text}` is not allowed as a variable name" }

@@ -457,7 +457,7 @@ class RubyLexer
     if text =~ check then
       content.gsub(ESC) { unescape $1 }
     else
-      content.gsub(/\\\\/, "\\").gsub(/\\'/, "'")
+      content.gsub(/\\\\/, "\\").gsub(/\\\'/, "'")
     end
   end
 
@@ -795,6 +795,16 @@ class RubyLexer
         end
 
     result EXPR_END, :tSTRING, c
+  end
+
+  def process_simple_string text
+    replacement = text[1..-2].gsub(ESC) {
+      unescape($1).b.force_encoding Encoding::UTF_8
+    }
+
+    replacement = replacement.b unless replacement.valid_encoding?
+
+    result EXPR_END, :tSTRING, replacement
   end
 
   def process_slash text
