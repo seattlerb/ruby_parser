@@ -177,10 +177,15 @@ class RubyLexer
 
     if expand then
       case
-      when scan(/#[$@]/) then
-        ss.pos -= 1 # FIX omg stupid
+      when scan(/#(?=\$(-.|[a-zA-Z_0-9~\*\$\?!@\/\\;,\.=:<>\"\&\`\'+]))/) then
+        # TODO: !ISASCII
+        # ?! see parser_peek_variable_name
+        return :tSTRING_DVAR, matched
+      when scan(/#(?=\@\@?[a-zA-Z_])/) then
+        # TODO: !ISASCII
         return :tSTRING_DVAR, matched
       when scan(/#[{]/) then
+        self.command_start = true
         return :tSTRING_DBEG, matched
       when scan(/#/) then
         string_buffer << "#"

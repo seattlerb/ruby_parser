@@ -1108,11 +1108,11 @@ class TestRubyLexer < Minitest::Test
                 :tEQL,            "=",     EXPR_BEG,
                 :tSTRING_BEG,     "\"",    EXPR_BEG,
                 :tSTRING_CONTENT, "#x a ", EXPR_BEG,
-                :tSTRING_DVAR,    "\#@",   EXPR_BEG,
+                :tSTRING_DVAR,    "#",     EXPR_BEG,
                 :tSTRING_CONTENT, "@a b ", EXPR_BEG, # HUH?
-                :tSTRING_DVAR,    "\#$",   EXPR_BEG,
+                :tSTRING_DVAR,    "#",     EXPR_BEG,
                 :tSTRING_CONTENT, "$b c ", EXPR_BEG, # HUH?
-                :tSTRING_DVAR,    "\#@",   EXPR_BEG,
+                :tSTRING_DVAR,    "#",     EXPR_BEG,
                 :tSTRING_CONTENT, "@@d ",  EXPR_BEG, # HUH?
                 :tSTRING_DBEG,    "\#{",   EXPR_BEG,
                 :tSTRING_CONTENT, "3} \n", EXPR_BEG,
