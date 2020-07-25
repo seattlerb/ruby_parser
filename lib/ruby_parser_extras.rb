@@ -878,7 +878,9 @@ module RubyParserStuff
   end
 
   def new_hash val
-    s(:hash, *val[2].values).line(val[1])
+    _, line, assocs = val
+
+    s(:hash).line(line).concat assocs.values
   end
 
   def new_if c, t, f
