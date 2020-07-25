@@ -24,8 +24,6 @@ Hoe.spec "ruby_parser" do
   dependency "sexp_processor", "~> 4.9"
   dependency "rake", "< 11", :developer
   dependency "oedipus_lex", "~> 2.5", :developer
-  dependency "pry", ">0", :developer
-  dependency "pry-byebug", ">0", :developer
 
   require_ruby_version "~> 2.2"
 
