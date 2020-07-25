@@ -923,6 +923,13 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_heredoc_with_extra_carriage_horrible_mix?
+    rb = "<<'eot'\r\nbody\r\neot\n"
+    pt = s(:str, "body\r\n")
+
+    assert_parse rb, pt
+  end
+
   def test_heredoc_with_interpolation_and_carriage_return_escapes
     rb = "<<EOS\nfoo\\r\#@bar\nEOS\n"
     pt = s(:dstr, "foo\r", s(:evstr, s(:ivar, :@bar)), s(:str, "\n"))
@@ -3646,7 +3653,7 @@ module TestRubyParserShared21Plus
 
   def test_bug162__21plus
     rb = %q(<<E\nfoo\nE\rO)
-    emsg = "can't match /E(\n|\\z)/ anywhere in . near line 1: \"\""
+    emsg = "can't match /E(\\r*\\n|\\z)/ anywhere in . near line 1: \"\""
 
     assert_syntax_error rb, emsg
   end

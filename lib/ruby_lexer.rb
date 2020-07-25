@@ -162,7 +162,7 @@ class RubyLexer
     indent         = func =~ STR_FUNC_INDENT ? "[ \t]*" : nil
     expand         = func =~ STR_FUNC_EXPAND
     eol            = last_line && last_line.end_with?("\r\n") ? "\r\n" : "\n"
-    eos_re         = /#{indent}#{Regexp.escape eos}(#{eol}|\z)/
+    eos_re         = /#{indent}#{Regexp.escape eos}(\r*\n|\z)/
     err_msg        = "can't match #{eos_re.inspect} anywhere in "
 
     rb_compile_error err_msg if end_of_stream?
