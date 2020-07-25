@@ -1231,20 +1231,23 @@ module RubyParserStuff
     result
   end
 
-  def new_xstring str
-    if str then
-      case str.sexp_type
+  def new_xstring val
+    _, node = val
+
+    node ||= s(:str, "").line lexer.lineno
+
+    if node then
+      case node.sexp_type
       when :str
-        str.sexp_type = :xstr
+        node.sexp_type = :xstr
       when :dstr
-        str.sexp_type = :dxstr
+        node.sexp_type = :dxstr
       else
-        str = s(:dxstr, "", str).line str.line
+        node = s(:dxstr, "", node).line node.line
       end
-      str
-    else
-      s(:xstr, "")
     end
+
+    node
   end
 
   def new_yield args = nil

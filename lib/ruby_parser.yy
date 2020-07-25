@@ -1990,7 +1990,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
          xstring: tXSTRING_BEG xstring_contents tSTRING_END
                     {
-                      result = new_xstring val[1]
+                      result = new_xstring val
                       # TODO: dedent?!?! SERIOUSLY?!?
                     }
 
