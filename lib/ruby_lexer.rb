@@ -343,9 +343,9 @@ class RubyLexer
 
     if scan(/[a-z0-9]{1,2}/i) then # Long-hand (e.g. %Q{}).
       rb_compile_error "unknown type of %string" if ss.matched_size == 2
-      c, beg, short_hand = matched, ss.getch, false
+      c, beg, short_hand = matched, getch, false
     else                               # Short-hand (e.g. %{, %., %!, etc)
-      c, beg, short_hand = "Q", ss.getch, true
+      c, beg, short_hand = "Q", getch, true
     end
 
     if end_of_stream? or c == RubyLexer::EOF or beg == RubyLexer::EOF then
@@ -796,7 +796,7 @@ class RubyLexer
     c = if scan(/\\/) then
           self.read_escape
         else
-          ss.getch
+          getch
         end
 
     result EXPR_END, :tSTRING, c
@@ -1062,8 +1062,14 @@ class RubyLexer
     when scan(/[McCx0-9]/) || end_of_stream? then
       rb_compile_error("Invalid escape character syntax")
     else
-      ss.getch
+      getch
     end.dup
+  end
+
+  def getch
+    c = ss.getch
+    c = ss.getch if c == "\r" && ss.peek(1) == "\n"
+    c
   end
 
   def regx_options # TODO: rewrite / remove

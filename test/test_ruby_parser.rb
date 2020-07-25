@@ -3796,6 +3796,13 @@ module TestRubyParserShared23Plus
     assert_parse rb, pt
   end
 
+  def test_heredoc__backslash_dos_format
+    rb = "str = <<-XXX\r\nbefore\\\r\nafter\r\nXXX\r\n"
+    pt = s(:lasgn, :str, s(:str, "before\nafter\n"))
+
+    assert_parse rb, pt
+  end
+
   def test_heredoc_squiggly
     rb = "a = <<~\"EOF\"\n  x\n  y\n  z\n  EOF\n\n"
     pt = s(:lasgn, :a, s(:str, "x\ny\nz\n"))
