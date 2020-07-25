@@ -25,12 +25,6 @@ class RubyLexer
 
   HAS_ENC = "".respond_to? :encoding
 
-  IDENT_CHAR = if HAS_ENC then
-                 /[\w\u0080-\u{10ffff}]/u
-               else
-                 /[\w\x80-\xFF]/n
-               end
-
   TOKENS = {
     "!"   => :tBANG,
     "!="  => :tNEQ,
@@ -994,9 +988,9 @@ class RubyLexer
     ss.unscan # put back "_"
 
     if beginning_of_line? && scan(/\__END__(\r?\n|\Z)/) then
-      return [RubyLexer::EOF, RubyLexer::EOF]
-    elsif scan(/\_\w*/) then
-      return process_token matched
+      [RubyLexer::EOF, RubyLexer::EOF]
+    elsif scan(/#{IDENT_CHAR}+/) then
+      process_token matched
     end
   end
 
@@ -1033,7 +1027,7 @@ class RubyLexer
     when scan(/x([0-9a-fA-F]{1,2})/) then # hex constant
       # TODO: force encode everything to UTF-8?
       ss[1].to_i(16).chr.force_encoding Encoding::UTF_8
-    when check(/M-\\[\\MCc]/) then
+    when check(/M-\\./) then
       scan(/M-\\/) # eat it
       c = self.read_escape
       c[0] = (c[0].ord | 0x80).chr
@@ -1045,6 +1039,11 @@ class RubyLexer
     when check(/(C-|c)\\[\\MCc]/) then
       scan(/(C-|c)\\/) # eat it
       c = self.read_escape
+      c[0] = (c[0].ord & 0x9f).chr
+      c
+    when check(/(C-|c)\\(?!u|\\)/) then
+      scan(/(C-|c)\\/) # eat it
+      c = read_escape
       c[0] = (c[0].ord & 0x9f).chr
       c
     when scan(/C-\?|c\?/) then

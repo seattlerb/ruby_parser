@@ -6,7 +6,7 @@ class RubyLexer
 
 macro
 
-  IDENT         /^#{IDENT_CHAR}+/o
+  IDENT_CHAR    /[a-zA-Z0-9_[^:ascii:]]/
 
   ESC           /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|u[0-9a-fA-F]{1,4}|u\{[0-9a-fA-F]+\}|[^0-7xMCc]))/
   SIMPLE_STRING /((#{ESC}|\#(#{ESC}|[^\{\#\@\$\"\\])|[^\"\\\#])*)/o
@@ -164,13 +164,12 @@ was_label?        /\'#{SSTRING}\':?/o   process_label_or_string
 | in_fname?     /\$([1-9]\d*)/                   process_gvar
 |               /\$([1-9]\d*)/                   process_nthref
 |               /\$0/                            process_gvar
-|               /\$[^[:ascii:]]+/                process_gvar
+|               /\$#{IDENT_CHAR}+/               process_gvar
 |               /\$\W|\$\z/                      process_gvar_oddity
-|               /\$\w+/                          process_gvar
 
                 /\_/                    process_underscore
 
-                /#{IDENT}/o             process_token
+                /#{IDENT_CHAR}+/o       process_token
 
                 /\004|\032|\000|\Z/     { [RubyLexer::EOF, RubyLexer::EOF] }
 

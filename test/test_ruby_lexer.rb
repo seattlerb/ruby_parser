@@ -925,6 +925,14 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("$1234", nil, :tGVAR, "$1234", EXPR_END)
   end
 
+  def test_yylex_global_I_have_no_words
+    assert_lex3("$x\xE2\x80\x8B = 42", # zero width space?!?!?
+                nil,
+                :tGVAR, "$x\xE2\x80\x8B", EXPR_END,
+                :tEQL,  "=", EXPR_BEG,
+                :tINTEGER, 42, EXPR_NUM)
+  end
+
   def test_yylex_global_other
     assert_lex3("[$~, $*, $$, $?, $!, $@, $/, $\\, $;, $,, $., $=, $:, $<, $>, $\"]",
                 nil,
@@ -2098,6 +2106,10 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("?\\M-\\C-a", nil, :tSTRING, "\M-\C-a", EXPR_END)
   end
 
+  def test_yylex_question_control_escape
+    assert_lex3('?\C-\]', nil, :tSTRING, ?\C-\], EXPR_END)
+  end
+
   def test_yylex_question_ws
     assert_lex3("? ",  nil, :tEH, "?", EXPR_BEG)
     assert_lex3("?\n", nil, :tEH, "?", EXPR_BEG)
@@ -2548,11 +2560,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_string_double_escape_c_backslash
-    assert_lex3("\"\\c\\\"",
-                nil,
-                :tSTRING_BEG,     "\"",   EXPR_BEG,
-                :tSTRING_CONTENT, "\034", EXPR_BEG,
-                :tSTRING_END,     "\"",   EXPR_LIT)
+    refute_lex("\"\\c\\\"", :tSTRING_BEG, '"')
   end
 
   def test_yylex_string_double_escape_c_escape
