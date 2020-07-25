@@ -286,13 +286,15 @@ rule
                     }
                 | primary_value tCOLON2 tCONSTANT tOP_ASGN command_rhs
                     {
-                      result = s(:op_asgn, val[0], val[4], val[2], val[3])
-                      debug20 4, val, result
+                      lhs1, _, lhs2, op, rhs = val
+
+                      result = s(:op_asgn, lhs1, rhs, lhs2.to_sym, op.to_sym)
                     }
                 | primary_value tCOLON2 tIDENTIFIER tOP_ASGN command_rhs
                     {
-                      result = s(:op_asgn, val[0], val[4], val[2], val[3])
-                      debug20 5, val, result
+                      lhs1, _, lhs2, op, rhs = val
+
+                      result = s(:op_asgn, lhs1, rhs, lhs2.to_sym, op.to_sym)
                     }
                 | backref tOP_ASGN command_rhs
                     {

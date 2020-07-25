@@ -1448,9 +1448,27 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  def test_op_asgn_primary_colon_identifier
+  def test_op_asgn_primary_colon_identifier1
     rb = "A::b += 1"
     pt = s(:op_asgn, s(:const, :A), s(:lit, 1), :b, :+) # TODO: check? looks wack
+
+    assert_parse rb, pt
+  end
+
+  def test_op_asgn_primary_colon_const_command_call
+    rb = "A::B *= c d"
+    pt = s(:op_asgn, s(:const, :A),
+           s(:call, nil, :c, s(:call, nil, :d)),
+           :B, :*)
+
+    assert_parse rb, pt
+  end
+
+  def test_op_asgn_primary_colon_identifier_command_call
+    rb = "A::b *= c d"
+    pt = s(:op_asgn, s(:const, :A),
+           s(:call, nil, :c, s(:call, nil, :d)),
+           :b, :*)
 
     assert_parse rb, pt
   end
