@@ -610,7 +610,7 @@ class RubyLexer
   end
 
   def process_label text
-    symbol = possibly_escape_string text, /^"/
+    symbol = possibly_escape_string text, /^\"/
 
     result EXPR_LAB, :tLABEL, [symbol, self.lineno]
   end
@@ -624,7 +624,7 @@ class RubyLexer
       text = text[0..-2]
     end
 
-    result EXPR_END, :tSTRING, text[1..-2].gsub(/\\\\/, "\\").gsub(/\\'/, "'")
+    result EXPR_END, :tSTRING, text[1..-2].gsub(/\\\\/, "\\").gsub(/\\\'/, "\'")
   end
 
   def process_lchevron text
@@ -892,7 +892,7 @@ class RubyLexer
   end
 
   def process_symbol text
-    symbol = possibly_escape_string text, /^:"/
+    symbol = possibly_escape_string text, /^:\"/ # stupid emacs
 
     result EXPR_END|EXPR_ENDARG, :tSYMBOL, symbol
   end

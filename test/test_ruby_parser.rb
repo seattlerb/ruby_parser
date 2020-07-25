@@ -341,7 +341,7 @@ module TestRubyParserShared
   def test_bug190
     skip "not ready for this yet"
 
-    rb = %{%r'\\''}
+    rb = %{%r'\\\''} # stupid emacs
 
     assert_parse rb, :FUCK
     assert_syntax_error rb, "FUCK"
