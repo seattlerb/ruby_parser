@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby -ws
+#!/Users/ryan/.rubies/ruby-2.7.1/bin/ruby -ws
 
 $d ||= false
 $p ||= false

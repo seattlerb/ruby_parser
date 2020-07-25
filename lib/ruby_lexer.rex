@@ -6,7 +6,7 @@ class RubyLexer
 
 macro
 
-  IDENT_CHAR    /[a-zA-Z0-9_[^:ascii:]]/
+  IDENT_CHAR    /[a-zA-Z0-9_[:^ascii:]]/
 
   ESC           /\\((?>[0-7]{1,3}|x[0-9a-fA-F]{1,2}|M-[^\\]|(C-|c)[^\\]|u[0-9a-fA-F]{1,4}|u\{[0-9a-fA-F]+\}|[^0-7xMCc]))/
   SIMPLE_STRING /((#{ESC}|\#(#{ESC}|[^\{\#\@\$\"\\])|[^\"\\\#])*)/o

@@ -24,6 +24,8 @@ Hoe.spec "ruby_parser" do
   dependency "sexp_processor", "~> 4.9"
   dependency "rake", "< 11", :developer
   dependency "oedipus_lex", "~> 2.5", :developer
+  dependency "pry", ">0", :developer
+  dependency "pry-byebug", ">0", :developer
 
   require_ruby_version "~> 2.2"
 
@@ -239,6 +241,10 @@ task :debug3 do
   sh "./tools/ripper.rb -d #{file} | #{munge} > tmp/rip"
   sh "rake debug F=#{file} DEBUG=1 V=25 2>&1 | #{munge} > tmp/rp"
   sh "diff -U 999 -d tmp/{rip,rp}"
+end
+
+task :cmp do
+  sh %(emacsclient --eval '(ediff-files "tmp/ruby" "tmp/rp")')
 end
 
 task :cmp3 do

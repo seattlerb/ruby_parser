@@ -1,4 +1,4 @@
-#!/usr/bin/ruby -ws
+#!/usr/bin/env ruby -ws
 
 $v ||= false
 
@@ -118,6 +118,8 @@ def munge s
 
              /@(\d+)(\s+|$)/,       "",
              /\$?@(\d+) */,         "", # TODO: remove?
+
+             /_EXPR/,               "",
             ]
 
   renames.each_slice(2) do |(a, b)|
@@ -194,10 +196,13 @@ ARGF.each_line do |line|
     # TODO: make pretty, but still informative w/ line numbers etc
     puts line.gsub("true", "1").gsub("false", "0")
   when /^lex_state: :?([\w|]+) -> :?([\w|]+)(?: (?:at|from) (.*))?/ then
-    if $3 && $v then
-      puts "lex_state: #{$1.upcase} -> #{$2.upcase} at #{$3}"
+    a, b, c = $1.upcase, $2.upcase, $3
+    a.gsub! /EXPR_/, ""
+    b.gsub! /EXPR_/, ""
+    if c && $v then
+      puts "lex_state: #{a} -> #{b} at #{c}"
     else
-      puts "lex_state: #{$1.upcase} -> #{$2.upcase}"
+      puts "lex_state: #{a} -> #{b}"
     end
   when /debug|FUCK/ then
     puts line.chomp
