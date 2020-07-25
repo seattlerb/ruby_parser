@@ -8,6 +8,7 @@ Hoe.plugin :racc
 Hoe.plugin :isolate
 Hoe.plugin :rdoc
 
+Hoe.add_include_dirs "lib"
 Hoe.add_include_dirs "../../sexp_processor/dev/lib"
 Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
@@ -191,7 +192,7 @@ task :debug => :isolate do
   Rake.application[:parser].invoke # this way we can have DEBUG set
   Rake.application[:lexer].invoke # this way we can have DEBUG set
 
-  $: << "lib"
+  $:.unshift "lib"
   require "ruby_parser"
   require "pp"
 
@@ -214,8 +215,9 @@ task :debug => :isolate do
 
   begin
     pp parser.process(ruby, file, time)
-  rescue Racc::ParseError => e
+  rescue ArgumentError, Racc::ParseError => e
     p e
+    puts e.backtrace.join "\n  "
     ss = parser.lexer.ss
     src = ss.string
     lines = src[0..ss.pos].split(/\n/)
