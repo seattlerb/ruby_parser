@@ -1455,6 +1455,18 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_lasgn_middle_splat
+    rb = "a = b, *c, d"
+    pt = s(:lasgn, :a,
+           s(:svalue,
+             s(:array,
+               s(:call, nil, :b),
+               s(:splat, s(:call, nil, :c)),
+               s(:call, nil, :d))))
+
+    assert_parse rb, pt
+  end
+
   def test_op_asgn_primary_colon_const_command_call
     rb = "A::B *= c d"
     pt = s(:op_asgn, s(:const, :A),

@@ -1116,9 +1116,11 @@ rule
                       args, _, id = val
                       result = self.list_append args, id
                     }
-                | args tCOMMA tSTAR { result = lexer.lineno } arg_value
+                | args tCOMMA tSTAR arg_value
                     {
-                      args, _, _, line, id = val
+                      # TODO: the line number from tSTAR has been dropped
+                      args, _, _, id = val
+                      line = lexer.lineno
                       result = self.list_append args, s(:splat, id).line(line)
                     }
 
@@ -1139,7 +1141,6 @@ rule
                     }
                 | args tCOMMA tSTAR arg_value
                     {
-                      # FIX: bad shift/reduce conflict with rhs' comma star prod
                       # TODO: make all tXXXX terminals include lexer.lineno
                       arg, _, _, splat = val
                       result = self.arg_concat arg, splat
