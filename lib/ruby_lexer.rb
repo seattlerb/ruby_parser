@@ -1054,10 +1054,12 @@ class RubyLexer
       c
     when scan(/^[89]/i) then # bad octal or hex... MRI ignores them :(
       matched
-    when scan(/u([0-9a-fA-F]{4}|\{[0-9a-fA-F]{2,6}\})/) then
-      [ss[1].delete("{}").to_i(16)].pack("U")
-    when scan(/u([0-9a-fA-F]{1,3})/) then
+    when scan(/u(\h{4})/) then
+      [ss[1].to_i(16)].pack("U")
+    when scan(/u(\h{1,3})/) then
       rb_compile_error "Invalid escape character syntax"
+    when scan(/u\{(\h+(?:\s+\h+)*)\}/) then
+      ss[1].split.map { |s| s.to_i(16) }.pack("U*")
     when scan(/[McCx0-9]/) || end_of_stream? then
       rb_compile_error("Invalid escape character syntax")
     else
@@ -1294,10 +1296,12 @@ class RubyLexer
           s
         when /^[McCx0-9]/ then
           rb_compile_error("Invalid escape character syntax")
-        when /u([0-9a-fA-F]{4}|\{[0-9a-fA-F]{2,6}\})/ then
+        when /u(\h{4})/ then
           [$1.delete("{}").to_i(16)].pack("U")
-        when /u([0-9a-fA-F]{1,3})/ then
+        when /u(\h{1,3})/ then
           rb_compile_error("Invalid escape character syntax")
+        when /u\{(\h+(?:\s+\h+)*)\}/ then
+          $1.split.map { |s| s.to_i(16) }.pack("U*")
         else
           s
         end
