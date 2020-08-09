@@ -104,9 +104,14 @@ rescue Timeout::Error
   warn "TIMEOUT parsing #{file}. Skipping."
 
   if $m then
-    dir = File.join $m, File.dirname(file)
-    FileUtils.mkdir_p dir
-    FileUtils.move file, dir
+    base_dir, *rest = file.split("/")
+    base_dir.sub!(/\.slow\.?.*/, "")
+    base_dir += ".slow.#{time}"
+
+    new_file = File.join(base_dir, *rest)
+
+    FileUtils.mkdir_p File.dirname(new_file)
+    FileUtils.move file, new_file, verbose:true
   elsif $t then
     File.unlink file
   end
