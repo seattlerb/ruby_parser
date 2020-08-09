@@ -57,6 +57,8 @@ end
 
 file "lib/ruby_lexer.rex.rb" => "lib/ruby_lexer.rex"
 
+task :generate => [:lexer, :parser]
+
 task :clean do
   rm_rf(Dir["**/*~"] +
         Dir["diff.diff"] + # not all diffs. bit me too many times
