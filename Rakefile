@@ -185,9 +185,9 @@ ruby_parse "2.0.0-p648"
 ruby_parse "2.1.9"
 ruby_parse "2.2.9"
 ruby_parse "2.3.8"
-ruby_parse "2.4.5"
-ruby_parse "2.5.3"
-ruby_parse "2.6.1"
+ruby_parse "2.4.9"
+ruby_parse "2.5.8"
+ruby_parse "2.6.6"
 
 task :debug => :isolate do
   ENV["V"] ||= V2.last
@@ -239,7 +239,7 @@ task :debug3 do
   sh "ruby -v"
   sh "ruby -y #{file} 2>&1 | #{munge} > tmp/ruby"
   sh "./tools/ripper.rb -d #{file} | #{munge} > tmp/rip"
-  sh "rake debug F=#{file} DEBUG=1 V=25 2>&1 | #{munge} > tmp/rp"
+  sh "rake debug F=#{file} DEBUG=1 2>&1 | #{munge} > tmp/rp"
   sh "diff -U 999 -d tmp/{rip,rp}"
 end
 
