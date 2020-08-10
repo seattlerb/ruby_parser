@@ -3442,6 +3442,17 @@ module TestRubyParserShared20Plus
     assert_parse rb, pt
   end
 
+  def test_str_lit_concat_bad_encodings
+    rb = '"\xE3\xD3\x8B\xE3\x83\xBC\x83\xE3\x83\xE3\x82\xB3\xA3\x82\x99" \
+        "\xE3\x83\xB3\xE3\x83\x8F\xE3\x82\x9A\xC3\xBD;foo@bar.com"'.b
+    pt = s(:str, "\xE3\xD3\x8B\xE3\x83\xBC\x83\xE3\x83\xE3\x82\xB3\xA3\x82\x99\xE3\x83\xB3\xE3\x83\x8F\xE3\x82\x9A\xC3\xBD;foo@bar.com".b)
+
+    assert_parse rb, pt
+
+    sexp = processor.parse rb
+    assert_equal Encoding::ASCII_8BIT, sexp.last.encoding
+  end
+
   def test_block_call_dot_op2_cmd_args_do_block
     rb = "a.b c() do d end.e f do |g| h end"
     pt = s(:iter,

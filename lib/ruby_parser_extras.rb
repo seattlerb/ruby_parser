@@ -1,4 +1,5 @@
 # encoding: ASCII-8BIT
+# TODO: remove
 
 require "sexp"
 require "ruby_lexer"
@@ -597,7 +598,9 @@ module RubyParserStuff
     case ttype
     when :str then
       if htype == :str
-        head.last << tail.last
+        a, b = head.last, tail.last
+        b = b.dup.force_encoding a.encoding unless Encoding.compatible?(a, b)
+        a << b
       elsif htype == :dstr and head.size == 2 then
         head.last << tail.last
       else
@@ -1147,6 +1150,7 @@ module RubyParserStuff
   def new_string val
     str, = val
     str.force_encoding("UTF-8")
+    # TODO: remove:
     str.force_encoding("ASCII-8BIT") unless str.valid_encoding?
     result = s(:str, str).line lexer.lineno
     self.lexer.fixup_lineno str.count("\n")
