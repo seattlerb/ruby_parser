@@ -1195,14 +1195,12 @@ rule
                     }
                 | k_begin
                     {
+                      lexer.cmdarg.push false
                       result = self.lexer.lineno
-                      # TODO:
-                      # $<val>1 = cmdarg_stack;
-                      # CMDARG_SET(0);
                     }
                     bodystmt k_end
                     {
-                      # TODO: CMDARG_SET($<val>1);
+                      lexer.cmdarg.pop
                       unless val[2] then
                         result = s(:nil)
                       else
