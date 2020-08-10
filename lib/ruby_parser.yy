@@ -1751,20 +1751,19 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                     f_larglist
                     {
-                      result = lexer.cmdarg.store(false)
+                      lexer.cmdarg.push false
                     }
                     lambda_body
                     {
-                      (line, lpar), args, cmdarg, body = val
+                      (line, lpar), args, _cmdarg, body = val
                       lexer.lpar_beg = lpar
 
-                      lexer.cmdarg.restore cmdarg
-                      lexer.cmdarg.lexpop
+                      lexer.cmdarg.pop
 
                       call = s(:lambda).line line
                       result = new_iter call, args, body
                       result.line = line
-                      self.env.unextend
+                      self.env.unextend # TODO: dynapush & dynapop
                     }
 
      f_larglist: tLPAREN2 f_args opt_bv_decl rparen

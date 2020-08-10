@@ -3413,6 +3413,16 @@ module TestRubyParserShared20Plus
     assert_parse rb, pt
   end
 
+  def test_call_array_lambda_block_call
+    rb = "a [->() {}] do\nend"
+    pt = s(:iter,
+           s(:call, nil, :a,
+             s(:array, s(:iter, s(:lambda), s(:args)))),
+           0)
+
+    assert_parse rb, pt
+  end
+
   def test_block_call_dot_op2_cmd_args_do_block
     rb = "a.b c() do d end.e f do |g| h end"
     pt = s(:iter,
