@@ -887,7 +887,7 @@ class RubyLexer
 
     if [:tSTRING_END, :tREGEXP_END, :tLABEL_END].include? token_type then
       self.lex_strterm = nil
-      self.lex_state   = (token_type == :tLABEL_END) ? EXPR_PAR : EXPR_END|EXPR_ENDARG
+      self.lex_state   = (token_type == :tLABEL_END) ? EXPR_PAR : EXPR_LIT
     end
 
     return token
@@ -896,7 +896,7 @@ class RubyLexer
   def process_symbol text
     symbol = possibly_escape_string text, /^:\"/ # stupid emacs
 
-    result EXPR_END|EXPR_ENDARG, :tSYMBOL, symbol
+    result EXPR_LIT, :tSYMBOL, symbol
   end
 
   def process_token text
@@ -1387,11 +1387,11 @@ class RubyLexer
       # extra fake lex_state names to make things a bit cleaner
 
       EXPR_LAB = EXPR_ARG|EXPR_LABELED
-      EXPR_NUM = EXPR_END|EXPR_ENDARG
+      EXPR_LIT = EXPR_END|EXPR_ENDARG
       EXPR_PAR = EXPR_BEG|EXPR_LABEL
       EXPR_PAD = EXPR_BEG|EXPR_LABELED
 
-      EXPR_LIT = EXPR_NUM # TODO: migrate to EXPR_LIT
+      EXPR_NUM = EXPR_LIT
 
       expr_names.merge!(EXPR_NONE    => "EXPR_NONE",
                         EXPR_BEG     => "EXPR_BEG",
