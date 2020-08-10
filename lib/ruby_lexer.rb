@@ -499,16 +499,19 @@ class RubyLexer
   end
 
   def process_brace_close text
-    # matching compare/parse23.y:8561
-    cond.lexpop
-    cmdarg.lexpop
-
     case matched
     when "}" then
       self.brace_nest -= 1
-      self.lex_state   = ruby24minus? ? EXPR_ENDARG : EXPR_END
-
       return :tSTRING_DEND, matched if brace_nest < 0
+    end
+
+    # matching compare/parse26.y:8099
+    cond.pop
+    cmdarg.pop
+
+    case matched
+    when "}" then
+      self.lex_state   = ruby24minus? ? EXPR_ENDARG : EXPR_END
       return :tRCURLY, matched
     when "]" then
       self.paren_nest -= 1

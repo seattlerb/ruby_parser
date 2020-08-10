@@ -3383,6 +3383,36 @@ module TestRubyParserShared20Plus
     assert_parse rb, pt
   end
 
+  def test_call_array_block_call
+    rb = "a [ nil, b do end ]"
+    pt = s(:call, nil, :a,
+           s(:array,
+             s(:nil),
+             s(:iter, s(:call, nil, :b), 0)))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_call_paren_call_block_call
+    rb = "a (b)\nc.d do end"
+    pt = s(:block,
+           s(:call, nil, :a, s(:call, nil, :b)),
+           s(:iter, s(:call, s(:call, nil, :c), :d), 0))
+
+
+    assert_parse rb, pt
+  end
+
+  def test_block_call_defn_call_block_call
+    rb = "a def b(c)\n d\n end\n e.f do end"
+    pt = s(:block,
+           s(:call, nil, :a,
+             s(:defn, :b, s(:args, :c), s(:call, nil, :d))),
+           s(:iter, s(:call, s(:call, nil, :e), :f), 0))
+
+    assert_parse rb, pt
+  end
+
   def test_block_call_dot_op2_cmd_args_do_block
     rb = "a.b c() do d end.e f do |g| h end"
     pt = s(:iter,

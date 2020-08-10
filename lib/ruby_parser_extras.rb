@@ -45,6 +45,11 @@ module RubyParserStuff
 
   attr_accessor :canonicalize_conditions
 
+  ##
+  # The last token type returned from #next_token
+
+  attr_accessor :last_token_type
+
   $good20 = []
 
   %w[
@@ -846,13 +851,16 @@ module RubyParserStuff
   end
 
   def new_defs val
-    recv, (name, _line), args, body = val[1], val[4], val[6], val[7]
-    line, _ = val[5]
+    _, recv, _, _, name, (_in_def, line), args, body, _ = val
+
     body ||= s(:nil).line line
 
     args.line line
 
     result = s(:defs, recv, name.to_sym, args)
+
+    # TODO: remove_begin
+    # TODO: reduce_nodes
 
     if body then
       if body.sexp_type == :block then
@@ -1270,6 +1278,7 @@ module RubyParserStuff
     token = self.lexer.next_token
 
     if token and token.first != RubyLexer::EOF then
+      self.last_token_type = token
       return token
     else
       return [false, false]
@@ -1328,6 +1337,7 @@ module RubyParserStuff
     self.in_single = 0
     self.env.reset
     self.comments.clear
+    self.last_token_type = nil
   end
 
   def ret_args node

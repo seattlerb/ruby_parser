@@ -1080,12 +1080,39 @@ rule
                     }
 
     command_args:   {
-                      result = lexer.cmdarg.store true
+                      # parse26.y line 2200
+
+                      # If call_args starts with a open paren '(' or
+                      # '[', look-ahead reading of the letters calls
+                      # CMDARG_PUSH(0), but the push must be done
+                      # after CMDARG_PUSH(1). So this code makes them
+                      # consistent by first cancelling the premature
+                      # CMDARG_PUSH(0), doing CMDARG_PUSH(1), and
+                      # finally redoing CMDARG_PUSH(0).
+
+                      result = yychar = self.last_token_type.first
+                      lookahead = [:tLPAREN, :tLPAREN_ARG, :tLPAREN2, :tLBRACK, :tLBRACK2].include?(yychar)
+                      lexer.cmdarg.pop if lookahead
+                      lexer.cmdarg.push true
+                      lexer.cmdarg.push false if lookahead
                     }
                       call_args
                     {
-                      lexer.cmdarg.restore val[0]
-                      result = val[1]
+                      yychar, args = val
+
+                      # call_args can be followed by tLBRACE_ARG (that
+                      # does CMDARG_PUSH(0) in the lexer) but the push
+                      # must be done after CMDARG_POP() in the parser.
+                      # So this code does CMDARG_POP() to pop 0 pushed
+                      # by tLBRACE_ARG, CMDARG_POP() to pop 1 pushed
+                      # by command_args, and CMDARG_PUSH(0) to restore
+                      # back the flag set by tLBRACE_ARG.
+
+                      lookahead = [:tLBRACE_ARG].include?(yychar)
+                      lexer.cmdarg.pop if lookahead
+                      lexer.cmdarg.pop
+                      lexer.cmdarg.push false if lookahead
+                      result = args
                     }
 
        block_arg: tAMPER arg_value
@@ -1195,18 +1222,14 @@ rule
                       result = s(:begin).line line
                     }
                 | tLPAREN_ARG
-                    {
-                      result = lexer.cmdarg.store false
-                    }
                     stmt
                     {
                       lexer.lex_state = EXPR_ENDARG
                     }
                     rparen
                     {
-                      _, cmdarg, stmt, _, _, = val
-                      warning "(...) interpreted as grouped expression"
-                      lexer.cmdarg.restore cmdarg
+                      _, stmt, _, _, = val
+                      # warning "(...) interpreted as grouped expression"
                       result = stmt
                     }
                 | tLPAREN compstmt tRPAREN
@@ -1389,48 +1412,61 @@ rule
                     }
                 | k_def fname
                     {
-                      result = [self.in_def, self.lexer.cmdarg.stack.dup]
+                      result = self.in_def
+
+                      self.in_def = true # group = local_push
+                      self.env.extend
+                      lexer.cmdarg.push false
+                      lexer.cond.push false
 
                       self.comments.push self.lexer.comments
-                      self.in_def = true
-                      self.env.extend
-                      # TODO: local->cmdargs = cmdarg_stack;
-                      # TODO: port local_push_gen and local_pop_gen
-                      lexer.cmdarg.stack.replace [false]
                     }
                     f_arglist bodystmt { result = lexer.lineno } k_end
                     {
-                      in_def, cmdarg = val[2]
+                      in_def = val[2]
 
                       result = new_defn val
 
-                      lexer.cmdarg.stack.replace cmdarg
+                      lexer.cond.pop # group = local_pop
+                      lexer.cmdarg.pop
                       self.env.unextend
                       self.in_def = in_def
+
                       self.lexer.comments # we don't care about comments in the body
                     }
                 | k_def singleton dot_or_colon
                     {
-                      self.comments.push self.lexer.comments
                       lexer.lex_state = EXPR_FNAME
                     }
                     fname
                     {
-                      self.in_single += 1
+                      result = [self.in_def, lexer.lineno]
+
+                      self.in_single += 1 # TODO: remove?
+
+                      self.in_def = true # local_push
                       self.env.extend
-                      lexer.lex_state = EXPR_ENDFN # force for args
-                      result = [lexer.lineno, self.lexer.cmdarg.stack.dup]
-                      lexer.cmdarg.stack.replace [false]
+                      lexer.cmdarg.push false
+                      lexer.cond.push false
+
+                      lexer.lex_state = EXPR_ENDFN|EXPR_LABEL
+                      self.comments.push self.lexer.comments
                     }
                     f_arglist bodystmt k_end
                     {
-                      _, cmdarg = val[5]
+                      _, _recv, _, _, _name, (in_def, _lineno), _args, _body, _ = val
+
                       result = new_defs val
 
-                      lexer.cmdarg.stack.replace cmdarg
-
+                      lexer.cond.pop # group = local_pop
+                      lexer.cmdarg.pop
                       self.env.unextend
+                      self.in_def = in_def
+
                       self.in_single -= 1
+
+                      # TODO: restore cur_arg ? what's cur_arg?
+
                       self.lexer.comments # we don't care about comments in the body
                     }
                 | kBREAK
@@ -1881,7 +1917,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
 
          do_body:   { self.env.extend :dynamic; result = self.lexer.lineno }
-                    { result = lexer.cmdarg.store(false) }
+                    { lexer.cmdarg.push false }
                     opt_block_param
 #if V >= 25
                     bodystmt
@@ -1889,11 +1925,11 @@ opt_block_args_tail: tCOMMA block_args_tail
                     compstmt
 #endif
                     {
-                      line, cmdarg, param, cmpstmt = val
+                      line, _cmdarg, param, cmpstmt = val
 
                       result = new_do_body param, cmpstmt, line
+                      lexer.cmdarg.pop
                       self.env.unextend
-                      lexer.cmdarg.restore cmdarg
                     }
 
        case_body: k_when
