@@ -85,7 +85,7 @@ class TestRubyLexer < Minitest::Test
     else
       assert_equal value, act_value, msg
     end
-    assert_equal state, @lex.lex_state,  msg if state
+    assert_match state, @lex.lex_state,  msg if state
     assert_equal paren, @lex.paren_nest, msg if paren
     assert_equal brace, @lex.brace_nest, msg if brace
   end
@@ -145,7 +145,7 @@ class TestRubyLexer < Minitest::Test
     yield
 
     lexer.lex_state = EXPR_ENDARG
-    assert_next_lexeme :tSTRING_DEND, "}", EXPR_END, 0
+    assert_next_lexeme :tSTRING_DEND, "}", EXPR_END|EXPR_ENDARG, 0
 
     lexer.lex_strterm = lex_strterm
     lexer.lex_state   = EXPR_BEG
@@ -719,7 +719,7 @@ class TestRubyLexer < Minitest::Test
 
     assert_lex3("do 42 end",
                 nil,
-                :kDO_BLOCK, "do",  EXPR_BEG,
+                :kDO,       "do",  EXPR_BEG,
                 :tINTEGER,  42,    EXPR_NUM,
                 :kEND,      "end", EXPR_END)
   end

@@ -319,6 +319,11 @@ class RubyLexer
     lpar_beg && lpar_beg == paren_nest
   end
 
+  def is_local_id id
+    # maybe just make this false for now
+    self.parser.env[id.to_sym] == :lvar # HACK: this isn't remotely right
+  end
+
   def lvar_defined? id
     # TODO: (dyna_in_block? && dvar_defined?(id)) || local_id?(id)
     self.parser.env[id.to_sym] == :lvar
@@ -937,6 +942,8 @@ class RubyLexer
               EXPR_END
             end
 
+    tok_id = :tIDENTIFIER if tok_id == :tCONSTANT && is_local_id(token)
+
     if last_state !~ EXPR_DOT|EXPR_FNAME and
         (tok_id == :tIDENTIFIER) and # not EXPR_FNAME, not attrasgn
         lvar_defined?(token) then
@@ -960,17 +967,15 @@ class RubyLexer
     self.command_start = true if lex_state =~ EXPR_BEG
 
     case
-    when keyword.id0 == :kDO then
+    when keyword.id0 == :kDO then # parse26.y line 7591
       case
       when lambda_beginning? then
         self.lpar_beg = nil # lambda_beginning? == FALSE in the body of "-> do ... end"
-        self.paren_nest -= 1
+        self.paren_nest -= 1 # TODO: question this?
         result lex_state, :kDO_LAMBDA, value
       when cond.is_in_state then
         result lex_state, :kDO_COND, value
       when cmdarg.is_in_state && state != EXPR_CMDARG then
-        result lex_state, :kDO_BLOCK, value
-      when state =~ EXPR_BEG|EXPR_ENDARG then
         result lex_state, :kDO_BLOCK, value
       else
         result lex_state, :kDO, value
