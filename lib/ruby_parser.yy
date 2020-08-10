@@ -1130,8 +1130,9 @@ rule
             args: arg_value
                     {
                       arg, = val
+                      lineno = arg.line || lexer.lineno # HACK
 
-                      result = s(:array, arg).line arg.line
+                      result = s(:array, arg).line lineno
                     }
                 | tSTAR arg_value
                     {

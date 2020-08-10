@@ -3431,6 +3431,17 @@ module TestRubyParserShared20Plus
     assert_parse rb, pt
   end
 
+  def test_messy_op_asgn_lineno
+    rb = "a (B::C *= d e)"
+    pt = s(:call, nil, :a,
+           s(:op_asgn, s(:const, :B),
+             s(:call, nil, :d, s(:call, nil, :e)),
+             :C,
+             :*)).line(1)
+
+    assert_parse rb, pt
+  end
+
   def test_block_call_dot_op2_cmd_args_do_block
     rb = "a.b c() do d end.e f do |g| h end"
     pt = s(:iter,
