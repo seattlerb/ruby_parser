@@ -2169,11 +2169,12 @@ regexp_contents: none
                       result = [lexer.lex_strterm,
                                 lexer.brace_nest,
                                 lexer.string_nest, # TODO: remove
-                                lexer.cond.store,
-                                lexer.cmdarg.store,
                                 lexer.lex_state,
                                 lexer.lineno,
                                ]
+
+                      lexer.cmdarg.push false
+                      lexer.cond.push false
 
                       lexer.lex_strterm = nil
                       lexer.brace_nest  = 0
@@ -2186,14 +2187,15 @@ regexp_contents: none
                     {
                       _, memo, stmt, _ = val
 
-                      lex_strterm, brace_nest, string_nest, oldcond, oldcmdarg, oldlex_state, line = memo
+                      lex_strterm, brace_nest, string_nest, oldlex_state, line = memo
+                      # TODO: heredoc_indent
 
                       lexer.lex_strterm = lex_strterm
                       lexer.brace_nest  = brace_nest
                       lexer.string_nest = string_nest
 
-                      lexer.cond.restore oldcond
-                      lexer.cmdarg.restore oldcmdarg
+                      lexer.cmdarg.pop
+                      lexer.cond.pop
 
                       lexer.lex_state = oldlex_state
 
