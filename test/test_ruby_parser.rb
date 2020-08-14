@@ -1317,6 +1317,13 @@ module TestRubyParserShared
     end
   end
 
+  def test_utf8_bom_FUCK
+    rb = "\xEF\xBB\xBF#!/usr/bin/env ruby -w\np 0\n"
+    pt = s(:call, nil, :p, s(:lit, 0))
+
+    assert_parse rb, pt
+  end
+
   def test_masgn_arg_colon_arg
     rb = "a, b::c = d"
     pt = s(:masgn,

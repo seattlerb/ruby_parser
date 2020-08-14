@@ -538,7 +538,7 @@ module RubyParserStuff
     header.map! { |s| s.force_encoding "ASCII-8BIT" } if has_enc
 
     first = header.first || ""
-    encoding, str = "utf-8", str[3..-1] if first =~ /\A\xEF\xBB\xBF/
+    encoding, str = "utf-8", str.b[3..-1] if first =~ /\A\xEF\xBB\xBF/
 
     encoding = $1.strip if header.find { |s|
       s[/^#.*?-\*-.*?coding:\s*([^ ;]+).*?-\*-/, 1] ||
