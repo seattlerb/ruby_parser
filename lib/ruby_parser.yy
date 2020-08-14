@@ -1202,13 +1202,7 @@ rule
                     bodystmt k_end
                     {
                       lexer.cmdarg.pop
-                      unless val[2] then
-                        result = s(:nil)
-                      else
-                        result = s(:begin, val[2])
-                      end
-
-                      result.line = val[1]
+                      result = new_begin val
                     }
                 | tLPAREN_ARG
                     {

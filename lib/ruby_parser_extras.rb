@@ -704,6 +704,15 @@ module RubyParserStuff
     result
   end
 
+  def new_begin val
+    _, lineno, body, _ = val
+
+    result = body ? s(:begin, body) : s(:nil)
+    result.line lineno
+
+    result
+  end
+
   def new_body val
     body, resbody, elsebody, ensurebody = val
 
