@@ -1317,7 +1317,14 @@ module TestRubyParserShared
     end
   end
 
-  def test_utf8_bom_FUCK
+  def test_magic_encoding_comment__bad
+    rb = "#encoding: bunk\n0"
+    pt = s(:lit, 0)
+
+    assert_parse rb, pt
+  end
+
+  def test_utf8_bom
     rb = "\xEF\xBB\xBF#!/usr/bin/env ruby -w\np 0\n"
     pt = s(:call, nil, :p, s(:lit, 0))
 

@@ -499,6 +499,8 @@ module RubyParserStuff
           str.encode! Encoding::UTF_8
           break
         end
+      rescue ArgumentError # unknown encoding name
+        # do nothing
       rescue Encoding::InvalidByteSequenceError
         # do nothing
       rescue Encoding::UndefinedConversionError
