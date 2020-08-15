@@ -8,6 +8,10 @@ order = []
 
 def munge s
   renames = [
+             # unquote... wtf?
+             /`(.+?)'/,          proc { $1 },
+             /"'(.+?)'"/,        proc { "\"#{$1}\"" },
+
              "'='",             "tEQL",
              "'!'",             "tBANG",
              "'%'",             "tPERCENT",
@@ -100,6 +104,43 @@ def munge s
 
              "kVARIABLE",       "keyword_variable", # ugh: this is a rule name
 
+             # 2.7 changes:
+
+             '"global variable"',          "tGVAR",
+             '"operator-assignment"',      "tOP_ASGN",
+             '"back reference"',           "tBACK_REF",
+             '"numbered reference"',       "tNTH_REF",
+             '"local variable or method"', "tIDENTIFIER",
+             '"constant"',                 "tCONSTANT",
+
+             '"(.."',                  "tBDOT2",
+             '"(..."',                 "tBDOT3",
+             '"char literal"',         "tCHAR",
+             '"literal content"',      "tSTRING_CONTENT",
+             '"string literal"',       "tSTRING_BEG",
+             '"symbol literal"',       "tSYMBEG",
+             '"backtick literal"',     "tXSTRING_BEG",
+             '"regexp literal"',       "tREGEXP_BEG",
+             '"word list"',            "tWORDS_BEG",
+             '"verbatim word list"',   "tQWORDS_BEG",
+             '"symbol list"',          "tSYMBOLS_BEG",
+             '"verbatim symbol list"', "tQSYMBOLS_BEG",
+
+             '"float literal"',        "tFLOAT",
+             '"imaginary literal"',    "tIMAGINARY",
+             '"integer literal"',      "tINTEGER",
+             '"rational literal"',     "tRATIONAL",
+
+             '"instance variable"',  "tIVAR",
+             '"class variable"',     "tCVAR",
+             '"terminator"',         "tSTRING_END", # TODO: switch this?
+             '"method"',             "tFID",
+             '"}"',                  "tSTRING_DEND",
+
+             '"do for block"',     "kDO_BLOCK",
+             '"do for condition"', "kDO_COND",
+             '"do for lambda"',    "kDO_LAMBDA",
+
              # UGH
              "k_LINE__",       "k__LINE__",
              "k_FILE__",       "k__FILE__",
@@ -107,13 +148,12 @@ def munge s
 
              '"defined?"',     "kDEFINED",
 
-
              '"do (for condition)"', "kDO_COND",
              '"do (for lambda)"',    "kDO_LAMBDA",
              '"do (for block)"',     "kDO_BLOCK",
 
-             /\"(\w+) \(modifier\)\"/, proc { |x| "k#{$1.upcase}_MOD" },
-             /\"(\w+)\"/,              proc { |x| "k#{$1.upcase}" },
+             /\"(\w+) \(?modifier\)?\"/, proc { |x| "k#{$1.upcase}_MOD" },
+             /\"(\w+)\"/,                proc { |x| "k#{$1.upcase}" },
 
              /@(\d+)(\s+|$)/,       "",
             ]

@@ -13,7 +13,7 @@ Hoe.add_include_dirs "../../sexp_processor/dev/lib"
 Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
 
-V2   = %w[20 21 22 23 24 25 26]
+V2   = %w[20 21 22 23 24 25 26 27]
 V2.replace [V2.last] if ENV["FAST"] # HACK
 
 Hoe.spec "ruby_parser" do
@@ -126,13 +126,22 @@ def ruby_parse version
 
   file c_parse_y => c_tarball do
     in_compare do
-      system "tar yxf #{tarball} #{ruby_dir}/{id.h,parse.y,tool/{id2token.rb,vpath.rb}}"
+      extract_glob = case version
+                     when /2\.7/
+                       "{id.h,parse.y,tool/{id2token.rb,lib/vpath.rb}}"
+                     else
+                       "{id.h,parse.y,tool/{id2token.rb,vpath.rb}}"
+                     end
+      system "tar yxf #{tarball} #{ruby_dir}/#{extract_glob}"
+
       Dir.chdir ruby_dir do
         if File.exist? "tool/id2token.rb" then
           sh "ruby tool/id2token.rb --path-separator=.:./ id.h parse.y | expand > ../#{parse_y}"
         else
           sh "expand parse.y > ../#{parse_y}"
         end
+
+        ruby "-pi", "-e", 'gsub(/^%define\s+api\.pure/, "%pure-parser")', "../#{parse_y}"
       end
       sh "rm -rf #{ruby_dir}"
     end
@@ -188,6 +197,7 @@ ruby_parse "2.3.8"
 ruby_parse "2.4.9"
 ruby_parse "2.5.8"
 ruby_parse "2.6.6"
+ruby_parse "2.7.1"
 
 task :debug => :isolate do
   ENV["V"] ||= V2.last
