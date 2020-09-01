@@ -1,3 +1,38 @@
+=== 3.15.0 / 2020-08-31
+
+* 1 major enhancement:
+
+  * Added tentative 2.7 support.
+
+* 1 minor enhancement:
+
+  * Improved ruby_parse_extract_error's handling of moving slow files out.
+
+* 22 bug fixes:
+
+  * Bumped ruby version to include 3.0 (trunk).
+  * Fix an error related to empty ensure bodies. (presidentbeef)
+  * Fix handling of bad magic encoding comment.
+  * Fixed SystemStackError when parsing a huoooge hash, caused by a splat arg.
+  * Fixed a number of errors parsing do blocks in strange edge cases.
+  * Fixed a string backslash lexing bug when the string is an invalid encoding. (nijikon, gmcgibbon)
+  * Fixed bug assigning line number to some arg nodes.
+  * Fixed bug concatinating string literals with differing encodings.
+  * Fixed bug lexing heredoc w/ nasty mix of \r\n and \n.
+  * Fixed bug lexing multiple codepoints in \u{0000 1111 2222} forms.
+  * Fixed bug setting line numbers in empty xstrings in some contexts.
+  * Fixed edge case on call w/ begin + do block as an arg.
+  * Fixed handling of UTF BOM.
+  * Fixed handling of lexer state across string interpolation braces.
+  * Fixed infinite loop when lexing backslash+cr+newline (aka dos-files)
+  * Fixed lambda + do block edge case.
+  * Fixed lexing of some ?\M... and ?\C... edge cases.
+  * Fixed more do/brace block edge case failures.
+  * Fixed parsing bug where splat was used in the middle of a list.
+  * Fixed parsing of interpolation in heredoc-like strings. (presidentbeef)
+  * Fixed parsing some esoteric edge cases in op_asgn.
+  * Fixed unicode processing in ident chars so now they better mix.
+
 === 3.14.2 / 2020-02-06
 
 * 1 minor enhancement:
