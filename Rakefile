@@ -21,7 +21,7 @@ Hoe.spec "ruby_parser" do
 
   license "MIT"
 
-  dependency "sexp_processor", "~> 4.9"
+  dependency "sexp_processor", "~> 4.15"
   dependency "rake", "< 11", :developer
   dependency "oedipus_lex", "~> 2.5", :developer
 
