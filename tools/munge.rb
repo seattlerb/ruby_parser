@@ -197,8 +197,8 @@ ARGF.each_line do |line|
     puts line.gsub("true", "1").gsub("false", "0")
   when /^lex_state: :?([\w|]+) -> :?([\w|]+)(?: (?:at|from) (.*))?/ then
     a, b, c = $1.upcase, $2.upcase, $3
-    a.gsub! /EXPR_/, ""
-    b.gsub! /EXPR_/, ""
+    a.gsub!(/EXPR_/, "")
+    b.gsub!(/EXPR_/, "")
     if c && $v then
       puts "lex_state: #{a} -> #{b} at #{c}"
     else
