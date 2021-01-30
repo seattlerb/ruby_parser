@@ -478,6 +478,22 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("!~", nil, :tNMATCH, "!~", EXPR_BEG)
   end
 
+  def test_yylex_bdot2
+    assert_lex3("..42",
+                nil, # TODO: s(:dot2, nil, s(:lit, 42)),
+
+                :tBDOT2,   "..", EXPR_BEG,
+                :tINTEGER, 42,   EXPR_END|EXPR_ENDARG)
+  end
+
+  def test_yylex_bdot3
+    assert_lex3("...42",
+                nil, # TODO: s(:dot2, nil, s(:lit, 42)),
+
+                :tBDOT3,   "...", EXPR_BEG,
+                :tINTEGER, 42,    EXPR_END|EXPR_ENDARG)
+  end
+
   def test_yylex_block_bug_1
     assert_lex3("a do end",
                 s(:iter, s(:call, nil, :a), 0),
@@ -749,10 +765,26 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_dot2
+    assert_lex3("1..2",
+                s(:lit, 1..2),
+
+                :tINTEGER, 1,    EXPR_END|EXPR_ENDARG,
+                :tDOT2,    "..", EXPR_BEG,
+                :tINTEGER, 2,    EXPR_END|EXPR_ENDARG)
+
+    self.lex_state = EXPR_END|EXPR_ENDARG
     assert_lex3("..", nil, :tDOT2, "..", EXPR_BEG)
   end
 
   def test_yylex_dot3
+    assert_lex3("1...2",
+                s(:lit, 1...2),
+
+                :tINTEGER, 1,     EXPR_END|EXPR_ENDARG,
+                :tDOT3,    "...", EXPR_BEG,
+                :tINTEGER, 2,     EXPR_END|EXPR_ENDARG)
+
+    self.lex_state = EXPR_END|EXPR_ENDARG
     assert_lex3("...", nil, :tDOT3, "...", EXPR_BEG)
   end
 
