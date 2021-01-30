@@ -25,6 +25,11 @@ class RubyLexer
 
   HAS_ENC = "".respond_to? :encoding
 
+  BTOKENS = {
+    ".."  => :tBDOT2,
+    "..." => :tBDOT3,
+  }
+
   TOKENS = {
     "!"   => :tBANG,
     "!="  => :tNEQ,
@@ -129,6 +134,10 @@ class RubyLexer
 
   def end_of_stream?
     ss.eos?
+  end
+
+  def expr_beg?
+    lex_state =~ EXPR_BEG
   end
 
   def expr_dot?
@@ -578,6 +587,12 @@ class RubyLexer
     else
       result EXPR_DOT, :tCOLON2, text
     end
+  end
+
+  def process_dots text
+    tokens = ruby27plus? && expr_beg? ? BTOKENS : TOKENS
+
+    result EXPR_BEG, tokens[text], text
   end
 
   def process_float text
@@ -1134,6 +1149,10 @@ class RubyLexer
 
   def ruby24minus?
     parser.class.version <= 24
+  end
+
+  def ruby27plus?
+    parser.class.version >= 27
   end
 
   def scan re

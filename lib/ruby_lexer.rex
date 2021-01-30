@@ -48,7 +48,7 @@ rule
 |               /\![=~]?/               { result :arg_state, TOKENS[text], text }
 
 : /\./
-|               /\.\.\.?/               { result EXPR_BEG, TOKENS[text], text }
+|               /\.\.\.?/               process_dots
 |               /\.\d/                  { rb_compile_error "no .<digit> floating literal anymore put 0 before dot" }
 |               /\./                    { self.lex_state = EXPR_BEG; result EXPR_DOT, :tDOT, "." }
 
