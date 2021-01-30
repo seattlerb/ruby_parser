@@ -4440,6 +4440,26 @@ class TestRubyParserV27 < RubyParserTestCase
 
     self.processor = RubyParser::V27.new
   end
+
+  def test_bdot2
+    rb = "..10\n; ..a\n; c"
+    pt = s(:block,
+           s(:dot2, nil, s(:lit, 0).line(1)).line(1),
+           s(:dot2, nil, s(:call, nil, :a).line(2)).line(2),
+           s(:call, nil, :c).line(3)).line(1)
+
+    assert_parse_line rb, pt, 1
+  end
+
+  def test_bdot3
+    rb = "...10\n; ...a\n; c"
+    pt = s(:block,
+           s(:dot3, nil, s(:lit, 0).line(1)).line(1),
+           s(:dot3, nil, s(:call, nil, :a).line(2)).line(2),
+           s(:call, nil, :c).line(3)).line(1)
+
+    assert_parse_line rb, pt, 1
+  end
 end
 
 
