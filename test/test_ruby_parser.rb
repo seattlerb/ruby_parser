@@ -3080,6 +3080,8 @@ module TestRubyParserShared19Plus
   end
 
   def test_motherfuckin_leading_dots
+    skip if processor.class.version >= 27
+
     rb = "a\n.b"
     pt = s(:call, s(:call, nil, :a), :b)
 
@@ -3087,6 +3089,8 @@ module TestRubyParserShared19Plus
   end
 
   def test_motherfuckin_leading_dots2
+    skip if processor.class.version >= 27
+
     rb = "a\n..b"
 
     assert_parse_error rb, '(string):2 :: parse error on value ".." (tDOT2)'
@@ -4444,7 +4448,7 @@ class TestRubyParserV27 < RubyParserTestCase
   def test_bdot2
     rb = "..10\n; ..a\n; c"
     pt = s(:block,
-           s(:dot2, nil, s(:lit, 0).line(1)).line(1),
+           s(:dot2, nil, s(:lit, 10).line(1)).line(1),
            s(:dot2, nil, s(:call, nil, :a).line(2)).line(2),
            s(:call, nil, :c).line(3)).line(1)
 
@@ -4454,7 +4458,7 @@ class TestRubyParserV27 < RubyParserTestCase
   def test_bdot3
     rb = "...10\n; ...a\n; c"
     pt = s(:block,
-           s(:dot3, nil, s(:lit, 0).line(1)).line(1),
+           s(:dot3, nil, s(:lit, 10).line(1)).line(1),
            s(:dot3, nil, s(:call, nil, :a).line(2)).line(2),
            s(:call, nil, :c).line(3)).line(1)
 
