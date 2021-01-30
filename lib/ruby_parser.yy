@@ -46,6 +46,9 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
 #if V >= 23
        tLONELY
 #endif
+#if V >= 26
+       tBDOT2 tBDOT3
+#endif
 
 preclow
   nonassoc tLOWEST
@@ -57,7 +60,7 @@ preclow
   right    tEQL tOP_ASGN
   left     kRESCUE_MOD
   right    tEH tCOLON
-  nonassoc tDOT2 tDOT3
+  nonassoc tDOT2 tDOT3 tBDOT2 tBDOT3
   left     tOROP
   left     tANDOP
   nonassoc tCMP tEQ tEQQ tNEQ tMATCH tNMATCH
@@ -80,6 +83,9 @@ rule
                     top_compstmt
                     {
                       result = new_compstmt val
+
+                      lexer.cond.pop # local_pop
+                      lexer.cmdarg.pop
                     }
 
     top_compstmt: top_stmts opt_terms
@@ -856,6 +862,24 @@ rule
                       result = s(:dot3, v1, v2).line v1.line
                     }
 #endif
+
+#if V >= 27
+                | tBDOT2 arg
+                    {
+                      _, v2, = val
+                      v1 = nil
+
+                      result = s(:dot2, v1, v2).line v2.line
+                    }
+                | tBDOT3 arg
+                    {
+                      _, v2 = val
+                      v1 = nil
+
+                      result = s(:dot3, v1, v2).line v2.line
+                    }
+#endif
+
                 | arg tPLUS arg
                     {
                       result = new_call val[0], :+, argl(val[2])
