@@ -4464,6 +4464,20 @@ class TestRubyParserV27 < RubyParserTestCase
 
     assert_parse_line rb, pt, 1
   end
+
+  def test_forward_args
+    rb = "def a(...); b(...); end"
+    pt = s(:defn, :a, s(:args, s(:forward_args)),
+          s(:call, nil, :b, s(:forward_args)))
+
+    assert_parse_line rb, pt, 1
+  end
+
+  def test_forward_args_invalid
+    rb = "b(...)"
+
+    assert_syntax_error rb, ""
+  end
 end
 
 

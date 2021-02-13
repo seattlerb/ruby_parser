@@ -1064,6 +1064,12 @@ rule
                       _, args, _ = val
                       result = args
                     }
+#if V >= 27
+                | tLPAREN2 args_forward rparen
+                    {
+                      result = call_args [s(:forward_args).line(lexer.lineno)]
+                    }
+#endif
 
   opt_paren_args: none
                 | paren_args
@@ -2364,6 +2370,14 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       self.lexer.lex_state = EXPR_BEG
                       self.lexer.command_start = true
                     }
+#if V >= 27
+                | tLPAREN2 args_forward rparen
+                    {
+                      result = s(:args, s(:forward_args)).line lexer.lineno
+                      self.lexer.lex_state = EXPR_BEG
+                      self.lexer.command_start = true
+                    }
+#endif
                 |   {
                       result = self.in_kwarg
                       self.in_kwarg = true
@@ -2462,6 +2476,8 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                     {
                       result = args val
                     }
+
+       args_forward: tBDOT3
 
        f_bad_arg: tCONSTANT
                     {
