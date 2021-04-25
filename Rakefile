@@ -25,6 +25,13 @@ Hoe.spec "ruby_parser" do
   dependency "rake", [">= 10", "< 15"], :developer
   dependency "oedipus_lex", "~> 2.5", :developer
 
+  # NOTE: Ryan!!! Stop trying to fix this dependency! Isolate just
+  # can't handle having a faux-gem half-installed! Stop! Just `gem
+  # install racc` and move on. Revisit this ONLY once racc-compiler
+  # gets split out.
+
+  dependency "racc", "~> 1.5", :developer
+
   require_ruby_version [">= 2.1", "< 4"]
 
   if plugin? :perforce then     # generated files
