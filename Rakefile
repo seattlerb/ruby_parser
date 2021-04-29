@@ -13,7 +13,7 @@ Hoe.add_include_dirs "../../sexp_processor/dev/lib"
 Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
 
-V2   = %w[20 21 22 23 24 25 26 27]
+V2   = %w[20 21 22 23 24 25 26 27 30]
 V2.replace [V2.last] if ENV["FAST"] # HACK
 
 Hoe.spec "ruby_parser" do
@@ -137,7 +137,7 @@ def ruby_parse version
   file c_parse_y => c_tarball do
     in_compare do
       extract_glob = case version
-                     when /2\.7/
+                     when /2\.7|3\.0/
                        "{id.h,parse.y,tool/{id2token.rb,lib/vpath.rb}}"
                      else
                        "{id.h,parse.y,tool/{id2token.rb,vpath.rb}}"
@@ -213,6 +213,7 @@ ruby_parse "2.4.10"
 ruby_parse "2.5.9"
 ruby_parse "2.6.7"
 ruby_parse "2.7.3"
+ruby_parse "3.0.1"
 
 task :debug => :isolate do
   ENV["V"] ||= V2.last

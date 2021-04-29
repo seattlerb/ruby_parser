@@ -4140,6 +4140,10 @@ module TestRubyParserShared27Plus
   include TestRubyParserShared26Plus
 end
 
+module TestRubyParserShared30Plus
+  include TestRubyParserShared27Plus
+end
+
 class TestRubyParser < Minitest::Test
   def test_cls_version
     assert_equal 23, RubyParser::V23.version
@@ -4466,6 +4470,15 @@ class TestRubyParserV27 < RubyParserTestCase
   end
 end
 
+class TestRubyParserV30 < RubyParserTestCase
+  include TestRubyParserShared30Plus
+
+  def setup
+    super
+
+    self.processor = RubyParser::V30.new
+  end
+end
 
 RubyParser::VERSIONS.each do |klass|
   v = klass.version
