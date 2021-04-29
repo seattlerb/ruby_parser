@@ -174,7 +174,7 @@ ARGF.each_line do |line|
 
   case line.strip
   when /^$/ then
-  when /^(\d+) (\$?\w+): (.*)/ then    # yacc
+  when /^(\d+) (\$?[@\w]+): (.*)/ then    # yacc
     rule = $2
     order << rule unless rules.has_key? rule
     rules[rule] << munge($3)
@@ -199,7 +199,7 @@ ARGF.each_line do |line|
   when /^\cL/ then                     # byacc
     break
   else
-    warn "unparsed: #{$.}: #{line.chomp}"
+    warn "unparsed: #{$.}: #{line.strip.inspect}"
   end
 end
 
