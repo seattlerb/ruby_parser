@@ -99,7 +99,7 @@ end
 
 def dl v
   dir = v[/^\d+\.\d+/]
-  url = "https://cache.ruby-lang.org/pub/ruby/#{dir}/ruby-#{v}.tar.bz2"
+  url = "https://cache.ruby-lang.org/pub/ruby/#{dir}/ruby-#{v}.tar.xz"
   path = File.basename url
   unless File.exist? path then
     system "curl -O #{url}"
@@ -111,7 +111,7 @@ def ruby_parse version
   rp_txt    = "rp#{v}.txt"
   mri_txt   = "mri#{v}.txt"
   parse_y   = "parse#{v}.y"
-  tarball   = "ruby-#{version}.tar.bz2"
+  tarball   = "ruby-#{version}.tar.xz"
   ruby_dir  = "ruby-#{version}"
   diff      = "diff#{v}.diff"
   rp_out    = "lib/ruby#{v}_parser.output"
@@ -131,6 +131,9 @@ def ruby_parse version
     end
   end
 
+  desc "fetch all tarballs"
+  task :fetch => c_tarball
+
   file c_parse_y => c_tarball do
     in_compare do
       extract_glob = case version
@@ -139,7 +142,7 @@ def ruby_parse version
                      else
                        "{id.h,parse.y,tool/{id2token.rb,vpath.rb}}"
                      end
-      system "tar yxf #{tarball} #{ruby_dir}/#{extract_glob}"
+      system "tar Jxf #{tarball} #{ruby_dir}/#{extract_glob}"
 
       Dir.chdir ruby_dir do
         if File.exist? "tool/id2token.rb" then
@@ -154,9 +157,14 @@ def ruby_parse version
     end
   end
 
+  bison = Dir["/opt/homebrew/opt/bison/bin/bison",
+              "/usr/local/opt/bison/bin/bison",
+              `which bison`.chomp,
+             ].first
+
   file c_mri_txt => [c_parse_y, normalize] do
     in_compare do
-      sh "bison -r all #{parse_y}"
+      sh "#{bison} -r all #{parse_y}"
       sh "./normalize.rb parse#{v}.output > #{mri_txt}"
       rm ["parse#{v}.output", "parse#{v}.tab.c"]
     end
@@ -201,10 +209,10 @@ ruby_parse "2.0.0-p648"
 ruby_parse "2.1.9"
 ruby_parse "2.2.9"
 ruby_parse "2.3.8"
-ruby_parse "2.4.9"
-ruby_parse "2.5.8"
-ruby_parse "2.6.6"
-ruby_parse "2.7.1"
+ruby_parse "2.4.10"
+ruby_parse "2.5.9"
+ruby_parse "2.6.7"
+ruby_parse "2.7.3"
 
 task :debug => :isolate do
   ENV["V"] ||= V2.last
