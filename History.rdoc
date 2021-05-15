@@ -1,3 +1,22 @@
+=== 3.16.0 / 2021-05-15
+
+* 1 major enhancement:
+
+  * Added tentative 3.0 support.
+
+* 3 minor enhancements:
+
+  * Added lexing for "beginless range" (bdots).
+  * Added parsing for bdots.
+  * Updated rake compare task to download xz files, bumped versions, etc
+
+* 4 bug fixes:
+
+  * Bump rake dependency to >= 10, < 15. (presidentbeef)
+  * Bump sexp_processor dependency to 4.15.1+. (pravi)
+  * Fixed minor state mismatch at the end of parsing to make diffing a little cleaner.
+  * Fixed normalizer to deal with new bison token syntax
+
 === 3.15.1 / 2021-01-10
 
 * 1 bug fix:
