@@ -1066,6 +1066,18 @@ rule
                       _, args, _ = val
                       result = args
                     }
+#if V >= 27
+                | tLPAREN2 args_forward rparen
+                    {
+                      if (!self.lexer.is_local_id(:"*") ||
+                            !self.lexer.is_local_id(:"**") ||
+                            !self.lexer.is_local_id(:"&")) then
+
+                        yyerror("Invalid argument forwarding")
+                      end
+                      result = call_args [s(:forward_args).line(lexer.lineno)]
+                    }
+#endif
 
   opt_paren_args: none
                 | paren_args
@@ -2366,6 +2378,21 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       self.lexer.lex_state = EXPR_BEG
                       self.lexer.command_start = true
                     }
+#if V >= 27
+                | tLPAREN2 args_forward rparen
+                    {
+                      args_rest = :"*"
+                      kwargs_rest = :"**"
+                      block_fwd = :"&"
+                      self.env[args_rest] = :lvar
+                      self.env[kwargs_rest] = :lvar
+                      self.env[block_fwd] = :lvar
+
+                      result = s(:args, s(:forward_args)).line lexer.lineno
+                      self.lexer.lex_state = EXPR_BEG
+                      self.lexer.command_start = true
+                    }
+#endif
                 |   {
                       result = self.in_kwarg
                       self.in_kwarg = true
@@ -2464,6 +2491,8 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                     {
                       result = args val
                     }
+
+       args_forward: tBDOT3
 
        f_bad_arg: tCONSTANT
                     {
@@ -2613,6 +2642,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                 | kwrest_mark
                     {
                       result = :"**"
+                      self.env[result] = :lvar
                     }
 
 #if V == 20

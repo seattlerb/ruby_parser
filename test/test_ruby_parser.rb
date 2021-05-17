@@ -4468,6 +4468,38 @@ class TestRubyParserV27 < RubyParserTestCase
 
     assert_parse_line rb, pt, 1
   end
+
+  def test_forward_args
+    rb = "def a(...); b(...); end"
+    pt = s(:defn, :a, s(:args, s(:forward_args)),
+          s(:call, nil, :b, s(:forward_args)))
+
+    assert_parse_line rb, pt, 1
+  end
+
+  def test_forward_args_outside_method_definition
+    rb = "b(...)"
+
+    assert_syntax_error rb, "Invalid argument forwarding"
+  end
+
+  def test_forward_args_only_idfwd_rest
+    rb = "def a(*); b(...); end"
+
+    assert_syntax_error rb, "Invalid argument forwarding"
+  end
+
+  def test_forward_args_only_idfwd_kwrest
+    rb = "def a(**); b(...); end"
+
+    assert_syntax_error rb, "Invalid argument forwarding"
+  end
+
+  def test_forward_args_no_fwd_block
+    rb = "def a(*, **); b(...); end"
+
+    assert_syntax_error rb, "Invalid argument forwarding"
+  end
 end
 
 class TestRubyParserV30 < RubyParserTestCase
