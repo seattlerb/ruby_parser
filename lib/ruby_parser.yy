@@ -38,7 +38,7 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tBACK_REF2 tSYMBEG tSTRING_BEG tXSTRING_BEG tREGEXP_BEG
       tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END
       tSTRING tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAMBDA
-      tLAMBEG tDSTAR tCHAR tSYMBOLS_BEG tQSYMBOLS_BEG tSTRING_DEND tUBANG
+      tLAMBEG tDSTAR tCHAR tSYMBOLS_BEG tQSYMBOLS_BEG tSTRING_DEND
 #if V >= 21
       tRATIONAL tIMAGINARY
 #endif
@@ -762,10 +762,6 @@ rule
                 |   tNEQ     | tLSHFT  | tRSHFT   | tPLUS | tMINUS | tSTAR2
                 |   tSTAR    | tDIVIDE | tPERCENT | tPOW  | tDSTAR | tBANG   | tTILDE
                 |   tUPLUS   | tUMINUS | tAREF    | tASET | tBACK_REF2
-#if V >= 20
-                    # TODO: tUBANG dead?
-                |   tUBANG
-#endif
 
         reswords: k__LINE__ | k__FILE__ | k__ENCODING__ | klBEGIN | klEND
                 | kALIAS    | kAND      | kBEGIN        | kBREAK  | kCASE
@@ -2027,7 +2023,6 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result.line = line
                     }
                 | symbol
-                | dsym
 
          strings: string
                     {
@@ -2270,7 +2265,7 @@ regexp_contents: none
 
              sym: fname | tIVAR | tGVAR | tCVAR
 
-            dsym: tSYMBEG xstring_contents tSTRING_END
+            dsym: tSYMBEG string_contents tSTRING_END
                     {
                       _, result, _ = val
 

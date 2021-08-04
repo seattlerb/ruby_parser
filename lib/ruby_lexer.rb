@@ -33,7 +33,7 @@ class RubyLexer
   TOKENS = {
     "!"   => :tBANG,
     "!="  => :tNEQ,
-    # "!@"  => :tUBANG,
+    "!@"  => :tBANG,
     "!~"  => :tNMATCH,
     ","   => :tCOMMA,
     ".."  => :tDOT2,

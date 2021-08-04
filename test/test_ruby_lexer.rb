@@ -1821,7 +1821,7 @@ class TestRubyLexer < Minitest::Test
                s(:defn, :"!@", s(:args), s(:nil)),
 
                :kDEF,   "def", EXPR_FNAME, 0, 0,
-               :tUBANG, "!@",  EXPR_ARG,   0, 0,
+               :tBANG,  "!@",  EXPR_ARG,   0, 0,
                :tSEMI,  ";",   EXPR_BEG,   0, 0,
                :kEND,   "end", EXPR_END,   0, 0)
   end
@@ -1837,7 +1837,7 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_not_unary_method
     self.lex_state = EXPR_FNAME
 
-    assert_lex3("!@", nil, :tUBANG, "!@", EXPR_ARG)
+    assert_lex3("!@", nil, :tBANG, "!@", EXPR_ARG)
   end
 
   def test_yylex_nth_ref

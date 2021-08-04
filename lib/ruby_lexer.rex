@@ -44,7 +44,7 @@ rule
                 /[\]\)\}]/              process_brace_close
 
 : /\!/
-| is_after_operator? /\!\@/             { result EXPR_ARG, :tUBANG, "!@" }
+| is_after_operator? /\!\@/             { result EXPR_ARG,   TOKENS[text], text }
 |               /\![=~]?/               { result :arg_state, TOKENS[text], text }
 
 : /\./
