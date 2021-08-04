@@ -733,18 +733,15 @@ rule
                 | reswords
                     {
                       (sym, _line), = val
-                      lexer.lex_state = EXPR_END
                       result = sym
                     }
 
-            fsym: fname | symbol
-
-           fitem: fsym
+           fitem: fname
                     {
                       id, = val
                       result = s(:lit, id.to_sym).line lexer.lineno
                     }
-                | dsym
+                | symbol
 
       undef_list: fitem
                     {
@@ -2030,11 +2027,6 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result.line = line
                     }
                 | symbol
-                    {
-                      line = lexer.lineno
-                      result = s(:lit, val[0])
-                      result.line = line
-                    }
                 | dsym
 
          strings: string
@@ -2262,14 +2254,18 @@ regexp_contents: none
                 | tCVAR { result = s(:cvar, val[0].to_sym).line lexer.lineno }
                 | backref
 
-          symbol: tSYMBEG sym
+          symbol: ssym
+                | dsym
+
+            ssym: tSYMBEG sym
                     {
                       lexer.lex_state = EXPR_END
-                      result = val[1].to_sym
+                      result = new_symbol val
                     }
                 | tSYMBOL
                     {
-                      result = val[0].to_sym
+                      lexer.lex_state = EXPR_END
+                      result = new_symbol val
                     }
 
              sym: fname | tIVAR | tGVAR | tCVAR

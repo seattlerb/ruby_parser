@@ -1183,6 +1183,11 @@ module RubyParserStuff
     end
   end
 
+  def new_symbol val
+    name = val.last
+    s(:lit, name.to_sym).line lexer.lineno
+  end
+
   def new_symbol_list
     result = s(:array).line lexer.lineno
     self.lexer.fixup_lineno
