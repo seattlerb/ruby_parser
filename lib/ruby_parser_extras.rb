@@ -160,6 +160,12 @@ module RubyParserStuff
         case arg.sexp_type
         when :args, :block, :array, :call_args then # HACK call_args mismatch
           result.concat arg.sexp_body
+        when :forward_args then
+          self.env[:*]  = :lvar # TODO: arg_var(p, idFWD_REST) ?
+          self.env[:**] = :lvar
+          self.env[:&]  = :lvar
+
+          result << arg
         when :block_arg then
           result << :"&#{arg.last}"
         when :shadow then
@@ -311,7 +317,7 @@ module RubyParserStuff
         end
       when Symbol then
         result << arg
-      when ",", nil then
+      when ",", nil, "(" then
         # ignore
       else
         raise "unhandled: #{arg.inspect} in #{args.inspect}"

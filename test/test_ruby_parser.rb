@@ -4138,6 +4138,34 @@ end
 
 module TestRubyParserShared27Plus
   include TestRubyParserShared26Plus
+
+  def test_defn_forward_args
+    rb = "def a(...); b(...); end"
+    pt = s(:defn, :a, s(:args, s(:forward_args)),
+          s(:call, nil, :b, s(:forward_args)))
+
+    assert_parse_line rb, pt, 1
+  end
+
+  def test_defn_arg_forward_args
+    rb = "def a(x, ...); b(x, ...); end"
+    pt = s(:defn, :a, s(:args, :x, s(:forward_args)),
+           s(:call, nil, :b, s(:lvar, :x), s(:forward_args)))
+
+    assert_parse_line rb, pt, 1
+  end
+
+  def test_call_forward_args_outside_method_definition
+    rb = "b(...)"
+
+    assert_syntax_error rb, "Unexpected ..."
+  end
+
+  def test_call_arg_forward_args_outside_method_definition
+    rb = "b(x, ...)"
+
+    assert_syntax_error rb, "Unexpected ..."
+  end
 end
 
 module TestRubyParserShared30Plus
@@ -4437,7 +4465,6 @@ class TestRubyParserV26 < RubyParserTestCase
 
     assert_parse_line rb, pt, 1
   end
-
 end
 
 class TestRubyParserV27 < RubyParserTestCase

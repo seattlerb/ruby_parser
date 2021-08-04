@@ -1066,6 +1066,26 @@ rule
                       _, args, _ = val
                       result = args
                     }
+#if V >= 27
+                | tLPAREN2 args tCOMMA args_forward rparen
+                    {
+                      yyerror "Unexpected ..." unless
+                        self.lexer.is_local_id(:"*")  &&
+                        self.lexer.is_local_id(:"**") &&
+                        self.lexer.is_local_id(:"&")
+
+                      result = call_args val
+                    }
+                | tLPAREN2 args_forward rparen
+                    {
+                      yyerror "Unexpected ..." unless
+                        self.lexer.is_local_id(:"*")  &&
+                        self.lexer.is_local_id(:"**") &&
+                        self.lexer.is_local_id(:"&")
+
+                      result = call_args val
+                    }
+#endif
 
   opt_paren_args: none
                 | paren_args
@@ -2366,6 +2386,22 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       self.lexer.lex_state = EXPR_BEG
                       self.lexer.command_start = true
                     }
+#if V >= 27
+                | tLPAREN2 f_arg tCOMMA args_forward rparen
+                    {
+                      result = args val
+
+                      self.lexer.lex_state = EXPR_BEG
+                      self.lexer.command_start = true
+                    }
+                | tLPAREN2 args_forward rparen
+                    {
+                      result = args val
+
+                      self.lexer.lex_state = EXPR_BEG
+                      self.lexer.command_start = true
+                    }
+#endif
                 |   {
                       result = self.in_kwarg
                       self.in_kwarg = true
@@ -2464,6 +2500,13 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                     {
                       result = args val
                     }
+
+#if V >= 27
+    args_forward: tBDOT3
+                    {
+                      result = s(:forward_args).line lexer.lineno
+                    }
+#endif
 
        f_bad_arg: tCONSTANT
                     {
@@ -2613,6 +2656,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                 | kwrest_mark
                     {
                       result = :"**"
+                      self.env[result] = :lvar
                     }
 
 #if V == 20
