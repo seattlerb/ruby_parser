@@ -84,6 +84,7 @@ def munge s
 
              "' '",             "tSPACE", # needs to be later to avoid bad hits
 
+             "%empty",          "none", # newer bison
              "/* empty */",     "none",
              /^\s*$/,           "none",
 
@@ -155,7 +156,7 @@ def munge s
              /\"(\w+) \(?modifier\)?\"/, proc { |x| "k#{$1.upcase}_MOD" },
              /\"(\w+)\"/,                proc { |x| "k#{$1.upcase}" },
 
-             /@(\d+)(\s+|$)/,       "",
+             /\$?@(\d+)(\s+|$)/,    "", # newer bison
             ]
 
   renames.each_slice(2) do |(a, b)|
