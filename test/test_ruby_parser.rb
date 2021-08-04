@@ -4155,6 +4155,15 @@ module TestRubyParserShared27Plus
     assert_parse_line rb, pt, 1
   end
 
+  def test_defn_args_forward_args
+    rb = "def a(x, y, z, ...); b(:get, z, ...); end"
+    pt = s(:defn, :a, s(:args, :x, :y, :z, s(:forward_args)),
+           s(:call, nil, :b, s(:lit, :get), s(:lvar, :z),
+             s(:forward_args)))
+
+    assert_parse_line rb, pt, 1
+  end
+
   def test_call_forward_args_outside_method_definition
     rb = "b(...)"
 
