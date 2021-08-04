@@ -4175,6 +4175,27 @@ module TestRubyParserShared27Plus
 
     assert_syntax_error rb, "Unexpected ..."
   end
+
+  def test_mlhs_rescue
+    # same:
+    # a = (24 rescue 42)
+    # a = 24 rescue 42
+
+    # same:
+    # a, b = (f rescue 42)
+    # a, b = f rescue 42
+
+    rb = "a, b = f rescue 42"
+    pt = s(:masgn,
+           s(:array, s(:lasgn, :a), s(:lasgn, :b)),
+           s(:to_ary,
+             s(:rescue,
+               s(:call, nil, :f),
+               s(:resbody, s(:array),
+                 s(:lit, 42)))))
+
+    assert_parse rb, pt
+  end
 end
 
 module TestRubyParserShared30Plus

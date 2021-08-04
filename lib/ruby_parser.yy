@@ -256,6 +256,19 @@ rule
                     {
                       result = new_masgn val[0], val[2], :wrap
                     }
+#endif
+#if V >= 27
+                | mlhs tEQL mrhs_arg kRESCUE_MOD stmt
+                    {
+                      # unwraps s(:to_ary, rhs)
+                      lhs, _, (_, rhs), _, resbody = val
+
+                      resbody = new_resbody s(:array).line(resbody.line), resbody
+
+                      result = new_masgn lhs, new_rescue(rhs, resbody), :wrap
+                    }
+#endif
+#if V == 20
                 | mlhs tEQL mrhs
 #else
                 | mlhs tEQL mrhs_arg
