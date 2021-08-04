@@ -205,15 +205,47 @@ def ruby_parse version
   end
 end
 
+task :versions do
+  require "open-uri"
+  require "net/http" # avoid require issues in threads
+  require "net/https"
+
+  versions = %w[ 2.0 2.1 2.2 2.3 2.4 2.5 2.6 2.7 3.0 ]
+
+  base_url = "https://cache.ruby-lang.org/pub/ruby"
+
+  class Array
+    def human_sort
+      sort_by { |item| item.to_s.split(/(\d+)/).map { |e| [e.to_i, e] } }
+    end
+  end
+
+  versions = versions.map { |ver|
+    Thread.new {
+      URI
+        .parse("#{base_url}/#{ver}/")
+        .read
+        .scan(/ruby-\d+\.\d+\.\d+[-\w.]*?.tar.gz/)
+        .reject { |s| s =~ /-(?:rc|preview)\d/ }
+        .human_sort
+        .last
+        .delete_prefix("ruby-")
+        .delete_suffix ".tar.gz"
+    }
+  }.map(&:value).sort
+
+  puts versions.map { |v| "ruby_parse %p" % [v] }
+end
+
 ruby_parse "2.0.0-p648"
-ruby_parse "2.1.9"
-ruby_parse "2.2.9"
+ruby_parse "2.1.10"
+ruby_parse "2.2.10"
 ruby_parse "2.3.8"
 ruby_parse "2.4.10"
 ruby_parse "2.5.9"
-ruby_parse "2.6.7"
-ruby_parse "2.7.3"
-ruby_parse "3.0.1"
+ruby_parse "2.6.8"
+ruby_parse "2.7.4"
+ruby_parse "3.0.2"
 
 task :debug => :isolate do
   ENV["V"] ||= V2.last
