@@ -1,3 +1,9 @@
+=== 3.17.0 / 2021-08-03
+
+* 1 minor enhancement:
+
+  * Added support for arg forwarding (eg `def f(...); m(...); end`) (presidentbeef)
+
 === 3.16.0 / 2021-05-15
 
 * 1 major enhancement:
