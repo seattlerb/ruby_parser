@@ -171,6 +171,10 @@ rule
                     {
                       yyerror "BEGIN is permitted only at toplevel"
                     }
+                  begin_block
+                    {
+                      result = val[2] # wtf?
+                    }
 
             stmt: kALIAS fitem
                     {
