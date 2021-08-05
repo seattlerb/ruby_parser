@@ -1621,51 +1621,40 @@ rule
 
                       result = block_var args
                     }
-                | f_marg_list tCOMMA tSTAR f_norm_arg
+                | f_marg_list tCOMMA f_rest_marg
                     {
-                      args, _, _, splat = val
+                      args, _, rest = val
 
-                      result = block_var args, "*#{splat}".to_sym
+                      result = block_var args, rest
                     }
-                | f_marg_list tCOMMA tSTAR f_norm_arg tCOMMA f_marg_list
+                | f_marg_list tCOMMA f_rest_marg tCOMMA f_marg_list
                     {
-                      args, _, _, splat, _, args2 = val
+                      lhs, _, splat, _, rhs = val
 
-                      result = block_var args, "*#{splat}".to_sym, args2
+                      result = block_var lhs, splat, rhs
                     }
-                | f_marg_list tCOMMA tSTAR
+                | f_rest_marg
                     {
-                      args, _, _ = val
+                      rest, = val
 
-                      result = block_var args, :*
+                      result = block_var rest
                     }
-                | f_marg_list tCOMMA tSTAR tCOMMA f_marg_list
+                | f_rest_marg tCOMMA f_marg_list
                     {
-                      args, _, _, _, args2 = val
+                      splat, _, rest = val
 
-                      result = block_var args, :*, args2
+                      result = block_var splat, rest
                     }
-                | tSTAR f_norm_arg
+
+     f_rest_marg: tSTAR f_norm_arg
                     {
                       _, splat = val
 
-                      result = block_var :"*#{splat}"
-                    }
-                | tSTAR f_norm_arg tCOMMA f_marg_list
-                    {
-                      _, splat, _, args = val
-
-                      result = block_var :"*#{splat}", args
+                      result = args [:"*#{splat}"]
                     }
                 | tSTAR
                     {
-                      result = block_var :*
-                    }
-                | tSTAR tCOMMA f_marg_list
-                    {
-                      _, _, args = val
-
-                      result = block_var :*, args
+                      result = args [:*]
                     }
 
  block_args_tail: f_block_kwarg tCOMMA f_kwrest opt_f_block_arg
@@ -1986,11 +1975,36 @@ opt_block_args_tail: tCOMMA block_args_tail
                       self.env.unextend
                     }
 
+       case_args: arg_value
+                    {
+                      arg, = val
+
+                      result = s(:array, arg).line arg.line
+                    }
+                | tSTAR arg_value
+                    {
+                      _, arg = val
+
+                      result = s(:array, s(:splat, arg).line(arg.line)).line arg.line
+                    }
+                | case_args tCOMMA arg_value
+                    {
+                      args, _, id = val
+
+                      result = self.list_append args, id
+                    }
+                | case_args tCOMMA tSTAR arg_value
+                    {
+                      args, _, _, id = val
+
+                      result = self.list_append args, s(:splat, id).line(id.line)
+                    }
+
        case_body: k_when
                     {
                       result = self.lexer.lineno
                     }
-                    args then compstmt cases
+                    case_args then compstmt cases
                     {
                       result = new_when(val[2], val[4])
                       result.line = val[1]
