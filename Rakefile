@@ -14,7 +14,8 @@ Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
 
 V2   = %w[20 21 22 23 24 25 26 27 30]
-V2.replace [V2.last] if ENV["FAST"] # HACK
+ENV["FAST"] = V2.last if ENV["FAST"] && !V2.include?(ENV["FAST"])
+V2.replace [ENV["FAST"]] if ENV["FAST"]
 
 Hoe.spec "ruby_parser" do
   developer "Ryan Davis", "ryand-ruby@zenspider.com"
