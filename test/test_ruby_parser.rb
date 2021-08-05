@@ -4187,6 +4187,27 @@ module TestRubyParserShared27Plus
     assert_parse_line rb, pt, 1
   end
 
+  def test_defn_no_kwargs
+    # def x(**nil)
+    # end
+    #
+    # def y(**kw)
+    # end
+    #
+    # def z()
+    # end
+    #
+    # x arg: 42 # $!: no keywords accepted (ArgumentError)
+    # y arg: 42 # fine
+    # z arg: 42 # $!: wrong number of arguments (given 1, expected 0) (ArgumentError)
+
+    rb = "def x(**nil); end"
+    pt = s(:defn, :x, s(:args, :"**nil").line(1),
+           s(:nil).line(1)).line(1)
+
+    assert_parse_line rb, pt, 1
+  end
+
   def test_call_forward_args_outside_method_definition
     rb = "b(...)"
 

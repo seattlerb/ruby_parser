@@ -2441,6 +2441,12 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                     {
                       result = args val
                     }
+#if V >= 27
+                | f_no_kwarg opt_f_block_arg
+                    {
+                      result = args val
+                    }
+#endif
                 | f_block_arg
 
    opt_args_tail: tCOMMA args_tail
@@ -2658,6 +2664,13 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
 
      kwrest_mark: tPOW
                 | tDSTAR
+
+#if V >= 27
+      f_no_kwarg: kwrest_mark kNIL
+                    {
+                      result = :"**nil"
+                    }
+#endif
 
         f_kwrest: kwrest_mark tIDENTIFIER
                     {
