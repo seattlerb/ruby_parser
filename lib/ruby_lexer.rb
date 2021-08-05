@@ -120,6 +120,10 @@ class RubyLexer
     ss.check re
   end
 
+  def ignore_body_comments
+    @comments.clear
+  end
+
   def comments # TODO: remove this... maybe comment_string + attr_accessor
     c = @comments.join
     @comments.clear
@@ -694,20 +698,22 @@ class RubyLexer
         self.command_start = true
         return result EXPR_BEG, :tNL, nil
       else
-        return # skip
+        return # goto retry
       end
     end
 
-    if scan(/([\ \t\r\f\v]*)(\.|&)/) then
-      self.space_seen = true unless ss[1].empty?
+    if scan(/[\ \t\r\f\v]+/) then
+      self.space_seen = true
+    end
 
-      ss.pos -= 1
-      return unless check(/\.\./)
+    if check(/#/) then
+      return # goto retry
+    elsif check(/&\.|\.(?!\.)/) then # C version is a hellish obfuscated xnor
+      return # goto retry
     end
 
     self.command_start = true
-
-    return result(EXPR_BEG, :tNL, nil)
+    return result EXPR_BEG, :tNL, nil
   end
 
   def process_nthref text

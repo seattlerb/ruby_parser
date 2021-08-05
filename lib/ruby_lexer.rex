@@ -37,7 +37,7 @@ rule
 # [:state]      pattern                 [actions]
 
                 # \s - \n + \v
-                /[\ \t\r\f\v]/          { self.space_seen = true; next }
+                /[\ \t\r\f\v]+/         { self.space_seen = true; next }
 
                 /\n|\#/                 process_newline_or_comment
 

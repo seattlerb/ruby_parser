@@ -1410,7 +1410,6 @@ rule
                     }
                     cpath superclass
                     {
-                      self.comments.push self.lexer.comments
                       if (self.in_def || self.in_single > 0) then
                         yyerror "class definition in method body"
                       end
@@ -1420,7 +1419,7 @@ rule
                     {
                       result = new_class val
                       self.env.unextend
-                      self.lexer.comments # we don't care about comments in the body
+                      self.lexer.ignore_body_comments
                     }
                 | k_class tLSHFT
                     {
@@ -1441,7 +1440,7 @@ rule
                     {
                       result = new_sclass val
                       self.env.unextend
-                      self.lexer.comments # we don't care about comments in the body
+                      self.lexer.ignore_body_comments
                     }
                 | k_module
                     {
@@ -1449,7 +1448,6 @@ rule
                     }
                     cpath
                     {
-                      self.comments.push self.lexer.comments
                       yyerror "module definition in method body" if
                         self.in_def or self.in_single > 0
 
@@ -1459,7 +1457,7 @@ rule
                     {
                       result = new_module val
                       self.env.unextend
-                      self.lexer.comments # we don't care about comments in the body
+                      self.lexer.ignore_body_comments
                     }
                 | k_def fname
                     {
@@ -1469,8 +1467,6 @@ rule
                       self.env.extend
                       lexer.cmdarg.push false
                       lexer.cond.push false
-
-                      self.comments.push self.lexer.comments
                     }
                     f_arglist bodystmt { result = lexer.lineno } k_end
                     {
@@ -1483,7 +1479,7 @@ rule
                       self.env.unextend
                       self.in_def = in_def
 
-                      self.lexer.comments # we don't care about comments in the body
+                      self.lexer.ignore_body_comments
                     }
                 | k_def singleton dot_or_colon
                     {
@@ -1501,7 +1497,6 @@ rule
                       lexer.cond.push false
 
                       lexer.lex_state = EXPR_ENDFN|EXPR_LABEL
-                      self.comments.push self.lexer.comments
                     }
                     f_arglist bodystmt k_end
                     {
@@ -1518,7 +1513,7 @@ rule
 
                       # TODO: restore cur_arg ? what's cur_arg?
 
-                      self.lexer.comments # we don't care about comments in the body
+                      self.lexer.ignore_body_comments
                     }
                 | kBREAK
                     {
@@ -1555,8 +1550,17 @@ rule
           k_case: kCASE
            k_for: kFOR
          k_class: kCLASS
+                    {
+                      self.comments.push self.lexer.comments
+                    }
         k_module: kMODULE
+                    {
+                      self.comments.push self.lexer.comments
+                    }
            k_def: kDEF
+                    {
+                      self.comments.push self.lexer.comments
+                    }
             k_do: kDO
       k_do_block: kDO_BLOCK
         k_rescue: kRESCUE

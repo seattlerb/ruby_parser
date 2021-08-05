@@ -3079,9 +3079,32 @@ module TestRubyParserShared19Plus
     assert_parse rb, pt
   end
 
-  def test_motherfuckin_leading_dots
-    skip if processor.class.version >= 27
+  def test_call_leading_dots
+    rb = "a\n.b\n.c"
+    pt = s(:call, s(:call, s(:call, nil, :a), :b), :c)
 
+    assert_parse rb, pt
+  end
+
+  def test_call_leading_dots_comment
+    rb = "a\n.b\n#.c\n.d"
+    pt = s(:call,
+           s(:call,
+             s(:call, nil, :a).line(1),
+             :b).line(1),
+           :d).line(1) # TODO: fix linenos: 1, 2, 4
+
+    assert_parse rb, pt
+  end
+
+  def test_call_trailing_dots
+    rb = "a.\nb.\nc"
+    pt = s(:call, s(:call, s(:call, nil, :a), :b), :c)
+
+    assert_parse rb, pt
+  end
+
+  def test_motherfuckin_leading_dots
     rb = "a\n.b"
     pt = s(:call, s(:call, nil, :a), :b)
 
