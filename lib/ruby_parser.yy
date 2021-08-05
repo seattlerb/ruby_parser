@@ -1669,6 +1669,12 @@ rule
                     {
                       result = call_args val
                     }
+#if V >= 27
+                | f_no_kwarg opt_f_block_arg
+                    {
+                      result = args val
+                    }
+#endif
                 | f_block_arg
                     {
                       line = lexer.lineno

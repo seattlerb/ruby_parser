@@ -4162,6 +4162,25 @@ end
 module TestRubyParserShared27Plus
   include TestRubyParserShared26Plus
 
+  def test_block_args_kwargs
+    rb = "f { |**kwargs| kwargs }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:args, :"**kwargs"),
+           s(:lvar, :kwargs))
+
+    assert_parse rb, pt
+  end
+
+  def test_block_args_no_kwargs
+    rb = "f { |**nil| }"
+    pt = s(:iter,
+           s(:call, nil, :f),
+           s(:args, :"**nil"))
+
+    assert_parse_line rb, pt, 1
+  end
+
   def test_defn_forward_args
     rb = "def a(...); b(...); end"
     pt = s(:defn, :a, s(:args, s(:forward_args)),
