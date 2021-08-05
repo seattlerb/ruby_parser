@@ -157,6 +157,9 @@ def munge s
              /\"(\w+)\"/,                proc { |x| "k#{$1.upcase}" },
 
              /\$?@(\d+)(\s+|$)/,    "", # newer bison
+
+             # TODO: remove for 3.0 work:
+             "lex_ctxt ", "" # 3.0 production that's mostly noise right now
             ]
 
   renames.each_slice(2) do |(a, b)|
