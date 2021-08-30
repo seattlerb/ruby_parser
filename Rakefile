@@ -73,6 +73,7 @@ task :clean do
         Dir["coverage.info"] +
         Dir["coverage"] +
         Dir["lib/ruby2*_parser.y"] +
+        Dir["lib/ruby3*_parser.y"] +
         Dir["lib/*.output"])
 end
 
@@ -152,7 +153,7 @@ def ruby_parse version
           sh "expand parse.y > ../#{parse_y}"
         end
 
-        ruby "-pi", "-e", 'gsub(/^%define\s+api\.pure/, "%pure-parser")', "../#{parse_y}"
+        ruby "-pi", "-e", 'gsub(/^%pure-parser/, "%define api.pure")', "../#{parse_y}"
       end
       sh "rm -rf #{ruby_dir}"
     end
@@ -288,18 +289,21 @@ end
 
 task :debug3 do
   file    = ENV["F"] || "bug.rb"
-  verbose = ENV["V"] ? "-v" : ""
+  version = ENV["V"] || ""
+  verbose = ENV["VERBOSE"] ? "-v" : ""
   munge    = "./tools/munge.rb #{verbose}"
 
   abort "Need a file to parse, via: F=path.rb" unless file
 
   ENV.delete "V"
 
-  sh "ruby -v"
-  sh "ruby -y #{file} 2>&1 | #{munge} > tmp/ruby"
-  sh "./tools/ripper.rb -d #{file} | #{munge} > tmp/rip"
+  ruby = "ruby#{version}"
+
+  sh "#{ruby} -v"
+  sh "#{ruby} -y #{file} 2>&1 | #{munge} > tmp/ruby"
+  sh "#{ruby} ./tools/ripper.rb -d #{file} | #{munge} > tmp/rip"
   sh "rake debug F=#{file} DEBUG=1 2>&1 | #{munge} > tmp/rp"
-  sh "diff -U 999 -d tmp/{rip,rp}"
+  sh "diff -U 999 -d tmp/{ruby,rp}"
 end
 
 task :cmp do
@@ -320,7 +324,7 @@ task :extract => :isolate do
 end
 
 task :bugs do
-  sh "for f in bug*.rb ; do #{Gem.ruby} -S rake debug F=$f && rm $f ; done"
+  sh "for f in bug*.rb bad*.rb ; do #{Gem.ruby} -S rake debug F=$f && rm $f ; done"
 end
 
 # vim: syntax=Ruby
