@@ -51,6 +51,14 @@ class TestRubyLexer < Minitest::Test
     assert_lex(input, exp_sexp, *args, &block)
   end
 
+  def refute_lex3 input, *args # TODO: re-sort
+    args = args.each_slice(3).map { |a, b, c| [a, b, c, nil, nil] }.flatten
+
+    assert_raises RubyParser::SyntaxError do
+      assert_lex(input, nil, *args)
+    end
+  end
+
   def assert_lex_fname name, type, end_state = EXPR_ARG # TODO: swap name/type
     assert_lex3("def #{name} ",
                 nil,
@@ -686,8 +694,8 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_def_bad_name
-    self.lex_state = EXPR_FNAME
-    refute_lex("def [ ", :kDEF, "def")
+    refute_lex3("def [ ",
+                :kDEF,    "def", EXPR_FNAME)
   end
 
   def test_yylex_div

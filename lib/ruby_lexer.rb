@@ -974,8 +974,10 @@ class RubyLexer
       state = EXPR_END|EXPR_LABEL
     end
 
+    # TODO: remove
     token.lineno = self.lineno # yes, on a string. I know... I know...
 
+    # TODO: [tok_id, self.lineno] ?
     return result(state, tok_id, token)
   end
 

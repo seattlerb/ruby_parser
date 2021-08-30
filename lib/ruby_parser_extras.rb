@@ -678,6 +678,49 @@ module RubyParserStuff
     new_call val[0], :"[]", val[2]
   end
 
+  def new_array_pattern const, pre_arg, arypat, loc
+    result = s(:array_pat, const).line loc
+    result << pre_arg if pre_arg
+
+    if arypat && arypat.sexp_type == :array_TAIL then
+      result.concat arypat.sexp_body
+    else
+      raise "NO?: %p" % [arypat]
+    end
+
+    result
+  end
+
+  def array_pat_concat lhs, rhs
+    if rhs then
+      case rhs.sexp_type
+      when :array_pat, :array_TAIL then
+        lhs.concat rhs.sexp_body
+      else
+        lhs << rhs
+      end
+    end
+  end
+
+  def new_array_pattern_tail pre_args, has_rest, rest_arg, post_args
+    # TODO: remove has_rest once all tests pass
+    rest_arg = if has_rest then
+                 :"*#{rest_arg}"
+               else
+                 nil
+               end
+
+    result = s(:array_TAIL).line 666
+
+    array_pat_concat result, pre_args
+
+    result << rest_arg if rest_arg
+
+    array_pat_concat result, post_args
+
+    result
+  end
+
   def new_assign lhs, rhs
     return nil unless lhs
 
@@ -788,10 +831,14 @@ module RubyParserStuff
     result
   end
 
+  def new_in pat, body, cases, line
+    s(:in, pat, body, cases).line line
+  end
+
   def new_case expr, body, line
     result = s(:case, expr)
 
-    while body and body.node_type == :when
+    while body and [:when, :in].include? body.node_type
       result << body
       body = body.delete_at 3
     end
@@ -909,6 +956,27 @@ module RubyParserStuff
     _, line, assocs = val
 
     s(:hash).line(line).concat assocs.values
+  end
+
+  def new_hash_pattern const, hash_pat, loc
+    _, pat, kw_args, kw_rest_arg = hash_pat
+
+    line = (const||hash_pat).line
+
+    result = s(:hash_pat, const).line line
+    result.concat pat.sexp_body if pat
+    result << kw_args     if kw_args
+    result << kw_rest_arg if kw_rest_arg
+    result
+  end
+
+  def new_hash_pattern_tail kw_args, kw_rest_arg, line # TODO: remove line arg
+    # kw_rest_arg = assignable(kw_rest_arg, nil).line line if kw_rest_arg
+
+    result = s(:hash_pat).line line
+    result << kw_args
+    result << kw_rest_arg if kw_rest_arg
+    result
   end
 
   def new_if c, t, f
@@ -1390,6 +1458,13 @@ module RubyParserStuff
     # result.line ||= lexer.lineno if lexer.ss unless ENV["CHECK_LINE_NUMS"] # otherwise...
     result.file = self.file
     result
+  end
+
+  def not_yet id, val=nil
+    if ENV["PRY"] then
+      require "pry"; binding.pry
+    end
+    raise RubyParser::SyntaxError, "NOT YET: %p in %s:%d %p" % [id, self.file, self.lexer.lineno, val]
   end
 
   def syntax_error msg

@@ -369,6 +369,30 @@ rule
                       # TODO: fix line number to tBANG... but causes BAD shift/reduce conflict
                       # REFACTOR: call_uni_op -- see parse26.y
                     }
+#if V >= 27
+                | arg
+                    kIN
+                    {
+                      # TODO? value_expr($1);
+                      self.lexer.lex_state = EXPR_BEG|EXPR_LABEL
+                      self.lexer.command_start = false
+                      result = self.in_kwarg
+                      self.in_kwarg = true
+                      self.env.extend
+                    }
+                    p_expr
+                    {
+                      self.env.unextend
+
+                      expr, _, old_kwarg, pat = val
+
+                      expr = value_expr expr
+
+                      self.in_kwarg = old_kwarg
+                      pat_in = new_in pat, nil, nil, expr.line
+                      result = new_case expr, pat_in, expr.line
+                    }
+#endif
                 | arg
 
       expr_value: expr
@@ -1399,6 +1423,14 @@ rule
                       (_, line), _, body, _ = val
                       result = new_case nil, body, line
                     }
+#if V >= 27
+                | k_case expr_value opt_terms p_case_body k_end
+                    {
+                      (_, line), expr, _, body, _ = val
+
+                      result = new_case expr, body, line
+                    }
+#endif
                 | k_for for_var kIN expr_value_do compstmt k_end
                     {
                       _, var, _, iter, body, _ = val
@@ -2018,6 +2050,398 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
 
            cases: opt_else | case_body
+#if V >= 27
+######################################################################
+
+     p_case_body: kIN
+                    {
+                      self.lexer.lex_state = EXPR_BEG|EXPR_LABEL
+                      self.lexer.command_start = false
+                      result = self.in_kwarg
+                      self.in_kwarg = true
+                      self.env.extend
+                      # TODO? {$<tbl>$ = push_pktbl(p);}
+                    }
+                    p_top_expr
+                    then
+                    {
+                      # TODO? {pop_pktbl(p, $<tbl>4);}
+                      old_kwargs = _values[-3]
+                      self.in_kwarg = old_kwargs
+                      self.env.unextend
+                    }
+                    compstmt
+                    p_cases
+                    {
+                      (_, line), _, pat, _, _, body, cases = val
+
+                      result = new_in pat, body, cases, line
+                    }
+
+         p_cases: opt_else
+                | p_case_body
+
+      p_top_expr: p_top_expr_body
+                | p_top_expr_body kIF_MOD expr_value
+                    {
+                      body, _, cond = val
+                      body = remove_begin body
+
+                      result = s(:if, cond, body, nil).line body.line
+                    }
+                | p_top_expr_body kUNLESS_MOD expr_value
+                    {
+                      body, _, cond = val
+                      body = remove_begin body
+
+                      result = s(:if, cond, nil, body).line body.line
+                    }
+
+ p_top_expr_body: p_expr
+                | p_expr tCOMMA
+                    {
+                      expr, _ = val
+
+                      tail = new_array_pattern_tail nil, true, nil, nil
+                      result = new_array_pattern nil, expr, tail, expr.line
+                    }
+                | p_expr tCOMMA p_args
+                    {
+                      expr, _, args = val
+
+                      result = new_array_pattern nil, expr, args, expr.line
+                    }
+                | p_args_tail
+                    {
+                      args, = val
+                      result = new_array_pattern nil, nil, args, args.line
+                    }
+                | p_kwargs
+                    {
+                      kwargs, = val
+                      result = new_hash_pattern nil, kwargs, kwargs.line
+                    }
+
+          p_expr: p_as
+
+            p_as: p_expr tASSOC p_variable
+                    {
+                      # NODE *n = NEW_LIST($1, &@$);
+                      # n = list_append(p, n, $3);
+                      # $$ = new_hash(p, n, &@$);
+
+                      expr, _, var = val
+
+                      id = var.last
+
+                      self.env[id] = :lvar # HACK: need to extend env
+                      lhs = s(:lasgn, id).line var.line
+
+                      result = new_assign lhs, expr
+                    }
+                | p_alt
+
+           p_alt: p_alt tPIPE p_expr_basic
+                    {
+                      lhs, _, rhs = val
+
+                      result = s(:or, lhs, rhs)
+                    }
+                | p_expr_basic
+
+        p_lparen: tLPAREN2 # TODO: {$<tbl>$ = push_pktbl(p);};
+
+      p_lbracket: tLBRACK2 # TODO: {$<tbl>$ = push_pktbl(p);};
+
+    p_expr_basic: p_value
+                | p_const p_lparen p_args tRPAREN
+                    {
+                      lhs, _, args, _ = val
+
+                      # TODO: pop_pktbl(p, $<tbl>2);
+                      result = new_array_pattern(lhs, nil, args, lhs.line)
+                    }
+                | p_const p_lparen p_kwargs tRPAREN
+                    {
+                      lhs, _, kwargs, _ = val
+
+                      # TODO: pop_pktbl(p, $<tbl>2);
+                      result = new_hash_pattern(lhs, kwargs, lhs.line)
+                    }
+                | p_const tLPAREN2 tRPAREN { not_yet 23 }
+                | p_const p_lbracket p_args rbracket
+                    {
+                      const, _, pre_arg, _ = val
+                      # TODO: pop_pktbl(p, $<tbl>2);
+                      result = new_array_pattern const, nil, pre_arg, const.line
+                    }
+                | p_const p_lbracket p_kwargs rbracket { not_yet 25 }
+                | p_const tLBRACK rbracket { not_yet 26 }
+                | tLBRACK
+                    {
+                      # TODO: $$ = push_pktbl(p);
+                      result = true
+                    }
+                    p_args rbracket
+                    {
+                      # TODO: pop_pktbl(p, $<tbl>2); ?
+                      _, _, pat, _ = val
+
+                      result = new_array_pattern nil, nil, pat, pat.line
+                    }
+                | tLBRACK rbracket
+                    {
+                      _, _ = val
+
+                      result = s(:array_pat).line lexer.lineno
+                    }
+                | tLBRACE
+                    {
+                      # TODO: $<tbl>$ = push_pktbl(p)
+                      result = self.in_kwarg
+                      self.in_kwarg = false
+                    }
+                    p_kwargs rbrace
+                    {
+                      _, in_kwarg, kwargs, _ = val
+
+                      # TODO: pop_pktbl(p, $<tbl>2)
+                      self.in_kwarg = in_kwarg
+
+                      result = new_hash_pattern(nil, kwargs, kwargs.line)
+                    }
+                | tLBRACE rbrace { not_yet 30 }
+                | tLPAREN p_expr tRPAREN { not_yet 31 }
+
+          p_args: p_expr
+                    {
+                      expr, = val
+
+                      ary = s(:array_TAIL, expr).line expr.line
+                      result = new_array_pattern_tail(ary, nil, nil, nil).line expr.line
+                    }
+                | p_args_head { not_yet 33 }
+                | p_args_head p_arg
+                    {
+                      head, tail = val
+
+                      both = array_pat_concat head, tail
+
+                      result = new_array_pattern_tail both, nil, nil, nil
+                      result.line head.line
+                    }
+                | p_args_head tSTAR tIDENTIFIER
+                    {
+                      head, _, id = val
+
+                      result = new_array_pattern_tail head, true, id.to_sym, nil
+                      result.line head.line
+                    }
+                | p_args_head tSTAR tIDENTIFIER tCOMMA p_args_post { not_yet 36 }
+                | p_args_head tSTAR
+                    {
+                      expr, _ = val
+
+                      result = new_array_pattern_tail(expr, true, nil, nil).line expr.line
+                    }
+                | p_args_head tSTAR tCOMMA p_args_post { not_yet 38 }
+                | p_args_tail
+
+     p_args_head: p_arg tCOMMA
+                    {
+                      arg, _ = val
+                      result = arg
+                    }
+                | p_args_head p_arg tCOMMA
+                    {
+                      head, tail, _ = val
+
+                      result = s(:PATTERN, *head.sexp_body, *tail.sexp_body)
+                      result.line head.line
+                    }
+
+     p_args_tail: tSTAR tIDENTIFIER
+                    {
+                      _, id = val
+
+                      result = new_array_pattern_tail nil, true, id.to_sym, nil
+                      result.line lexer.lineno
+                    }
+                | tSTAR tIDENTIFIER tCOMMA p_args_post { not_yet 43 }
+                | tSTAR
+                    {
+                      result = new_array_pattern_tail nil, true, nil, nil
+                      result.line lexer.lineno
+                    }
+                | tSTAR tCOMMA p_args_post
+                    {
+                      _, _, args = val
+
+                      result = new_array_pattern_tail nil, true, nil, args
+                      result.line args.line
+                    }
+
+     p_args_post: p_arg
+                | p_args_post tCOMMA p_arg
+                    {
+                      lhs, _, rhs = val
+
+                      result = array_pat_concat lhs, rhs
+                    }
+
+           p_arg: p_expr
+                    {
+                      expr, = val
+                      expr = s(:array_TAIL, expr).line expr.line unless
+                        expr.sexp_type == :array_TAIL
+                      result = expr
+                    }
+
+        p_kwargs: p_kwarg tCOMMA p_kwrest
+                    {
+                      kw_arg, _, rest = val
+                      # xxx = new_unique_key_hash(p, $1, &@$)
+                      result = new_hash_pattern_tail kw_arg, rest, kw_arg.line
+                    }
+                | p_kwarg
+                    {
+                      kwarg, = val
+                      # TODO? new_unique_key_hash(p, $1, &@$)
+                      result = new_hash_pattern_tail kwarg, nil, kwarg.line
+                    }
+                | p_kwarg tCOMMA
+                    {
+                      kwarg, _ = val
+                      # TODO? new_unique_key_hash(p, $1, &@$)
+                      result = new_hash_pattern_tail kwarg, nil, kwarg.line
+                    }
+                | p_kwrest
+                    {
+                      rest, = val
+
+                      # HACK: fix lineno
+                      result = new_hash_pattern_tail nil, rest, self.lexer.lineno
+
+                    }
+                | p_kwarg tCOMMA p_kwnorest { not_yet 53 }
+                | p_kwnorest { not_yet 54 }
+
+         p_kwarg: p_kw # TODO? rb_ary_new_from_args(1, $1)
+                | p_kwarg tCOMMA p_kw
+                    {
+                      kwarg, _, kw = val
+                      kwarg.concat kw.sexp_body
+                      result = kwarg
+                    }
+
+            p_kw: p_kw_label p_expr
+                    {
+                      # TODO: error_duplicate_pattern_key(p, get_id($1), &@1);
+                      lhs, rhs = val
+
+                      result = s(:PAIR, lhs, rhs).line lhs.line
+                    }
+                | p_kw_label
+                    {
+                      lhs, = val
+
+                      result = s(:PAIR, lhs, nil).line lhs.line
+                    }
+
+      p_kw_label: tLABEL
+                    {
+                      (id, line), = val
+
+                      result = s(:lit, id.to_sym).line line
+                    }
+                | tSTRING_BEG string_contents tLABEL_END { not_yet 60 }
+
+        p_kwrest: kwrest_mark tIDENTIFIER
+                    {
+                      _, id = val
+
+                      name = id.to_sym
+                      self.assignable name
+                      result = :"**#{name}"
+                    }
+                | kwrest_mark
+                    {
+                      result = :"**"
+                    }
+
+      p_kwnorest: kwrest_mark kNIL { not_yet 63 }
+
+         p_value: p_primitive
+                | p_primitive tDOT2 p_primitive { not_yet 65 }
+                | p_primitive tDOT3 p_primitive { not_yet 66 }
+                | p_primitive tDOT2
+                    {
+                      v1, _ = val
+                      result = s(:dot2, v1, nil).line v1.line
+                    }
+                | p_primitive tDOT3 { not_yet 68 }
+                | p_variable
+                | p_var_ref
+                | p_const
+                | tBDOT2 p_primitive { not_yet 72 }
+                | tBDOT3 p_primitive { not_yet 73 }
+
+     p_primitive: literal
+                | strings
+                | xstring { not_yet 76 }
+                | regexp
+                | words { not_yet 78 }
+                | qwords { not_yet 79 }
+                | symbols { not_yet 80 }
+                | qsymbols { not_yet 81 }
+                | keyword_variable
+                    {
+                      # TODO? if (!($$ = gettable(p, $1, &@$))) $$ = NEW_BEGIN(0, &@$);
+                      var, = val
+
+                      result = var
+                    }
+                | tLAMBDA lambda { not_yet 83 }
+
+      p_variable: tIDENTIFIER
+                    {
+                      id, = val
+
+                      # TODO: error_duplicate_pattern_variable(p, $1, &@1);
+                      # TODO: assignable(p, $1, 0, &@$);
+                      result = s(:lvar, id.to_sym).line lexer.lineno
+                    }
+
+       p_var_ref: tCARET tIDENTIFIER
+                    {
+                      _, id = val
+
+                      # TODO: check id against env for lvar or dvar
+
+                      result = s(:lvar, id.to_sym).line lexer.lineno
+                    }
+
+         p_const: tCOLON3 cname
+                    {
+                      _, id = val
+                      result = s(:colon3, id.to_sym).line lexer.lineno
+                    }
+                | p_const tCOLON2 cname
+                    {
+                      lhs, _, name = val
+
+                      l = lhs.line
+                      result = s(:const, s(:colon2, lhs, name.to_sym).line(l)).line l
+                    }
+                | tCONSTANT
+                    {
+                      # TODO $$ = gettable(p, $1, &@$);
+
+                      name, = val
+                      result = s(:const, name.to_sym).line self.lexer.lineno
+                    }
+######################################################################
+#endif
 
       opt_rescue: k_rescue exc_list exc_var then compstmt opt_rescue
                     {
@@ -2701,7 +3125,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                 | kwrest_mark
                     {
                       result = :"**"
-                      self.env[result] = :lvar
+                      self.env[result] = :lvar # TODO: needed?!?
                     }
 
 #if V == 20
@@ -2855,6 +3279,9 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
           opt_nl:  | tNL
           rparen: opt_nl tRPAREN
         rbracket: opt_nl tRBRACK
+#if V >= 27
+          rbrace: opt_nl tRCURLY
+#endif
          trailer:  | tNL | tCOMMA
 
             term: tSEMI { yyerrok }
