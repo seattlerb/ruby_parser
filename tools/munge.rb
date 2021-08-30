@@ -81,7 +81,7 @@ def munge s
              "' '",             "tSPACE", # needs to be later to avoid bad hits
 
              "/* empty */",     "none",
-             /^\s*$/,           "none",
+             /^\s*$/,           "",
 
              "keyword_BEGIN",   "klBEGIN",
              "keyword_END",     "klEND",
@@ -89,6 +89,7 @@ def munge s
              /\bk_([a-z_]+)/,   proc { "k#{$1.upcase}" },
              /modifier_(\w+)/,  proc { "k#{$1.upcase}_MOD" },
              "kVARIABLE",       "keyword_variable", # ugh
+             "tCONST",          "kCONST",
 
              # 2.6 collapses klBEGIN to kBEGIN
              "klBEGIN",   "kBEGIN",
@@ -112,9 +113,12 @@ def munge s
              '"do (for condition)"', "kDO_COND",
              '"do (for lambda)"',    "kDO_LAMBDA",
              '"do (for block)"',     "kDO_BLOCK",
+             '"local variable or method"', "tIDENTIFIER",
+
 
              /\"(\w+) \(modifier\)\"/, proc { |x| "k#{$1.upcase}_MOD" },
              /\"(\w+)\"/,              proc { |x| "k#{$1.upcase}" },
+             /\"`(\w+)'\"/,            proc { |x| "k#{$1.upcase}" },
 
              /@(\d+)(\s+|$)/,       "",
              /\$?@(\d+) */,         "", # TODO: remove?
@@ -130,7 +134,11 @@ def munge s
     end
   end
 
-  s.strip.squeeze " "
+  if s.empty? then
+    nil
+  else
+    s.strip.squeeze " "
+  end
 end
 
 ARGF.each_line do |line|
@@ -144,19 +152,19 @@ ARGF.each_line do |line|
   when /^Reading a token: Next token is token (.*?) \(\)/ then
     token = munge $1
     next if last_token == token
-    puts "next token is %p (%p)" % [token, last_token]
+    puts "next token is %p" % [token]
     last_token = token
   when /^Reading a token: / then
     next # skip
   when /^read\s+:(\w+)/ then # read    :tNL(tNL) nil
     token = munge $1
     next if last_token == token
-    puts "next token is %p (%p)" % [token, last_token]
+    puts "next token is %p" % [token]
     last_token = token
   when /^Next token is token ("[^"]+"|\S+)/ then
     token = munge $1
     next if last_token == token
-    puts "next token is %p (%p)" % [token, last_token]
+    puts "next token is %p" % [token]
     last_token = token
   when /^read\s+false/ then # read    false($end) "$end"
     puts "next token is EOF"
@@ -172,7 +180,7 @@ ARGF.each_line do |line|
   when /^-> \$\$ = (?:token|nterm) (.+) \(.*\)/ then
     stack << "none" if stack.empty?
     item = munge $1
-    x = stack.map { |s| s.strip }.join " "
+    x = stack.compact.map { |s| munge s.strip }.join " "
     if x != item then # prevent kdef -> kdef
       if $v && reduce_line then
         puts "reduce #{x} --> #{item} at #{reduce_line}".squeeze " "
