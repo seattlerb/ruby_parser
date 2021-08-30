@@ -982,12 +982,11 @@ class RubyLexer
   def process_token_keyword keyword
     # matching MIDDLE of parse_ident in compare/parse23.y:8046
     state = lex_state
-    self.lex_state = keyword.state
-
     value = [token, self.lineno]
 
-    return result(lex_state, keyword.id0, value) if state =~ EXPR_FNAME
+    return result(EXPR_ENDFN, keyword.id0, value) if lex_state =~ EXPR_FNAME
 
+    self.lex_state = keyword.state
     self.command_start = true if lex_state =~ EXPR_BEG
 
     case
