@@ -4324,7 +4324,8 @@ class RubyParserTestCase < ParseTreeTestCase
   end
 
   def assert_parse rb, pt
-    self.result = processor.parse rb
+    timeout = (ENV["RP_TIMEOUT"] || 10).to_i
+    self.result = processor.parse rb, "(string)", timeout
     assert_equal pt, result
   end
 
