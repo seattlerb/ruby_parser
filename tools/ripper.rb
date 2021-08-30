@@ -1,7 +1,8 @@
-#!/Users/ryan/.rubies/ruby-2.7.1/bin/ruby -ws
+#!/usr/bin/env ruby -ws
 
-$d ||= false
-$p ||= false
+$b ||= false # bug mode -- ripper is buggy, use Ripper.sexp
+$d ||= false # debug -- turn on yydebug
+$p ||= false # Use pp
 
 require "ripper/sexp"
 require "pp" if $p
@@ -19,15 +20,19 @@ end
 
 ARGV.each do |path|
   src = path == "-" ? $stdin.read : File.read(path)
-  rip = MySexpBuilder.new src
-  rip.yydebug = $d
 
-  sexp = rip.parse
+  sexp = if $b then
+           Ripper.sexp src
+         else
+           rip = MySexpBuilder.new src
+           rip.yydebug = $d
+           rip.parse
 
-  if rip.error? then
-    warn "skipping"
-    next
-  end
+           if rip.error? then
+             warn "skipping"
+             next
+           end
+         end
 
   puts "accept"
 
