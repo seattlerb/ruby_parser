@@ -15,23 +15,7 @@ end
 ############################################################
 # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 
-unless "".respond_to?(:grep) then
-  class String
-    def grep re
-      lines.grep re
-    end
-  end
-end
-
 class String
-  ##
-  # This is a hack used by the lexer to sneak in line numbers at the
-  # identifier level. This should be MUCH smaller than making
-  # process_token return [value, lineno] and modifying EVERYTHING that
-  # reduces tIDENTIFIER.
-
-  attr_accessor :lineno
-
   def clean_caller
     self.sub(File.dirname(__FILE__), "./lib").sub(/:in.*/, "")
   end if $DEBUG
@@ -40,34 +24,15 @@ end
 require "sexp"
 
 class Sexp
-  attr_writer :paren
+  attr_writer :paren # TODO: retire
 
   def paren
     @paren ||= false
   end
 
-  def value
-    raise "multi item sexp" if size > 2
-    last
-  end
-
-  def to_sym
-    raise "no: #{self.inspect}.to_sym is a bug"
-    self.value.to_sym
-  end
-
-  alias :add :<<
-
-  def add_all x
-    self.concat x.sexp_body
-  end
-
   def block_pass?
     any? { |s| Sexp === s && s.sexp_type == :block_pass }
   end
-
-  alias :node_type :sexp_type
-  alias :values :sexp_body # TODO: retire
 end
 
 # END HACK
