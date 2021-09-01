@@ -187,12 +187,12 @@ rule
                     }
                 | kALIAS tGVAR tGVAR
                     {
-                      (_, line), lhs, rhs = val
+                      (_, line), (lhs, _), (rhs, _) = val
                       result = s(:valias, lhs.to_sym, rhs.to_sym).line line
                     }
                 | kALIAS tGVAR tBACK_REF
                     {
-                      (_, line), lhs, rhs = val
+                      (_, line), (lhs, _), (rhs, _) = val
                       result = s(:valias, lhs.to_sym, :"$#{rhs}").line line
                     }
                 | kALIAS tGVAR tNTH_REF
@@ -296,32 +296,31 @@ rule
                     }
                 | primary_value call_op tIDENTIFIER tOP_ASGN command_rhs
                     {
-                      prim, _, id, opasgn, rhs = val
-                      result = s(:op_asgn, prim, rhs, id.to_sym, opasgn.to_sym)
-                      if val[1] == '&.'
-                        result.sexp_type = :safe_op_asgn
-                      end
-                      result.line = val[0].line
+                      prim, (call_op, _), (id, _), (op_asgn, _), rhs = val
+
+                      result = s(:op_asgn, prim, rhs, id.to_sym, op_asgn.to_sym)
+                      result.sexp_type = :safe_op_asgn if call_op == '&.'
+                      result.line prim.line
                     }
                 | primary_value call_op tCONSTANT tOP_ASGN command_rhs
                     {
-                      result = s(:op_asgn, val[0], val[4], val[2].to_sym, val[3].to_sym)
-                      if val[1] == '&.'
-                        result.sexp_type = :safe_op_asgn
-                      end
-                      result.line = val[0].line
+                      prim, (call_op, _), (id, _), (op_asgn, _), rhs = val
+
+                      result = s(:op_asgn, prim, rhs, id.to_sym, op_asgn.to_sym)
+                      result.sexp_type = :safe_op_asgn if call_op == '&.'
+                      result.line prim.line
                     }
                 | primary_value tCOLON2 tCONSTANT tOP_ASGN command_rhs
                     {
-                      lhs1, _, lhs2, op, rhs = val
+                      lhs1, _, (lhs2, line), (id, _), rhs = val
 
-                      result = s(:op_asgn, lhs1, rhs, lhs2.to_sym, op.to_sym)
+                      result = s(:op_asgn, lhs1, rhs, lhs2.to_sym, id.to_sym).line line
                     }
                 | primary_value tCOLON2 tIDENTIFIER tOP_ASGN command_rhs
                     {
-                      lhs1, _, lhs2, op, rhs = val
+                      lhs1, _, (lhs2, line), (id, _), rhs = val
 
-                      result = s(:op_asgn, lhs1, rhs, lhs2.to_sym, op.to_sym)
+                      result = s(:op_asgn, lhs1, rhs, lhs2.to_sym, id.to_sym).line line
                     }
                 | backref tOP_ASGN command_rhs
                     {
@@ -418,7 +417,7 @@ rule
    block_command: block_call
                 | block_call call_op2 operation2 command_args
                     {
-                      blk, _, msg, args = val
+                      blk, _, (msg, _line), args = val
                       result = new_call(blk, msg.to_sym, args).line blk.line
                     }
 
@@ -432,15 +431,15 @@ rule
                       _, line, body, _ = val
 
                       result = body
-                      result.line = line
+                      result.line line
 
                       # self.env.unextend
                     }
 
            fcall: operation
                     {
-                      msg, = val
-                      result = new_call(nil, msg.to_sym).line lexer.lineno
+                      (msg, line), = val
+                      result = new_call(nil, msg.to_sym).line line
                     }
 
          command: fcall command_args =tLOWEST
@@ -463,12 +462,14 @@ rule
                     }
                 | primary_value call_op operation2 command_args =tLOWEST
                     {
-                      lhs, callop, op, args = val
+                      lhs, callop, (op, _), args = val
+
                       result = new_call lhs, op.to_sym, args, callop
+                      result.line lhs.line
                     }
                 | primary_value call_op operation2 command_args cmd_brace_block
                     {
-                      recv, _, msg, args, block = val
+                      recv, _, (msg, _line), args, block = val
                       call = new_call recv, msg.to_sym, args, val[1]
 
                       block_dup_check call, block
@@ -478,11 +479,14 @@ rule
                     }
                 | primary_value tCOLON2 operation2 command_args =tLOWEST
                     {
-                      result = new_call val[0], val[2].to_sym, val[3]
+                      lhs, _, (id, line), args = val
+
+                      result = new_call lhs, id.to_sym, args
+                      result.line line
                     }
                 | primary_value tCOLON2 operation2 command_args cmd_brace_block
                     {
-                      recv, _, msg, args, block = val
+                      recv, _, (msg, _line), args, block = val
                       call = new_call recv, msg.to_sym, args
 
                       block_dup_check call, block
@@ -640,16 +644,20 @@ rule
                     }
                 | primary_value call_op tIDENTIFIER
                     {
-                      result = new_attrasgn val[0], val[2], val[1]
+                      lhs, call_op, (id, _line) = val
+
+                      result = new_attrasgn lhs, id, call_op
                     }
                 | primary_value tCOLON2 tIDENTIFIER
                     {
-                      recv, _, id = val
+                      recv, _, (id, _line) = val
                       result = new_attrasgn recv, id
                     }
                 | primary_value call_op tCONSTANT
                     {
-                      result = new_attrasgn val[0], val[2], val[1]
+                      lhs, call_op, (id, _line) = val
+
+                      result = new_attrasgn lhs, id, call_op
                     }
                 | primary_value tCOLON2 tCONSTANT
                     {
@@ -658,7 +666,7 @@ rule
                         yyerror "dynamic constant assignment"
                       end
 
-                      expr, _, id = val
+                      expr, _, (id, _line) = val
                       l = expr.line
 
                       result = s(:const, s(:colon2, expr, id.to_sym).line(l), nil).line l
@@ -670,51 +678,58 @@ rule
                         yyerror "dynamic constant assignment"
                       end
 
-                      _, id = val
-                      l = lexer.lineno
+                      _, (id, l) = val
 
                       result = s(:const, nil, s(:colon3, id.to_sym).line(l)).line l
                     }
                 | backref
                     {
-                      self.backref_assign_error val[0]
+                      ref, = val
+
+                      self.backref_assign_error ref
                     }
 
              lhs: user_variable
                     {
-                      line = lexer.lineno
-                      result = self.assignable val[0]
-                      result.line = line
+                      var, = val
+
+                      result = self.assignable var
                     }
                 | keyword_variable
                     {
-                      line = lexer.lineno
-                      result = self.assignable val[0]
-                      result.line = line
+                      var, = val
+
+                      result = self.assignable var
+
                       debug20 9, val, result
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket
                     {
                       lhs, _, args, _ = val
+
                       result = self.aryset lhs, args
                     }
                 | primary_value call_op tIDENTIFIER # REFACTOR
                     {
-                      lhs, op, id = val
+                      lhs, op, (id, _line) = val
+
                       result = new_attrasgn lhs, id, op
                     }
                 | primary_value tCOLON2 tIDENTIFIER
                     {
-                      lhs, _, id = val
+                      lhs, _, (id, _line) = val
+
                       result = new_attrasgn lhs, id
                     }
                 | primary_value call_op tCONSTANT # REFACTOR?
                     {
-                      result = new_attrasgn val[0], val[2], val[1]
+                      lhs, call_op, (id, _line) = val
+
+                      result = new_attrasgn lhs, id, call_op
                     }
                 | primary_value tCOLON2 tCONSTANT
                     {
-                      expr, _, id = val
+                      expr, _, (id, _line) = val
 
                       if (self.in_def || self.in_single > 0) then
                         debug20 10
@@ -726,14 +741,13 @@ rule
                     }
                 | tCOLON3 tCONSTANT
                     {
-                      _, id = val
+                      _, (id, l) = val
 
                       if (self.in_def || self.in_single > 0) then
                         debug20 11
                         yyerror "dynamic constant assignment"
                       end
 
-                      l = lexer.lineno
                       result = s(:const, s(:colon3, id.to_sym).line(l)).line l
                     }
                 | backref
@@ -749,16 +763,17 @@ rule
 
            cpath: tCOLON3 cname
                     {
-                      _, name = val
-                      result = s(:colon3, name.to_sym).line lexer.lineno
+                      _, (name, line) = val
+                      result = s(:colon3, name.to_sym).line line
                     }
                 | cname
                     {
-                      result = val[0].to_sym
+                      (id, line), = val
+                      result = [id.to_sym, line] # TODO: sexp?
                     }
                 | primary_value tCOLON2 cname
                     {
-                      pval, _, name = val
+                      pval, _, (name, _line) = val
 
                       result = s(:colon2, pval, name.to_sym)
                       result.line pval.line
@@ -768,19 +783,15 @@ rule
                 | op
                     {
                       lexer.lex_state = EXPR_END
-                      result = val[0]
                     }
 
                 | reswords
-                    {
-                      (sym, _line), = val
-                      result = sym
-                    }
 
            fitem: fname
                     {
-                      id, = val
-                      result = s(:lit, id.to_sym).line lexer.lineno
+                      (id, line), = val
+
+                      result = s(:lit, id.to_sym).line line
                     }
                 | symbol
 
@@ -836,24 +847,20 @@ rule
                     }
                 | primary_value tCOLON2 tIDENTIFIER tOP_ASGN arg_rhs
                     {
-                      lhs, _, id, op, rhs = val
+                      lhs, _, (id, _line), (op, _), rhs = val
 
                       result = s(:op_asgn, lhs, rhs, id.to_sym, op.to_sym).line lhs.line
                     }
                 | primary_value tCOLON2 tCONSTANT tOP_ASGN arg_rhs
                     {
-                      lhs1, _, lhs2, op, rhs = val
+                      lhs1, _, (lhs2, _line), op, rhs = val
 
                       lhs = s(:colon2, lhs1, lhs2.to_sym).line lhs1.line
                       result = new_const_op_asgn [lhs, op, rhs]
                     }
-                | tCOLON3 tCONSTANT
+                | tCOLON3 tCONSTANT tOP_ASGN arg_rhs
                     {
-                      result = self.lexer.lineno
-                    }
-                    tOP_ASGN arg_rhs
-                    {
-                      _, lhs, line, op, rhs = val
+                      _, (lhs, line), op, rhs = val
 
                       lhs = s(:colon3, lhs.to_sym).line line
                       result = new_const_op_asgn [lhs, op, rhs]
@@ -867,7 +874,7 @@ rule
                 | arg tDOT2 arg
                     {
                       v1, v2 = val[0], val[2]
-                      if v1.node_type == :lit and v2.node_type == :lit and Integer === v1.last and Integer === v2.last then
+                      if v1.sexp_type == :lit and v2.sexp_type == :lit and Integer === v1.last and Integer === v2.last then
                         result = s(:lit, (v1.last)..(v2.last)).line v1.line
                       else
                         result = s(:dot2, v1, v2).line v1.line
@@ -876,7 +883,7 @@ rule
                 | arg tDOT3 arg
                     {
                       v1, v2 = val[0], val[2]
-                      if v1.node_type == :lit and v2.node_type == :lit and Integer === v1.last and Integer === v2.last then
+                      if v1.sexp_type == :lit and v2.sexp_type == :lit and Integer === v1.last and Integer === v2.last then
                         result = s(:lit, (v1.last)...(v2.last)).line v1.line
                       else
                         result = s(:dot3, v1, v2).line v1.line
@@ -943,16 +950,18 @@ rule
 #if V == 20
                 | tUMINUS_NUM tINTEGER tPOW arg
                     {
-                      lit = s(:lit, val[1]).line lexer.lineno
-                      result = new_call(new_call(lit, :"**", argl(val[3])), :"-@")
+                      _, (num, line), _, arg = val
+                      lit = s(:lit, num).line line
+                      result = new_call(new_call(lit, :"**", argl(arg)), :"-@")
                     }
                 | tUMINUS_NUM tFLOAT tPOW arg
 #else
                 | tUMINUS_NUM simple_numeric tPOW arg
 #endif
                     {
-                      lit = s(:lit, val[1]).line lexer.lineno
-                      result = new_call(new_call(lit, :"**", argl(val[3])), :"-@")
+                      _, (num, line), _, arg = val
+                      lit = s(:lit, num).line line
+                      result = new_call(new_call(lit, :"**", argl(arg)), :"-@")
 
 #if V == 20
                       ## TODO: why is this 2.0 only?
@@ -1055,12 +1064,12 @@ rule
 
         rel_expr: arg      relop arg                    =tGT
                     {
-                      lhs, op, rhs = val
+                      lhs, (op, _), rhs = val
                       result = new_call lhs, op.to_sym, argl(rhs)
                     }
                 | rel_expr relop arg                    =tGT
                     {
-                      lhs, op, rhs = val
+                      lhs, (op, _), rhs = val
                       warn "comparison '%s' after comparison", op
                       result = new_call lhs, op.to_sym, argl(rhs)
                     }
@@ -1273,8 +1282,9 @@ rule
                 | backref
                 | tFID
                     {
-                      msg, = val
+                      (msg, line), = val
                       result = new_call nil, msg.to_sym
+                      result.line line
                     }
                 | k_begin
                     {
@@ -1316,15 +1326,15 @@ rule
                     }
                 | primary_value tCOLON2 tCONSTANT
                     {
-                      expr, _, id = val
+                      expr, _, (id, _line) = val
 
                       result = s(:colon2, expr, id.to_sym).line expr.line
                     }
                 | tCOLON3 tCONSTANT
                     {
-                      _, id = val
+                      _, (id, line) = val
 
-                      result = s(:colon3, id.to_sym).line lexer.lineno
+                      result = s(:colon3, id.to_sym).line line
                     }
                 | tLBRACK { result = lexer.lineno } aref_args tRBRACK
                     {
@@ -1389,9 +1399,10 @@ rule
                       iter.insert 1, call # FIX
                       result = iter
                     }
-                | tLAMBDA lambda
+                | lambda
                     {
-                      result = val[1] # TODO: fix lineno
+                      expr, = val
+                      result = expr
                     }
                 | k_if expr_value then compstmt if_tail k_end
                     {
@@ -1500,11 +1511,9 @@ rule
                       lexer.cmdarg.push false
                       lexer.cond.push false
                     }
-                    f_arglist bodystmt { result = lexer.lineno } k_end
+                    f_arglist bodystmt k_end
                     {
-                      in_def = val[2]
-
-                      result = new_defn val
+                      result, in_def = new_defn val
 
                       lexer.cond.pop # group = local_pop
                       lexer.cmdarg.pop
@@ -1519,7 +1528,7 @@ rule
                     }
                     fname
                     {
-                      result = [self.in_def, lexer.lineno]
+                      result = self.in_def
 
                       self.in_single += 1 # TODO: remove?
 
@@ -1532,9 +1541,7 @@ rule
                     }
                     f_arglist bodystmt k_end
                     {
-                      _, _recv, _, _, _name, (in_def, _lineno), _args, _body, _ = val
-
-                      result = new_defs val
+                      result, in_def = new_defs val
 
                       lexer.cond.pop # group = local_pop
                       lexer.cmdarg.pop
@@ -1680,13 +1687,15 @@ rule
 
      f_rest_marg: tSTAR f_norm_arg
                     {
-                      _, splat = val
+                      _, (id, line) = val
 
-                      result = args [:"*#{splat}"]
+                      result = args ["*#{id}".to_sym]
+                      result.line line
                     }
                 | tSTAR
                     {
                       result = args [:*]
+                      result.line lexer.lineno # FIX: tSTAR -> line
                     }
 
  block_args_tail: f_block_kwarg tCOMMA f_kwrest opt_f_block_arg
@@ -1709,8 +1718,8 @@ rule
 #endif
                 | f_block_arg
                     {
-                      line = lexer.lineno
-                      result = call_args val # TODO: push line down
+                      (id, line), = val
+                      result = call_args [id]
                       result.line line
                     }
 
@@ -1819,13 +1828,13 @@ opt_block_args_tail: tCOMMA block_args_tail
 
             bvar: tIDENTIFIER
                     {
-                      id, = val
-                      line = lexer.lineno
+                      (id, line), = val
                       result = s(:shadow, id.to_sym).line line
                     }
                 | f_bad_arg
 
-          lambda:   {
+          lambda: tLAMBDA
+                    {
                       self.env.extend :dynamic
                       result = [lexer.lineno, lexer.lpar_beg]
                       lexer.paren_nest += 1
@@ -1837,14 +1846,14 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                     lambda_body
                     {
-                      (line, lpar), args, _cmdarg, body = val
+                      _, (line, lpar), args, _cmdarg, body = val
                       lexer.lpar_beg = lpar
 
                       lexer.cmdarg.pop
 
                       call = s(:lambda).line line
                       result = new_iter call, args, body
-                      result.line = line
+                      result.line line
                       self.env.unextend # TODO: dynapush & dynapop
                     }
 
@@ -1879,23 +1888,28 @@ opt_block_args_tail: tCOMMA block_args_tail
                       ## if (nd_type($1) == NODE_YIELD) {
                       ##     compile_error(PARSER_ARG "block given to yield");
 
-                      syntax_error "Both block arg and actual block given." if
-                        val[0].block_pass?
-
-                      val = invert_block_call val if inverted? val
-
                       cmd, blk = val
+
+                      syntax_error "Both block arg and actual block given." if
+                        cmd.block_pass?
+
+                      if inverted? val then
+                        val = invert_block_call val
+                        cmd, blk = val
+                      end
 
                       result = blk
                       result.insert 1, cmd
                     }
                 | block_call call_op2 operation2 opt_paren_args
                     {
-                      result = new_call val[0], val[2].to_sym, val[3]
+                      lhs, _, (id, _line), args = val
+
+                      result = new_call lhs, id.to_sym, args
                     }
                 | block_call call_op2 operation2 opt_paren_args brace_block
                     {
-                      iter1, _, name, args, iter2 = val
+                      iter1, _, (name, _line), args, iter2 = val
 
                       call = new_call iter1, name.to_sym, args
                       iter2.insert 1, call
@@ -1904,7 +1918,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | block_call call_op2 operation2 command_args do_block
                     {
-                      iter1, _, name, args, iter2 = val
+                      iter1, _, (name, _line), args, iter2 = val
 
                       call = new_call iter1, name.to_sym, args
                       iter2.insert 1, call
@@ -1912,28 +1926,29 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result = iter2
                     }
 
-     method_call: fcall
+     method_call: fcall paren_args
                     {
-                      result = self.lexer.lineno
-                    }
-                    paren_args
-                    {
-                      call, lineno, args = val
+                      call, args = val
 
                       result = call.concat args.sexp_body if args
-                      result.line lineno
                     }
                 | primary_value call_op operation2 opt_paren_args
                     {
-                      result = new_call val[0], val[2].to_sym, val[3], val[1]
+                      recv, call_op, (op, _line), args = val
+
+                      result = new_call recv, op.to_sym, args, call_op
                     }
                 | primary_value tCOLON2 operation2 paren_args
                     {
-                      result = new_call val[0], val[2].to_sym, val[3]
+                      recv, _, (op, _line), args = val
+
+                      result = new_call recv, op.to_sym, args
                     }
                 | primary_value tCOLON2 operation3
                     {
-                      result = new_call val[0], val[2].to_sym
+                      lhs, _, (id, _line) = val
+
+                      result = new_call lhs, id.to_sym
                     }
                 | primary_value call_op paren_args
                     {
@@ -1966,7 +1981,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       _, line, body, _ = val
 
                       result = body
-                      result.line = line
+                      result.line line
 
                       self.env.unextend
                     }
@@ -1980,7 +1995,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       _, line, body, _ = val
 
                       result = body
-                      result.line = line
+                      result.line line
 
                       self.env.unextend
                     }
@@ -2045,7 +2060,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     case_args then compstmt cases
                     {
                       result = new_when(val[2], val[4])
-                      result.line = val[1]
+                      result.line val[1]
                       result << val[5] if val[5]
                     }
 
@@ -2232,7 +2247,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | p_args_head tSTAR tIDENTIFIER
                     {
-                      head, _, id = val
+                      head, _, (id, _line) = val
 
                       result = new_array_pattern_tail head, true, id.to_sym, nil
                       result.line head.line
@@ -2262,10 +2277,10 @@ opt_block_args_tail: tCOMMA block_args_tail
 
      p_args_tail: tSTAR tIDENTIFIER
                     {
-                      _, id = val
+                      _, (id, line) = val
 
                       result = new_array_pattern_tail nil, true, id.to_sym, nil
-                      result.line lexer.lineno
+                      result.line line
                     }
                 | tSTAR tIDENTIFIER tCOMMA p_args_post { not_yet 43 }
                 | tSTAR
@@ -2299,7 +2314,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
         p_kwargs: p_kwarg tCOMMA p_kwrest
                     {
-                      kw_arg, _, rest = val
+                      kw_arg, _, (rest, _line) = val
                       # xxx = new_unique_key_hash(p, $1, &@$)
                       result = new_hash_pattern_tail kw_arg, rest, kw_arg.line
                     }
@@ -2317,10 +2332,9 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | p_kwrest
                     {
-                      rest, = val
+                      (rest, line), = val
 
-                      # HACK: fix lineno
-                      result = new_hash_pattern_tail nil, rest, self.lexer.lineno
+                      result = new_hash_pattern_tail nil, rest, line
 
                     }
                 | p_kwarg tCOMMA p_kwnorest { not_yet 53 }
@@ -2358,15 +2372,16 @@ opt_block_args_tail: tCOMMA block_args_tail
 
         p_kwrest: kwrest_mark tIDENTIFIER
                     {
-                      _, id = val
+                      _, (id, line) = val
 
                       name = id.to_sym
-                      self.assignable name
-                      result = :"**#{name}"
+                      self.assignable [name, line]
+                      result = [:"**#{name}", line]
                     }
                 | kwrest_mark
                     {
-                      result = :"**"
+                      # TODO: assignable?
+                      result = [:"**", lexer.lineno] # FIX
                     }
 
       p_kwnorest: kwrest_mark kNIL { not_yet 63 }
@@ -2401,44 +2416,43 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = var
                     }
-                | tLAMBDA lambda { not_yet 83 }
+                | lambda { not_yet 83 }
 
       p_variable: tIDENTIFIER
                     {
-                      id, = val
+                      (id, line), = val
 
                       # TODO: error_duplicate_pattern_variable(p, $1, &@1);
                       # TODO: assignable(p, $1, 0, &@$);
-                      result = s(:lvar, id.to_sym).line lexer.lineno
+                      result = s(:lvar, id.to_sym).line line
                     }
 
        p_var_ref: tCARET tIDENTIFIER
                     {
-                      _, id = val
+                      _, (id, line) = val
 
                       # TODO: check id against env for lvar or dvar
 
-                      result = s(:lvar, id.to_sym).line lexer.lineno
+                      result = s(:lvar, id.to_sym).line line
                     }
 
          p_const: tCOLON3 cname
                     {
-                      _, id = val
-                      result = s(:colon3, id.to_sym).line lexer.lineno
+                      _, (id, line) = val
+                      result = s(:colon3, id.to_sym).line line
                     }
                 | p_const tCOLON2 cname
                     {
-                      lhs, _, name = val
+                      lhs, _, (id, _line) = val
 
                       l = lhs.line
-                      result = s(:const, s(:colon2, lhs, name.to_sym).line(l)).line l
+                      result = s(:const, s(:colon2, lhs, id.to_sym).line(l)).line l
                     }
                 | tCONSTANT
                     {
                       # TODO $$ = gettable(p, $1, &@$);
-
-                      name, = val
-                      result = s(:const, name.to_sym).line self.lexer.lineno
+                      (id, line), = val
+                      result = s(:const, id.to_sym).line line
                     }
 ######################################################################
 #endif
@@ -2483,9 +2497,8 @@ opt_block_args_tail: tCOMMA block_args_tail
 
          literal: numeric
                     {
-                      line = lexer.lineno
-                      result = s(:lit, val[0])
-                      result.line = line
+                      (lit, line), = val
+                      result = s(:lit, lit).line line
                     }
                 | symbol
 
@@ -2561,7 +2574,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                 | tSYMBOLS_BEG { result = lexer.lineno } symbol_list tSTRING_END
                     {
                       _, line, list, _, = val
-                      list.line = line
+                      list.line line
                       result = list
                     }
 
@@ -2643,7 +2656,8 @@ regexp_contents: none
 
   string_content: tSTRING_CONTENT
                     {
-                      result = new_string val
+                      str, = val
+                      result = new_string [[str, lexer.lineno]]
                     }
                 | tSTRING_DVAR
                     {
@@ -2709,9 +2723,21 @@ regexp_contents: none
                       end
                     }
 
-     string_dvar: tGVAR { result = s(:gvar, val[0].to_sym).line lexer.lineno }
-                | tIVAR { result = s(:ivar, val[0].to_sym).line lexer.lineno }
-                | tCVAR { result = s(:cvar, val[0].to_sym).line lexer.lineno }
+     string_dvar: tGVAR
+                    {
+                      (id, line), = val
+                      result = s(:gvar, id.to_sym).line line
+                    }
+                | tIVAR
+                    {
+                      (id, line), = val
+                      result = s(:ivar, id.to_sym).line line
+                    }
+                | tCVAR
+                    {
+                      (id, line), = val
+                      result = s(:cvar, id.to_sym).line line
+                    }
                 | backref
 
           symbol: ssym
@@ -2719,13 +2745,17 @@ regexp_contents: none
 
             ssym: tSYMBEG sym
                     {
+                      _, (id, line) = val
+
                       lexer.lex_state = EXPR_END
-                      result = new_symbol val
+                      result = s(:lit, id.to_sym).line line
                     }
                 | tSYMBOL
                     {
+                      (id, line), = val
+
                       lexer.lex_state = EXPR_END
-                      result = new_symbol val
+                      result = s(:lit, id.to_sym).line line
                     }
 
              sym: fname | tIVAR | tGVAR | tCVAR
@@ -2759,12 +2789,14 @@ regexp_contents: none
                 | tUMINUS_NUM simple_numeric
 #endif
                     {
-                      result = -val[1] # TODO: pt_testcase
+                      _, (num, line) = val
+                      result = [-num, line]
 #if V == 20
                     }
                 | tUMINUS_NUM tFLOAT   =tLOWEST
                     {
-                      result = -val[1] # TODO: pt_testcase
+                      _, (num, line) = val
+                      result = [-num, line]
 #endif
                     }
 
@@ -2800,8 +2832,10 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
 
          var_ref: user_variable
                     {
-                      var = val[0]
+                      raise "NO: #{val.inspect}" if Sexp === val.first
+                      (var, line), = val
                       result = Sexp === var ? var : self.gettable(var)
+                      result.line line
                     }
                 | keyword_variable
                     {
@@ -2819,8 +2853,16 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       debug20 29, val, result
                     }
 
-         backref: tNTH_REF  { result = s(:nth_ref,  val[0]).line lexer.lineno }
-                | tBACK_REF { result = s(:back_ref, val[0]).line lexer.lineno }
+         backref: tNTH_REF
+                    {
+                      (ref, line), = val
+                      result = s(:nth_ref, ref).line line
+                    }
+                | tBACK_REF
+                    {
+                      (ref, line), = val
+                      result = s(:back_ref, ref).line line
+                    }
 
       superclass: tLT
                     {
@@ -2838,24 +2880,16 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
 
        f_arglist: tLPAREN2 f_args rparen
                     {
-                      result = val[1]
-                      self.lexer.lex_state = EXPR_BEG
-                      self.lexer.command_start = true
+                      result = end_args val
                     }
 #if V >= 27
                 | tLPAREN2 f_arg tCOMMA args_forward rparen
                     {
-                      result = args val
-
-                      self.lexer.lex_state = EXPR_BEG
-                      self.lexer.command_start = true
+                      result = end_args val
                     }
                 | tLPAREN2 args_forward rparen
                     {
-                      result = args val
-
-                      self.lexer.lex_state = EXPR_BEG
-                      self.lexer.command_start = true
+                      result = end_args val
                     }
 #endif
                 |   {
@@ -2865,12 +2899,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                     }
                     f_args term
                     {
-                      kwarg, args, _ = val
-
-                      self.in_kwarg = kwarg
-                      result = args
-                      lexer.lex_state     = EXPR_BEG
-                      lexer.command_start = true
+                      result = end_args val
                     }
 
        args_tail: f_kwarg tCOMMA f_kwrest opt_f_block_arg
@@ -2961,6 +2990,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                 |
                     {
                       result = args val
+                      # result.line lexer.lineno
                     }
 
 #if V >= 27
@@ -2990,10 +3020,11 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
       f_norm_arg: f_bad_arg
                 | tIDENTIFIER
                     {
-                      identifier = val[0].to_sym
+                      (id, line), = val
+                      identifier = id.to_sym
                       self.env[identifier] = :lvar
 
-                      result = identifier
+                      result = [identifier, line]
                     }
 
 #if V >= 22
@@ -3002,29 +3033,23 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
       f_arg_item: f_arg_asgn
                 | tLPAREN f_margs rparen
                     {
-                      result = val[1]
+                      _, margs, _ = val
+
+                      result = margs
                     }
 #else
       f_arg_item: f_norm_arg
                 | tLPAREN f_margs rparen
                     {
-                      result = val[1]
+                      _, margs, _ = val
+
+                      result = margs
                     }
 #endif
 
            f_arg: f_arg_item
                     {
-                      arg, = val
-
-                      case arg
-                      when Symbol then
-                        result = s(:args, arg).line lexer.lineno
-                      when Sexp then
-                        result = arg
-                      else
-                        debug20 32
-                        raise "Unknown f_arg type: #{val.inspect}"
-                      end
+                      result = new_arg val
                     }
                 | f_arg tCOMMA f_arg_item
                     {
@@ -3036,7 +3061,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                         result = s(:args, list).line list.line
                       end
 
-                      result << item
+                      result << (Sexp === item ? item : item.first)
                     }
 
 #if V == 20
@@ -3118,14 +3143,17 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
 
         f_kwrest: kwrest_mark tIDENTIFIER
                     {
-                      name = val[1].to_sym
-                      self.assignable name
-                      result = :"**#{name}"
+                      _, (id, line) = val
+
+                      name = id.to_sym
+                      self.assignable [name, line]
+                      result = [:"**#{name}", line]
                     }
                 | kwrest_mark
                     {
-                      result = :"**"
-                      self.env[result] = :lvar # TODO: needed?!?
+                      id = :"**"
+                      self.env[id] = :lvar # TODO: needed?!?
+                      result = [id, lexer.lineno] # TODO: tPOW/tDSTAR include lineno
                     }
 
 #if V == 20
@@ -3136,7 +3164,8 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
            f_opt: f_arg_asgn tEQL arg_value
 #endif
                     {
-                      result = self.assignable val[0], val[2]
+                      lhs, _, rhs = val
+                      result = self.assignable lhs, rhs
                       # TODO: detect duplicate names
                     }
 
@@ -3148,7 +3177,8 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
      f_block_opt: f_arg_asgn tEQL primary_value
 #endif
                     {
-                      result = self.assignable val[0], val[2]
+                      lhs, _, rhs = val
+                      result = self.assignable lhs, rhs
                     }
 
   f_block_optarg: f_block_opt
@@ -3178,30 +3208,33 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
       f_rest_arg: restarg_mark tIDENTIFIER
                     {
                       # TODO: differs from parse.y - needs tests
-                      name = val[1].to_sym
-                      self.assignable name
-                      result = :"*#{name}"
+                      _, (id, line) = val
+                      name = id.to_sym
+                      self.assignable [name, line]
+                      result = [:"*#{name}", line]
                     }
                 | restarg_mark
                     {
                       name = :"*"
                       self.env[name] = :lvar
-                      result = name
+                      result = [name, lexer.lineno] # FIX: tSTAR to include lineno
                     }
 
      blkarg_mark: tAMPER2 | tAMPER
 
      f_block_arg: blkarg_mark tIDENTIFIER
                     {
-                      identifier = val[1].to_sym
+                      _, (id, line) = val
+                      identifier = id.to_sym
 
                       self.env[identifier] = :lvar
-                      result = "&#{identifier}".to_sym
+                      result = ["&#{identifier}".to_sym, line]
                     }
 
  opt_f_block_arg: tCOMMA f_block_arg
                     {
-                      result = val[1]
+                      _, arg = val
+                      result = arg
                     }
                 |
                     {

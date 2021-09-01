@@ -290,13 +290,13 @@ class RubyLexer
     text = matched
     case
     when text.end_with?("ri")
-      return result(EXPR_NUM, :tIMAGINARY, Complex(0, Rational(text.chop.chop.to_i(base))))
+      result EXPR_NUM, :tIMAGINARY, Complex(0, Rational(text.chop.chop.to_i(base)))
     when text.end_with?("r")
-      return result(EXPR_NUM, :tRATIONAL, Rational(text.chop.to_i(base)))
+      result EXPR_NUM, :tRATIONAL, Rational(text.chop.to_i(base))
     when text.end_with?("i")
-      return result(EXPR_NUM, :tIMAGINARY, Complex(0, text.chop.to_i(base)))
+      result EXPR_NUM, :tIMAGINARY, Complex(0, text.chop.to_i(base))
     else
-      return result(EXPR_NUM, :tINTEGER, text.to_i(base))
+      result EXPR_NUM, :tINTEGER, text.to_i(base)
     end
   end
 
@@ -488,7 +488,7 @@ class RubyLexer
                :tAMPER2
              end
 
-    return result(:arg_state, token, "&")
+    result :arg_state, token, "&"
   end
 
   def process_backref text
@@ -604,36 +604,33 @@ class RubyLexer
 
     case
     when text.end_with?("ri")
-      return result EXPR_NUM, :tIMAGINARY, Complex(0, Rational(text.chop.chop))
+      result EXPR_NUM, :tIMAGINARY, Complex(0, Rational(text.chop.chop))
     when text.end_with?("i")
-      return result EXPR_NUM, :tIMAGINARY, Complex(0, text.chop.to_f)
+      result EXPR_NUM, :tIMAGINARY, Complex(0, text.chop.to_f)
     when text.end_with?("r")
-      return result EXPR_NUM, :tRATIONAL,  Rational(text.chop)
+      result EXPR_NUM, :tRATIONAL,  Rational(text.chop)
     else
-      return result EXPR_NUM, :tFLOAT, text.to_f
+      result EXPR_NUM, :tFLOAT, text.to_f
     end
   end
 
   def process_gvar text
-    text.lineno = self.lineno
     result EXPR_END, :tGVAR, text
   end
 
   def process_gvar_oddity text
-    return result EXPR_END, "$", "$" if text == "$" # TODO: wtf is this?
     rb_compile_error "#{text.inspect} is not allowed as a global variable name"
   end
 
   def process_ivar text
     tok_id = text =~ /^@@/ ? :tCVAR : :tIVAR
-    text.lineno = self.lineno
     result EXPR_END, tok_id, text
   end
 
   def process_label text
     symbol = possibly_escape_string text, /^\"/
 
-    result EXPR_LAB, :tLABEL, [symbol, self.lineno]
+    result EXPR_LAB, :tLABEL, symbol
   end
 
   def process_label_or_string text
@@ -663,7 +660,7 @@ class RubyLexer
       self.lex_state = EXPR_BEG
     end
 
-    return result(lex_state, :tLSHFT, "\<\<")
+    result lex_state, :tLSHFT, "\<\<"
   end
 
   def process_newline_or_comment text
@@ -713,7 +710,8 @@ class RubyLexer
     end
 
     self.command_start = true
-    return result EXPR_BEG, :tNL, nil
+
+    result EXPR_BEG, :tNL, nil
   end
 
   def process_nthref text
@@ -752,7 +750,7 @@ class RubyLexer
 
     return parse_quote if is_space_arg?(check(/\s/)) || (lex_state =~ EXPR_FITEM && check(/s/))
 
-    return result :arg_state, :tPERCENT, "%"
+    result :arg_state, :tPERCENT, "%"
   end
 
   def process_plus_minus text
@@ -839,7 +837,7 @@ class RubyLexer
     if is_beg? then
       string STR_REGEXP
 
-      return result(nil, :tREGEXP_BEG, "/")
+      return result nil, :tREGEXP_BEG, "/"
     end
 
     if scan(/\=/) then
@@ -854,7 +852,7 @@ class RubyLexer
       end
     end
 
-    return result(:arg_state, :tDIVIDE, "/")
+    result :arg_state, :tDIVIDE, "/"
   end
 
   def process_square_bracket text
@@ -922,7 +920,6 @@ class RubyLexer
 
   def process_token text
     # matching: parse_ident in compare/parse23.y:7989
-    # TODO: make this always return [token, lineno]
     # FIX: remove: self.last_state = lex_state
 
     token = self.token = text
@@ -945,8 +942,7 @@ class RubyLexer
 
     if is_label_possible? and is_label_suffix? then
       scan(/:/)
-      # TODO: propagate the lineno to ALL results
-      return result EXPR_LAB, :tLABEL, [token, self.lineno]
+      return result EXPR_LAB, :tLABEL, token
     end
 
     # TODO: mb == ENC_CODERANGE_7BIT && lex_state !~ EXPR_DOT
@@ -974,19 +970,14 @@ class RubyLexer
       state = EXPR_END|EXPR_LABEL
     end
 
-    # TODO: remove
-    token.lineno = self.lineno # yes, on a string. I know... I know...
-
-    # TODO: [tok_id, self.lineno] ?
-    return result(state, tok_id, token)
+    result state, tok_id, token
   end
 
   def process_token_keyword keyword
     # matching MIDDLE of parse_ident in compare/parse23.y:8046
     state = lex_state
-    value = [token, self.lineno]
 
-    return result(EXPR_ENDFN, keyword.id0, value) if lex_state =~ EXPR_FNAME
+    return result(EXPR_ENDFN, keyword.id0, token) if lex_state =~ EXPR_FNAME
 
     self.lex_state = keyword.state
     self.command_start = true if lex_state =~ EXPR_BEG
@@ -997,20 +988,20 @@ class RubyLexer
       when lambda_beginning? then
         self.lpar_beg = nil # lambda_beginning? == FALSE in the body of "-> do ... end"
         self.paren_nest -= 1 # TODO: question this?
-        result lex_state, :kDO_LAMBDA, value
+        result lex_state, :kDO_LAMBDA, token
       when cond.is_in_state then
-        result lex_state, :kDO_COND, value
+        result lex_state, :kDO_COND, token
       when cmdarg.is_in_state && state != EXPR_CMDARG then
-        result lex_state, :kDO_BLOCK, value
+        result lex_state, :kDO_BLOCK, token
       else
-        result lex_state, :kDO, value
+        result lex_state, :kDO, token
       end
     when state =~ EXPR_PAD then
-      result lex_state, keyword.id0, value
+      result lex_state, keyword.id0, token
     when keyword.id0 != keyword.id1 then
-      result EXPR_PAR, keyword.id1, value
+      result EXPR_PAR, keyword.id1, token
     else
-      result lex_state, keyword.id1, value
+      result lex_state, keyword.id1, token
     end
   end
 
@@ -1139,7 +1130,8 @@ class RubyLexer
   def result new_state, token, text # :nodoc:
     new_state = self.arg_state if new_state == :arg_state
     self.lex_state = new_state if new_state
-    [token, text]
+
+    [token, [text, self.lineno]]
   end
 
   def ruby22_label?

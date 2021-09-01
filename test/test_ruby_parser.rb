@@ -1635,7 +1635,7 @@ module TestRubyParserShared
 
   def test_parse_line_defn_no_parens_args
     rb = "def f a\nend"
-    pt = s(:defn, :f, s(:args, :a).line(1), s(:nil).line(2)).line(1)
+    pt = s(:defn, :f, s(:args, :a).line(1), s(:nil).line(1)).line(1)
 
     assert_parse_line rb, pt, 1
   end
@@ -1656,7 +1656,7 @@ module TestRubyParserShared
   end
 
   def test_parse_line_defn_no_parens
-    pt = s(:defn, :f, s(:args).line(1), s(:nil)).line(1)
+    pt = s(:defn, :f, s(:args).line(1), s(:nil).line(1)).line(1)
 
     rb = "def f\nend"
     assert_parse_line rb, pt, 1
@@ -2632,7 +2632,7 @@ module TestRubyParserShared19Plus
     rb = "def m arg = false\nend"
     pt = s(:defn, :m,
            s(:args, s(:lasgn, :arg, s(:false).line(1)).line(1)).line(1),
-           s(:nil).line(2)).line(1)
+           s(:nil).line(1)).line(1)
 
     assert_parse rb, pt
   end
@@ -4079,7 +4079,7 @@ module TestRubyParserShared23Plus
   end
 
   def test_safe_op_asgn
-    rb = "a&.b += x 1\n"
+    rb = "a&.b += x 1"
     pt = s(:safe_op_asgn, s(:call, nil, :a), s(:call, nil, :x, s(:lit, 1)), :b, :+).line(1)
 
     assert_parse rb, pt
@@ -4845,7 +4845,7 @@ class TestRubyParserV24 < RubyParserTestCase
 
     assert_parse rb, pt
 
-    assert_parse_error "a(b rescue c)", /parse error on value ..rescue/
+    assert_parse_error "a(b rescue c)", /parse error on value .rescue/
   end
 end
 

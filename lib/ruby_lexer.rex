@@ -75,7 +75,7 @@ ruby22_label?   /\"#{SIMPLE_STRING}\":/o process_label
 |               /\:\:/                      process_colon2
 |               /\:/                        process_colon1
 
-                /->/                    { result EXPR_ENDFN, :tLAMBDA, nil }
+                /->/                    { result EXPR_ENDFN, :tLAMBDA, text }
 
                 /[+-]/                  process_plus_minus
 
@@ -105,9 +105,9 @@ was_label?        /\'#{SSTRING}\':?/o   process_label_or_string
 
 : /\*/
 |               /\*\*=/                 { result EXPR_BEG, :tOP_ASGN, "**" }
-|               /\*\*/                  { result(:arg_state, space_vs_beginning(:tDSTAR, :tDSTAR, :tPOW), "**") }
-|               /\*\=/                  { result(EXPR_BEG, :tOP_ASGN, "*") }
-|               /\*/                    { result(:arg_state, space_vs_beginning(:tSTAR, :tSTAR, :tSTAR2), "*") }
+|               /\*\*/                  { result :arg_state, space_vs_beginning(:tDSTAR, :tDSTAR, :tPOW), "**" }
+|               /\*\=/                  { result EXPR_BEG, :tOP_ASGN, "*" }
+|               /\*/                    { result :arg_state, space_vs_beginning(:tSTAR, :tSTAR, :tSTAR2), "*" }
 
 # TODO: fix result+process_lchevron to set command_start = true
 : /</
@@ -124,30 +124,30 @@ was_label?        /\'#{SSTRING}\':?/o   process_label_or_string
 |               /\>/                    { result :arg_state, :tGT, ">"       }
 
 : /\`/
-| expr_fname?   /\`/                   { result(EXPR_END, :tBACK_REF2, "`") }
+| expr_fname?   /\`/                   { result EXPR_END, :tBACK_REF2, "`" }
 | expr_dot?     /\`/                   { result((cmd_state ? EXPR_CMDARG : EXPR_ARG), :tBACK_REF2, "`") }
-|               /\`/                   { string STR_XQUOTE, '`'; result(nil, :tXSTRING_BEG, "`") }
+|               /\`/                   { string STR_XQUOTE, '`'; result nil, :tXSTRING_BEG, "`" }
 
                 /\?/                    process_questionmark
 
 : /&/
-|               /\&\&\=/                { result(EXPR_BEG, :tOP_ASGN, "&&") }
-|               /\&\&/                  { result(EXPR_BEG, :tANDOP,   "&&") }
-|               /\&\=/                  { result(EXPR_BEG, :tOP_ASGN, "&" ) }
-|               /\&\./                  { result(EXPR_DOT, :tLONELY,  "&.") }
+|               /\&\&\=/                { result EXPR_BEG, :tOP_ASGN, "&&" }
+|               /\&\&/                  { result EXPR_BEG, :tANDOP,   "&&" }
+|               /\&\=/                  { result EXPR_BEG, :tOP_ASGN, "&"  }
+|               /\&\./                  { result EXPR_DOT, :tLONELY,  "&." }
 |               /\&/                    process_amper
 
                 /\//                    process_slash
 
 : /\^/
-|               /\^=/                   { result(EXPR_BEG, :tOP_ASGN, "^") }
-|               /\^/                    { result(:arg_state, :tCARET, "^") }
+|               /\^=/                   { result EXPR_BEG, :tOP_ASGN, "^" }
+|               /\^/                    { result :arg_state, :tCARET, "^" }
 
-                /\;/                    { self.command_start = true; result(EXPR_BEG, :tSEMI, ";") }
+                /\;/                    { self.command_start = true; result EXPR_BEG, :tSEMI, ";" }
 
 : /~/
-| is_after_operator? /\~@/              { result(:arg_state, :tTILDE, "~") }
-|               /\~/                    { result(:arg_state, :tTILDE, "~") }
+| is_after_operator? /\~@/              { result :arg_state, :tTILDE, "~" }
+|               /\~/                    { result :arg_state, :tTILDE, "~" }
 
 : /\\/
 |               /\\\r?\n/               { self.lineno += 1; self.space_seen = true; next }
@@ -165,7 +165,7 @@ was_label?        /\'#{SSTRING}\':?/o   process_label_or_string
 |               /\$([1-9]\d*)/                   process_nthref
 |               /\$0/                            process_gvar
 |               /\$#{IDENT_CHAR}+/               process_gvar
-|               /\$\W|\$\z/                      process_gvar_oddity
+|               /\$\W/                           process_gvar_oddity
 
                 /\_/                    process_underscore
 

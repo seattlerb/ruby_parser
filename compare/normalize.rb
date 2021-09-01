@@ -141,6 +141,7 @@ def munge s
              '"do for block"',     "kDO_BLOCK",
              '"do for condition"', "kDO_COND",
              '"do for lambda"',    "kDO_LAMBDA",
+             "tLABEL",             "kLABEL",
 
              # UGH
              "k_LINE__",       "k__LINE__",

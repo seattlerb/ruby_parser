@@ -167,8 +167,8 @@ class TestRubyLexer < Minitest::Test
   ## Tests:
 
   def test_next_token
-    assert_equal [:tIDENTIFIER, "blah"], @lex.next_token
-    assert_equal [:tIDENTIFIER, "blah"], @lex.next_token
+    assert_equal [:tIDENTIFIER, ["blah", 1]], @lex.next_token
+    assert_equal [:tIDENTIFIER, ["blah", 1]], @lex.next_token
     assert_nil @lex.next_token
   end
 
@@ -762,10 +762,6 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_dollar_bad
     e = refute_lex("$%")
     assert_includes(e.message, "is not allowed as a global variable name")
-  end
-
-  def test_yylex_dollar_eos
-    assert_lex3("$", nil, "$", "$", EXPR_END) # FIX: wtf is this?!?
   end
 
   def test_yylex_dot # HINT message sends
@@ -1565,8 +1561,10 @@ class TestRubyLexer < Minitest::Test
 
     assert_lex("f :a, [:b] { |c, d| }", # yes, this is bad code
                s(:iter,
-                 s(:call, nil, :f, s(:lit, :a), s(:array, s(:lit, :b))),
-                 s(:args, :c, :d)),
+                 s(:call, nil, :f,
+                   s(:lit, :a).line(1),
+                   s(:array, s(:lit, :b).line(1)).line(1)).line(1),
+                 s(:args, :c, :d).line(1)).line(1),
 
                :tIDENTIFIER, "f", EXPR_CMDARG,  0, 0,
                :tSYMBOL,     "a", EXPR_LIT,     0, 0,
@@ -1621,7 +1619,7 @@ class TestRubyLexer < Minitest::Test
                s(:iter, s(:lambda),
                  s(:args, :a)),
 
-               :tLAMBDA,     nil, EXPR_ENDFN, 0, 0,
+               :tLAMBDA,    "->", EXPR_ENDFN, 0, 0,
                :tLPAREN2,    "(", EXPR_PAR,   1, 0,
                :tIDENTIFIER, "a", EXPR_ARG,   1, 0,
                :tRPAREN,     ")", EXPR_ENDFN, 0, 0,
@@ -1636,7 +1634,7 @@ class TestRubyLexer < Minitest::Test
                s(:iter, s(:lambda),
                  s(:args, :a)),
 
-               :tLAMBDA,     nil, EXPR_ENDFN,  0, 0,
+               :tLAMBDA,    "->", EXPR_ENDFN,  0, 0,
                :tLPAREN2,    "(", EXPR_PAR,    1, 0,
                :tIDENTIFIER, "a", EXPR_ARG,    1, 0,
                :tRPAREN,     ")", EXPR_ENDFN,  0, 0,
@@ -1649,7 +1647,7 @@ class TestRubyLexer < Minitest::Test
                s(:iter, s(:lambda),
                  s(:args, s(:lasgn, :a, s(:nil)))),
 
-               :tLAMBDA,     nil,   EXPR_ENDFN,  0, 0,
+               :tLAMBDA,    "->",   EXPR_ENDFN,  0, 0,
                :tLPAREN2,    "(",   EXPR_PAR,    1, 0,
                :tIDENTIFIER, "a",   EXPR_ARG,    1, 0,
                :tEQL,        "=",   EXPR_BEG,    1, 0,
@@ -1666,7 +1664,7 @@ class TestRubyLexer < Minitest::Test
                s(:iter, s(:lambda),
                  s(:args, s(:lasgn, :a, s(:nil)))),
 
-               :tLAMBDA,     nil,   EXPR_ENDFN,  0, 0,
+               :tLAMBDA,    "->",   EXPR_ENDFN,  0, 0,
                :tLPAREN2,    "(",   EXPR_PAR,    1, 0,
                :tIDENTIFIER, "a",   EXPR_ARG,    1, 0,
                :tEQL,        "=",   EXPR_BEG,    1, 0,
@@ -1680,7 +1678,7 @@ class TestRubyLexer < Minitest::Test
     assert_lex3("a -> do end do end",
                 nil,
                 :tIDENTIFIER, "a",   EXPR_CMDARG,
-                :tLAMBDA,     nil,   EXPR_ENDFN,
+                :tLAMBDA,    "->",   EXPR_ENDFN,
                 :kDO,         "do",  EXPR_BEG,
                 :kEND,        "end", EXPR_END,
                 :kDO,         "do",  EXPR_BEG,
@@ -1692,7 +1690,7 @@ class TestRubyLexer < Minitest::Test
                s(:iter, s(:lambda),
                  s(:args, s(:lasgn, :a, s(:hash)))),
 
-               :tLAMBDA,     nil, EXPR_ENDFN, 0, 0,
+               :tLAMBDA,    "->", EXPR_ENDFN, 0, 0,
                :tLPAREN2,    "(", EXPR_PAR,   1, 0,
                :tIDENTIFIER, "a", EXPR_ARG,   1, 0,
                :tEQL,        "=", EXPR_BEG,   1, 0,
@@ -1710,7 +1708,7 @@ class TestRubyLexer < Minitest::Test
                s(:iter, s(:lambda),
                  s(:args, s(:lasgn, :a, s(:hash)))),
 
-               :tLAMBDA,     nil, EXPR_ENDFN,  0, 0,
+               :tLAMBDA,    "->", EXPR_ENDFN,  0, 0,
                :tLPAREN2,    "(", EXPR_PAR,    1, 0,
                :tIDENTIFIER, "a", EXPR_ARG,    1, 0,
                :tEQL,        "=", EXPR_BEG,    1, 0,
@@ -1836,7 +1834,7 @@ class TestRubyLexer < Minitest::Test
 
   def test_yylex_not_at_ivar
     assert_lex("!@ivar",
-               s(:call, s(:ivar, :@ivar), :"!"),
+               s(:call, s(:ivar, :@ivar).line(1), :"!").line(1),
 
                :tBANG, "!",     EXPR_BEG, 0, 0,
                :tIVAR, "@ivar", EXPR_END, 0, 0)
