@@ -54,9 +54,17 @@ class RubyLexer
 
     def lex_state= o
       return if @lex_state == o
-      raise ArgumentError, "bad state: %p" % [o] unless State === o
 
-      warn "lex_state: %p -> %p" % [lex_state, o]
+      from = ""
+      if ENV["VERBOSE"]
+        path = caller[0]
+        path = caller[1] if path =~ /result/
+        path, line, *_ = path.split(/:/)
+        path.delete_prefix! File.dirname File.dirname __FILE__
+        from = " at .%s:%s" % [path, line]
+      end
+
+      warn "lex_state: %p -> %p%s" % [lex_state, o, from]
 
       @lex_state = o
     end
