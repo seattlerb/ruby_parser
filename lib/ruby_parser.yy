@@ -2878,11 +2878,36 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       result = nil
                     }
 
+#if V >= 30
+    f_paren_args: tLPAREN2 f_args rparen
+                    {
+                      result = end_args val
+                    }
+                | tLPAREN2 f_arg tCOMMA args_forward rparen
+                    {
+                      result = end_args val
+                    }
+                | tLPAREN2 args_forward rparen
+                    {
+                      result = end_args val
+                    }
+
+       f_arglist: f_paren_args
+                |   {
+                      result = self.in_kwarg
+                      self.in_kwarg = true
+                      self.lexer.lex_state |= EXPR_LABEL
+                    }
+                    f_args term
+                    {
+                      result = end_args val
+                    }
+#else
        f_arglist: tLPAREN2 f_args rparen
                     {
                       result = end_args val
                     }
-#if V >= 27
+#if V == 27
                 | tLPAREN2 f_arg tCOMMA args_forward rparen
                     {
                       result = end_args val
@@ -2901,6 +2926,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                     {
                       result = end_args val
                     }
+#endif
 
        args_tail: f_kwarg tCOMMA f_kwrest opt_f_block_arg
                     {
