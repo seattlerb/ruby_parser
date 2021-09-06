@@ -1081,6 +1081,7 @@ rule
 
                       result = s(:defs, recv, name, args, body).line(line)
 
+                      self.in_single -= 1
                       local_pop in_def
                       endless_method_name result
                     }
