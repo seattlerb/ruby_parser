@@ -330,6 +330,25 @@ rule
                       # TODO: fix line number to tBANG... but causes BAD shift/reduce conflict
                       # REFACTOR: call_uni_op -- see parse26.y
                     }
+                | arg tASSOC
+                    {
+                      # value_expr($1);
+                      self.lexer.lex_state = EXPR_BEG|EXPR_LABEL
+                      self.lexer.command_start = false
+                      result = self.in_kwarg
+                      self.in_kwarg = true
+                      self.env.extend
+                    }
+                    p_expr
+                    {
+                      lhs, _, in_kwarg, rhs = val
+
+                      self.env.unextend
+                      self.in_kwarg = in_kwarg
+
+                      rhs = new_in rhs, nil, nil, rhs.line
+                      result = new_case lhs, rhs, rhs.line
+                    }
                 | arg
                     kIN
                     {
@@ -352,7 +371,45 @@ rule
                       pat_in = new_in pat, nil, nil, expr.line
                       result = new_case expr, pat_in, expr.line
                     }
-                | arg
+                | arg                                   =tLBRACE_ARG
+
+        def_name: fname
+                    {
+                      # TODO: numparam_name(p, fname);
+
+                      (id, line), = val
+                      old_in_def = self.in_def
+
+                      self.in_def = true # group = local_push
+                      self.env.extend
+                      lexer.cmdarg.push false
+                      lexer.cond.push false
+
+                      result = [id.to_sym, line, old_in_def]
+                    }
+       defn_head: k_def def_name
+                    {
+                      _, name = val
+                      result = name
+                    }
+       defs_head: k_def singleton dot_or_colon
+                    {
+                      lexer.lex_state = EXPR_FNAME
+                    }
+                    def_name
+                    {
+                      lexer.lex_state = EXPR_ENDFN|EXPR_LABEL
+                      self.in_single += 1 # TODO: remove?
+
+                      # self.in_def = true # local_push
+                      # self.env.extend
+                      # lexer.cmdarg.push false
+                      # lexer.cond.push false
+
+                      _, recv, _, _, name = val
+
+                      result = [recv, name]
+                    }
 
       expr_value: expr
                     {
@@ -997,6 +1054,48 @@ rule
                       c, _, t, _, _, f = val
                       result = s(:if, c, t, f).line c.line
                     }
+                | defn_head f_opt_paren_args tEQL arg
+                    {
+                      (name, line, in_def), args, _, body = val
+
+                      result = s(:defn, name, args, body).line line
+
+                      local_pop in_def
+                      endless_method_name result
+                    }
+                | defn_head f_opt_paren_args tEQL arg kRESCUE_MOD arg
+                    {
+                      (name, line, in_def), args, _, body, _, resbody = val
+
+                      result = s(:defn, name, args,
+                                 new_rescue(body,
+                                            new_resbody(s(:array).line(line),
+                                                        resbody))).line line
+
+                      local_pop in_def
+                      endless_method_name result
+                    }
+                | defs_head f_opt_paren_args tEQL arg
+                    {
+                      (recv, (name, line, in_def)), args, _, body = val
+
+                      result = s(:defs, recv, name, args, body).line(line)
+
+                      local_pop in_def
+                      endless_method_name result
+                    }
+                | defs_head f_opt_paren_args tEQL arg kRESCUE_MOD arg
+                    {
+                      (recv, (name, line, in_def)), args, _, body, _, resbody = val
+
+                      result = s(:defs, recv, name, args,
+                                 new_rescue(body,
+                                            new_resbody(s(:array).line(line),
+                                                        resbody))).line line
+
+                      local_pop in_def
+                      endless_method_name result
+                    }
                 | primary
 
            relop: tGT
@@ -1438,17 +1537,14 @@ rule
                       self.env.unextend
                       self.lexer.ignore_body_comments
                     }
-                | k_def fname
+                | defn_head f_arglist bodystmt k_end
                     {
-                      result = self.in_def
+                      # [               [:f, 1, false], s(:args)...]
+                      # =>
+                      # [[:k_def, 666], [:f, 1], false, s(:args)...]
+                      val.insert 1, val.first.pop
+                      val.insert 0, [:k_def, 666]
 
-                      self.in_def = true # group = local_push
-                      self.env.extend
-                      lexer.cmdarg.push false
-                      lexer.cond.push false
-                    }
-                    f_arglist bodystmt k_end
-                    {
                       result, in_def = new_defn val
 
                       lexer.cond.pop # group = local_pop
@@ -1458,25 +1554,20 @@ rule
 
                       self.lexer.ignore_body_comments
                     }
-                | k_def singleton dot_or_colon
+                | defs_head f_arglist bodystmt k_end
                     {
-                      lexer.lex_state = EXPR_FNAME
-                    }
-                    fname
-                    {
-                      result = self.in_def
+                      # [        [recv, [:name, 1, false]], s(:args...]
+                      # =>
+                      # [         recv, [:name, 1, false],  s(:args...]
+                      # =>
+                      # [         recv, [:name, 1], false,  s(:args...]
+                      # =>
+                      # [ :k_def, recv, [:name, 1], false,  s(:args...]
 
-                      self.in_single += 1 # TODO: remove?
+                      val.prepend(*val.shift)
+                      val.insert 2, val[1].pop
+                      val.insert 0, [:k_def, 666]
 
-                      self.in_def = true # local_push
-                      self.env.extend
-                      lexer.cmdarg.push false
-                      lexer.cond.push false
-
-                      lexer.lex_state = EXPR_ENDFN|EXPR_LABEL
-                    }
-                    f_arglist bodystmt k_end
-                    {
                       result, in_def = new_defs val
 
                       lexer.cond.pop # group = local_pop
@@ -1634,6 +1725,9 @@ rule
                       result.line lexer.lineno # FIX: tSTAR -> line
                     }
 
+    f_any_kwrest: f_kwrest
+                | f_no_kwarg
+
  block_args_tail: f_block_kwarg tCOMMA f_kwrest opt_f_block_arg
                     {
                       result = call_args val
@@ -1642,13 +1736,9 @@ rule
                     {
                       result = call_args val
                     }
-                | f_kwrest opt_f_block_arg
+                | f_any_kwrest opt_f_block_arg
                     {
                       result = call_args val
-                    }
-                | f_no_kwarg opt_f_block_arg
-                    {
-                      result = args val
                     }
                 | f_block_arg
                     {
@@ -1662,6 +1752,11 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result = args val
                     }
                 | none
+
+  excessed_comma: tCOMMA
+                    {
+                      result = s(:WTF_COMMA!)
+                    }
 
      block_param: f_arg tCOMMA f_block_optarg tCOMMA f_rest_arg opt_block_args_tail
                     {
@@ -1683,9 +1778,10 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       result = args val
                     }
-                | f_arg tCOMMA
+                | f_arg excessed_comma
                     {
-                      result = args(val) << nil
+                      arg, _ = val
+                      result = arg << nil
                     }
                 | f_arg tCOMMA f_rest_arg tCOMMA f_arg opt_block_args_tail
                     {
@@ -2055,6 +2151,12 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = new_array_pattern nil, expr, args, expr.line
                     }
+                | p_find
+                    {
+                      find, = val
+
+                      result = new_find_pattern nil, find
+                    }
                 | p_args_tail
                     {
                       args, = val
@@ -2105,6 +2207,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       # TODO: pop_pktbl(p, $<tbl>2);
                       result = new_array_pattern(lhs, nil, args, lhs.line)
                     }
+                | p_const p_lparen p_find tRPAREN { not_yet 2 }
                 | p_const p_lparen p_kwargs tRPAREN
                     {
                       lhs, _, kwargs, _ = val
@@ -2119,24 +2222,24 @@ opt_block_args_tail: tCOMMA block_args_tail
                       # TODO: pop_pktbl(p, $<tbl>2);
                       result = new_array_pattern const, nil, pre_arg, const.line
                     }
+                | p_const p_lbracket p_find rbracket { not_yet 3 }
                 | p_const p_lbracket p_kwargs rbracket { not_yet 25 }
                 | p_const tLBRACK rbracket { not_yet 26 }
-                | tLBRACK
-                    {
-                      # TODO: $$ = push_pktbl(p);
-                      result = true
-                    }
-                    p_args rbracket
+                | tLBRACK p_args rbracket
                     {
                       # TODO: pop_pktbl(p, $<tbl>2); ?
-                      _, _, pat, _ = val
+                      _, pat, _ = val
 
                       result = new_array_pattern nil, nil, pat, pat.line
                     }
+                | tLBRACK p_find rbracket
+                    {
+                      _, find, _ = val
+
+                      result = new_find_pattern nil, find
+                    }
                 | tLBRACK rbracket
                     {
-                      _, _ = val
-
                       result = s(:array_pat).line lexer.lineno
                     }
                 | tLBRACE
@@ -2154,7 +2257,12 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = new_hash_pattern(nil, kwargs, kwargs.line)
                     }
-                | tLBRACE rbrace { not_yet 30 }
+                | tLBRACE rbrace
+                    {
+                      (_, line), _ = val
+                      tail = new_hash_pattern_tail nil, nil, line
+                      result = new_hash_pattern nil, tail, line
+                    }
                 | tLPAREN p_expr tRPAREN { not_yet 31 }
 
           p_args: p_expr
@@ -2181,7 +2289,13 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result = new_array_pattern_tail head, true, id.to_sym, nil
                       result.line head.line
                     }
-                | p_args_head tSTAR tIDENTIFIER tCOMMA p_args_post { not_yet 36 }
+                | p_args_head tSTAR tIDENTIFIER tCOMMA p_args_post
+                    {
+                      head, _, (id, _line), _, post = val
+
+                      result = new_array_pattern_tail head, true, id.to_sym, post
+                      result.line head.line
+                    }
                 | p_args_head tSTAR
                     {
                       expr, _ = val
@@ -2204,25 +2318,39 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result.line head.line
                     }
 
-     p_args_tail: tSTAR tIDENTIFIER
+     p_args_tail: p_rest
+                    {
+                      (id, line), = val
+
+                      result = new_array_pattern_tail nil, true, id, nil
+                      result.line line
+                    }
+                | p_rest tCOMMA p_args_post
+                    {
+                      (id, line), _, rhs = val
+
+                      result = new_array_pattern_tail nil, true, id, rhs
+                      result.line line
+                    }
+
+          p_find:  p_rest tCOMMA p_args_post tCOMMA p_rest
+                    {
+                      lhs, _, mid, _, rhs = val
+
+                      result = new_find_pattern_tail lhs, mid, rhs
+                    }
+
+          p_rest: tSTAR tIDENTIFIER
                     {
                       _, (id, line) = val
 
-                      result = new_array_pattern_tail nil, true, id.to_sym, nil
-                      result.line line
+                      result = [id.to_sym, line]
                     }
-                | tSTAR tIDENTIFIER tCOMMA p_args_post { not_yet 43 }
                 | tSTAR
                     {
-                      result = new_array_pattern_tail nil, true, nil, nil
-                      result.line lexer.lineno
-                    }
-                | tSTAR tCOMMA p_args_post
-                    {
-                      _, _, args = val
+                      (_id, line), = val
 
-                      result = new_array_pattern_tail nil, true, nil, args
-                      result.line args.line
+                      result = [nil, line]
                     }
 
      p_args_post: p_arg
@@ -2241,7 +2369,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result = expr
                     }
 
-        p_kwargs: p_kwarg tCOMMA p_kwrest
+        p_kwargs: p_kwarg tCOMMA p_any_kwrest
                     {
                       kw_arg, _, (rest, _line) = val
                       # xxx = new_unique_key_hash(p, $1, &@$)
@@ -2259,15 +2387,12 @@ opt_block_args_tail: tCOMMA block_args_tail
                       # TODO? new_unique_key_hash(p, $1, &@$)
                       result = new_hash_pattern_tail kwarg, nil, kwarg.line
                     }
-                | p_kwrest
+                | p_any_kwrest
                     {
                       (rest, line), = val
 
                       result = new_hash_pattern_tail nil, rest, line
-
                     }
-                | p_kwarg tCOMMA p_kwnorest { not_yet 53 }
-                | p_kwnorest { not_yet 54 }
 
          p_kwarg: p_kw # TODO? rb_ary_new_from_args(1, $1)
                 | p_kwarg tCOMMA p_kw
@@ -2315,6 +2440,12 @@ opt_block_args_tail: tCOMMA block_args_tail
 
       p_kwnorest: kwrest_mark kNIL { not_yet 63 }
 
+    p_any_kwrest: p_kwrest
+                | p_kwnorest
+                    {
+                      not_yet 11
+                    }
+
          p_value: p_primitive
                 | p_primitive tDOT2 p_primitive { not_yet 65 }
                 | p_primitive tDOT3 p_primitive { not_yet 66 }
@@ -2332,12 +2463,12 @@ opt_block_args_tail: tCOMMA block_args_tail
 
      p_primitive: literal
                 | strings
-                | xstring { not_yet 76 }
+                | xstring
                 | regexp
-                | words { not_yet 78 }
-                | qwords { not_yet 79 }
-                | symbols { not_yet 80 }
-                | qsymbols { not_yet 81 }
+                | words
+                | qwords
+                | symbols
+                | qsymbols
                 | keyword_variable
                     {
                       # TODO? if (!($$ = gettable(p, $1, &@$))) $$ = NEW_BEGIN(0, &@$);
@@ -2345,7 +2476,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = var
                     }
-                | lambda { not_yet 83 }
+                | lambda
 
       p_variable: tIDENTIFIER
                     {
@@ -2709,7 +2840,7 @@ regexp_contents: none
                     }
 
          numeric: simple_numeric
-                | tUMINUS_NUM simple_numeric
+                | tUMINUS_NUM simple_numeric            =tLOWEST
                     {
                       _, (num, line) = val
                       result = [-num, line]
@@ -2791,6 +2922,9 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       result = nil
                     }
 
+f_opt_paren_args: f_paren_args
+                | none
+
     f_paren_args: tLPAREN2 f_args rparen
                     {
                       result = end_args val
@@ -2823,11 +2957,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                     {
                       result = args val
                     }
-                | f_kwrest opt_f_block_arg
-                    {
-                      result = args val
-                    }
-                | f_no_kwarg opt_f_block_arg
+                | f_any_kwrest opt_f_block_arg
                     {
                       result = args val
                     }
@@ -3023,7 +3153,8 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
 
       f_no_kwarg: kwrest_mark kNIL
                     {
-                      result = :"**nil"
+                      (_, line), _ = val
+                      result = [:"**nil", line]
                     }
 
         f_kwrest: kwrest_mark tIDENTIFIER
@@ -3180,8 +3311,21 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
        opt_terms:  | terms
           opt_nl:  | tNL
           rparen: opt_nl tRPAREN
+                    # TODO:
+                    # {
+                    #   _, close = val
+                    #   result = [close, lexer.lineno]
+                    # }
         rbracket: opt_nl tRBRACK
+                    {
+                      _, close = val
+                      result = [close, lexer.lineno]
+                    }
           rbrace: opt_nl tRCURLY
+                    {
+                      _, close = val
+                      result = [close, lexer.lineno]
+                    }
          trailer:  | tNL | tCOMMA
 
             term: tSEMI { yyerrok }

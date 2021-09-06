@@ -217,6 +217,17 @@ module RubyParserStuff
     self.args args
   end
 
+  def endless_method_name defn_or_defs
+    name = defn_or_defs[1]
+    name = defn_or_defs[2] unless Symbol === name
+
+    if name.end_with? "=" then
+      yyerror "setter method cannot be defined in an endless method definition"
+    end
+
+    # TODO? token_info_drop(p, "def", loc->beg_pos);
+  end
+
   def array_to_hash array
     case array.sexp_type
     when :kwsplat then
@@ -660,6 +671,13 @@ module RubyParserStuff
     return head
   end
 
+  def local_pop in_def
+    lexer.cond.pop # group = local_pop
+    lexer.cmdarg.pop
+    self.env.unextend
+    self.in_def = in_def
+  end
+
   def logical_op type, left, right
     left = value_expr left
 
@@ -722,6 +740,11 @@ module RubyParserStuff
   end
 
   def array_pat_concat lhs, rhs
+    case lhs.sexp_type
+    when :PATTERN then
+      lhs.sexp_type = :array_pat
+    end
+
     if rhs then
       case rhs.sexp_type
       when :array_pat, :array_TAIL then
@@ -935,7 +958,7 @@ module RubyParserStuff
   end
 
   def new_defn val
-    (_, line), (name, _), in_def, args, body, _ = val
+    _, (name, line), in_def, args, body, _ = val
 
     body ||= s(:nil).line line
 
@@ -955,7 +978,7 @@ module RubyParserStuff
   end
 
   def new_defs val
-    (_, line), recv, _, _, (name, _), in_def, args, body, _ = val
+    _, recv, (name, line), in_def, args, body, _ = val
 
     body ||= s(:nil).line line
 
@@ -979,6 +1002,25 @@ module RubyParserStuff
 
   def new_do_body args, body, lineno
     new_iter(nil, args, body).line(lineno)
+  end
+
+  def new_find_pattern const, pat
+    pat.sexp_type = :find_pat
+    pat.insert 1, const
+  end
+
+  def new_find_pattern_tail lhs, mid, rhs
+    lhs_id, line = lhs
+    rhs_id, _line = rhs
+
+    # TODO: fpinfo->pre_rest_arg = pre_rest_arg ? assignable(p, pre_rest_arg, 0, loc) : NODE_SPECIAL_NO_NAME_REST;
+
+    lhs_id = "*#{lhs_id}".to_sym
+    rhs_id = "*#{rhs_id}".to_sym
+
+    mid.sexp_type = :array_pat # HACK?
+
+    s(:find_pat_TAIL, lhs_id, mid, rhs_id).line line
   end
 
   def new_for expr, var, body

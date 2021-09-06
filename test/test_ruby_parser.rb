@@ -4166,6 +4166,15 @@ module TestPatternMatching
     pp Sexp.from_array Ripper.sexp rb
   end
 
+  def assert_case_in lit, exp_pt
+    rb = "case :a\nin #{lit}\nend"
+    pt = s(:case, s(:lit, :a).line(1),
+           s(:in, exp_pt, nil).line(2),
+           nil).line(1)
+
+    assert_parse rb, pt
+  end
+
   def test_case_in_09
     rb = "case :a\nin :b, [:c] then nil\nend"
     pt = s(:case, s(:lit, :a).line(1),
@@ -4207,7 +4216,11 @@ module TestPatternMatching
     assert_parse rb, pt
   end
 
-  def test_case_in_
+  def test_case_in_30
+    assert_case_in "{}", s(:hash_pat, nil).line(2)
+  end
+
+  def test_case_in_31?
     rb = "case :a\nin [:b, *c]\n  :d\nend"
     pt = s(:case, s(:lit, :a).line(1),
            s(:in,
@@ -4216,6 +4229,22 @@ module TestPatternMatching
            nil).line(1)
 
     assert_parse rb, pt
+  end
+
+  def test_case_in_36
+    rb = "[:a, b, c, [:d, *e, nil]]"
+    pt = s(:array_pat,
+           nil,
+           s(:lit, :a).line(2),
+           s(:lvar, :b).line(2),
+           s(:lvar, :c).line(2),
+           s(:array_pat,
+             nil,
+             s(:lit, :d).line(2),
+             :"*e",
+             s(:nil).line(2)).line(2)).line(2)
+
+    assert_case_in rb, pt
   end
 
   def test_case_in_37
@@ -4284,34 +4313,53 @@ module TestPatternMatching
     assert_parse rb, pt
   end
 
-  def test_case_in_77
-    rb = "case :a\nin /regexp/\n  :b\nend\n"
-    pt = s(:case, s(:lit, :a).line(1),
-           s(:in,
-             s(:lit, /regexp/).line(2),
-             s(:lit, :b).line(3)).line(2),
-           nil).line(1)
+  def test_case_in_76
+    assert_case_in "`echo hi`", s(:xstr, "echo hi").line(2)
+  end
 
-    assert_parse rb, pt
+  def test_case_in_77
+    assert_case_in "/regexp/", s(:lit, /regexp/).line(2)
+  end
+
+  def test_case_in_78
+    assert_case_in "%W[a b]", s(:array, s(:str, "a").line(2), s(:str, "b").line(2)).line(2)
+  end
+
+  def test_case_in_79
+    assert_case_in "%w[a b]", s(:array, s(:str, "a").line(2), s(:str, "b").line(2)).line(2)
+  end
+
+  def test_case_in_80
+    assert_case_in "%I[a b]", s(:array, s(:lit, :a).line(2), s(:lit, :b).line(2)).line(2)
+  end
+
+  def test_case_in_81
+    assert_case_in "%i[a b]", s(:array, s(:lit, :a).line(2), s(:lit, :b).line(2)).line(2)
+  end
+
+  def test_case_in_83
+    rb = "[->(b) { true }, c]"
+    pt = s(:array_pat, nil,
+           s(:iter, s(:lambda).line(2), s(:args, :b).line(2),
+             s(:true).line(2)).line(2),
+           s(:lvar, :c).line(2)).line(2)
+
+    assert_case_in rb, pt
   end
 
   def test_case_in_85
-    rb = "case :a\nin [[:b, c], [:d, ^e]]\n  :f\nend"
-    pt = s(:case, s(:lit, :a).line(1),
-           s(:in,
-             s(:array_pat, nil,
-               s(:array_pat, nil,
-                 s(:lit, :b).line(2),
-                 s(:lvar, :c).line(2)).line(2),
-               s(:array_pat,
-                 nil,
-                 s(:lit, :d).line(2),
-                 s(:lvar, :e).line(2)).line(2),
-               ).line(2),
-             s(:lit, :f).line(3)).line(2),
-           nil).line(1)
+    rb = "[[:b, c], [:d, ^e]]"
+    pt = s(:array_pat, nil,
+           s(:array_pat, nil,
+             s(:lit, :b).line(2),
+             s(:lvar, :c).line(2)).line(2),
+           s(:array_pat,
+             nil,
+             s(:lit, :d).line(2),
+             s(:lvar, :e).line(2)).line(2),
+          ).line(2)
 
-    assert_parse rb, pt
+    assert_case_in rb, pt
   end
 
   def test_case_in_86
@@ -4660,6 +4708,106 @@ end
 
 module TestRubyParserShared30Plus
   include TestRubyParserShared27Plus
+
+  def test_rhs_asgn
+    rb = "42 => n"
+    pt = s(:case,
+           s(:lit, 42).line(1),
+           s(:in, s(:lvar, :n).line(1), nil).line(1), nil).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_case_in_find
+    rb = "case :a\n  in *a, :+, *b\nend"
+    pt = s(:case,
+           s(:lit, :a).line(1),
+           s(:in,
+             s(:find_pat, nil,
+               :"*a",
+               s(:array_pat, s(:lit, :+).line(2)).line(2),
+               :"*b").line(2),
+             nil).line(2),
+           nil).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_case_in_find_array
+    rb = "case :a\nin [*, :b, c, *]\nend"
+    pt = s(:case,
+           s(:lit, :a).line(1),
+           s(:in,
+             s(:find_pat, nil,
+               :*,
+               s(:array_pat, s(:lit, :b).line(2), s(:lvar, :c).line(2)).line(2),
+               :*).line(2),
+             nil).line(2),
+           nil).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_oneliner
+    rb = "def exec(cmd) = system(cmd)"
+    pt = s(:defn, :exec, s(:args, :cmd).line(1),
+           s(:call, nil, :system, s(:lvar, :cmd).line(1)).line(1)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_oneliner_rescue
+    rb = "def exec(cmd)\n  system(cmd)\nrescue\n  nil\nend\n"
+    pt = s(:defn, :exec, s(:args, :cmd),
+           s(:rescue,
+             s(:call, nil, :system, s(:lvar, :cmd)),
+            s(:resbody, s(:array), s(:nil))))
+    assert_parse rb, pt
+
+    rb = "def exec(cmd)\n  system(cmd) rescue nil\nend\n"
+    assert_parse rb, pt
+
+    rb = "def exec(cmd) = system(cmd) rescue nil"
+    assert_parse rb, pt
+  end
+
+  def test_defs_oneliner
+    rb = "def self.exec(cmd) = system(cmd)"
+    pt = s(:defs,
+           s(:self).line(1),
+           :exec,
+           s(:args, :cmd).line(1),
+           s(:call, nil, :system, s(:lvar, :cmd).line(1)).line(1)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_defs_oneliner_rescue
+    rb = "def self.exec(cmd)\n  system(cmd)\nrescue\n  nil\nend\n"
+    pt = s(:defs, s(:self), :exec, s(:args, :cmd),
+           s(:rescue,
+             s(:call, nil, :system, s(:lvar, :cmd)),
+            s(:resbody, s(:array), s(:nil))))
+    assert_parse rb, pt
+
+    rb = "def self.exec(cmd)\n  system(cmd) rescue nil\nend\n"
+    assert_parse rb, pt
+
+    rb = "def self.exec(cmd) = system(cmd) rescue nil"
+    assert_parse rb, pt
+  end
+
+  def test_defn_oneliner_setter
+    rb = "class X\n  def x=(o) = 42\nend"
+
+    assert_syntax_error rb, /setter method cannot be defined/
+  end
+
+  def test_defs_oneliner_setter
+    rb = "class X\n  def self.x= = 42\nend"
+
+    assert_syntax_error rb, /setter method cannot be defined/
+  end
 end
 
 class TestRubyParser < Minitest::Test
@@ -4759,7 +4907,12 @@ class RubyParserTestCase < ParseTreeTestCase
       end
     end
 
-    assert_equal emsg, e.message
+    case emsg
+    when String
+      assert_equal emsg, e.message
+    else
+      assert_match emsg, e.message
+    end
   end
 
   def refute_parse rb

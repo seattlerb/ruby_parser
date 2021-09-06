@@ -390,7 +390,7 @@ rule
                       result = new_case expr, pat_in, expr.line
                     }
 #endif
-                | arg
+                | arg                                   =tLBRACE_ARG
 
       expr_value: expr
                     {
@@ -1539,6 +1539,14 @@ rule
                     }
                     f_arglist bodystmt k_end
                     {
+
+                      # [kdef, recv, _, _, (name, line), in_def, args, body, kend]
+                      # =>
+                      # [kdef, recv, (name, line), in_def, args, body, kend]
+
+                      val.delete_at 3
+                      val.delete_at 2
+
                       result, in_def = new_defs val
 
                       lexer.cond.pop # group = local_pop
@@ -2223,7 +2231,12 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = new_hash_pattern(nil, kwargs, kwargs.line)
                     }
-                | tLBRACE rbrace { not_yet 30 }
+                | tLBRACE rbrace
+                    {
+                      (_, line), _ = val
+                      tail = new_hash_pattern_tail nil, nil, line
+                      result = new_hash_pattern nil, tail, line
+                    }
                 | tLPAREN p_expr tRPAREN { not_yet 31 }
 
           p_args: p_expr
@@ -2250,7 +2263,13 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result = new_array_pattern_tail head, true, id.to_sym, nil
                       result.line head.line
                     }
-                | p_args_head tSTAR tIDENTIFIER tCOMMA p_args_post { not_yet 36 }
+                | p_args_head tSTAR tIDENTIFIER tCOMMA p_args_post
+                    {
+                      head, _, (id, _line), _, post = val
+
+                      result = new_array_pattern_tail head, true, id.to_sym, post
+                      result.line head.line
+                    }
                 | p_args_head tSTAR
                     {
                       expr, _ = val
@@ -2401,12 +2420,12 @@ opt_block_args_tail: tCOMMA block_args_tail
 
      p_primitive: literal
                 | strings
-                | xstring { not_yet 76 }
+                | xstring
                 | regexp
-                | words { not_yet 78 }
-                | qwords { not_yet 79 }
-                | symbols { not_yet 80 }
-                | qsymbols { not_yet 81 }
+                | words
+                | qwords
+                | symbols
+                | qsymbols
                 | keyword_variable
                     {
                       # TODO? if (!($$ = gettable(p, $1, &@$))) $$ = NEW_BEGIN(0, &@$);
@@ -2414,7 +2433,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = var
                     }
-                | lambda { not_yet 83 }
+                | lambda
 
       p_variable: tIDENTIFIER
                     {
@@ -2784,7 +2803,7 @@ regexp_contents: none
                 | tUMINUS_NUM tINTEGER =tLOWEST
 #else
          numeric: simple_numeric
-                | tUMINUS_NUM simple_numeric
+                | tUMINUS_NUM simple_numeric            =tLOWEST
 #endif
                     {
                       _, (num, line) = val
