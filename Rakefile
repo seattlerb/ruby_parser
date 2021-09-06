@@ -13,9 +13,13 @@ Hoe.add_include_dirs "../../sexp_processor/dev/lib"
 Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
 
-V2   = %w[20 21 22 23 24 25 26 27 30]
-ENV["FAST"] = V2.last if ENV["FAST"] && !V2.include?(ENV["FAST"])
-V2.replace [ENV["FAST"]] if ENV["FAST"]
+V2   = %w[20 21 22 23 24 25 26 27]
+V3   = %w[30]
+
+VERS = V2 + V3
+
+ENV["FAST"] = VERS.last if ENV["FAST"] && !VERS.include?(ENV["FAST"])
+VERS.replace [ENV["FAST"]] if ENV["FAST"]
 
 Hoe.spec "ruby_parser" do
   developer "Ryan Davis", "ryand-ruby@zenspider.com"
@@ -36,11 +40,11 @@ Hoe.spec "ruby_parser" do
   require_ruby_version [">= 2.1", "< 4"]
 
   if plugin? :perforce then     # generated files
-    V2.each do |n|
+    VERS.each do |n|
       self.perforce_ignore << "lib/ruby#{n}_parser.rb"
     end
 
-    V2.each do |n|
+    VERS.each do |n|
       self.perforce_ignore << "lib/ruby#{n}_parser.y"
     end
 
@@ -56,6 +60,15 @@ end
 
 V2.each do |n|
   file "lib/ruby#{n}_parser.y" => "lib/ruby_parser.yy" do |t|
+    cmd = 'unifdef -tk -DV=%s -UDEAD %s > %s || true' % [n, t.source, t.name]
+    sh cmd
+  end
+
+  file "lib/ruby#{n}_parser.rb" => "lib/ruby#{n}_parser.y"
+end
+
+V3.each do |n|
+  file "lib/ruby#{n}_parser.y" => "lib/ruby3_parser.yy" do |t|
     cmd = 'unifdef -tk -DV=%s -UDEAD %s > %s || true' % [n, t.source, t.name]
     sh cmd
   end
@@ -250,7 +263,7 @@ ruby_parse "2.7.4"
 ruby_parse "3.0.2"
 
 task :debug => :isolate do
-  ENV["V"] ||= V2.last
+  ENV["V"] ||= VERS.last
   Rake.application[:parser].invoke # this way we can have DEBUG set
   Rake.application[:lexer].invoke # this way we can have DEBUG set
 
@@ -315,7 +328,7 @@ task :cmp3 do
 end
 
 task :extract => :isolate do
-  ENV["V"] ||= V2.last
+  ENV["V"] ||= VERS.last
   Rake.application[:parser].invoke # this way we can have DEBUG set
 
   file = ENV["F"] || ENV["FILE"]

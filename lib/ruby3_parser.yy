@@ -1,21 +1,7 @@
 # -*- racc -*-
 
-#if V==20
-class Ruby20Parser
-#elif V==21
-class Ruby21Parser
-#elif V == 22
-class Ruby22Parser
-#elif V == 23
-class Ruby23Parser
-#elif V == 24
-class Ruby24Parser
-#elif V == 25
-class Ruby25Parser
-#elif V == 26
-class Ruby26Parser
-#elif V == 27
-class Ruby27Parser
+#if V == 30
+class Ruby30Parser
 #else
 fail "version not specified or supported on code generation"
 #endif
@@ -37,18 +23,10 @@ token kCLASS kMODULE kDEF kUNDEF kBEGIN kRESCUE kENSURE kEND kIF kUNLESS
       tWORDS_BEG tQWORDS_BEG tSTRING_DBEG tSTRING_DVAR tSTRING_END
       tSTRING tSYMBOL tNL tEH tCOLON tCOMMA tSPACE tSEMI tLAMBDA
       tLAMBEG tDSTAR tCHAR tSYMBOLS_BEG tQSYMBOLS_BEG tSTRING_DEND
-#if V >= 21
       tRATIONAL tIMAGINARY
-#endif
-#if V >= 22
       tLABEL_END
-#endif
-#if V >= 23
-       tLONELY
-#endif
-#if V >= 26
-       tBDOT2 tBDOT3
-#endif
+      tLONELY
+      tBDOT2 tBDOT3
 
 preclow
   nonassoc tLOWEST
@@ -249,13 +227,6 @@ rule
                       lhs, _, rhs = val
                       result = new_assign lhs, s(:svalue, rhs).line(rhs.line)
                     }
-#if V == 20
-                | mlhs tEQL arg_value
-                    {
-                      result = new_masgn val[0], val[2], :wrap
-                    }
-#endif
-#if V >= 27
                 | mlhs tEQL mrhs_arg kRESCUE_MOD stmt
                     {
                       # unwraps s(:to_ary, rhs)
@@ -265,12 +236,7 @@ rule
 
                       result = new_masgn lhs, new_rescue(rhs, resbody), :wrap
                     }
-#endif
-#if V == 20
-                | mlhs tEQL mrhs
-#else
                 | mlhs tEQL mrhs_arg
-#endif
                     {
                       result = new_masgn val[0], val[2]
                     }
@@ -330,7 +296,6 @@ rule
                       expr, = val
                       result = value_expr expr
                     }
-#if V >= 24
                 | command_call kRESCUE_MOD stmt
                     {
                       expr, (_, line), resbody = val
@@ -339,7 +304,6 @@ rule
                       ary  = s(:array).line line
                       result = new_rescue(expr, new_resbody(ary, resbody))
                     }
-#endif
                 | command_asgn
 
             expr: command_call
@@ -366,7 +330,6 @@ rule
                       # TODO: fix line number to tBANG... but causes BAD shift/reduce conflict
                       # REFACTOR: call_uni_op -- see parse26.y
                     }
-#if V >= 27
                 | arg
                     kIN
                     {
@@ -389,7 +352,6 @@ rule
                       pat_in = new_in pat, nil, nil, expr.line
                       result = new_case expr, pat_in, expr.line
                     }
-#endif
                 | arg
 
       expr_value: expr
@@ -887,7 +849,6 @@ rule
                         result = s(:dot3, v1, v2).line v1.line
                       end
                     }
-#if V >= 26
                 | arg tDOT2
                     {
                       v1, _ = val
@@ -902,9 +863,7 @@ rule
 
                       result = s(:dot3, v1, v2).line v1.line
                     }
-#endif
 
-#if V >= 27
                 | tBDOT2 arg
                     {
                       _, v2, = val
@@ -919,7 +878,6 @@ rule
 
                       result = s(:dot3, v1, v2).line v2.line
                     }
-#endif
 
                 | arg tPLUS arg
                     {
@@ -945,26 +903,12 @@ rule
                     {
                       result = new_call val[0], :**, argl(val[2])
                     }
-#if V == 20
-                | tUMINUS_NUM tINTEGER tPOW arg
-                    {
-                      _, (num, line), _, arg = val
-                      lit = s(:lit, num).line line
-                      result = new_call(new_call(lit, :"**", argl(arg)), :"-@")
-                    }
-                | tUMINUS_NUM tFLOAT tPOW arg
-#else
                 | tUMINUS_NUM simple_numeric tPOW arg
-#endif
                     {
                       _, (num, line), _, arg = val
                       lit = s(:lit, num).line line
                       result = new_call(new_call(lit, :"**", argl(arg)), :"-@")
 
-#if V == 20
-                      ## TODO: why is this 2.0 only?
-                      debug20 12, val, result
-#endif
                     }
                 | tUPLUS arg
                     {
@@ -1107,7 +1051,6 @@ rule
                       _, args, _ = val
                       result = args
                     }
-#if V >= 27
                 | tLPAREN2 args tCOMMA args_forward rparen
                     {
                       yyerror "Unexpected ..." unless
@@ -1126,7 +1069,6 @@ rule
 
                       result = call_args val
                     }
-#endif
 
   opt_paren_args: none
                 | paren_args
@@ -1241,7 +1183,6 @@ rule
                       result = self.list_append args, s(:splat, id).line(line)
                     }
 
-#if V >= 21
         mrhs_arg: mrhs
                     {
                       result = new_masgn_arg val[0]
@@ -1251,7 +1192,6 @@ rule
                       result = new_masgn_arg val[0], :wrap
                     }
 
-#endif
             mrhs: args tCOMMA arg_value
                     {
                       result = val[0] << val[2]
@@ -1432,14 +1372,12 @@ rule
                       (_, line), _, body, _ = val
                       result = new_case nil, body, line
                     }
-#if V >= 27
                 | k_case expr_value opt_terms p_case_body k_end
                     {
                       (_, line), expr, _, body, _ = val
 
                       result = new_case expr, body, line
                     }
-#endif
                 | k_for for_var kIN expr_value_do compstmt k_end
                     {
                       _, var, _, iter, body, _ = val
@@ -1708,12 +1646,10 @@ rule
                     {
                       result = call_args val
                     }
-#if V >= 27
                 | f_no_kwarg opt_f_block_arg
                     {
                       result = args val
                     }
-#endif
                 | f_block_arg
                     {
                       (id, line), = val
@@ -2013,11 +1949,7 @@ opt_block_args_tail: tCOMMA block_args_tail
          do_body:   { self.env.extend :dynamic; result = self.lexer.lineno }
                     { lexer.cmdarg.push false }
                     opt_block_param
-#if V >= 25
                     bodystmt
-#else
-                    compstmt
-#endif
                     {
                       line, _cmdarg, param, cmpstmt = val
 
@@ -2063,7 +1995,6 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
 
            cases: opt_else | case_body
-#if V >= 27
 ######################################################################
 
      p_case_body: kIN
@@ -2453,7 +2384,6 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result = s(:const, id.to_sym).line line
                     }
 ######################################################################
-#endif
 
       opt_rescue: k_rescue exc_list exc_var then compstmt opt_rescue
                     {
@@ -2778,33 +2708,18 @@ regexp_contents: none
                       end
                     }
 
-#if V == 20
-         numeric: tINTEGER
-                | tFLOAT
-                | tUMINUS_NUM tINTEGER =tLOWEST
-#else
          numeric: simple_numeric
                 | tUMINUS_NUM simple_numeric
-#endif
                     {
                       _, (num, line) = val
                       result = [-num, line]
-#if V == 20
-                    }
-                | tUMINUS_NUM tFLOAT   =tLOWEST
-                    {
-                      _, (num, line) = val
-                      result = [-num, line]
-#endif
                     }
 
-#if V >= 21
   simple_numeric: tINTEGER
                 | tFLOAT
                 | tRATIONAL
                 | tIMAGINARY
 
-#endif
    user_variable: tIDENTIFIER
                 | tIVAR
                 | tGVAR
@@ -2876,11 +2791,10 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       result = nil
                     }
 
-       f_arglist: tLPAREN2 f_args rparen
+    f_paren_args: tLPAREN2 f_args rparen
                     {
                       result = end_args val
                     }
-#if V == 27
                 | tLPAREN2 f_arg tCOMMA args_forward rparen
                     {
                       result = end_args val
@@ -2889,7 +2803,8 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                     {
                       result = end_args val
                     }
-#endif
+
+       f_arglist: f_paren_args
                 |   {
                       result = self.in_kwarg
                       self.in_kwarg = true
@@ -2912,12 +2827,10 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                     {
                       result = args val
                     }
-#if V >= 27
                 | f_no_kwarg opt_f_block_arg
                     {
                       result = args val
                     }
-#endif
                 | f_block_arg
 
    opt_args_tail: tCOMMA args_tail
@@ -2991,12 +2904,10 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       # result.line lexer.lineno
                     }
 
-#if V >= 27
     args_forward: tBDOT3
                     {
                       result = s(:forward_args).line lexer.lineno
                     }
-#endif
 
        f_bad_arg: tCONSTANT
                     {
@@ -3025,7 +2936,6 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       result = [identifier, line]
                     }
 
-#if V >= 22
       f_arg_asgn: f_norm_arg
 
       f_arg_item: f_arg_asgn
@@ -3035,15 +2945,6 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
 
                       result = margs
                     }
-#else
-      f_arg_item: f_norm_arg
-                | tLPAREN f_margs rparen
-                    {
-                      _, margs, _ = val
-
-                      result = margs
-                    }
-#endif
 
            f_arg: f_arg_item
                     {
@@ -3062,13 +2963,9 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       result << (Sexp === item ? item : item.first)
                     }
 
-#if V == 20
-            f_kw: tLABEL arg_value
-#else
          f_label: tLABEL
 
             f_kw: f_label arg_value
-#endif
                     {
                       # TODO: new_kw_arg
                       (label, line), arg = val
@@ -3079,7 +2976,6 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       kwarg  = s(:kwarg, identifier, arg).line line
                       result = s(:array, kwarg).line line
                     }
-#if V >= 21
                 | f_label
                     {
                       (label, line), = val
@@ -3089,13 +2985,8 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
 
                       result = s(:array, s(:kwarg, id).line(line)).line line
                     }
-#endif
 
-#if V == 20
-      f_block_kw: tLABEL primary_value
-#else
       f_block_kw: f_label primary_value
-#endif
                     {
                       # TODO: new_kw_arg
                       (label, line), expr = val
@@ -3104,7 +2995,6 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
 
                       result = s(:array, s(:kwarg, id, expr).line(line)).line line
                     }
-#if V >= 21
                 | f_label
                     {
                       # TODO: new_kw_arg
@@ -3114,7 +3004,6 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
 
                       result = s(:array, s(:kwarg, id).line(line)).line line
                     }
-#endif
 
    f_block_kwarg: f_block_kw
                 | f_block_kwarg tCOMMA f_block_kw
@@ -3132,12 +3021,10 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
      kwrest_mark: tPOW
                 | tDSTAR
 
-#if V >= 27
       f_no_kwarg: kwrest_mark kNIL
                     {
                       result = :"**nil"
                     }
-#endif
 
         f_kwrest: kwrest_mark tIDENTIFIER
                     {
@@ -3154,26 +3041,14 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       result = [id, lexer.lineno] # TODO: tPOW/tDSTAR include lineno
                     }
 
-#if V == 20
-           f_opt: tIDENTIFIER tEQL arg_value
-#elif V == 21
-           f_opt: f_norm_arg tEQL arg_value
-#else
            f_opt: f_arg_asgn tEQL arg_value
-#endif
                     {
                       lhs, _, rhs = val
                       result = self.assignable lhs, rhs
                       # TODO: detect duplicate names
                     }
 
-#if V == 20
-     f_block_opt: tIDENTIFIER tEQL primary_value
-#elif V == 21
-     f_block_opt: f_norm_arg tEQL primary_value
-#else
      f_block_opt: f_arg_asgn tEQL primary_value
-#endif
                     {
                       lhs, _, rhs = val
                       result = self.assignable lhs, rhs
@@ -3279,14 +3154,12 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       lit = s(:lit, label.to_sym).line line
                       result = s(:array, lit, arg).line line
                     }
-#if V >= 22
                 | tSTRING_BEG string_contents tLABEL_END arg_value
                     {
                       _, sym, _, value = val
                       sym.sexp_type = :dsym
                       result = s(:array, sym, value).line sym.line
                     }
-#endif
                 | tDSTAR arg_value
                     {
                       _, arg = val
@@ -3299,9 +3172,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
       operation3: tIDENTIFIER | tFID | op
     dot_or_colon: tDOT | tCOLON2
          call_op: tDOT
-#if V >= 23
                 | tLONELY # TODO: rename tANDDOT?
-#endif
 
         call_op2: call_op
                 | tCOLON2
@@ -3310,9 +3181,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
           opt_nl:  | tNL
           rparen: opt_nl tRPAREN
         rbracket: opt_nl tRBRACK
-#if V >= 27
           rbrace: opt_nl tRCURLY
-#endif
          trailer:  | tNL | tCOMMA
 
             term: tSEMI { yyerrok }
