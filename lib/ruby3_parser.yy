@@ -2191,7 +2191,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       lhs, _, rhs = val
 
-                      result = s(:or, lhs, rhs)
+                      result = s(:or, lhs, rhs).line lhs.line
                     }
                 | p_expr_basic
 

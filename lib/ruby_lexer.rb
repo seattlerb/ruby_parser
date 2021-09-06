@@ -148,10 +148,6 @@ class RubyLexer
     ss.eos?
   end
 
-  def expr_beg?
-    lex_state =~ EXPR_BEG
-  end
-
   def expr_dot?
     lex_state =~ EXPR_DOT
   end
@@ -602,7 +598,7 @@ class RubyLexer
   end
 
   def process_dots text
-    tokens = ruby27plus? && expr_beg? ? BTOKENS : TOKENS
+    tokens = ruby27plus? && is_beg? ? BTOKENS : TOKENS
 
     result EXPR_BEG, tokens[text], text
   end
