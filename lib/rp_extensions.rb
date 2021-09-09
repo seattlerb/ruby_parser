@@ -12,6 +12,14 @@ class Regexp
 end
 # :startdoc:
 
+# :stopdoc:
+class Symbol
+  def end_with? o
+    self.to_s.end_with? o
+  end
+end unless :woot.respond_to?(:end_with?)
+# :startdoc:
+
 ############################################################
 # HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 
