@@ -1198,36 +1198,28 @@ module RubyParserStuff
   end
 
   def new_qsym_list
-    result = s(:array).line lexer.lineno
-    self.lexer.fixup_lineno
-    result
+    s(:array).line lexer.lineno
   end
 
   def new_qsym_list_entry val
-    _, str, _ = val
-    result = s(:lit, str.to_sym).line lexer.lineno
-    self.lexer.fixup_lineno
-    result
+    _, (str, line), _ = val
+    s(:lit, str.to_sym).line line
   end
 
   def new_qword_list
-    result = s(:array).line lexer.lineno
-    self.lexer.fixup_lineno
-    result
+    s(:array).line lexer.lineno
   end
 
   def new_qword_list_entry val
-    _, str, _ = val
+    _, (str, line), _ = val
     str.force_encoding("ASCII-8BIT") unless str.valid_encoding?
-    result = s(:str, str).line lexer.lineno # TODO: problematic? grab from parser
-    self.lexer.fixup_lineno
-    result
+    s(:str, str).line line
   end
 
   def new_regexp val
-    _, node, options = val
+    (_, line), node, (options, _) = val
 
-    node ||= s(:str, "").line lexer.lineno
+    node ||= s(:str, "").line line
 
     o, k = 0, nil
     options.split(//).uniq.each do |c| # FIX: this has a better home
@@ -1254,12 +1246,12 @@ module RubyParserStuff
                   begin
                     Regexp.new(node[1], o)
                   rescue RegexpError => e
-                    warn "WA\RNING: #{e.message} for #{node[1].inspect} #{options.inspect}"
+                    warn "WARNING: #{e.message} for #{node[1].inspect} #{options.inspect}"
                     begin
-                      warn "WA\RNING: trying to recover with ENC_UTF8"
+                      warn "WARNING: trying to recover with ENC_UTF8"
                       Regexp.new(node[1], Regexp::ENC_UTF8)
                     rescue RegexpError => e
-                      warn "WA\RNING: trying to recover with ENC_NONE"
+                      warn "WARNING: trying to recover with ENC_NONE"
                       Regexp.new(node[1], Regexp::ENC_NONE)
                     end
                   end
@@ -1272,7 +1264,7 @@ module RubyParserStuff
       end
       node << o if o and o != 0
     else
-      node = s(:dregx, "", node).line node.line
+      node = s(:dregx, "", node).line line
       node.sexp_type = :dregx_once if options =~ /o/
       node << o if o and o != 0
     end
@@ -1319,9 +1311,7 @@ module RubyParserStuff
     str.force_encoding("UTF-8")
     # TODO: remove:
     str.force_encoding("ASCII-8BIT") unless str.valid_encoding?
-    result = s(:str, str).line line
-    self.lexer.fixup_lineno str.count("\n")
-    result
+    s(:str, str).line line
   end
 
   def new_super args
@@ -1339,30 +1329,23 @@ module RubyParserStuff
   end
 
   def new_symbol_list
-    result = s(:array).line lexer.lineno
-    self.lexer.fixup_lineno
-    result
+    # TODO: hunt down and try to remove ALL lexer.lineno usage!
+    s(:array).line lexer.lineno
   end
 
   def new_symbol_list_entry val
     _, sym, _ = val
 
-    sym ||= s(:str, "")
-
-    line = lexer.lineno
+    sym ||= s(:str, "").line lexer.lineno
 
     case sym.sexp_type
     when :dstr then
       sym.sexp_type = :dsym
     when :str then
-      sym = s(:lit, sym.last.to_sym)
+      sym = s(:lit, sym.last.to_sym).line sym.line
     else
-      sym = s(:dsym, "", sym || s(:str, "").line(line))
+      sym = s(:dsym, "", sym).line sym.line
     end
-
-    sym.line line
-
-    self.lexer.fixup_lineno
 
     sym
   end
@@ -1405,16 +1388,12 @@ module RubyParserStuff
   end
 
   def new_word_list
-    result = s(:array).line lexer.lineno
-    self.lexer.fixup_lineno
-    result
+    s(:array).line lexer.lineno
   end
 
   def new_word_list_entry val
     _, word, _ = val
-    result = word.sexp_type == :evstr ? s(:dstr, "", word).line(word.line) : word
-    self.lexer.fixup_lineno
-    result
+    word.sexp_type == :evstr ? s(:dstr, "", word).line(word.line) : word
   end
 
   def new_xstring val
@@ -1450,12 +1429,23 @@ module RubyParserStuff
     s(:yield, *args.sexp_body).line args.line
   end
 
+  def prev_value_to_lineno v
+    s, n = v
+    if String === s then
+      n
+    else
+      lexer.lineno
+    end
+  end
+
   def next_token
     token = self.lexer.next_token
 
     if token and token.first != RubyLexer::EOF then
       self.last_token_type = token
       return token
+    elsif !token
+      return self.lexer.next_token
     else
       return [false, false]
     end
@@ -1476,6 +1466,8 @@ module RubyParserStuff
   # Timeout::Error if it runs for more than +time+ seconds.
 
   def process(str, file = "(string)", time = 10)
+    str.freeze
+
     Timeout.timeout time do
       raise "bad val: #{str.inspect}" unless String === str
 
@@ -1543,11 +1535,11 @@ module RubyParserStuff
     result
   end
 
-  def not_yet id, val=nil
+  def debug id, val=nil
     if ENV["PRY"] then
       require "pry"; binding.pry
     end
-    raise RubyParser::SyntaxError, "NOT YET: %p in %s:%d %p" % [id, self.file, self.lexer.lineno, val]
+    raise RubyParser::SyntaxError, "NOT YET: %p in %s:%d" % [id, self.file, self.lexer.lineno]
   end
 
   def syntax_error msg
