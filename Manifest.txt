@@ -33,6 +33,7 @@ lib/ruby3_parser.yy
 lib/ruby_lexer.rb
 lib/ruby_lexer.rex
 lib/ruby_lexer.rex.rb
+lib/ruby_lexer_strings.rb
 lib/ruby_parser.rb
 lib/ruby_parser.yy
 lib/ruby_parser_extras.rb
