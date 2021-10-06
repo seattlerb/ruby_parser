@@ -21,7 +21,7 @@ class RubyParser
     src = ss.string
     pre_error = src[0...ss.pos]
 
-    defs = pre_error.grep(/^ *(?:def|it)/)
+    defs = pre_error.lines.grep(/^ *(?:def|it)/)
 
     raise "can't figure out where the bad code starts" unless defs.last
 
