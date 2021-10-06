@@ -278,7 +278,7 @@ task :debug => :isolate do
   time = (ENV["RP_TIMEOUT"] || 10).to_i
 
   n = ENV["BUG"]
-  file = (n && "bug#{n}.rb") || ENV["F"] || ENV["FILE"] || "bug.rb"
+  file = (n && "bug#{n}.rb") || ENV["F"] || ENV["FILE"] || "debug.rb"
   ruby = ENV["R"] || ENV["RUBY"]
 
   if ruby then
@@ -301,7 +301,7 @@ task :debug => :isolate do
 end
 
 task :debug3 do
-  file    = ENV["F"] || "bug.rb"
+  file    = ENV["F"] || "debug.rb"
   version = ENV["V"] || ""
   verbose = ENV["VERBOSE"] ? "-v" : ""
   munge    = "./tools/munge.rb #{verbose}"
@@ -331,7 +331,7 @@ task :extract => :isolate do
   ENV["V"] ||= VERS.last
   Rake.application[:parser].invoke # this way we can have DEBUG set
 
-  file = ENV["F"] || ENV["FILE"]
+  file = ENV["F"] || ENV["FILE"] || abort("Need to provide F=<path>")
 
   ruby "-Ilib", "bin/ruby_parse_extract_error", file
 end
