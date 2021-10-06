@@ -76,6 +76,25 @@ def munge s
 
              # other
 
+             'kTERMINATOR',     "tSTRING_END",
+             '"kTERMINATOR"',   "tSTRING_END",
+             'kTRCURLY',        "tSTRING_DEND",
+
+             '"symbol literal"',       "tSYMBEG",
+             '"string literal"',       "tSTRING_BEG",
+             '"backtick literal"',     "tXSTRING_BEG",
+             '"regexp literal"',       "tREGEXP_BEG",
+             '"word list"',            "tWORDS_BEG",
+             '"verbatim word list"',   "tQWORDS_BEG",
+             '"symbol list"',          "tSYMBOLS_BEG",
+             '"verbatim symbol list"', "tQSYMBOLS_BEG",
+             '"terminator"',           "tSTRING_END",
+             '"\'}\'"',                  "tSTRING_DEND",
+
+             '"string literal"',"tSTRING_BEG",
+             '"literal content"', "tSTRING_CONTENT",
+             /\$/,              "", # try to remove these lumps?
+
              'tLBRACK2',        "tLBRACK", # HACK
 
              "' '",             "tSPACE", # needs to be later to avoid bad hits
@@ -114,7 +133,6 @@ def munge s
              '"do (for lambda)"',    "kDO_LAMBDA",
              '"do (for block)"',     "kDO_BLOCK",
              '"local variable or method"', "tIDENTIFIER",
-
 
              /\"(\w+) \(modifier\)\"/, proc { |x| "k#{$1.upcase}_MOD" },
              /\"(\w+)\"/,              proc { |x| "k#{$1.upcase}" },
@@ -172,6 +190,8 @@ ARGF.each_line do |line|
     # do nothing
   when /^.:scan=>\["([^"]+)"/ then
     puts "scan = %p" % [$1]
+  when /^.:getch=>\["([^"]+)/ then
+    puts "SCAN = %p" % [$1]
   when /^Reducing stack by rule (\d+) \(line (\d+)\):/ then
     reduce_line = $2.to_i
   when /^   \$\d+ = (?:token|nterm) (.+) \(.*\)/ then
@@ -180,7 +200,7 @@ ARGF.each_line do |line|
   when /^-> \$\$ = (?:token|nterm) (.+) \(.*\)/ then
     stack << "none" if stack.empty?
     item = munge $1
-    x = stack.compact.map { |s| munge s.strip }.join " "
+    x = stack.compact.map { |s| munge s.strip }.compact.join " "
     if x != item then # prevent kdef -> kdef
       if $v && reduce_line then
         puts "reduce #{x} --> #{item} at #{reduce_line}".squeeze " "
