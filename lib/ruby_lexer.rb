@@ -129,22 +129,6 @@ class RubyLexer
     is_after_operator? ? EXPR_ARG : EXPR_BEG
   end
 
-  def beginning_of_line?
-    ss.bol?
-  end
-
-  alias bol? beginning_of_line? # to make .rex file more readable
-
-  def captures
-    ss.captures
-  end
-
-  def check re
-    maybe_pop_stack
-
-    ss.check re
-  end
-
   def ignore_body_comments
     @comments.clear
   end
@@ -167,12 +151,6 @@ class RubyLexer
 
     r
   end
-
-  def end_of_stream?
-    ss.eos?
-  end
-
-  alias eos? end_of_stream?
 
   def expr_dot?
     lex_state =~ EXPR_DOT
@@ -408,49 +386,12 @@ class RubyLexer
     self.parser.env[id.to_sym] == :lvar
   end
 
-  def matched
-    ss.matched
-  end
-
-  def maybe_pop_stack
-    if ss.eos? && ss_stack.size > 1 then
-      ss_pop
-      lineno_pop
-    end
-  end
-
   def newtok
     string_buffer.clear
   end
 
-  def nextc
-    # TODO:
-    # if (UNLIKELY((p->lex.pcur == p->lex.pend) || p->eofp || RTEST(p->lex.nextline))) {
-    #     if (nextline(p)) return -1;
-    # }
-
-    maybe_pop_stack
-
-    c = ss.getch
-
-    if c == "\n" then
-      ss.unscan
-      c = nil
-    end
-
-    c
-  end
-
   def not_end?
     not is_end?
-  end
-
-  def pos
-    ss.pos
-  end
-
-  def pos= n
-    ss.pos = n
   end
 
   # called from process_percent
@@ -515,15 +456,6 @@ class RubyLexer
     string string_type, term, paren
 
     result nil, token_type, text, current_line
-  end
-
-  def ss_string # TODO: try to remove?
-    ss.string
-  end
-
-  def ss_string= s # TODO: try to remove?
-    raise "Probably not"
-    ss.string = s
   end
 
   def scan_variable_name                        # ../compare/parse30.y:7208
@@ -1237,12 +1169,6 @@ class RubyLexer
     end.dup
   end
 
-  def getch
-    c = ss.getch
-    c = ss.getch if c == "\r" && ss.peek(1) == "\n"
-    c
-  end
-
   def regx_options                               # ../compare/parse30.y:6914
     newtok
 
@@ -1273,10 +1199,6 @@ class RubyLexer
     self.cmdarg.reset
   end
 
-  def rest
-    ss.rest
-  end
-
   def result new_state, token, text, line = self.lineno # :nodoc:
     new_state = self.arg_state if new_state == :arg_state
     self.lex_state = new_state if new_state
@@ -1302,18 +1224,6 @@ class RubyLexer
 
   def ruby27plus?
     parser.class.version >= 27
-  end
-
-  def scan re
-    warn "Use nextc instead of scan(/./). From #{caller.first}" if re == /./
-
-    maybe_pop_stack
-
-    ss.scan re
-  end
-
-  def scanner_class # TODO: design this out of oedipus_lex. or something.
-    RPStringScanner
   end
 
   def space_vs_beginning space_type, beg_type, fallback
@@ -1543,10 +1453,6 @@ class RubyLexer
     x
   end
 
-  def unscan
-    ss.unscan
-  end
-
   def warning s
     # do nothing for now
   end
@@ -1686,7 +1592,105 @@ class RubyLexer
   include State::Values
 end
 
-require "ruby_lexer.rex"
+class RubyLexer
+  module SSWrapper
+    def beginning_of_line?
+      ss.bol?
+    end
+
+    alias bol? beginning_of_line? # to make .rex file more readable
+
+    def captures
+      ss.captures
+    end
+
+    def check re
+      maybe_pop_stack
+
+      ss.check re
+    end
+
+    def end_of_stream?
+      ss.eos?
+    end
+
+    alias eos? end_of_stream?
+
+    def getch
+      c = ss.getch
+      c = ss.getch if c == "\r" && ss.peek(1) == "\n"
+      c
+    end
+
+    def matched
+      ss.matched
+    end
+
+    def maybe_pop_stack
+      if ss.eos? && ss_stack.size > 1 then
+        ss_pop
+        lineno_pop
+      end
+    end
+
+    def nextc
+      # TODO:
+      # if (UNLIKELY((p->lex.pcur == p->lex.pend) || p->eofp || RTEST(p->lex.nextline))) {
+      #     if (nextline(p)) return -1;
+      # }
+
+      maybe_pop_stack
+
+      c = ss.getch
+
+      if c == "\n" then
+        ss.unscan
+        c = nil
+      end
+
+      c
+    end
+
+    def pos
+      ss.pos
+    end
+
+    def pos= n
+      ss.pos = n
+    end
+
+    def rest
+      ss.rest
+    end
+
+    def scan re
+      warn "Use nextc instead of scan(/./). From #{caller.first}" if re == /./
+
+      maybe_pop_stack
+
+      ss.scan re
+    end
+
+    def scanner_class # TODO: design this out of oedipus_lex. or something.
+      RPStringScanner
+    end
+
+    def ss_string
+      ss.string
+    end
+
+    def ss_string= s
+      raise "Probably not"
+      ss.string = s
+    end
+
+    def unscan
+      ss.unscan
+    end
+  end
+
+  include SSWrapper
+end
 
 class RubyLexer
   module SSStack
@@ -1767,3 +1771,5 @@ if ENV["RP_STRTERM_DEBUG"] then
     end
   end
 end
+
+require "ruby_lexer.rex"
