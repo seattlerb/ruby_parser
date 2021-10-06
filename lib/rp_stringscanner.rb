@@ -18,7 +18,7 @@ class RPStringScanner < StringScanner
     alias :old_scan :scan
     def scan re
       s = old_scan re
-      where = caller.drop_while { |s| s =~ /scan.$/ }.first
+      where = caller.drop_while { |x| x =~ /scan.$/ }.first
       where = where.split(/:/).first(2).join(":")
       if ENV["TALLY"] then
         d scan:[where]

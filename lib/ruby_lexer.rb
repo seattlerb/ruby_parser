@@ -833,7 +833,7 @@ class RubyLexer
         when /u(\h{1,3})/ then
           rb_compile_error("Invalid escape character syntax")
         when /u\{(\h+(?:\s+\h+)*)\}/ then
-          $1.split.map { |s| s.to_i(16) }.pack("U*")
+          $1.split.map { |cp| cp.to_i(16) }.pack("U*")
         else
           s
         end

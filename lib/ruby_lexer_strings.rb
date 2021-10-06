@@ -570,7 +570,7 @@ class RubyLexer
 
             self.pos -= 1 # TODO: ss.unscan 15 errors
             # HACK? decide whether to eat the \\ above
-            if esc = tokadd_escape && end_of_stream? then
+            if _esc = tokadd_escape && end_of_stream? then
               debug 10
             end
 
