@@ -84,7 +84,7 @@ rule
                 | klBEGIN
                     {
                       if (self.in_def || self.in_single > 0) then
-                        debug20 1
+                        debug 11
                         yyerror "BEGIN in method"
                       end
                       self.env.extend
@@ -139,7 +139,7 @@ rule
                 | error stmt
                     {
                       result = val[1]
-                      debug20 2, val, result
+                      debug 12
                     }
 
    stmt_or_begin: stmt
@@ -211,7 +211,7 @@ rule
                       (_, line), _, stmt, _ = val
 
                       if (self.in_def || self.in_single > 0) then
-                        debug20 3
+                        debug 13
                         yyerror "END in method; use at_exit"
                       end
 
@@ -679,7 +679,7 @@ rule
                 | primary_value tCOLON2 tCONSTANT
                     {
                       if (self.in_def || self.in_single > 0) then
-                        debug20 7
+                        debug 14
                         yyerror "dynamic constant assignment"
                       end
 
@@ -691,7 +691,7 @@ rule
                 | tCOLON3 tCONSTANT
                     {
                       if (self.in_def || self.in_single > 0) then
-                        debug20 8
+                        debug 15
                         yyerror "dynamic constant assignment"
                       end
 
@@ -718,7 +718,7 @@ rule
 
                       result = self.assignable var
 
-                      debug20 9, val, result
+                      debug 16
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket
                     {
@@ -749,7 +749,7 @@ rule
                       expr, _, (id, _line) = val
 
                       if (self.in_def || self.in_single > 0) then
-                        debug20 10
+                        debug 17
                         yyerror "dynamic constant assignment"
                       end
 
@@ -761,7 +761,7 @@ rule
                       _, (id, l) = val
 
                       if (self.in_def || self.in_single > 0) then
-                        debug20 11
+                        debug 18
                         yyerror "dynamic constant assignment"
                       end
 
@@ -1419,7 +1419,7 @@ rule
                     }
                 | kNOT tLPAREN2 rparen
                     {
-                      debug20 14, val, result
+                      debug 19
                     }
                 | fcall brace_block
                     {
@@ -2208,7 +2208,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       # TODO: pop_pktbl(p, $<tbl>2);
                       result = new_array_pattern(lhs, nil, args, lhs.line)
                     }
-                | p_const p_lparen p_find tRPAREN { not_yet 2 }
+                | p_const p_lparen p_find tRPAREN { debug 20 }
                 | p_const p_lparen p_kwargs tRPAREN
                     {
                       lhs, _, kwargs, _ = val
@@ -2216,16 +2216,16 @@ opt_block_args_tail: tCOMMA block_args_tail
                       # TODO: pop_pktbl(p, $<tbl>2);
                       result = new_hash_pattern(lhs, kwargs, lhs.line)
                     }
-                | p_const tLPAREN2 tRPAREN { not_yet 23 }
+                | p_const tLPAREN2 tRPAREN { debug 21 }
                 | p_const p_lbracket p_args rbracket
                     {
                       const, _, pre_arg, _ = val
                       # TODO: pop_pktbl(p, $<tbl>2);
                       result = new_array_pattern const, nil, pre_arg, const.line
                     }
-                | p_const p_lbracket p_find rbracket { not_yet 3 }
-                | p_const p_lbracket p_kwargs rbracket { not_yet 25 }
-                | p_const tLBRACK rbracket { not_yet 26 }
+                | p_const p_lbracket p_find rbracket { debug 22 }
+                | p_const p_lbracket p_kwargs rbracket { debug 23 }
+                | p_const tLBRACK rbracket { debug 24 }
                 | tLBRACK p_args rbracket
                     {
                       # TODO: pop_pktbl(p, $<tbl>2); ?
@@ -2264,7 +2264,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       tail = new_hash_pattern_tail nil, nil, line
                       result = new_hash_pattern nil, tail, line
                     }
-                | tLPAREN p_expr tRPAREN { not_yet 31 }
+                | tLPAREN p_expr tRPAREN { debug 25 }
 
           p_args: p_expr
                     {
@@ -2273,7 +2273,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       ary = s(:array_TAIL, expr).line expr.line
                       result = new_array_pattern_tail(ary, nil, nil, nil).line expr.line
                     }
-                | p_args_head { not_yet 33 }
+                | p_args_head { debug 26 }
                 | p_args_head p_arg
                     {
                       head, tail = val
@@ -2303,7 +2303,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = new_array_pattern_tail(expr, true, nil, nil).line expr.line
                     }
-                | p_args_head tSTAR tCOMMA p_args_post { not_yet 38 }
+                | p_args_head tSTAR tCOMMA p_args_post { debug 27 }
                 | p_args_tail
 
      p_args_head: p_arg tCOMMA
@@ -2423,7 +2423,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = s(:lit, id.to_sym).line line
                     }
-                | tSTRING_BEG string_contents tLABEL_END { not_yet 60 }
+                | tSTRING_BEG string_contents tLABEL_END { debug 28 }
 
         p_kwrest: kwrest_mark tIDENTIFIER
                     {
@@ -2439,28 +2439,28 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result = [:"**", lexer.lineno] # FIX
                     }
 
-      p_kwnorest: kwrest_mark kNIL { not_yet 63 }
+      p_kwnorest: kwrest_mark kNIL { debug 29 }
 
     p_any_kwrest: p_kwrest
                 | p_kwnorest
                     {
-                      not_yet 11
+                      debug 30
                     }
 
          p_value: p_primitive
-                | p_primitive tDOT2 p_primitive { not_yet 65 }
-                | p_primitive tDOT3 p_primitive { not_yet 66 }
+                | p_primitive tDOT2 p_primitive { debug 31 }
+                | p_primitive tDOT3 p_primitive { debug 32 }
                 | p_primitive tDOT2
                     {
                       v1, _ = val
                       result = s(:dot2, v1, nil).line v1.line
                     }
-                | p_primitive tDOT3 { not_yet 68 }
+                | p_primitive tDOT3 { debug 33 }
                 | p_variable
                 | p_var_ref
                 | p_const
-                | tBDOT2 p_primitive { not_yet 72 }
-                | tBDOT3 p_primitive { not_yet 73 }
+                | tBDOT2 p_primitive { debug 34 }
+                | tBDOT3 p_primitive { debug 35 }
 
      p_primitive: literal
                 | strings
@@ -2571,7 +2571,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
           string: tCHAR
                     {
-                      debug20 23, val, result
+                      debug 36
                     }
                 | string1
                 | string string1
@@ -2581,11 +2581,11 @@ opt_block_args_tail: tCOMMA block_args_tail
 
          string1: tSTRING_BEG string_contents tSTRING_END
                     {
-                      _, str, (_, func) = val
+                      (_, line), str, (_, func) = val
 
-                      str = dedent str if func =~ RubyLexer::STR_FUNC_ICNTNT
+                      str = dedent str if func =~ RubyLexer::STR_FUNC_DEDENT
 
-                      result = str
+                      result = str.line line
                     }
                 | tSTRING
                     {
@@ -2605,11 +2605,15 @@ opt_block_args_tail: tCOMMA block_args_tail
 
            words: tWORDS_BEG tSPACE tSTRING_END
                     {
-                      result = s(:array).line lexer.lineno
+                      (_, line), _, _ = val
+
+                      result = s(:array).line line
                     }
                 | tWORDS_BEG word_list tSTRING_END
                     {
-                      result = val[1]
+                      (_, line), list, _ = val
+
+                      result = list.line line
                     }
 
        word_list: none
@@ -2629,18 +2633,20 @@ opt_block_args_tail: tCOMMA block_args_tail
 
          symbols: tSYMBOLS_BEG tSPACE tSTRING_END
                     {
-                      result = s(:array).line lexer.lineno
+                      (_, line), _, _ = val
+
+                      result = s(:array).line line
                     }
-                | tSYMBOLS_BEG { result = lexer.lineno } symbol_list tSTRING_END
+                | tSYMBOLS_BEG symbol_list tSTRING_END
                     {
-                      _, line, list, _, = val
+                      (_, line), list, _, = val
                       list.line line
                       result = list
                     }
 
      symbol_list: none
                     {
-                      result = new_symbol_list.line lexer.lineno
+                      result = new_symbol_list
                     }
                 | symbol_list word tSPACE
                     {
@@ -2650,20 +2656,28 @@ opt_block_args_tail: tCOMMA block_args_tail
 
           qwords: tQWORDS_BEG tSPACE tSTRING_END
                     {
-                      result = s(:array).line lexer.lineno
+                      (_, line), _, _ = val
+
+                      result = s(:array).line line
                     }
                 | tQWORDS_BEG qword_list tSTRING_END
                     {
-                      result = val[1]
+                      (_, line), list, _ = val
+
+                      result = list.line line
                     }
 
         qsymbols: tQSYMBOLS_BEG tSPACE tSTRING_END
                     {
-                      result = s(:array).line lexer.lineno # FIX
+                      (_, line), _, _ = val
+
+                      result = s(:array).line line
                     }
                 | tQSYMBOLS_BEG qsym_list tSTRING_END
                     {
-                      result = val[1]
+                      (_, line), list, _ = val
+
+                      result = list.line line
                     }
 
       qword_list: none
@@ -2686,7 +2700,8 @@ opt_block_args_tail: tCOMMA block_args_tail
 
  string_contents: none
                     {
-                      result = s(:str, "").line lexer.lineno
+                      line = prev_value_to_lineno _values.last
+                      result = s(:str, "").line line
                     }
                 | string_contents string_content
                     {
@@ -2716,8 +2731,7 @@ regexp_contents: none
 
   string_content: tSTRING_CONTENT
                     {
-                      str, = val
-                      result = new_string [[str, lexer.lineno]]
+                      result = new_string val
                     }
                 | tSTRING_DVAR
                     {
@@ -2762,8 +2776,8 @@ regexp_contents: none
                       lexer.brace_nest  = brace_nest
                       lexer.string_nest = string_nest
 
-                      lexer.cmdarg.pop
                       lexer.cond.pop
+                      lexer.cmdarg.pop
 
                       lexer.lex_state = oldlex_state
 
@@ -2778,7 +2792,7 @@ regexp_contents: none
                       when nil then
                         result = s(:evstr).line line
                       else
-                        debug20 25
+                        debug 37
                         raise "unknown string body: #{stmt.inspect}"
                       end
                     }
@@ -2836,7 +2850,7 @@ regexp_contents: none
                       when :evstr then
                         result = s(:dsym, "", result).line result.line
                       else
-                        debug20 26, val, result
+                        debug 38
                       end
                     }
 
@@ -2895,7 +2909,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                 | keyword_variable
                     {
                       result = self.assignable val[0]
-                      debug20 29, val, result
+                      debug 39
                     }
 
          backref: tNTH_REF
@@ -3288,9 +3302,11 @@ f_opt_paren_args: f_paren_args
                     }
                 | tSTRING_BEG string_contents tLABEL_END arg_value
                     {
-                      _, sym, _, value = val
+                      (_, line), sym, _, value = val
+
                       sym.sexp_type = :dsym
-                      result = s(:array, sym, value).line sym.line
+
+                      result = s(:array, sym, value).line line
                     }
                 | tDSTAR arg_value
                     {

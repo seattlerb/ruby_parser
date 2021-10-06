@@ -4,6 +4,11 @@
 
 class RubyLexer
 
+option
+
+  lineno
+  column
+
 macro
 
   IDENT_CHAR    /[a-zA-Z0-9_[:^ascii:]]/
@@ -25,7 +30,8 @@ macro
 
 start
 
-  return process_string if lex_strterm
+  maybe_pop_stack
+  return process_string_or_heredoc if lex_strterm
 
   self.cmd_state = self.command_start
   self.command_start = false
@@ -63,7 +69,7 @@ rule
 
 ruby22_label?   /\"#{SIMPLE_STRING}\":/o process_label
                 /\"(#{SIMPLE_STRING})\"/o process_simple_string
-                /\"/                    { string STR_DQUOTE; result nil, :tSTRING_BEG, text }
+                /\"/                    { string STR_DQUOTE, '"'; result nil, :tSTRING_BEG, text }
 
                 /\@\@?\d/               { rb_compile_error "`#{text}` is not allowed as a variable name" }
                 /\@\@?#{IDENT_CHAR}+/o  process_ivar
@@ -94,6 +100,7 @@ ruby22_label?   /\"#{SIMPLE_STRING}\":/o process_label
                 /\[/                    process_square_bracket
 
 was_label?        /\'#{SSTRING}\':?/o   process_label_or_string
+                  /\'/                  { string STR_SQUOTE, "'"; result nil, :tSTRING_BEG, text }
 
 : /\|/
 |               /\|\|\=/                { result EXPR_BEG, :tOP_ASGN, "||" }

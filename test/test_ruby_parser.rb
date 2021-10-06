@@ -34,12 +34,15 @@ module TestRubyParserShared
     skip "not ready for this yet"
 
     rb = "def f; if /(?<foo>bar)/ =~ 'bar' && p(foo); foo; end; end; f"
-    pt = s(:if,
-           s(:and,
-             s(:match2, s(:lit, /(?<foo>bar)/), s(:str, "bar")),
-             s(:call, nil, :p, s(:lvar, :foo))),
-           s(:lvar, :foo),
-           nil)
+    pt = s(:block,
+           s(:defn, :f, s(:args),
+             s(:if,
+               s(:and,
+                 s(:match2, s(:lit, /(?<foo>bar)/), s(:str, "bar")),
+                 s(:call, nil, :p, s(:lvar, :foo))),
+               s(:lvar, :foo),
+               nil)),
+           s(:call, nil, :f))
 
     assert_parse rb, pt
   end
@@ -322,13 +325,14 @@ module TestRubyParserShared
   end
 
   def test_bug170
-    skip "not ready for this yet"
-
-    # TODO: needs to fail on 2.1 and up
     rb = '$-'
     pt = s(:gvar, :"$-")
 
-    assert_parse rb, pt
+    if processor.class.version >= 21
+      assert_syntax_error rb, /unexpected \$undefined/
+    else
+      assert_parse rb, pt
+    end
   end
 
   def test_bug179
@@ -339,12 +343,9 @@ module TestRubyParserShared
   end
 
   def test_bug190
-    skip "not ready for this yet"
-
     rb = %{%r'\\\''} # stupid emacs
 
-    assert_parse rb, :FUCK
-    assert_syntax_error rb, "FUCK"
+    assert_parse rb, s(:lit, %r%'%)
 
     rb = %{%r'\\''}
     pt = s(:lit, /'/)
@@ -881,6 +882,29 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_heredoc_lineno
+    rb = "c = <<'CCC'\nline2\nline3\nline4\nCCC\n\nd = 42"
+    pt = s(:block,
+           s(:lasgn, :c, s(:str, "line2\nline3\nline4\n").line(1)).line(1),
+           s(:lasgn, :d, s(:lit, 42).line(7)).line(7)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_pctW_lineno
+    rb = "%W(a\\nb\nc\ d\ne\\\nf\ng\y h\\y i\\\y)"
+    pt = s(:array,
+           s(:str, "a\nb").line(1),
+           s(:str, "c").line(2),
+           s(:str, "d").line(2),
+           s(:str, "e\nf").line(3),
+           s(:str, "gy").line(5),
+           s(:str, "hy").line(5),
+           s(:str, "iy").line(5)).line(1)
+
+    assert_parse rb, pt
+  end
+
   def test_heredoc_bad_oct_escape
     rb = "s = <<-EOS\na\\247b\ncöd\nEOS\n"
     pt = s(:lasgn, :s, s(:str, "a\xa7b\nc\xc3\xb6d\n".b))
@@ -1057,7 +1081,7 @@ module TestRubyParserShared
            s(:array,
              s(:str, "a").line(2),
              s(:str, "b").line(3)).line(1),
-           s(:lit, 1).line(5))
+           s(:lit, 1).line(5)).line(1)
     assert_parse rb, pt
   end
 
@@ -1433,7 +1457,7 @@ module TestRubyParserShared
            s(:array,
              s(:str, "a").line(2),
              s(:str, "b").line(3)).line(1),
-           s(:lit, 1).line(5))
+           s(:lit, 1).line(5)).line(1)
     assert_parse rb, pt
   end
 
@@ -1691,17 +1715,21 @@ module TestRubyParserShared
     assert_parse_line rb, pt, 1
   end
 
-  def test_parse_line_dstr_newline
-    rb = <<-'CODE'
-            "a\n#{
-            }"
-            true
-    CODE
-
+  def test_parse_line_dstr_escaped_newline
+    rb = "\"a\\n\#{\n}\"\ntrue"
     pt = s(:block,
            s(:dstr, "a\n",
-             s(:evstr)).line(1),
-           s(:true).line(3))
+             s(:evstr).line(1)).line(1),
+           s(:true).line(3)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_line_dstr_soft_newline
+    rb = "\"a\n#\{\n}\"\ntrue"
+    pt = s(:block,
+           s(:dstr, "a\n", s(:evstr).line(2)).line(1),
+           s(:true).line(4)).line(1)
 
     assert_parse rb, pt
   end
@@ -1726,7 +1754,7 @@ module TestRubyParserShared
 
   def test_parse_line_heredoc
     rb = <<-CODE
-      string = <<-HEREDOC
+      string = <<-HEREDOC.strip
         very long string
       HEREDOC
       puts string
@@ -1734,20 +1762,23 @@ module TestRubyParserShared
 
     pt = s(:block,
            s(:lasgn, :string,
-             s(:str, "        very long string\n").line(1)).line(1),
-           s(:call, nil, :puts, s(:lvar, :string).line(4)).line(4)).line(1)
+             s(:call,
+               s(:str, "        very long string\n").line(1),
+               :strip).line(1),
+              ).line(1),
+           s(:call, nil, :puts,
+             s(:lvar, :string).line(4)).line(4)
+          ).line(1)
 
     assert_parse rb, pt
   end
 
   def test_parse_line_heredoc_evstr
-    skip "heredoc line numbers are just gonna be screwed for a while..."
-
     rb = "<<-A\na\n\#{b}\nA"
-    pt = s(:dstr, "a\n",
-           s(:evstr,
-             s(:call, nil, :b).line(3)),
-             s(:str, "\n")).line(1)
+    pt = s(:dstr,
+           "a\n",
+           s(:evstr, s(:call, nil, :b).line(3)).line(3), s(:str, "\n").line(3)
+          ).line(1)
 
     assert_parse rb, pt
   end
@@ -3112,11 +3143,15 @@ module TestRubyParserShared19Plus
   end
 
   def test_motherfuckin_leading_dots2
-    skip if processor.class.version >= 27
+    rb = "1\n..3"
+    pt = s(:block, s(:lit, 1).line(1),
+           s(:dot2, nil, s(:lit, 3).line(2)).line(2)).line(1)
 
-    rb = "a\n..b"
-
-    assert_parse_error rb, '(string):2 :: parse error on value ".." (tDOT2)'
+    if processor.class.version >= 27
+      assert_parse rb, pt
+    else
+      assert_parse_error rb, '(string):2 :: parse error on value ".." (tDOT2)'
+    end
   end
 
   def test_multiline_hash_declaration
@@ -3395,9 +3430,144 @@ end
 module TestRubyParserShared20Plus
   include TestRubyParserShared19Plus
 
+  def test_read_escape_unicode_h4
+    rb = '?\u00a0'
+    pt = s(:str, ?\u00a0)
+
+    assert_parse rb, pt
+  end
+
+  def test_read_escape_unicode_curlies
+    rb = '?\u{00a0}'
+    pt = s(:str, ?\u00a0)
+
+    assert_parse rb, pt
+  end
+
+  def test_regexp_unicode_curlies
+    rb = '/\u{df}/'
+    pt = s(:lit, /\u{df}/)
+
+    assert_parse rb, pt
+
+    rb = '/\u{c0de babe}/'
+    pt = s(:lit, /\u{c0de babe}/)
+
+    assert_parse rb, pt
+  end
+
+  def test_qw_escape
+    rb = "%q(\1\\\')"
+    pt = s(:str, "\001\\'")
+
+    assert_parse rb, pt
+  end
+
+  def test_pct_nl
+    rb = "x = %\n\n"
+    pt = s(:lasgn, :x, s(:str, ""))
+
+    assert_parse rb, pt
+  end
+
+  def test_regexp_esc_C_slash
+    rb = "/\\cC\\d/"
+    pt = s(:lit, /\cC\d/)
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_wtf_I_hate_you
+    rb = "p <<-END+'b\n  a\n  END\n  c'+'d'"
+    pt = s(:call, nil, :p,
+           s(:call,
+             s(:call, s(:str, "  a\n"), :+,
+               s(:str, "b\n  c")),
+             :+, s(:str, "d")))
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_nested
+    rb = "[<<A,\n\#{<<B}\nb\nB\na\nA\n0]"
+    pt = s(:array, s(:str, "b\n\na\n").line(1),
+           s(:lit, 0).line(7)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_pct_w_heredoc_interp_nested
+    rb = "%W( 1 \#{<<A} 3\n2\nA\n      4 5 )"
+    pt = s(:array,
+           s(:str, "1"),
+           s(:str, "2\n"),
+           s(:str, "3"),
+           s(:str, "4"),
+           s(:str, "5"))
+
+    assert_parse rb, pt
+  end
+
+  def test_regexp_esc_u
+    rb = "/[\\u0021-\\u0027]/"
+    pt = s(:lit, /[\u0021-\u0027]/)
+
+    assert_parse rb, pt
+  end
+
+  def test_qw_escape_term
+    rb = "%q|blah blah \\| blah blah|"
+    pt = s(:str, "blah blah | blah blah")
+
+    assert_parse rb, pt
+  end
+
   def test_args_kw_block
     rb = "def f(a: 1, &b); end"
     pt = s(:defn, :f, s(:args, s(:kwarg, :a, s(:lit, 1)), :"&b"), s(:nil))
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_backslash_nl
+    rb = %Q("  why would someone do this? \\\n  blah\n")
+    pt = s(:str, "  why would someone do this?   blah\n")
+
+    assert_parse rb, pt
+
+    rb = "<<-DESC\n  why would someone do this? \\\n  blah\nDESC"
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_comma_arg
+    rb = "[\"  some text\n\",]"
+    pt = s(:array, s(:str, "  some text\n"))
+
+    assert_parse rb, pt
+
+    rb = "[<<-FILE,\n  some text\nFILE\n]"
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_trailing_slash_continued_call
+    rb = "<<END\\\nblah\nEND\n.strip"
+    pt = s(:call, s(:str, "blah\n"), :strip)
+
+    assert_parse rb, pt
+  end
+
+  def test_pct_q_backslash_nl
+    rb = "%q{ \\\n}"
+    pt = s(:str, " \\\n")
+
+    assert_parse rb, pt
+  end
+
+  def test_pct_Q_backslash_nl
+    rb = "%Q{ \\\n}"
+    pt = s(:str, " ")
 
     assert_parse rb, pt
   end
@@ -3646,19 +3816,22 @@ module TestRubyParserShared20Plus
            s(:array,
              s(:lit, :a).line(2),
              s(:lit, :b).line(3)).line(1),
-           s(:lit, 1).line(5))
+           s(:lit, 1).line(5)).line(1)
     assert_parse rb, pt
   end
 
   def test_iter_array_curly
-    skip if processor.class.version >= 25
-
     rb = "f :a, [:b] { |c, d| }" # yes, this is bad code... that's their problem
     pt = s(:iter,
            s(:call, nil, :f, s(:lit, :a), s(:array, s(:lit, :b))),
            s(:args, :c, :d))
 
-    assert_parse rb, pt
+    if processor.class.version >= 25 then
+      msg = /parse error on value "\{" \(tLCURLY\)/
+      assert_syntax_error rb, msg, Racc::ParseError
+    else
+      assert_parse rb, pt
+    end
   end
 
   def test_iter_kwarg
@@ -3772,6 +3945,17 @@ end
 module TestRubyParserShared21Plus
   include TestRubyParserShared20Plus
 
+  def test_array_lits_trailing_calls
+    rb = "[].b"
+    pt = s(:call, s(:array), :b)
+
+    assert_parse rb, pt
+
+    rb = "%w[].b"
+
+    assert_parse rb, pt
+  end
+
   def test_block_kw
     rb = "blah { |k:42| }"
     pt = s(:iter, s(:call, nil, :blah), s(:args, s(:kwarg, :k, s(:lit, 42))))
@@ -3794,7 +3978,7 @@ module TestRubyParserShared21Plus
 
   def test_bug162__21plus
     rb = %q(<<E\nfoo\nE\rO)
-    emsg = "can't match /E(\\r*\\n|\\z)/ anywhere in . near line 1: \"\""
+    emsg = "can't match /E(?=\\r?\\n|\\z)/ anywhere in . near line 1: \"\""
 
     assert_syntax_error rb, emsg
   end
@@ -4810,6 +4994,12 @@ module TestRubyParserShared30Plus
   end
 end
 
+class Minitest::Test
+  def skip s = "blah"
+    warn "ignoring skip for %s: %s" % [name, s]
+  end
+end if ENV["NOSKIP"]
+
 class TestRubyParser < Minitest::Test
   def test_cls_version
     assert_equal 23, RubyParser::V23.version
@@ -4833,7 +5023,7 @@ class TestRubyParser < Minitest::Test
       end
     end
 
-    assert_includes e.message, 'parse error on value false ($end)'
+    assert_includes e.message, 'parse error on value "$" ($end)'
   end
 
   def test_parse_error_from_first
@@ -4846,7 +5036,7 @@ class TestRubyParser < Minitest::Test
     end
 
     # This is a 2.x error, will fail on 1.8/1.9.
-    assert_includes e.message, 'parse error on value false ($end)'
+    assert_includes e.message, 'parse error on value "$" ($end)'
   end
 end
 
@@ -4899,10 +5089,10 @@ class RubyParserTestCase < ParseTreeTestCase
     ENV["VERBOSE"] = old_env
   end
 
-  def assert_syntax_error rb, emsg
+  def assert_syntax_error rb, emsg, klass = RubyParser::SyntaxError
     e = nil
     assert_silent do
-      e = assert_raises RubyParser::SyntaxError do
+      e = assert_raises klass do
         processor.parse rb
       end
     end
@@ -4928,17 +5118,6 @@ class TestRubyParserV20 < RubyParserTestCase
     super
 
     self.processor = RubyParser::V20.new
-  end
-
-  def test_bug162__20
-    skip "not ready for this yet"
-
-    # Ignore everything after \r in heredoc marker in <= 2.0 #162
-
-    rb = %q(<<E\nfoo\nE\rO)
-    pt = s(:str, "foo\n")
-
-    assert_parse rb, pt
   end
 end
 
