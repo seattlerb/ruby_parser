@@ -1068,7 +1068,7 @@ class RubyLexer
     end
 
     def ss_stack
-      @ss_stack ||= [@ss]
+      @ss_stack ||= []
     end
 
     def lineno_stack
