@@ -108,7 +108,7 @@ class RubyLexer
 
     case
     when scan(/([#{heredoc_indent_mods}]?)([\'\"\`])(.*?)\2/) then
-      mods, quote, term = self.captures
+      mods, quote, term = match[1], match[2], match[3]
       char_pos = ss.charpos
       byte_pos = ss.pos
 
@@ -128,7 +128,7 @@ class RubyLexer
     when scan(/[#{heredoc_indent_mods}]?([\'\"\`])(?!\1*\Z)/) then
       rb_compile_error "unterminated here document identifier"
     when scan(/([#{heredoc_indent_mods}]?)(#{IDENT_CHAR}+)/) then
-      mods, term = self.captures
+      mods, term = match[1], match[2]
       quote = '"'
       char_pos = ss.charpos
       byte_pos = ss.pos
@@ -475,7 +475,7 @@ class RubyLexer
     when scan(/\\[McCx]/) then # all unprocessed branches from above have failed
       rb_compile_error "Invalid escape character syntax"
     when scan(/\\(.)/m) then
-      chr, = self.captures
+      chr, = match[1]
 
       tokadd "\\"
       tokadd chr

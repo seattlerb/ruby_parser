@@ -987,10 +987,6 @@ class RubyLexer
 
     alias bol? beginning_of_line? # to make .rex file more readable
 
-    def captures
-      ss.captures
-    end
-
     def check re
       maybe_pop_stack
 

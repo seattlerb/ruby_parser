@@ -12,6 +12,12 @@ class Regexp
 end
 # :startdoc:
 
+class Array
+  def prepend *vals
+    self[0,0] = vals
+  end
+end unless [].respond_to?(:prepend)
+
 # :stopdoc:
 class Symbol
   def end_with? o
