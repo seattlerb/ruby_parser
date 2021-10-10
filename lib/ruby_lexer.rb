@@ -401,7 +401,11 @@ class RubyLexer
       text = text[0..-2]
     end
 
-    result EXPR_END, :tSTRING, text[1..-2].gsub(/\\\\/, "\\").gsub(/\\\'/, "\'")
+    orig_line = lineno
+    str = text[1..-2].gsub(/\\\\/, "\\").gsub(/\\\'/, "\'")
+    self.lineno += str.count("\n")
+
+    result EXPR_END, :tSTRING, str, orig_line
   end
 
   def process_lchevron text
@@ -580,15 +584,14 @@ class RubyLexer
   end
 
   def process_simple_string text
-    replacement = text[1..-2]
-    newlines =  replacement.count("\n")
-    replacement.gsub!(ESC) { unescape($1).b.force_encoding Encoding::UTF_8 }
+    orig_line = lineno
+    self.lineno += text.count("\n")
 
-    replacement = replacement.b unless replacement.valid_encoding?
+    str = text[1..-2]
+      .gsub(ESC) { unescape($1).b.force_encoding Encoding::UTF_8 }
+    str = str.b unless str.valid_encoding?
 
-    r = result EXPR_END, :tSTRING, replacement
-    self.lineno += newlines
-    r
+    result EXPR_END, :tSTRING, str, orig_line
   end
 
   def process_slash text
@@ -1103,23 +1106,6 @@ class RubyLexer
   prepend SSStack
 end
 
-if ENV["RP_LINENO_DEBUG"] then
-  class RubyLexer
-    def d o
-      $stderr.puts o.inspect
-    end
-
-    alias old_lineno= lineno=
-
-    def lineno= n
-      self.old_lineno= n
-      where = caller.first.split(/:/).first(2).join(":")
-      $stderr.puts
-      d :lineno => [n, where]
-    end
-  end
-end
-
 if ENV["RP_STRTERM_DEBUG"] then
   class RubyLexer
     def d o
@@ -1139,3 +1125,20 @@ end
 
 require_relative "./ruby_lexer.rex.rb"
 require_relative "./ruby_lexer_strings.rb"
+
+if ENV["RP_LINENO_DEBUG"] then
+  class RubyLexer
+    def d o
+      $stderr.puts o.inspect
+    end
+
+    alias old_lineno= lineno=
+
+    def lineno= n
+      self.old_lineno= n
+      where = caller.first.split(/:/).first(2).join(":")
+      $stderr.puts
+      d :lineno => [n, where]
+    end
+  end
+end

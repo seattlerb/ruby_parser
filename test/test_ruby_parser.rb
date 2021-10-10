@@ -2086,13 +2086,13 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  # def test_str_pct_nested_nested
-  #   rb = "%{ { #\{ \"#\{1}\" } } }"
-  #   assert_equal " { 1 } ", eval(rb)
-  #   pt = s(:dstr, " { ", s(:evstr, s(:lit, 1)), s(:str, " } "))
-  #
-  #   assert_parse rb, pt
-  # end
+  def test_str_pct_nested_nested
+    rb = "%{ { #\{ \"#\{1}\" } } }"
+    assert_equal " { 1 } ", eval(rb)
+    pt = s(:dstr, " { ", s(:evstr, s(:lit, 1)), s(:str, " } "))
+
+    assert_parse rb, pt
+  end
 
   def test_str_pct_Q_nested
     rb = "%Q[before [#\{nest}] after]"
@@ -2106,6 +2106,60 @@ module TestRubyParserShared
     pt = s(:str, "a b c")
 
     assert_parse rb, pt
+  end
+
+  def test_str_single_newline
+    rp = "a '\n';b"
+    pt = s(:block,
+           s(:call, nil, :a, s(:str, "\n").line(1)).line(1),
+           s(:call, nil, :b).line(2)).line(1)
+
+    assert_parse rp, pt
+  end
+
+  def test_str_single_escaped_newline
+    rp = "a '\\n';b"
+    pt = s(:block,
+           s(:call, nil, :a, s(:str, "\\n").line(1)).line(1),
+           s(:call, nil, :b).line(1)).line(1)
+
+    assert_parse rp, pt
+  end
+
+  def test_str_single_double_escaped_newline
+    rp = "a '\\\\n';b"
+    pt = s(:block,
+           s(:call, nil, :a, s(:str, "\\n").line(1)).line(1),
+           s(:call, nil, :b).line(1)).line(1)
+
+    assert_parse rp, pt
+  end
+
+  def test_str_double_newline
+    rp = "a \"\n\";b"
+    pt = s(:block,
+           s(:call, nil, :a, s(:str, "\n").line(1)).line(1),
+           s(:call, nil, :b).line(2)).line(1)
+
+    assert_parse rp, pt
+  end
+
+  def test_str_double_escaped_newline
+    rp = "a \"\\n\";b"
+    pt = s(:block,
+           s(:call, nil, :a, s(:str, "\n").line(1)).line(1),
+           s(:call, nil, :b).line(1)).line(1)
+
+    assert_parse rp, pt
+  end
+
+  def test_str_double_double_escaped_newline
+    rp = "a \"\\\\n\";b"
+    pt = s(:block,
+           s(:call, nil, :a, s(:str, "\\n").line(1)).line(1),
+           s(:call, nil, :b).line(1)).line(1)
+
+    assert_parse rp, pt
   end
 
   def test_str_str
