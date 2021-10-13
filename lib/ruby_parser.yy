@@ -2202,8 +2202,19 @@ opt_block_args_tail: tCOMMA block_args_tail
                       # TODO: pop_pktbl(p, $<tbl>2);
                       result = new_array_pattern const, nil, pre_arg, const.line
                     }
-                | p_const p_lbracket p_kwargs rbracket { debug 22 }
-                | p_const tLBRACK rbracket { debug 23 }
+                | p_const p_lbracket p_kwargs rbracket
+                    {
+                      const, _, kwargs, _ = val
+
+                      result = new_hash_pattern const, kwargs, const.line
+                    }
+                | p_const tLBRACK2 rbracket
+                    {
+                      const, _, _ = val
+
+                      tail = new_array_pattern_tail nil, nil, nil, nil
+                      result = new_array_pattern const, nil, tail, const.line
+                    }
                 | tLBRACK
                     {
                       # TODO: $$ = push_pktbl(p);
@@ -2243,7 +2254,13 @@ opt_block_args_tail: tCOMMA block_args_tail
                       tail = new_hash_pattern_tail nil, nil, line
                       result = new_hash_pattern nil, tail, line
                     }
-                | tLPAREN p_expr tRPAREN { debug 24 }
+                | tLPAREN p_expr tRPAREN
+                    {
+                      # TODO: pop_pktbl(p, $<tbl>2);
+                      _, expr, _ = val
+
+                      result = expr
+                    }
 
           p_args: p_expr
                     {
@@ -2252,7 +2269,12 @@ opt_block_args_tail: tCOMMA block_args_tail
                       ary = s(:array_TAIL, expr).line expr.line
                       result = new_array_pattern_tail(ary, nil, nil, nil).line expr.line
                     }
-                | p_args_head { debug 25 }
+                | p_args_head
+                    {
+                      head, = val
+
+                      result = new_array_pattern_tail head, true, nil, nil
+                    }
                 | p_args_head p_arg
                     {
                       head, tail = val
@@ -2337,7 +2359,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
         p_kwargs: p_kwarg tCOMMA p_kwrest
                     {
-                      kw_arg, _, (rest, _line) = val
+                      kw_arg, _, rest = val
                       # xxx = new_unique_key_hash(p, $1, &@$)
                       result = new_hash_pattern_tail kw_arg, rest, kw_arg.line
                     }
@@ -2355,12 +2377,17 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | p_kwrest
                     {
-                      (rest, line), = val
+                      rest, = val
 
-                      result = new_hash_pattern_tail nil, rest, line
-
+                      result = new_hash_pattern_tail nil, rest, rest.line
                     }
-                | p_kwarg tCOMMA p_kwnorest { debug 28 }
+                | p_kwarg tCOMMA p_kwnorest
+                    {
+                      kwarg, _, norest = val
+
+                      # TODO? new_unique_key_hash(p, $1, &@$)
+                      result = new_hash_pattern_tail kwarg, norest, kwarg.line
+                    }
                 | p_kwnorest { debug 29 }
 
          p_kwarg: p_kw # TODO? rb_ary_new_from_args(1, $1)
@@ -2399,18 +2426,33 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       name = id.to_sym
                       self.assignable [name, line]
-                      result = [:"**#{name}", line]
+                      result = s(:kwrest, :"**#{name}").line line
                     }
                 | kwrest_mark
                     {
-                      # TODO: assignable?
-                      result = [:"**", lexer.lineno] # FIX
+                      (_, line), _ = val
+
+                      result = s(:kwrest, :"**").line line
                     }
 
-      p_kwnorest: kwrest_mark kNIL { debug 31 }
+      p_kwnorest: kwrest_mark kNIL
+                    {
+                      (_, line), _ = val
+
+                      # TODO: or s(:norest)? s(:**nil)?
+                      result = s(:kwrest, :"**nil").line line
+                    }
 
          p_value: p_primitive
-                | p_primitive tDOT2 p_primitive { debug 32 }
+                | p_primitive tDOT2 p_primitive
+                    {
+                      lhs, _, rhs = val
+
+                      lhs = value_expr lhs
+                      rhs = value_expr rhs
+
+                      result = s(:lit, lhs.value..rhs.value).line lhs.line
+                    }
                 | p_primitive tDOT3 p_primitive { debug 33 }
                 | p_primitive tDOT2
                     {

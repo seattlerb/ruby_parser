@@ -747,7 +747,7 @@ module RubyParserStuff
 
     if rhs then
       case rhs.sexp_type
-      when :array_pat, :array_TAIL then
+      when :array_pat, :array_TAIL, :PATTERN then
         lhs.concat rhs.sexp_body
       else
         lhs << rhs
@@ -756,7 +756,7 @@ module RubyParserStuff
   end
 
   def new_array_pattern_tail pre_args, has_rest, rest_arg, post_args
-    # TODO: remove has_rest once all tests pass
+    # TODO: remove has_rest once all tests pass !!!
     rest_arg = if has_rest then
                  :"*#{rest_arg}"
                else

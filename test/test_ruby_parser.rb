@@ -4773,7 +4773,7 @@ module TestPatternMatching
                nil,
                s(:lit, :b).line(2),
                s(:lvar, :c).line(2),
-               :"**rest").line(2),
+               s(:kwrest, :"**rest").line(2)).line(2),
              s(:lit, :d).line(2)).line(2),
            nil).line(1)
 
@@ -4787,7 +4787,7 @@ module TestPatternMatching
            s(:in,
              s(:hash_pat,
                nil,
-               :"**rest").line(2),
+               s(:kwrest, :"**rest").line(2)).line(2),
              s(:lit, :d).line(2)).line(2),
            nil).line(1)
 
@@ -4842,6 +4842,146 @@ module TestPatternMatching
     pt = s(:case, s(:str, "woot").line(1),
            s(:in, s(:const, :String).line(1),
              nil).line(1),
+           nil).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_pattern_019
+    rb = <<~RUBY
+        case 0
+        in -1..1
+          true
+        end
+      RUBY
+
+    pt = s(:case,
+           s(:lit, 0).line(1),
+           s(:in, s(:lit, -1..1).line(2),
+             s(:true).line(3)).line(2),
+           nil).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_pattern_044
+      rb = <<~RUBY
+        case obj
+        in Object[]
+          true
+        end
+      RUBY
+    pt = s(:case,
+           s(:call, nil, :obj).line(1),
+           s(:in, s(:array_pat, s(:const, :Object).line(2)).line(2),
+             s(:true).line(3)).line(2),
+           nil).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_pattern_051
+    rb = <<~RUBY
+        case [0, 1, 2]
+        in [0, 1,]
+          true
+        end
+      RUBY
+    pt = s(:case,
+           s(:array,
+             s(:lit, 0).line(1),
+             s(:lit, 1).line(1),
+             s(:lit, 2).line(1)).line(1),
+           s(:in,
+             s(:array_pat,
+               nil,
+               s(:lit, 0).line(2),
+               s(:lit, 1).line(2),
+               :*).line(666),
+             s(:true).line(3)).line(2),
+           nil).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_pattern_058
+    rb = <<~RUBY
+        case {a: 0}
+        in {a:, **rest}
+          [a, rest]
+        end
+      RUBY
+    pt = s(:case,
+           s(:hash,
+             s(:lit, :a).line(1),
+             s(:lit, 0).line(1)).line(1),
+           s(:in,
+             s(:hash_pat, nil, s(:lit, :a).line(2), nil,
+               s(:kwrest, :"**rest").line(2)).line(2),
+             s(:array,
+               s(:call, nil, :a).line(3),
+               s(:call, nil, :rest).line(3)).line(3)).line(2),
+           nil).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_pattern_058_2
+    rb = <<~RUBY
+        case {a: 0}
+        in {a:, **}
+          [a]
+        end
+      RUBY
+    pt = s(:case,
+           s(:hash,
+             s(:lit, :a).line(1),
+             s(:lit, 0).line(1)).line(1),
+           s(:in,
+             s(:hash_pat, nil, s(:lit, :a).line(2), nil,
+               s(:kwrest, :"**").line(2)).line(2),
+             s(:array,
+               s(:lvar, :a).line(3)).line(3)).line(2),
+           nil).line(1)
+
+    skip "TODO: start down the lvar path"
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_pattern_069
+    rb = <<~RUBY
+        case :a
+        in Object[b: 1]
+          1
+        end
+      RUBY
+    pt = s(:case,
+           s(:lit, :a).line(1),
+           s(:in,
+             s(:hash_pat, s(:const, :Object).line(2),
+               s(:lit, :b).line(2), s(:lit, 1).line(2)).line(2),
+             s(:lit, 1).line(3)).line(2),
+           nil).line(1)
+
+
+    assert_parse rb, pt
+  end
+
+  def test_parse_pattern_076
+    rb = <<~RUBY
+        case {a: 1}
+        in {a: 1, **nil}
+          true
+        end
+      RUBY
+    pt = s(:case,
+           s(:hash, s(:lit, :a).line(1), s(:lit, 1).line(1)).line(1),
+           s(:in,
+             s(:hash_pat, nil,
+               s(:lit, :a).line(2), s(:lit, 1).line(2),
+               s(:kwrest, :"**nil").line(2)).line(2),
+             s(:true).line(3)).line(2),
            nil).line(1)
 
     assert_parse rb, pt
