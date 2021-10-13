@@ -182,10 +182,13 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  def test_begin_else_return_value
+  def test_begin_else_return_value # overridden below, warns < 2.6
     rb = "begin; else 2; end"
+    pt = s(:lit, 2)
 
-    assert_syntax_error rb, "else without rescue is useless"
+    assert_output "", "else without rescue is useless\n" do
+      assert_parse rb, pt
+    end
   end
 
   def test_begin_ensure_no_bodies
@@ -421,10 +424,13 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
-  def test_bug_begin_else
+  def test_bug_begin_else # overridden below, warns < 2.6
     rb = "begin 1; else; 2 end"
+    pt = s(:block, s(:lit, 1), s(:lit, 2))
 
-    assert_syntax_error rb, "else without rescue is useless"
+    assert_output "", "else without rescue is useless\n" do
+      assert_parse rb, pt
+    end
   end
 
   def test_bug_call_arglist_parens
@@ -4378,6 +4384,18 @@ module TestRubyParserShared26Plus
     pt = s(:dot2, s(:call, nil, :a), nil)
 
     assert_parse rb, pt
+  end
+
+  def test_begin_else_return_value # overrides above, warns < 2.6
+    rb = "begin; else 2; end"
+
+    assert_syntax_error rb, "else without rescue is useless"
+  end
+
+  def test_bug_begin_else # overrides above, warns < 2.6
+    rb = "begin 1; else; 2 end"
+
+    assert_syntax_error rb, "else without rescue is useless"
   end
 
   def test_dot3_nil__26
