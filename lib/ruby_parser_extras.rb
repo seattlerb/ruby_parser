@@ -1535,11 +1535,12 @@ module RubyParserStuff
     result
   end
 
-  def debug id, val=nil
+  def debug n
     if ENV["PRY"] then
       require "pry"; binding.pry
     end
-    raise RubyParser::SyntaxError, "NOT YET: %p in %s:%d" % [id, self.file, self.lexer.lineno]
+
+    raise RubyParser::SyntaxError, "debug #{n}"
   end
 
   def syntax_error msg
