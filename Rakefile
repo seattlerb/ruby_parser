@@ -336,6 +336,15 @@ task :extract => :isolate do
   ruby "-Ilib", "bin/ruby_parse_extract_error", file
 end
 
+task :parse => :isolate do
+  ENV["V"] ||= VERS.last
+  Rake.application[:parser].invoke # this way we can have DEBUG set
+
+  file = ENV["F"] || ENV["FILE"] || abort("Need to provide F=<path>")
+
+  ruby "-Ilib", "bin/ruby_parse", file
+end
+
 task :bugs do
   sh "for f in bug*.rb bad*.rb ; do #{Gem.ruby} -S rake debug F=$f && rm $f ; done"
 end
