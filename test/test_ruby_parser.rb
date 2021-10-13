@@ -5132,6 +5132,12 @@ class RubyParserTestCase < ParseTreeTestCase
 
   def assert_parse rb, pt
     timeout = (ENV["RP_TIMEOUT"] || 10).to_i
+
+    if ENV["RP_LINES"] then # TODO: make default once tests cleaned up
+      pt.deep_each { |s| s.line ||= 1 }
+      pt.line ||= 1
+    end
+
     self.result = processor.parse rb, "(string)", timeout
     assert_equal pt, result
   end
