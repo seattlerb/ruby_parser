@@ -131,7 +131,13 @@ rule
         bodystmt: compstmt opt_rescue k_else
                     {
                       res = _values[-2]
+                      # TODO: move down to main match so I can just use val
+
+#if V >= 26
                       yyerror "else without rescue is useless" unless res
+#else
+                      warn "else without rescue is useless" unless res
+#endif
                     }
                     compstmt
                     opt_ensure
