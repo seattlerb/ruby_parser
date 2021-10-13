@@ -90,17 +90,17 @@ Assuming you're starting from scratch, unpack the archive once:
 Then, either run a single process (easier to read):
 
 ```
-% ./gauntlets/bin/gauntlet.rb gauntlets/*.noindex/?
+% ./gauntlet/bin/gauntlet.rb gauntlet/*.noindex/?
 ```
 
 Or max out your machine using xargs (note the `-P 16` and choose accordingly):
 
 ```
-% ls -d gauntlets/*.noindex/?/? | xargs -n 1 -P 16 ./gauntlets/bin/gauntlet.rb
+% ls -d gauntlet/*.noindex/?/? | xargs -n 1 -P 16 ./gauntlet/bin/gauntlet.rb
 ```
 
 In another terminal I usually monitor the progress like so:
 
 ```
-% while true ; do for D in gauntlets/.noindex/? ; do echo -n "$D: "; fd .rb $D | wc -l ; done ; echo ; sleep 30 ; done
+% while true ; do clear; fd . -t d -t e gauntlet/*.noindex -X rmdir -p 2> /dev/null ; for D in gauntlet/*.noindex/? ; do echo -n "$D: "; fd .rb $D | wc -l ; done ; echo ; sleep 30 ; done
 ```
