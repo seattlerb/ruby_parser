@@ -2100,16 +2100,15 @@ opt_block_args_tail: tCOMMA block_args_tail
                       self.lexer.command_start = false
                       result = self.in_kwarg
                       self.in_kwarg = true
-                      self.env.extend
-                      # TODO? {$<tbl>$ = push_pktbl(p);}
+                      push_pvtbl
+                      push_pktbl
                     }
-                    p_top_expr
-                    then
+                    p_top_expr then
                     {
-                      # TODO? {pop_pktbl(p, $<tbl>4);}
+                      pop_pktbl
+                      pop_pvtbl
                       old_kwargs = _values[-3]
                       self.in_kwarg = old_kwargs
-                      self.env.unextend
                     }
                     compstmt
                     p_cases
@@ -2196,34 +2195,52 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | p_expr_basic
 
-        p_lparen: tLPAREN2 # TODO: {$<tbl>$ = push_pktbl(p);};
-
-      p_lbracket: tLBRACK2 # TODO: {$<tbl>$ = push_pktbl(p);};
+        p_lparen: tLPAREN2 { push_pktbl }
+      p_lbracket: tLBRACK2 { push_pktbl }
 
     p_expr_basic: p_value
                 | p_const p_lparen p_args tRPAREN
                     {
                       lhs, _, args, _ = val
 
-                      # TODO: pop_pktbl(p, $<tbl>2);
+                      pop_pktbl
                       result = new_array_pattern(lhs, nil, args, lhs.line)
                     }
-                | p_const p_lparen p_find tRPAREN { debug 20 }
+                | p_const p_lparen p_find tRPAREN
+                    {
+                      const, _, find, _ = val
+
+                      pop_pktbl
+                      result = new_find_pattern(const, find).line const.line
+                    }
                 | p_const p_lparen p_kwargs tRPAREN
                     {
                       lhs, _, kwargs, _ = val
 
-                      # TODO: pop_pktbl(p, $<tbl>2);
+                      pop_pktbl
                       result = new_hash_pattern(lhs, kwargs, lhs.line)
                     }
-                | p_const tLPAREN2 tRPAREN { debug 21 }
+                | p_const tLPAREN2 tRPAREN
+                    {
+                      const, _, _ = val
+
+                      tail = new_array_pattern_tail nil, nil, nil, nil
+                      result = new_array_pattern const, nil, tail, const.line
+                    }
                 | p_const p_lbracket p_args rbracket
                     {
                       const, _, pre_arg, _ = val
-                      # TODO: pop_pktbl(p, $<tbl>2);
+
+                      pop_pktbl
                       result = new_array_pattern const, nil, pre_arg, const.line
                     }
-                | p_const p_lbracket p_find rbracket { debug 22 }
+                | p_const p_lbracket p_find rbracket
+                    {
+                      const, _, find, _ = val
+
+                      pop_pktbl
+                      result = new_find_pattern(const, find).line const.line
+                    }
                 | p_const p_lbracket p_kwargs rbracket
                     {
                       const, _, kwargs, _ = val
@@ -2239,7 +2256,6 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | tLBRACK p_args rbracket
                     {
-                      # TODO: pop_pktbl(p, $<tbl>2); ?
                       _, pat, _ = val
 
                       result = new_array_pattern nil, nil, pat, pat.line
@@ -2252,11 +2268,13 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | tLBRACK rbracket
                     {
-                      result = s(:array_pat).line lexer.lineno
+                      (_, line), _ = val
+
+                      result = s(:array_pat).line line
                     }
                 | tLBRACE
                     {
-                      # TODO: $<tbl>$ = push_pktbl(p)
+                      push_pktbl
                       result = self.in_kwarg
                       self.in_kwarg = false
                     }
@@ -2264,7 +2282,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       _, in_kwarg, kwargs, _ = val
 
-                      # TODO: pop_pktbl(p, $<tbl>2)
+                      pop_pktbl
                       self.in_kwarg = in_kwarg
 
                       result = new_hash_pattern(nil, kwargs, kwargs.line)
@@ -2272,13 +2290,15 @@ opt_block_args_tail: tCOMMA block_args_tail
                 | tLBRACE rbrace
                     {
                       (_, line), _ = val
+
                       tail = new_hash_pattern_tail nil, nil, line
                       result = new_hash_pattern nil, tail, line
                     }
-                | tLPAREN p_expr tRPAREN { debug 25
-                      # TODO: pop_pktbl(p, $<tbl>2);
-                      _, expr, _ = val
+                | tLPAREN { push_pktbl } p_expr tRPAREN
+                    {
+                      _, _, expr, _ = val
 
+                      pop_pktbl
                       result = expr
                     }
 
@@ -2324,7 +2344,12 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = new_array_pattern_tail(expr, true, nil, nil).line expr.line
                     }
-                | p_args_head tSTAR tCOMMA p_args_post { debug 27 }
+                | p_args_head tSTAR tCOMMA p_args_post
+                    {
+                      head, _, _, post = val
+
+                      result = new_array_pattern_tail(head, true, nil, post).line head.line
+                    }
                 | p_args_tail
 
      p_args_head: p_arg tCOMMA
@@ -2435,6 +2460,25 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       lhs, = val
 
+                      # TODO: error_duplicate_pattern_variable(p, get_id($1), &@1);
+
+                      # TODO:
+                      # if ($1 && !is_local_id(get_id($1))) {
+                      #     yyerror1(&@1, "key must be valid as local variables");
+                      # }
+
+                      # $$ = list_append(p, NEW_LIST(NEW_LIT(ID2SYM($1), &@$), &@$),
+                      #                     assignable(p, $1, 0, &@$));
+
+                      case lhs.sexp_type
+                      when :lit then
+                        assignable [lhs.value, lhs.line]
+                      else
+                        # TODO or done?
+                        debug 666
+                      end
+
+                      # TODO PAIR -> LIST ?
                       result = s(:PAIR, lhs, nil).line lhs.line
                     }
 
@@ -2444,7 +2488,6 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = s(:lit, id.to_sym).line line
                     }
-                | tSTRING_BEG string_contents tLABEL_END { debug 28 }
 
         p_kwrest: kwrest_mark tIDENTIFIER
                     {
@@ -2480,20 +2523,44 @@ opt_block_args_tail: tCOMMA block_args_tail
                       lhs = value_expr lhs
                       rhs = value_expr rhs
 
-                      result = s(:lit, lhs.value..rhs.value).line lhs.line
+                      result = s(:dot2, lhs, rhs).line lhs.line
                     }
-                | p_primitive tDOT3 p_primitive { debug 32 }
+                | p_primitive tDOT3 p_primitive
+                    {
+                      lhs, _, rhs = val
+
+                      lhs = value_expr lhs
+                      rhs = value_expr rhs
+
+                      result = s(:dot3, lhs, rhs).line lhs.line
+                    }
                 | p_primitive tDOT2
                     {
                       v1, _ = val
+
                       result = s(:dot2, v1, nil).line v1.line
                     }
-                | p_primitive tDOT3 { debug 33 }
+                | p_primitive tDOT3
+                    {
+                      v1, _ = val
+
+                      result = s(:dot3, v1, nil).line v1.line
+                    }
                 | p_variable
                 | p_var_ref
                 | p_const
-                | tBDOT2 p_primitive { debug 34 }
-                | tBDOT3 p_primitive { debug 35 }
+                | tBDOT2 p_primitive
+                    {
+                      _, v1 = val
+
+                      result = s(:dot2, nil, v1).line v1.line
+                    }
+                | tBDOT3 p_primitive
+                    {
+                      _, v1 = val
+
+                      result = s(:dot3, nil, v1).line v1.line
+                    }
 
      p_primitive: literal
                 | strings
@@ -2927,6 +2994,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       raise "NO: #{val.inspect}" if Sexp === val.first
                       (var, line), = val
                       result = Sexp === var ? var : self.gettable(var)
+
                       result.line line
                     }
                 | keyword_variable

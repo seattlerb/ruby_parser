@@ -1052,8 +1052,27 @@ module RubyParserStuff
 
     result = s(:hash_pat).line line
     result << kw_args
-    result << kw_rest_arg if kw_rest_arg
+
+    if kw_rest_arg then
+      name = kw_rest_arg.value
+      # TODO: I _hate_ this:
+      assignable [name, kw_rest_arg.line] if name != :**
+      result << kw_rest_arg
+    end
+
     result
+  end
+
+  def push_pktbl
+  end
+
+  def pop_pktbl
+  end
+
+  def push_pvtbl
+  end
+
+  def pop_pvtbl
   end
 
   def new_if c, t, f
