@@ -1,5 +1,4 @@
 class RubyLexer
-
   def eat_whitespace
     r = scan(/\s+/)
     self.lineno += r.count("\n") if r
@@ -594,8 +593,13 @@ class RubyLexer
       when qwords && check(/\s/) then
         break # leave eos loop
       else
-        self.getch                      # TODO: optimize?
-        self.lineno += 1 if self.matched == "\n"
+        t  = Regexp.escape term == "\n" ? "\r\n" : term
+        x  = Regexp.escape paren if paren && paren != "\000"
+        q  = "\\s" if qwords
+        re = /[^#{t}#{x}\#\\#{q}]+|./
+
+        scan re
+        self.lineno += matched.count "\n"
       end # big case
 
       tokadd self.matched
