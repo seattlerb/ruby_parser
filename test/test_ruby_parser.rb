@@ -4234,6 +4234,27 @@ module TestRubyParserShared23Plus
     assert_parse rb, pt
   end
 
+  def test_heredoc_squiggly_blank_lines
+    rb = "a = <<~EOF\n  x\n\n  z\nEOF\n\n"
+    pt = s(:lasgn, :a, s(:str, "x\n\nz\n"))
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_squiggly_visually_blank_lines
+    rb = "a = <<~EOF\n  x\n \n  z\nEOF\n\n"
+    pt = s(:lasgn, :a, s(:str, "x\n\nz\n"))
+
+    assert_parse rb, pt
+  end
+
+  def test_heredoc_squiggly_empty
+    rb = "<<~A\nA"
+    pt = s(:str, "")
+
+    assert_parse rb, pt
+  end
+
   def test_integer_with_if_modifier
     rb = "1_234if true"
     pt = s(:if, s(:true), s(:lit, 1234), nil)

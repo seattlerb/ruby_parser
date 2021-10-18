@@ -466,7 +466,7 @@ module RubyParserStuff
         end
       else
         warn "unprocessed: %p" % [s]
-      end.map { |l| whitespace_width l[/^[ \t]*/] }
+      end.map { |l| whitespace_width l.chomp }
     }.compact.min
   end
 
@@ -1606,6 +1606,8 @@ module RubyParserStuff
 
     if remove_width then
       line[idx..-1]
+    elsif line[idx].nil?
+      nil
     else
       col
     end
