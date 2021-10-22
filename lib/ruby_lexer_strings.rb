@@ -596,10 +596,10 @@ class RubyLexer
         t  = Regexp.escape term == "\n" ? "\r\n" : term
         x  = Regexp.escape paren if paren && paren != "\000"
         q  = "\\s" if qwords
-        re = /[^#{t}#{x}\#\\#{q}]+|./
+        re = /[^#{t}#{x}\#\\#{q}]+/
 
-        scan re
-        self.lineno += matched.count "\n"
+        scan re or getch
+        self.lineno += matched.count "\n" if matched
       end # big case
 
       tokadd self.matched
@@ -634,6 +634,4 @@ class RubyLexer
       rb_compile_error "unterminated Unicode escape"
     end
   end
-
-
 end
