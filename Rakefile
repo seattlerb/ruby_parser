@@ -58,6 +58,23 @@ Hoe.spec "ruby_parser" do
   end
 end
 
+def maybe_add_to_top path, string
+  file = File.read path
+
+  return if file.start_with? string
+
+  warn "Altering top of #{path}"
+  tmp_path = "#{path}.tmp"
+  File.open(tmp_path, "w") do |f|
+    f.puts string
+    f.puts
+
+    f.write file
+    # TODO: make this deal with encoding comments properly?
+  end
+  File.rename tmp_path, path
+end
+
 V2.each do |n|
   file "lib/ruby#{n}_parser.y" => "lib/ruby_parser.yy" do |t|
     cmd = 'unifdef -tk -DV=%s -UDEAD %s > %s || true' % [n, t.source, t.name]
@@ -77,6 +94,12 @@ V3.each do |n|
 end
 
 file "lib/ruby_lexer.rex.rb" => "lib/ruby_lexer.rex"
+
+task :parser do |t|
+  t.prerequisite_tasks.grep(Rake::FileTask).select(&:already_invoked).each do |f|
+    maybe_add_to_top f.name, "# frozen_string_literal: true"
+  end
+end
 
 task :generate => [:lexer, :parser]
 

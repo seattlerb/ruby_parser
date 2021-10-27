@@ -2767,7 +2767,7 @@ opt_block_args_tail: tCOMMA block_args_tail
  string_contents: none
                     {
                       line = prev_value_to_lineno _values.last
-                      result = s(:str, "").line line
+                      result = s(:str, +"").line line
                     }
                 | string_contents string_content
                     {
