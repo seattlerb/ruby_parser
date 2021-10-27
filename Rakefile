@@ -26,9 +26,9 @@ Hoe.spec "ruby_parser" do
 
   license "MIT"
 
-  dependency "sexp_processor", ["~> 4.15", ">= 4.15.1"]
+  dependency "sexp_processor", "~> 4.16"
   dependency "rake", [">= 10", "< 15"], :developer
-  dependency "oedipus_lex", "~> 2.5", :developer
+  dependency "oedipus_lex", "~> 2.6", :developer
 
   # NOTE: Ryan!!! Stop trying to fix this dependency! Isolate just
   # can't handle having a faux-gem half-installed! Stop! Just `gem
