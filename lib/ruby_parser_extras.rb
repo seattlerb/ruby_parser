@@ -1,5 +1,6 @@
 # encoding: ASCII-8BIT
-# TODO: remove
+# frozen_string_literal: true
+# TODO: remove encoding comment
 
 require "sexp"
 require "ruby_lexer"
@@ -568,7 +569,7 @@ module RubyParserStuff
     header.map! { |s| s.force_encoding "ASCII-8BIT" } if has_enc
 
     first = header.first || ""
-    encoding, str = "utf-8", str.b[3..-1] if first =~ /\A\xEF\xBB\xBF/
+    encoding, str = +"utf-8", str.b[3..-1] if first =~ /\A\xEF\xBB\xBF/
 
     encoding = $1.strip if header.find { |s|
       s[/^#.*?-\*-.*?coding:\s*([^ ;]+).*?-\*-/, 1] ||
@@ -1490,14 +1491,11 @@ module RubyParserStuff
     Timeout.timeout time do
       raise "bad val: #{str.inspect}" unless String === str
 
-      str = handle_encoding str
+      self.lexer.string = handle_encoding str
 
       self.file = file.dup
 
       @yydebug = ENV.has_key? "DEBUG"
-
-      # HACK -- need to get tests passing more than have graceful code
-      self.lexer.ss = RPStringScanner.new str
 
       do_parse
     end

@@ -1266,7 +1266,7 @@ class TestRubyLexer < Minitest::Test
                 :tINTEGER,        42,              EXPR_LIT,
                 :tNL,             nil,             EXPR_BEG)
 
-    assert_equal 1, lex.ss_stack.size
+    assert_nil lex.old_ss
   end
 
   def test_yylex_heredoc_single_bad_eos_body

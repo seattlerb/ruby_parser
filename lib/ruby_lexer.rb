@@ -93,6 +93,10 @@ class RubyLexer
   attr_accessor :cmd_state # temporary--ivar to avoid passing everywhere
   attr_accessor :last_state
   attr_accessor :cond
+  attr_accessor :old_ss
+  attr_accessor :old_lineno
+
+  # these are generated via ruby_lexer.rex: ss, lineno
 
   ##
   # Additional context surrounding tokens that both the lexer and
@@ -117,6 +121,7 @@ class RubyLexer
 
     self.cond   = RubyParserStuff::StackState.new(:cond, $DEBUG)
     self.cmdarg = RubyParserStuff::StackState.new(:cmdarg, $DEBUG)
+    self.ss     = RPStringScanner.new ""
 
     reset
   end
@@ -432,9 +437,8 @@ class RubyLexer
     if c == "#" then
       self.pos -= 1
 
-      # TODO: handle magic comments
       while scan(/\s*\#.*(\n+|\z)/) do
-        self.lineno += matched.count("\n") # TODO: maybe lines.size ?
+        self.lineno += matched.count "\n"
         @comments << matched.gsub(/^ +#/, "#").gsub(/^ +$/, "")
       end
 
@@ -443,7 +447,6 @@ class RubyLexer
 
     c = (lex_state =~ EXPR_BEG|EXPR_CLASS|EXPR_FNAME|EXPR_DOT &&
          lex_state !~ EXPR_LABELED)
-    # TODO: figure out what token_seen is for
     if c || self.lex_state == EXPR_LAB then # yes, == EXPR_LAB
       # ignore if !fallthrough?
       if !c && parser.in_kwarg then
@@ -756,8 +759,7 @@ class RubyLexer
   end
 
   def reset
-    @lineno            = 1 # HACK
-
+    self.lineno        = 1
     self.brace_nest    = 0
     self.command_start = true
     self.comments      = []
@@ -769,6 +771,8 @@ class RubyLexer
     self.string_nest   = 0
     self.token         = nil
     self.string_buffer = []
+    self.old_ss        = nil
+    self.old_lineno    = nil
 
     self.cond.reset
     self.cmdarg.reset
@@ -984,6 +988,10 @@ end
 
 class RubyLexer
   module SSWrapper
+    def string= s
+      ss.string= s
+    end
+
     def beginning_of_line?
       ss.bol?
     end
@@ -1008,14 +1016,22 @@ class RubyLexer
       c
     end
 
+    def match
+      ss
+    end
+
     def matched
       ss.matched
     end
 
+    def in_heredoc?
+      !!self.old_ss
+    end
+
     def maybe_pop_stack
-      if ss.eos? && ss_stack.size > 1 then
-        ss_pop
-        lineno_pop
+      if ss.eos? && in_heredoc? then
+        self.ss_pop
+        self.lineno_pop
       end
     end
 
@@ -1032,8 +1048,6 @@ class RubyLexer
     end
 
     def scan re
-      warn "Use nextc instead of scan(/./). From #{caller.first}" if re == /./
-
       maybe_pop_stack
 
       ss.scan re
@@ -1061,49 +1075,35 @@ class RubyLexer
 end
 
 class RubyLexer
-  module SSStack
-    def ss_stack_rest
-      ss_stack.map(&:rest).reverse
-    end
-
-    def ss_stack
-      @ss_stack ||= []
-    end
-
-    def lineno_stack
-      @lineno_stack ||= []
-    end
-
-    def lineno_push n
-      lineno_stack.push n
+  module SSStackish
+    def lineno_push new_lineno
+      self.old_lineno = self.lineno
+      self.lineno     = new_lineno
     end
 
     def lineno_pop
-      self.lineno = lineno_stack.pop
+      self.lineno     = self.old_lineno
+      self.old_lineno = nil
     end
-
-    def ss
-      warn "EMPTY?!?!" if ss_stack.empty? or !ss_stack.last
-      ss_stack.last
-    end
-
-    alias :match :ss # appease the alias gods
 
     def ss= o
-      ss_stack.clear
-      ss_push o
+      raise "Clearing ss while in heredoc!?!" if in_heredoc?
+      @old_ss = nil
+      super
     end
 
-    def ss_push ss
-      ss_stack.push ss
+    def ss_push new_ss
+      @old_ss = self.ss
+      @ss     = new_ss
     end
 
     def ss_pop
-      ss_stack.pop
+      @ss     = self.old_ss
+      @old_ss = nil
     end
   end
 
-  prepend SSStack
+  prepend SSStackish
 end
 
 if ENV["RP_STRTERM_DEBUG"] then

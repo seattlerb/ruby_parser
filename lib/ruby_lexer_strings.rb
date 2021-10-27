@@ -1,9 +1,11 @@
+# frozen_string_literal: true
+
 class RubyLexer
   def eat_whitespace
     r = scan(/\s+/)
     self.lineno += r.count("\n") if r
 
-    r += eat_whitespace if eos? && ss_stack.size > 1
+    r += eat_whitespace if eos? && in_heredoc? # forces heredoc pop
 
     r
   end
@@ -159,9 +161,8 @@ class RubyLexer
     new_ss = ss.class.new self.ss_string[0..range.max]
     new_ss.pos = bytepos
 
-    lineno_push self.lineno
+    lineno_push lineno
     ss_push new_ss
-    self.lineno = lineno
 
     nil
   end
