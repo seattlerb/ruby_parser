@@ -2462,8 +2462,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       # TODO: error_duplicate_pattern_variable(p, get_id($1), &@1);
 
-                      # TODO:
-                      # if ($1 && !is_local_id(get_id($1))) {
+                      # TODO: if ($1 && !is_local_id(get_id($1))) {
                       #     yyerror1(&@1, "key must be valid as local variables");
                       # }
 
