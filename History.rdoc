@@ -1,3 +1,73 @@
+=== 3.18.0 / 2021-10-27
+
+Holy crap... 58 commits! 2.7 and 3.0 are feature complete. Strings
+& heredocs have been rewritten.
+
+* 9 major enhancements:
+
+  * !!! Rewrote lexer (and friends) for strings, heredocs, and %*[] constructs.
+  * Massive overhaul on line numbers.
+  * Freeze input! Finally!!! No more modifying the input string for heredocs.
+  * Overhauled RPStringScanner. Removed OLD compatibility methods!
+  * Removed Sexp methods: value, to_sym, add, add_all, node_type, values.
+    * value moved to sexp_processor.
+  * Removed String#grep monkey-patch.
+  * Removed String#lineno monkey-patch.
+  * Removed string_to_pos, charpos, etc hacks for ancient ruby versions.
+  * Removed unread_many... NO! NO EDITING THE INPUT STRING!
+
+* 31 minor enhancements:
+
+  * 2.7/3.0: many more pattern edge cases
+  * 2.7: Added `mlhs = rhs rescue expr`
+  * 2.7: refactored destructured args (`|(k,v)|`) and unfactored(?!) case_body/args.
+  * 3.0: excessed_comma
+  * 3.0: finished most everything: endless methods, patterns, etc.
+  * 3.0: refactored / added new pattern changes
+  * Added RubyLexer#in_heredoc? (ie, is there old_ss ?)
+  * Added RubyLexer#old_ss and old_lineno and removed much of SSStack(ish).
+  * Added Symbol#end_with? when necessary
+  * Added TALLY and DEBUG options for ss.getch and ss.scan
+  * Added ignore_body_comments to make parser productions more clear.
+  * Added support for no_kwarg (eg `def f(**nil)`).
+  * Added support for no_kwarg in blocks (eg `f { |**nil| }`).
+  * Augmented generated parser files to have frozen_string_literal comments and fixed tests.
+  * Broke out 3.0 parser into its own to ease development.
+  * Bumped dependencies on sexp_processor and oedipus_lex.
+  * Clean generated 3.x files.
+  * Extracted all string scanner methods to their own module.
+  * Fixed some precedence decls.
+  * Implemented most of pattern matching for 2.7+.
+  * Improve lex_state= to report location in verbose debug mode.
+  * Made it easier to debug with a particular version of ruby via rake.
+  * Make sure ripper uses the same version of ruby we specified.
+  * Moved all string/heredoc/etc code to ruby_lexer_strings.rb
+  * Remove warning from newer bisons.
+  * Sprinkled in some frozen_string_literal, but mostly helped by oedipus bump.
+  * Switch to comparing against ruby binary since ripper is buggy.
+  * bugs task should try both bug*.rb and bad*.rb.
+  * endless methods
+  * f_any_kwrest refactoring.
+  * refactored defn/defs
+
+* 15 bug fixes:
+
+  * Cleaned a bunch of old hacks. Initializing RubyLexer w/ Parser is cleaner now.
+  * Corrected some lex_state errors in process_token_keyword.
+  * Fixed ancient ruby2 change (use #lines) in ruby_parse_extract_error.
+  * Fixed bug where else without rescue only raises on 2.6+
+  * Fixed caller for getch and scan when DEBUG=1
+  * Fixed comments in the middle of message cascades.
+  * Fixed differences w/ symbol productions against ruby 2.7.
+  * Fixed dsym to use string_contents production.
+  * Fixed error in bdot2/3 in some edge cases. Fixed p_alt line.
+  * Fixed heredoc dedenting in the presence of empty lines. (mvz)
+  * Fixed some leading whitespace / comment processing
+  * Fixed up how class/module/defn/defs comments were collected.
+  * Overhauled ripper.rb to deal with buggy ripper w/ yydebug.
+  * Removed dsym from literal.
+  * Removed tUBANG lexeme but kept it distinct as a method name (eg: `def !@`).
+
 === 3.17.0 / 2021-08-03
 
 * 1 minor enhancement:
