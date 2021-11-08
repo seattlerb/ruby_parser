@@ -5223,6 +5223,22 @@ module TestRubyParserShared30Plus
     assert_parse rb, pt
   end
 
+  def test_defn_oneliner_noargs_parentheses
+    rb = "def exec() = system"
+    pt = s(:defn, :exec, s(:args).line(1),
+            s(:call, nil, :system).line(1))
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_oneliner_noargs
+    rb = "def exec = system"
+    pt = s(:defn, :exec, s(:args).line(1),
+            s(:call, nil, :system).line(1))
+
+    assert_parse rb, pt
+  end
+
   def test_defn_oneliner_rescue
     rb = "def exec(cmd)\n  system(cmd)\nrescue\n  nil\nend\n"
     pt = s(:defn, :exec, s(:args, :cmd),
