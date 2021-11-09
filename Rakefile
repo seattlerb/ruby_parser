@@ -75,8 +75,17 @@ def maybe_add_to_top path, string
   File.rename tmp_path, path
 end
 
+def unifdef?
+  @unifdef ||= system("which unifdef") or abort <<~EOM
+    unifdef not found!
+
+    Please install 'unifdef' package on your system or `rake generate` on a mac.
+  EOM
+end
+
 V2.each do |n|
   file "lib/ruby#{n}_parser.y" => "lib/ruby_parser.yy" do |t|
+    unifdef?
     cmd = 'unifdef -tk -DV=%s -UDEAD %s > %s || true' % [n, t.source, t.name]
     sh cmd
   end
@@ -86,6 +95,7 @@ end
 
 V3.each do |n|
   file "lib/ruby#{n}_parser.y" => "lib/ruby3_parser.yy" do |t|
+    unifdef?
     cmd = 'unifdef -tk -DV=%s -UDEAD %s > %s || true' % [n, t.source, t.name]
     sh cmd
   end
