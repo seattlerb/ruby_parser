@@ -3039,6 +3039,9 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
 
 f_opt_paren_args: f_paren_args
                 | none
+		    {
+		      result = end_args val
+		    }
 
     f_paren_args: tLPAREN2 f_args rparen
                     {
