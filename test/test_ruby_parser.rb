@@ -5341,7 +5341,12 @@ class RubyParserTestCase < ParseTreeTestCase
     super
   end
 
+  attr_accessor :assert_parse_ran
+
   def assert_parse rb, pt
+    self.processor.reset if assert_parse_ran # allows multiple calls
+    self.assert_parse_ran = true
+
     timeout = (ENV["RP_TIMEOUT"] || 10).to_i
 
     if ENV["RP_LINES"] then # TODO: make default once tests cleaned up
