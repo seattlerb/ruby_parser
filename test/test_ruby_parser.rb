@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-# ENV["VERBOSE"] = "1"
+ENV["VERBOSE"] = "1"
 
 require "minitest/autorun"
 require "ruby_parser"
@@ -89,10 +89,10 @@ module TestRubyParserShared
   def test_and_multi
     rb = "true and\nnot false and\ntrue"
     pt = s(:and,
-           s(:true).line(1),
+           s(:true),
            s(:and,
              s(:call, s(:false).line(2), :!).line(2),
-             s(:true).line(3)).line(2)).line(1)
+             s(:true).line(3)).line(2))
 
     assert_parse rb, pt
   end
@@ -120,7 +120,7 @@ module TestRubyParserShared
     pt = s(:block,
            s(:array,
              s(:str, "a").line(2),
-             s(:str, "b").line(3)).line(1),
+             s(:str, "b").line(3)),
            s(:lit, 1).line(4)).line 1
     assert_parse rb, pt
   end
@@ -170,7 +170,7 @@ module TestRubyParserShared
     pt = s(:call, nil, :x,
            s(:dxstr, "",
              s(:evstr,
-               s(:call, nil, :y).line(1)).line(1))).line(1)
+               s(:call, nil, :y))))
 
     assert_parse rb, pt
   end
@@ -246,26 +246,26 @@ module TestRubyParserShared
     head = s(:args).line 1
     tail = s(:zsuper).line 2
     expected = s(:block,
-                 s(:args).line(1),
+                 s(:args),
                  s(:zsuper).line(2)).line 1
     assert_equal expected, processor.block_append(head, tail)
   end
 
   def test_block_append_begin_begin
-    head = s(:begin, s(:args).line(1)).line 1
+    head = s(:begin, s(:args)).line 1
     tail = s(:begin, s(:args).line(2)).line 2
     expected = s(:block,
-                 s(:args).line(1),
+                 s(:args),
                  s(:begin,
                    s(:args).line(2)).line(2)).line 1
     assert_equal expected, processor.block_append(head, tail)
   end
 
   def test_block_append_block
-    head = s(:block, s(:args).line(1)).line(1)
+    head = s(:block, s(:args))
     tail = s(:zsuper).line(2)
     expected = s(:block,
-                 s(:args).line(1),
+                 s(:args),
                  s(:zsuper).line(2)).line 1
     assert_equal expected, processor.block_append(head, tail)
   end
@@ -290,7 +290,7 @@ module TestRubyParserShared
              s(:undef, s(:lit, :x)).line(2),
              s(:undef, s(:lit, :y)).line(3)).line 2
     expected = s(:block,
-                 s(:call, nil, :f1).line(1),
+                 s(:call, nil, :f1),
                  s(:block,
                    s(:undef, s(:lit, :x)).line(2),
                    s(:undef, s(:lit, :y)).line(3)).line(2)).line 1
@@ -370,7 +370,7 @@ module TestRubyParserShared
     rb = "$测试 = 1\n测试 = 1"
     pt = s(:block,
            s(:gasgn, :$测试, s(:lit, 1)),
-           s(:lasgn, :测试, s(:lit, 1)))
+           s(:lasgn, :测试, s(:lit, 1).line(2)).line(2))
 
     assert_parse rb, pt
   end
@@ -401,7 +401,7 @@ module TestRubyParserShared
     assert_parse rb, pt
 
     rb = "true and\ntrue"
-    pt = s(:and, s(:true), s(:true))
+    pt = s(:and, s(:true), s(:true).line(2))
 
     assert_parse rb, pt
   end
@@ -446,7 +446,7 @@ module TestRubyParserShared
     CODE
 
     pt = s(:defn, :f, s(:args),
-           s(:call, nil, :g, s(:lit, 1), s(:lit, 2)))
+           s(:call, nil, :g, s(:lit, 1).line(2), s(:lit, 2).line(2)).line(2))
 
     assert_parse rb, pt
 
@@ -674,7 +674,7 @@ module TestRubyParserShared
   def test_class_comments
     rb = "# blah 1\n# blah 2\n\nclass X\n  # blah 3\n  def blah\n    # blah 4\n  end\nend"
     pt = s(:class, :X, nil,
-           s(:defn, :blah, s(:args), s(:nil)))
+           s(:defn, :blah, s(:args).line(6), s(:nil).line(6)).line(6)).line(4)
 
     assert_parse rb, pt
 
@@ -695,12 +695,13 @@ module TestRubyParserShared
            s(:call, nil, :a),
            0,
            s(:block,
-             s(:lasgn, :v, s(:nil)),
+             s(:lasgn, :v, s(:nil).line(2)).line(2),
              s(:rescue,
-               s(:yield),
+               s(:yield).line(4),
                s(:resbody,
-                 s(:array, s(:const, :Exception), s(:lasgn, :v, s(:gvar, :$!))),
-                 s(:break)))))
+                 s(:array, s(:const, :Exception).line(5),
+                   s(:lasgn, :v, s(:gvar, :$!).line(5)).line(5)).line(5),
+                 s(:break).line(6)).line(5)).line(4)).line(2))
 
     assert_parse rb, pt
   end
@@ -714,7 +715,7 @@ module TestRubyParserShared
 
   def test_defn_comments
     rb = "# blah 1\n# blah 2\n\ndef blah\nend"
-    pt = s(:defn, :blah, s(:args), s(:nil))
+    pt = s(:defn, :blah, s(:args).line(4), s(:nil).line(4)).line(4)
 
     assert_parse rb, pt
     assert_equal "# blah 1\n# blah 2\n\n", result.comments
@@ -740,7 +741,8 @@ module TestRubyParserShared
 
   def test_defs_comments
     rb = "# blah 1\n# blah 2\n\ndef self.blah\nend"
-    pt = s(:defs, s(:self), :blah, s(:args), s(:nil))
+    pt = s(:defs, s(:self).line(4), :blah, s(:args).line(4),
+           s(:nil).line(4)).line(4)
 
     assert_parse rb, pt
     assert_equal "# blah 1\n# blah 2\n\n", result.comments
@@ -751,8 +753,8 @@ module TestRubyParserShared
     pt = s(:block,
            s(:call, nil, :a, s(:lit, 1)),
            s(:iter,
-             s(:call, s(:call, nil, :a), :b),
-             s(:args, :c)))
+             s(:call, s(:call, nil, :a).line(2), :b).line(2),
+             s(:args, :c).line(2)).line(2))
 
     assert_parse rb, pt
   end
@@ -831,7 +833,7 @@ module TestRubyParserShared
   def test_eq_begin_line_numbers
     rb = "1\n=begin\ncomment\ncomment\n=end\n2"
     pt = s(:block,
-           s(:lit, 1).line(1),
+           s(:lit, 1),
            s(:lit, 2).line(6))
 
     assert_parse rb, pt
@@ -839,7 +841,9 @@ module TestRubyParserShared
 
   def test_eq_begin_why_wont_people_use_their_spacebar?
     rb = "h[k]=begin\n       42\n     end"
-    pt = s(:attrasgn, s(:call, nil, :h), :[]=, s(:call, nil, :k), s(:lit, 42))
+    pt = s(:attrasgn,
+           s(:call, nil, :h), :[]=, s(:call, nil, :k),
+           s(:lit, 42).line(2))
 
     assert_parse rb, pt
   end
@@ -891,8 +895,8 @@ module TestRubyParserShared
   def test_heredoc_lineno
     rb = "c = <<'CCC'\nline2\nline3\nline4\nCCC\n\nd = 42"
     pt = s(:block,
-           s(:lasgn, :c, s(:str, "line2\nline3\nline4\n").line(1)).line(1),
-           s(:lasgn, :d, s(:lit, 42).line(7)).line(7)).line(1)
+           s(:lasgn, :c, s(:str, "line2\nline3\nline4\n")),
+           s(:lasgn, :d, s(:lit, 42).line(7)).line(7))
 
     assert_parse rb, pt
   end
@@ -900,13 +904,13 @@ module TestRubyParserShared
   def test_pctW_lineno
     rb = "%W(a\\nb\nc\ d\ne\\\nf\ng\y h\\y i\\\y)"
     pt = s(:array,
-           s(:str, "a\nb").line(1),
+           s(:str, "a\nb"),
            s(:str, "c").line(2),
            s(:str, "d").line(2),
            s(:str, "e\nf").line(3),
            s(:str, "gy").line(5),
            s(:str, "hy").line(5),
-           s(:str, "iy").line(5)).line(1)
+           s(:str, "iy").line(5))
 
     assert_parse rb, pt
   end
@@ -962,14 +966,17 @@ module TestRubyParserShared
 
   def test_heredoc_with_interpolation_and_carriage_return_escapes
     rb = "<<EOS\nfoo\\r\#@bar\nEOS\n"
-    pt = s(:dstr, "foo\r", s(:evstr, s(:ivar, :@bar)), s(:str, "\n"))
+    pt = s(:dstr, "foo\r", s(:evstr, s(:ivar, :@bar).line(2)).line(2), s(:str, "\n").line(2))
 
     assert_parse rb, pt
   end
 
   def test_heredoc_with_interpolation_and_carriage_return_escapes_windows
     rb = "<<EOS\r\nfoo\\r\#@bar\r\nEOS\r\n"
-    pt = s(:dstr, "foo\r", s(:evstr, s(:ivar, :@bar)), s(:str, "\n"))
+    pt = s(:dstr,
+           "foo\r",
+           s(:evstr, s(:ivar, :@bar).line(2)).line(2),
+           s(:str, "\n").line(2))
 
     assert_parse rb, pt
   end
@@ -1011,7 +1018,7 @@ module TestRubyParserShared
       end
     END
 
-    pt = s(:if, s(:true).line(1),
+    pt = s(:if, s(:true),
            s(:block,
              s(:call, nil, :p, s(:lit, 1).line(2)).line(2),
              s(:call, s(:call, nil, :a).line(3), :b,
@@ -1031,7 +1038,7 @@ module TestRubyParserShared
                s(:lit, 5).line(10)).line(10),
              s(:call, s(:call, nil, :g).line(11), :h,
                s(:lit, 6).line(11), s(:lit, 7).line(11)).line(11)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -1048,14 +1055,14 @@ module TestRubyParserShared
     EOM
 
     pt = s(:block,
-           s(:if, s(:true).line(1),
+           s(:if, s(:true),
              s(:block,
                s(:call, nil, :p, s(:str, "a").line(2)).line(2),
                s(:lasgn, :b, s(:lit, 1).line(3)).line(3),
                s(:call, nil, :p, s(:lvar, :b).line(4)).line(4),
                s(:lasgn, :c, s(:lit, 1).line(5)).line(5)).line(2),
-             nil).line(1),
-           s(:call, nil, :a).line(7)).line(1)
+             nil),
+           s(:call, nil, :a).line(7))
 
     assert_parse rb, pt
   end
@@ -1086,8 +1093,8 @@ module TestRubyParserShared
     pt = s(:block,
            s(:array,
              s(:str, "a").line(2),
-             s(:str, "b").line(3)).line(1),
-           s(:lit, 1).line(5)).line(1)
+             s(:str, "b").line(3)),
+           s(:lit, 1).line(5))
     assert_parse rb, pt
   end
 
@@ -1247,14 +1254,14 @@ module TestRubyParserShared
   def test_logical_op_12
     lhs = s(:lit, 1).line 1
     rhs = s(:lit, 2).line 2
-    exp = s(:and, s(:lit, 1).line(1), s(:lit, 2).line(2)).line 1
+    exp = s(:and, s(:lit, 1), s(:lit, 2).line(2)).line 1
 
     assert_equal exp, processor.logical_op(:and, lhs, rhs)
   end
 
   def test_logical_op_1234_5
     lhs = s(:and,
-            s(:lit, 1).line(1),
+            s(:lit, 1),
             s(:and,
               s(:lit, 2).line(2),
               s(:and,
@@ -1262,7 +1269,7 @@ module TestRubyParserShared
                 s(:lit, 4).line(4)).line(3)).line(2)).line 1
     rhs = s(:lit, 5).line(5)
     exp = s(:and,
-            s(:lit, 1).line(1),
+            s(:lit, 1),
             s(:and,
               s(:lit, 2).line(2),
               s(:and,
@@ -1276,13 +1283,13 @@ module TestRubyParserShared
 
   def test_logical_op_123_4
     lhs = s(:and,
-            s(:lit, 1).line(1),
+            s(:lit, 1),
             s(:and,
               s(:lit, 2).line(2),
               s(:lit, 3).line(3)).line(2)).line 1
     rhs = s(:lit, 4).line 4
     exp = s(:and,
-            s(:lit, 1).line(1),
+            s(:lit, 1),
             s(:and,
               s(:lit, 2).line(2),
               s(:and,
@@ -1294,11 +1301,11 @@ module TestRubyParserShared
 
   def test_logical_op_12_3
     lhs = s(:and,
-            s(:lit, 1).line(1),
+            s(:lit, 1),
             s(:lit, 2).line(2)).line 1
     rhs = s(:lit, 3).line 3
     exp = s(:and,
-            s(:lit, 1).line(1),
+            s(:lit, 1),
             s(:and,
               s(:lit, 2).line(2),
               s(:lit, 3).line(3)).line(2)).line 1
@@ -1308,15 +1315,15 @@ module TestRubyParserShared
 
   def test_logical_op_nested_mix
     lhs = s(:or,
-            s(:call, nil, :a).line(1),
+            s(:call, nil, :a),
             s(:call, nil, :b).line(2)).line 1
     rhs = s(:and,
             s(:call, nil, :c).line(3),
             s(:call, nil, :d).line(4)).line 3
     exp = s(:or,
             s(:or,
-              s(:call, nil, :a).line(1),
-              s(:call, nil, :b).line(2)).line(1),
+              s(:call, nil, :a),
+              s(:call, nil, :b).line(2)),
             s(:and,
               s(:call, nil, :c).line(3),
               s(:call, nil, :d).line(4)).line(3)).line 1
@@ -1337,8 +1344,8 @@ module TestRubyParserShared
     # TODO: globals
 
     pt = s(:class, :"ExampleUTF8ClassNameVariet\303\240", nil,
-           s(:defs, s(:self), :"\303\250", s(:args),
-             s(:lasgn, :"cos\303\254", s(:lit, :"per\303\262"))))
+           s(:defs, s(:self).line(2), :"\303\250", s(:args).line(2),
+             s(:lasgn, :"cos\303\254", s(:lit, :"per\303\262").line(2)).line(2)).line(2)).line(2)
 
     err = RUBY_VERSION =~ /^1\.8/ ? "Skipping magic encoding comment\n" : ""
 
@@ -1349,14 +1356,14 @@ module TestRubyParserShared
 
   def test_magic_encoding_comment__bad
     rb = "#encoding: bunk\n0"
-    pt = s(:lit, 0)
+    pt = s(:lit, 0).line(2)
 
     assert_parse rb, pt
   end
 
   def test_utf8_bom
     rb = "\xEF\xBB\xBF#!/usr/bin/env ruby -w\np 0\n"
-    pt = s(:call, nil, :p, s(:lit, 0))
+    pt = s(:call, nil, :p, s(:lit, 0).line(2)).line(2)
 
     assert_parse rb, pt
   end
@@ -1365,12 +1372,12 @@ module TestRubyParserShared
     rb = "a, b::c = d"
     pt = s(:masgn,
            s(:array,
-             s(:lasgn, :a).line(1),
+             s(:lasgn, :a),
              s(:attrasgn,
-               s(:call, nil, :b).line(1),
-               :c=).line(1)).line(1),
+               s(:call, nil, :b),
+               :c=)),
            s(:to_ary,
-             s(:call, nil, :d).line(1)).line(1)).line(1)
+             s(:call, nil, :d)))
 
     assert_parse rb, pt
   end
@@ -1450,7 +1457,7 @@ module TestRubyParserShared
   def test_module_comments
     rb = "# blah 1\n  \n  # blah 2\n\nmodule X\n  # blah 3\n  def blah\n    # blah 4\n  end\nend"
     pt = s(:module, :X,
-           s(:defn, :blah, s(:args), s(:nil)))
+           s(:defn, :blah, s(:args).line(7), s(:nil).line(7)).line(7)).line(5)
 
     assert_parse rb, pt
     assert_equal "# blah 1\n\n# blah 2\n\n", result.comments
@@ -1462,8 +1469,8 @@ module TestRubyParserShared
     pt = s(:block,
            s(:array,
              s(:str, "a").line(2),
-             s(:str, "b").line(3)).line(1),
-           s(:lit, 1).line(5)).line(1)
+             s(:str, "b").line(3)),
+           s(:lit, 1).line(5))
     assert_parse rb, pt
   end
 
@@ -1587,17 +1594,11 @@ module TestRubyParserShared
     rb = "a = 42\np a"
     pt = s(:block,
            s(:lasgn, :a, s(:lit, 42)),
-           s(:call, nil, :p, s(:lvar, :a)))
+           s(:call, nil, :p, s(:lvar, :a).line(2)).line(2))
 
-    assert_parse_line rb, pt, 1
-    assert_equal 1, result.lasgn.line, "lasgn should have line number"
-    assert_equal 2, result.call.line,  "call should have line number"
+    assert_parse rb, pt
 
-    expected = "(string)"
-    assert_equal expected, result.file
-    assert_equal expected, result.lasgn.file
-    assert_equal expected, result.call.file
-
+    assert_equal "(string)", result.file
     assert_same result.file, result.lasgn.file
     assert_same result.file, result.call.file
   end
@@ -1605,7 +1606,7 @@ module TestRubyParserShared
   def test_parse_line_block_inline_comment
     rb = "a\nb # comment\nc"
     pt = s(:block,
-           s(:call, nil, :a).line(1),
+           s(:call, nil, :a),
            s(:call, nil, :b).line(2),
            s(:call, nil, :c).line(3))
 
@@ -1625,23 +1626,23 @@ module TestRubyParserShared
   def test_parse_line_block_inline_multiline_comment
     rb = "a\nb # comment\n# another comment\nc"
     pt = s(:block,
-           s(:call, nil, :a).line(1),
+           s(:call, nil, :a),
            s(:call, nil, :b).line(2),
-           s(:call, nil, :c).line(4)).line(1)
+           s(:call, nil, :c).line(4))
 
     assert_parse rb, pt
   end
 
   def test_parse_line_call_ivar_arg_no_parens_line_break
     rb = "a @b\n"
-    pt = s(:call, nil, :a, s(:ivar, :@b).line(1)).line(1)
+    pt = s(:call, nil, :a, s(:ivar, :@b))
 
     assert_parse rb, pt
   end
 
   def test_parse_line_call_ivar_line_break_paren
     rb = "a(@b\n)"
-    pt = s(:call, nil, :a, s(:ivar, :@b).line(1)).line(1)
+    pt = s(:call, nil, :a, s(:ivar, :@b))
 
     assert_parse rb, pt
   end
@@ -1652,9 +1653,9 @@ module TestRubyParserShared
     pt = s(:iter,
            s(:call, nil, :f),
            s(:args, :x, :y),
-           s(:call, s(:lvar, :x), :+, s(:lvar, :y)))
+           s(:call, s(:lvar, :x).line(2), :+, s(:lvar, :y).line(2)).line(2))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
 
     _, a, b, c, = result
 
@@ -1665,19 +1666,19 @@ module TestRubyParserShared
 
   def test_parse_line_defn_no_parens_args
     rb = "def f a\nend"
-    pt = s(:defn, :f, s(:args, :a).line(1), s(:nil).line(1)).line(1)
+    pt = s(:defn, :f, s(:args, :a), s(:nil))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_parse_line_defn_complex
     rb = "def x(y)\n  p(y)\n  y *= 2\n  return y;\nend" # TODO: remove () & ;
     pt = s(:defn, :x, s(:args, :y),
-           s(:call, nil, :p, s(:lvar, :y)),
-           s(:lasgn, :y, s(:call, s(:lvar, :y), :*, s(:lit, 2))),
-           s(:return, s(:lvar, :y)))
+           s(:call, nil, :p, s(:lvar, :y).line(2)).line(2),
+           s(:lasgn, :y, s(:call, s(:lvar, :y).line(3), :*, s(:lit, 2).line(3)).line(3)).line(3),
+           s(:return, s(:lvar, :y).line(4)).line(4))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
 
     body = result
     assert_equal 2, body.call.line,   "call should have line number"
@@ -1686,47 +1687,47 @@ module TestRubyParserShared
   end
 
   def test_parse_line_defn_no_parens
-    pt = s(:defn, :f, s(:args).line(1), s(:nil).line(1)).line(1)
+    pt = s(:defn, :f, s(:args), s(:nil))
 
     rb = "def f\nend"
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
 
     processor.reset
 
     rb = "def f\n\nend"
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_parse_line_dot2
     rb = "0..\n4\na..\nb\nc"
     pt = s(:block,
-           s(:lit, 0..4).line(1),
+           s(:lit, 0..4),
            s(:dot2,
              s(:call, nil, :a).line(3),
              s(:call, nil, :b).line(4)).line(3),
-           s(:call, nil, :c).line(5)).line(1)
+           s(:call, nil, :c).line(5))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_parse_line_dot3
     rb = "0...\n4\na...\nb\nc"
     pt = s(:block,
-           s(:lit, 0...4).line(1),
+           s(:lit, 0...4),
            s(:dot3,
              s(:call, nil, :a).line(3),
              s(:call, nil, :b).line(4)).line(3),
-           s(:call, nil, :c).line(5)).line(1)
+           s(:call, nil, :c).line(5))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_parse_line_dstr_escaped_newline
     rb = "\"a\\n\#{\n}\"\ntrue"
     pt = s(:block,
            s(:dstr, "a\n",
-             s(:evstr).line(1)).line(1),
-           s(:true).line(3)).line(1)
+             s(:evstr)),
+           s(:true).line(3))
 
     assert_parse rb, pt
   end
@@ -1734,8 +1735,8 @@ module TestRubyParserShared
   def test_parse_line_dstr_soft_newline
     rb = "\"a\n#\{\n}\"\ntrue"
     pt = s(:block,
-           s(:dstr, "a\n", s(:evstr).line(2)).line(1),
-           s(:true).line(4)).line(1)
+           s(:dstr, "a\n", s(:evstr).line(2)),
+           s(:true).line(4))
 
     assert_parse rb, pt
   end
@@ -1744,7 +1745,7 @@ module TestRubyParserShared
     rb = "\"a\"\\\n\"\#{b}\""
     pt = s(:dstr, "a",
            s(:evstr,
-             s(:call, nil, :b).line(2)).line(2)).line(1)
+             s(:call, nil, :b).line(2)).line(2))
 
     assert_parse rb, pt
   end
@@ -1753,7 +1754,7 @@ module TestRubyParserShared
     rb = "{\n:s1 => 1,\n}"
     pt = s(:hash,
            s(:lit, :s1).line(2), s(:lit, 1).line(2),
-          ).line(1)
+          )
 
     assert_parse rb, pt
   end
@@ -1769,12 +1770,12 @@ module TestRubyParserShared
     pt = s(:block,
            s(:lasgn, :string,
              s(:call,
-               s(:str, "        very long string\n").line(1),
-               :strip).line(1),
-              ).line(1),
+               s(:str, "        very long string\n"),
+               :strip),
+              ),
            s(:call, nil, :puts,
              s(:lvar, :string).line(4)).line(4)
-          ).line(1)
+          )
 
     assert_parse rb, pt
   end
@@ -1784,7 +1785,7 @@ module TestRubyParserShared
     pt = s(:dstr,
            "a\n",
            s(:evstr, s(:call, nil, :b).line(3)).line(3), s(:str, "\n").line(3)
-          ).line(1)
+          )
 
     assert_parse rb, pt
   end
@@ -1799,8 +1800,8 @@ module TestRubyParserShared
 
     pt = s(:block,
            s(:lasgn, :string,
-             s(:str, "        very long string\n").line(1)).line(1),
-           s(:call, nil, :puts, s(:lvar, :string).line(4)).line(4)).line(1)
+             s(:str, "        very long string\n")),
+           s(:call, nil, :puts, s(:lvar, :string).line(4)).line(4))
 
     assert_parse rb, pt
   end
@@ -1809,10 +1810,10 @@ module TestRubyParserShared
     rb = "f a do |x, y|\n  x + y\nend"
 
     pt = s(:iter,
-           s(:call, nil, :f, s(:call, nil, :a).line(1)).line(1),
-           s(:args, :x, :y).line(1),
+           s(:call, nil, :f, s(:call, nil, :a)),
+           s(:args, :x, :y),
            s(:call, s(:lvar, :x).line(2), :+,
-             s(:lvar, :y).line(2)).line(2)).line(1)
+             s(:lvar, :y).line(2)).line(2))
 
     assert_parse rb, pt
   end
@@ -1823,9 +1824,9 @@ module TestRubyParserShared
     pt = s(:iter,
            s(:call, nil, :f, s(:call, nil, :a)),
            s(:args, :x, :y),
-           s(:call, s(:lvar, :x), :+, s(:lvar, :y)))
+           s(:call, s(:lvar, :x).line(2), :+, s(:lvar, :y).line(2)).line(2))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
 
     _, a, b, c, = result
 
@@ -1837,8 +1838,8 @@ module TestRubyParserShared
   def test_parse_line_multiline_str
     rb = "\"a\nb\"\n1"
     pt = s(:block,
-           s(:str, "a\nb").line(1),
-           s(:lit, 1).line(3)).line(1)
+           s(:str, "a\nb"),
+           s(:lit, 1).line(3))
 
     assert_parse rb, pt
   end
@@ -1846,8 +1847,8 @@ module TestRubyParserShared
   def test_parse_line_multiline_str_literal_n
     rb = "\"a\\nb\"\n1"
     pt = s(:block,
-           s(:str, "a\nb").line(1),
-           s(:lit, 1).line(2)).line(1)
+           s(:str, "a\nb"),
+           s(:lit, 1).line(2))
 
     assert_parse rb, pt
   end
@@ -1856,7 +1857,7 @@ module TestRubyParserShared
     rb = "true\n\n"
     pt = s(:true)
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_parse_line_op_asgn
@@ -1869,30 +1870,30 @@ module TestRubyParserShared
     pt = s(:block,
            s(:lasgn, :foo,
              s(:call,
-               s(:lvar, :foo).line(1),
+               s(:lvar, :foo),
                :+,
-               s(:call, nil, :bar).line(2)).line(1)).line(1),
-           s(:call, nil, :baz).line(3)).line(1)
+               s(:call, nil, :bar).line(2))),
+           s(:call, nil, :baz).line(3))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_parse_line_postexe
     rb = "END {\nfoo\n}"
     pt = s(:iter,
-           s(:postexe).line(1), 0,
-           s(:call, nil, :foo).line(2)).line(1)
+           s(:postexe), 0,
+           s(:call, nil, :foo).line(2))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_parse_line_preexe
     rb = "BEGIN {\nfoo\n}"
     pt = s(:iter,
-           s(:preexe).line(1), 0,
-           s(:call, nil, :foo).line(2)).line(1)
+           s(:preexe), 0,
+           s(:call, nil, :foo).line(2))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_parse_line_rescue
@@ -1904,7 +1905,7 @@ module TestRubyParserShared
            s(:resbody, s(:array).line(5),
              s(:call, nil, :c).line(6)).line(5)).line(2)
 
-    assert_parse_line rb, pt, 2
+    assert_parse rb, pt
   end
 
   def test_parse_line_return
@@ -1917,11 +1918,11 @@ module TestRubyParserShared
     RUBY
 
     pt = s(:defn, :blah, s(:args),
-           s(:if, s(:true),
-             s(:return, s(:lit, 42)),
-             nil))
+           s(:if, s(:true).line(2),
+             s(:return, s(:lit, 42).line(3)).line(3),
+             nil).line(2))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
 
     assert_equal 3, result.if.return.line
     assert_equal 3, result.if.return.lit.line
@@ -1930,8 +1931,8 @@ module TestRubyParserShared
   def test_parse_line_str_with_newline_escape
     rb = 'a("\n", true)'
     pt = s(:call, nil, :a,
-           s(:str, "\n").line(1),
-           s(:true).line(1))
+           s(:str, "\n"),
+           s(:true))
 
     assert_parse rb, pt
   end
@@ -1940,18 +1941,18 @@ module TestRubyParserShared
     rb = "a,\nb = c\nd"
     pt = s(:block,
            s(:masgn,
-             s(:array, s(:lasgn, :a).line(1), s(:lasgn, :b).line(2)).line(1),
-             s(:to_ary, s(:call, nil, :c).line(2)).line(2)).line(1),
-           s(:call, nil, :d).line(3)).line(1)
+             s(:array, s(:lasgn, :a), s(:lasgn, :b).line(2)),
+             s(:to_ary, s(:call, nil, :c).line(2)).line(2)),
+           s(:call, nil, :d).line(3))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_parse_line_trailing_newlines
     rb = "a \nb"
     pt = s(:block,
-           s(:call, nil, :a).line(1),
-           s(:call, nil, :b).line(2)).line(1)
+           s(:call, nil, :a),
+           s(:call, nil, :b).line(2))
 
     assert_parse rb, pt
   end
@@ -2063,7 +2064,9 @@ module TestRubyParserShared
 
   def test_str_heredoc_interp
     rb = "<<\"\"\n\#{x}\nblah2\n\n"
-    pt = s(:dstr, "", s(:evstr, s(:call, nil, :x)), s(:str, "\nblah2\n"))
+    pt = s(:dstr, "",
+           s(:evstr, s(:call, nil, :x).line(2)).line(2),
+           s(:str, "\nblah2\n").line(2))
 
     assert_parse rb, pt
   end
@@ -2086,7 +2089,7 @@ module TestRubyParserShared
 
   def test_str_newline_hash_line_number
     rb = "\"\\n\\n\\n\\n#\"\n1"
-    pt = s(:block, s(:str, "\n\n\n\n#").line(1),
+    pt = s(:block, s(:str, "\n\n\n\n#"),
                    s(:lit, 1).line(2))
 
     assert_parse rb, pt
@@ -2117,8 +2120,8 @@ module TestRubyParserShared
   def test_str_single_newline
     rp = "a '\n';b"
     pt = s(:block,
-           s(:call, nil, :a, s(:str, "\n").line(1)).line(1),
-           s(:call, nil, :b).line(2)).line(1)
+           s(:call, nil, :a, s(:str, "\n")),
+           s(:call, nil, :b).line(2))
 
     assert_parse rp, pt
   end
@@ -2126,8 +2129,8 @@ module TestRubyParserShared
   def test_str_single_escaped_newline
     rp = "a '\\n';b"
     pt = s(:block,
-           s(:call, nil, :a, s(:str, "\\n").line(1)).line(1),
-           s(:call, nil, :b).line(1)).line(1)
+           s(:call, nil, :a, s(:str, "\\n")),
+           s(:call, nil, :b))
 
     assert_parse rp, pt
   end
@@ -2135,8 +2138,8 @@ module TestRubyParserShared
   def test_str_single_double_escaped_newline
     rp = "a '\\\\n';b"
     pt = s(:block,
-           s(:call, nil, :a, s(:str, "\\n").line(1)).line(1),
-           s(:call, nil, :b).line(1)).line(1)
+           s(:call, nil, :a, s(:str, "\\n")),
+           s(:call, nil, :b))
 
     assert_parse rp, pt
   end
@@ -2144,8 +2147,8 @@ module TestRubyParserShared
   def test_str_double_newline
     rp = "a \"\n\";b"
     pt = s(:block,
-           s(:call, nil, :a, s(:str, "\n").line(1)).line(1),
-           s(:call, nil, :b).line(2)).line(1)
+           s(:call, nil, :a, s(:str, "\n")),
+           s(:call, nil, :b).line(2))
 
     assert_parse rp, pt
   end
@@ -2153,8 +2156,8 @@ module TestRubyParserShared
   def test_str_double_escaped_newline
     rp = "a \"\\n\";b"
     pt = s(:block,
-           s(:call, nil, :a, s(:str, "\n").line(1)).line(1),
-           s(:call, nil, :b).line(1)).line(1)
+           s(:call, nil, :a, s(:str, "\n")),
+           s(:call, nil, :b))
 
     assert_parse rp, pt
   end
@@ -2162,8 +2165,8 @@ module TestRubyParserShared
   def test_str_double_double_escaped_newline
     rp = "a \"\\\\n\";b"
     pt = s(:block,
-           s(:call, nil, :a, s(:str, "\\n").line(1)).line(1),
-           s(:call, nil, :b).line(1)).line(1)
+           s(:call, nil, :a, s(:str, "\\n")),
+           s(:call, nil, :b))
 
     assert_parse rp, pt
   end
@@ -2555,7 +2558,7 @@ module TestRubyParserShared19Plus
            nil,
            :private,
            s(:defn, :f, s(:args),
-             s(:iter, s(:call, s(:call, nil, :a), :b), 0)))
+             s(:iter, s(:call, s(:call, nil, :a).line(2), :b).line(2), 0).line(2)))
 
     assert_parse rb, pt
   end
@@ -2633,7 +2636,10 @@ module TestRubyParserShared19Plus
 
   def test_call_assoc_new_if_multiline
     rb = "a(b: if :c\n1\nelse\n2\nend)"
-    pt = s(:call, nil, :a, s(:hash, s(:lit, :b), s(:if, s(:lit, :c), s(:lit, 1), s(:lit, 2))))
+    pt = s(:call, nil, :a,
+           s(:hash,
+             s(:lit, :b),
+             s(:if, s(:lit, :c), s(:lit, 1).line(2), s(:lit, 2).line(4))))
 
     assert_parse rb, pt
   end
@@ -2722,8 +2728,8 @@ module TestRubyParserShared19Plus
   def test_defn_opt_last_arg
     rb = "def m arg = false\nend"
     pt = s(:defn, :m,
-           s(:args, s(:lasgn, :arg, s(:false).line(1)).line(1)).line(1),
-           s(:nil).line(1)).line(1)
+           s(:args, s(:lasgn, :arg, s(:false))),
+           s(:nil))
 
     assert_parse rb, pt
   end
@@ -2780,7 +2786,7 @@ module TestRubyParserShared19Plus
     rb = "1 ? b('') : 2\na d: 3"
     pt = s(:block,
            s(:if, s(:lit, 1), s(:call, nil, :b, s(:str, "")), s(:lit, 2)),
-           s(:call, nil, :a, s(:hash, s(:lit, :d), s(:lit, 3))))
+           s(:call, nil, :a, s(:hash, s(:lit, :d).line(2), s(:lit, 3).line(2)).line(2)).line(2))
 
     assert_parse rb, pt
   end
@@ -3181,9 +3187,9 @@ module TestRubyParserShared19Plus
     rb = "a\n.b\n#.c\n.d"
     pt = s(:call,
            s(:call,
-             s(:call, nil, :a).line(1),
-             :b).line(1),
-           :d).line(1) # TODO: fix linenos: 1, 2, 4
+             s(:call, nil, :a),
+             :b),
+           :d) # TODO: fix linenos: 1, 2, 4
 
     assert_parse rb, pt
   end
@@ -3204,8 +3210,8 @@ module TestRubyParserShared19Plus
 
   def test_motherfuckin_leading_dots2
     rb = "1\n..3"
-    pt = s(:block, s(:lit, 1).line(1),
-           s(:dot2, nil, s(:lit, 3).line(2)).line(2)).line(1)
+    pt = s(:block, s(:lit, 1),
+           s(:dot2, nil, s(:lit, 3).line(2)).line(2))
 
     if processor.class.version >= 27
       assert_parse rb, pt
@@ -3219,6 +3225,8 @@ module TestRubyParserShared19Plus
 
     assert_parse "f(state: {})",     pt
     assert_parse "f(state: {\n})",   pt
+
+    pt = s(:call, nil, :f, s(:hash, s(:lit, :state), s(:hash).line(2)))
     assert_parse "f(state:\n {\n})", pt
   end
 
@@ -3281,7 +3289,7 @@ module TestRubyParserShared19Plus
     rb = "until not var.nil?\n  'foo'\nend"
     pt = s(:until,
            s(:call, s(:call, s(:call, nil, :var), :nil?), :"!"),
-           s(:str, "foo"), true)
+           s(:str, "foo").line(2), true)
 
     assert_parse rb, pt
   end
@@ -3290,7 +3298,7 @@ module TestRubyParserShared19Plus
     rb = "until not var.nil?\n  'foo'\nend"
     pt = s(:until,
            s(:call, s(:call, s(:call, nil, :var), :nil?), :"!"),
-           s(:str, "foo"), true)
+           s(:str, "foo").line(2), true)
 
     processor.canonicalize_conditions = false
 
@@ -3301,7 +3309,7 @@ module TestRubyParserShared19Plus
     rb = "while not var.nil?\n  'foo'\nend"
     pt = s(:while,
            s(:call, s(:call, s(:call, nil, :var), :nil?), :"!"),
-           s(:str, "foo"), true)
+           s(:str, "foo").line(2), true)
 
     assert_parse rb, pt
   end
@@ -3310,7 +3318,7 @@ module TestRubyParserShared19Plus
     rb = "while not var.nil?\n  'foo'\nend"
     pt = s(:while,
            s(:call, s(:call, s(:call, nil, :var), :nil?), :"!"),
-           s(:str, "foo"), true)
+           s(:str, "foo").line(2), true)
 
     processor.canonicalize_conditions = false
 
@@ -3474,14 +3482,16 @@ module TestRubyParserShared19Plus
     RUBY
 
     pt = s(:hash,
-           s(:lit, :a),
+           s(:lit, :a).line(2),
            s(:iter,
-             s(:call, nil, :lambda),
+             s(:call, nil, :lambda).line(2),
              0,
-             s(:if, s(:call, nil, :b), s(:call, nil, :c), s(:call, nil, :d))),
+             s(:if, s(:call, nil, :b).line(2),
+               s(:call, nil, :c).line(2),
+               s(:call, nil, :d).line(2)).line(2)).line(2),
 
-           s(:lit, :e),
-           s(:nil))
+           s(:lit, :e).line(3),
+           s(:nil).line(3))
 
     assert_parse rb, pt
   end
@@ -3543,15 +3553,15 @@ module TestRubyParserShared20Plus
            s(:call,
              s(:call, s(:str, "  a\n"), :+,
                s(:str, "b\n  c")),
-             :+, s(:str, "d")))
+             :+, s(:str, "d").line(4)))
 
     assert_parse rb, pt
   end
 
   def test_heredoc_nested
     rb = "[<<A,\n\#{<<B}\nb\nB\na\nA\n0]"
-    pt = s(:array, s(:str, "b\n\na\n").line(1),
-           s(:lit, 0).line(7)).line(1)
+    pt = s(:array, s(:str, "b\n\na\n"),
+           s(:lit, 0).line(7))
 
     assert_parse rb, pt
   end
@@ -3562,8 +3572,8 @@ module TestRubyParserShared20Plus
            s(:str, "1"),
            s(:str, "2\n"),
            s(:str, "3"),
-           s(:str, "4"),
-           s(:str, "5"))
+           s(:str, "4").line(4),
+           s(:str, "5").line(4))
 
     assert_parse rb, pt
   end
@@ -3668,7 +3678,7 @@ module TestRubyParserShared20Plus
     rb = "a (b)\nc.d do end"
     pt = s(:block,
            s(:call, nil, :a, s(:call, nil, :b)),
-           s(:iter, s(:call, s(:call, nil, :c), :d), 0))
+           s(:iter, s(:call, s(:call, nil, :c).line(2), :d).line(2), 0).line(2))
 
 
     assert_parse rb, pt
@@ -3678,8 +3688,9 @@ module TestRubyParserShared20Plus
     rb = "a def b(c)\n d\n end\n e.f do end"
     pt = s(:block,
            s(:call, nil, :a,
-             s(:defn, :b, s(:args, :c), s(:call, nil, :d))),
-           s(:iter, s(:call, s(:call, nil, :e), :f), 0))
+             s(:defn, :b, s(:args, :c),
+               s(:call, nil, :d).line(2))),
+           s(:iter, s(:call, s(:call, nil, :e).line(4), :f).line(4), 0).line(4))
 
     assert_parse rb, pt
   end
@@ -3697,7 +3708,9 @@ module TestRubyParserShared20Plus
   def test_call_begin_call_block_call
     rb = "a begin\nb.c do end\nend"
     pt = s(:call, nil, :a,
-           s(:iter, s(:call, s(:call, nil, :b), :c), 0))
+           s(:iter,
+             s(:call, s(:call, nil, :b).line(2), :c).line(2),
+             0).line(2))
 
     assert_parse rb, pt
   end
@@ -3708,7 +3721,7 @@ module TestRubyParserShared20Plus
            s(:op_asgn, s(:const, :B),
              s(:call, nil, :d, s(:call, nil, :e)),
              :C,
-             :*)).line(1)
+             :*))
 
     assert_parse rb, pt
   end
@@ -3766,9 +3779,9 @@ module TestRubyParserShared20Plus
              s(:iter,
                s(:call, s(:const, :Class), :new),
                0,
-               s(:defn, :initialize, s(:args), s(:nil))),
+               s(:defn, :initialize, s(:args).line(2), s(:nil).line(2)).line(2)),
              :new),
-           s(:hash, s(:lit, :at), s(:str, "endpoint")))
+           s(:hash, s(:lit, :at).line(4), s(:str, "endpoint").line(4)).line(4))
 
     assert_parse rb, pt
   end
@@ -3875,8 +3888,8 @@ module TestRubyParserShared20Plus
     pt = s(:block,
            s(:array,
              s(:lit, :a).line(2),
-             s(:lit, :b).line(3)).line(1),
-           s(:lit, 1).line(5)).line(1)
+             s(:lit, :b).line(3)),
+           s(:lit, 1).line(5))
     assert_parse rb, pt
   end
 
@@ -3913,7 +3926,7 @@ module TestRubyParserShared20Plus
     pt = s(:block,
            s(:array,
              s(:lit, :a).line(2),
-             s(:lit, :b).line(3)).line(1),
+             s(:lit, :b).line(3)),
            s(:lit, 1).line(5))
     assert_parse rb, pt
   end
@@ -3955,7 +3968,7 @@ module TestRubyParserShared20Plus
            s(:iter,
              s(:lambda),
              s(:args),
-             s(:iter, s(:call, s(:call, nil, :a), :b), 0)))
+             s(:iter, s(:call, s(:call, nil, :a).line(2), :b).line(2), 0).line(2)))
 
     assert_parse rb, pt
   end
@@ -3968,7 +3981,7 @@ module TestRubyParserShared20Plus
              s(:args),
              s(:iter,
                s(:call, nil, :a,
-                 s(:lit, 1)), 0)))
+                 s(:lit, 1).line(2)).line(2), 0).line(2)))
 
     assert_parse rb, pt
   end
@@ -4075,8 +4088,8 @@ module TestRubyParserShared21Plus
     CODE
 
     pt = s(:block,
-           s(:str, "\n\n\n\n\n\n\n\n\n\n").line(1),
-           s(:class, :Foo, nil).line(5)).line(1)
+           s(:str, "\n\n\n\n\n\n\n\n\n\n"),
+           s(:class, :Foo, nil).line(5))
 
     assert_parse rb, pt
   end
@@ -4205,8 +4218,8 @@ module TestRubyParserShared23Plus
   def test_heredoc_squiggly_interp
     rb = "a = <<~EOF\n      w\n  x#\{42} y\n    z\n  EOF"
     pt = s(:lasgn, :a, s(:dstr, "    w\nx",
-                         s(:evstr, s(:lit, 42)),
-                         s(:str, " y\n  z\n")))
+                         s(:evstr, s(:lit, 42).line(3)).line(3),
+                         s(:str, " y\n  z\n").line(3)))
 
     assert_parse rb, pt
   end
@@ -4324,7 +4337,7 @@ module TestRubyParserShared23Plus
 
   def test_safe_call_operator
     rb = "a&.> 1"
-    pt = s(:safe_call, s(:call, nil, :a), :>, s(:lit, 1)).line(1)
+    pt = s(:safe_call, s(:call, nil, :a), :>, s(:lit, 1))
 
     assert_parse rb, pt
   end
@@ -4345,14 +4358,15 @@ module TestRubyParserShared23Plus
 
   def test_safe_op_asgn
     rb = "a&.b += x 1"
-    pt = s(:safe_op_asgn, s(:call, nil, :a), s(:call, nil, :x, s(:lit, 1)), :b, :+).line(1)
+    pt = s(:safe_op_asgn, s(:call, nil, :a), s(:call, nil, :x, s(:lit, 1)), :b, :+)
 
     assert_parse rb, pt
   end
 
   def test_safe_op_asgn2
     rb = "a&.b ||=\nx;"
-    pt = s(:safe_op_asgn2, s(:call, nil, :a), :b=, :"||", s(:call, nil, :x)).line(1)
+    pt = s(:safe_op_asgn2,
+           s(:call, nil, :a), :b=, :"||", s(:call, nil, :x).line(2))
 
     assert_parse rb, pt
   end
@@ -4367,11 +4381,11 @@ a + b
     )
 
     pt = s(:block,
-           s(:call, nil, :puts, s(:str, "hello my dear friend").line(1)).line(1),
+           s(:call, nil, :puts, s(:str, "hello my dear friend")),
            s(:call, s(:call, nil, :a).line(6),
              :+,
              s(:call, nil, :b).line(6)).line(6)
-          ).line(1)
+          )
 
     assert_parse rb, pt
   end
@@ -4429,8 +4443,8 @@ module TestRubyParserShared26Plus
   def test_symbol_list
     rb = '%I[#{a} #{b}]'
     pt = s(:array,
-           s(:dsym, "", s(:evstr, s(:call, nil, :a)).line(1)).line(1),
-           s(:dsym, "", s(:evstr, s(:call, nil, :b)).line(1)).line(1)).line 1
+           s(:dsym, "", s(:evstr, s(:call, nil, :a))),
+           s(:dsym, "", s(:evstr, s(:call, nil, :b)))).line 1
 
     assert_parse rb, pt
   end
@@ -4451,9 +4465,9 @@ module TestPatternMatching
       puts rb
     end
 
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in, exp_pt, nil).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4507,11 +4521,11 @@ module TestPatternMatching
 
   def test_case_in_31?
     rb = "case :a\nin [:b, *c]\n  :d\nend"
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in,
              s(:array_pat, nil, s(:lit, :b).line(2), :"*c").line(2),
              s(:lit, :d).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4550,7 +4564,7 @@ module TestPatternMatching
 
   def test_case_in_37
     rb = "case :a\nin { b: [Hash, *] }\n  :c\nend"
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in,
              s(:hash_pat,
                nil,
@@ -4558,14 +4572,14 @@ module TestPatternMatching
                s(:array_pat, nil, s(:const, :Hash).line(2), :"*").line(2)
               ).line(2),
              s(:lit, :c).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
 
   def test_case_in_42
     rb = "case :a\nin :b, *_ then nil\nend"
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in,
              s(:array_pat,
                nil,
@@ -4573,20 +4587,20 @@ module TestPatternMatching
                :"*_",
               ).line(2),
              s(:nil).line(2)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
 
   def test_case_in_42_2
     rb = "case :a\nin A(*list) then nil\nend"
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in,
              s(:array_pat,
                s(:const, :A).line(2),
                :"*list").line(2),
              s(:nil).line(2)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4601,12 +4615,12 @@ module TestPatternMatching
 
   def test_case_in_47
     rb = "case :a\nin [*, :b, :c]\n  :d\nend"
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in,
              s(:array_pat, nil, :*,
                s(:lit, :b).line(2), s(:lit, :c).line(2)).line(2),
              s(:lit, :d).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4614,10 +4628,10 @@ module TestPatternMatching
   def test_case_in_67
     rb = "case :a\nin 1.. then nil\nend"
     pt = s(:case,
-           s(:lit, :a).line(1),
+           s(:lit, :a),
            s(:in, s(:dot2, s(:lit, 1).line(2), nil).line(2),
              s(:nil).line(2)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4674,14 +4688,14 @@ module TestPatternMatching
   def test_case_in_86
     rb = "case [:a, :b]\nin ::NilClass, * then nil\nend"
     pt = s(:case,
-           s(:array, s(:lit, :a).line(1), s(:lit, :b).line(1)).line(1),
+           s(:array, s(:lit, :a), s(:lit, :b)),
            s(:in,
              s(:array_pat,
                nil,
                s(:colon3, :NilClass).line(2),
                :*).line(2),
              s(:nil).line(2)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4689,60 +4703,60 @@ module TestPatternMatching
   def test_case_in_86_2
     rb = "case [:a, :b]\nin *, ::NilClass then nil\nend"
     pt = s(:case,
-           s(:array, s(:lit, :a).line(1), s(:lit, :b).line(1)).line(1),
+           s(:array, s(:lit, :a), s(:lit, :b)),
            s(:in,
              s(:array_pat,
                nil,
                :*,
                s(:colon3, :NilClass).line(2)).line(2),
              s(:nil).line(2)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
 
   def test_case_in_array_pat_const
     rb = "case :a\nin B[c]\n  :d\nend"
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in,
              s(:array_pat,
                s(:const, :B).line(2),
                s(:lvar, :c).line(2)).line(2),
              s(:lit, :d).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
 
   def test_case_in_array_pat_const2
     rb = "case :a\nin B::C[d]\n  :e\nend"
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in,
              s(:array_pat,
                s(:const, s(:colon2, s(:const, :B).line(2), :C).line(2)).line(2),
                s(:lvar, :d).line(2)).line(2),
              s(:lit, :e).line(3)).line(2),
-          nil).line(1)
+          nil)
 
     assert_parse rb, pt
   end
 
   def test_case_in_array_pat_paren_assign
     rb = "case :a\nin B(C => d)\n  :d\nend"
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in,
              s(:array_pat,
                s(:const, :B).line(2),
                s(:lasgn, :d, s(:const, :C).line(2)).line(2)).line(2),
              s(:lit, :d).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
 
   def test_case_in_const
     rb = "case Array\nin Class\n  :b\nend"
-    pt = s(:case, s(:const, :Array).line(1),
+    pt = s(:case, s(:const, :Array),
            s(:in, s(:const, :Class).line(2),
              s(:lit, :b).line(3)).line(2),
            nil).line 1
@@ -4752,7 +4766,7 @@ module TestPatternMatching
 
   def test_case_in_else
     rb = "case Array\nin Class\n  :b\nelse\n  :c\nend\n"
-    pt = s(:case, s(:const, :Array).line(1),
+    pt = s(:case, s(:const, :Array),
            s(:in, s(:const, :Class).line(2),
              s(:lit, :b).line(3)).line(2),
           s(:lit, :c).line(5)).line 1
@@ -4762,7 +4776,7 @@ module TestPatternMatching
 
   def test_case_in_hash_pat
     rb = "case :a\nin { b: 'c', d: \"e\" } then\n  :f\nend\n"
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in,
              s(:hash_pat,
                nil,
@@ -4770,14 +4784,14 @@ module TestPatternMatching
                s(:lit, :d).line(2), s(:str, "e").line(2)).line(2),
              s(:lit, :f).line(3)
              ).line(2),
-          nil).line(1)
+          nil)
 
     assert_parse rb, pt
   end
 
   def test_case_in_hash_pat_assign
     rb = "case :a\nin { b: Integer => x, d: \"e\", f: } then\n  :g\nend"
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in,
              s(:hash_pat,
                nil,
@@ -4786,33 +4800,33 @@ module TestPatternMatching
                s(:lit, :d).line(2), s(:str, "e").line(2),
                s(:lit, :f).line(2), nil).line(2),
              s(:lit, :g).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
 
   def test_case_in_hash_pat_paren_assign
     rb = "case :a\nin B(a: 42)\n  :d\nend"
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in,
              s(:hash_pat,
                s(:const, :B).line(2),
                s(:lit, :a).line(2), s(:lit, 42).line(2)).line(2),
              s(:lit, :d).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
 
   def test_case_in_hash_pat_paren_true
     rb = "case :a\nin b: true then\n  :c\nend\n"
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in,
              s(:hash_pat,
                nil,
                s(:lit, :b).line(2), s(:true).line(2)).line(2),
              s(:lit, :c).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4820,7 +4834,7 @@ module TestPatternMatching
   def test_case_in_hash_pat_rest
     rb = "case :a\nin b: c, **rest then :d\nend"
     pt = s(:case,
-           s(:lit, :a).line(1),
+           s(:lit, :a),
            s(:in,
              s(:hash_pat,
                nil,
@@ -4828,7 +4842,7 @@ module TestPatternMatching
                s(:lvar, :c).line(2),
                s(:kwrest, :"**rest").line(2)).line(2),
              s(:lit, :d).line(2)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4836,13 +4850,13 @@ module TestPatternMatching
   def test_case_in_hash_pat_rest_solo
     rb = "case :a\nin **rest then :d\nend"
     pt = s(:case,
-           s(:lit, :a).line(1),
+           s(:lit, :a),
            s(:in,
              s(:hash_pat,
                nil,
                s(:kwrest, :"**rest").line(2)).line(2),
              s(:lit, :d).line(2)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4850,14 +4864,14 @@ module TestPatternMatching
   def test_case_in_if_unless_post_mod
     rb = "case :a\nin A if true\n  :C\nin D unless false\n  :E\nend"
     pt = s(:case,
-           s(:lit, :a).line(1),
+           s(:lit, :a),
            s(:in,
              s(:if, s(:true).line(2), s(:const, :A).line(2), nil).line(2),
              s(:lit, :C).line(3)).line(2),
            s(:in,
              s(:if, s(:false).line(4), nil, s(:const, :D).line(4)).line(4),
              s(:lit, :E).line(5)).line(4),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4865,37 +4879,37 @@ module TestPatternMatching
   def test_case_in_multiple
     rb = "case :a\nin A::B\n  :C\nin D::E\n  :F\nend"
     pt = s(:case,
-           s(:lit, :a).line(1),
+           s(:lit, :a),
            s(:in,
              s(:const, s(:colon2, s(:const, :A).line(2), :B).line(2)).line(2),
              s(:lit, :C).line(3)).line(2),
            s(:in,
              s(:const, s(:colon2, s(:const, :D).line(4), :E).line(4)).line(4),
              s(:lit, :F).line(5)).line(4),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
 
   def test_case_in_or
     rb = "case :a\nin B | C\n  :d\nend\n"
-    pt = s(:case, s(:lit, :a).line(1),
+    pt = s(:case, s(:lit, :a),
            s(:in,
              s(:or,
                s(:const, :B).line(2),
                s(:const, :C).line(2)).line(2),
              s(:lit, :d).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
 
   def test_in_expr_no_case
     rb = "'woot' in String"
-    pt = s(:case, s(:str, "woot").line(1),
-           s(:in, s(:const, :String).line(1),
-             nil).line(1),
-           nil).line(1)
+    pt = s(:case, s(:str, "woot"),
+           s(:in, s(:const, :String),
+             nil),
+           nil)
 
     assert_parse rb, pt
   end
@@ -4909,10 +4923,10 @@ module TestPatternMatching
       RUBY
 
     pt = s(:case,
-           s(:lit, 0).line(1),
+           s(:lit, 0),
            s(:in, s(:dot2, s(:lit, -1).line(2), s(:lit, 1).line(2)).line(2),
              s(:true).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4925,10 +4939,10 @@ module TestPatternMatching
         end
       RUBY
     pt = s(:case,
-           s(:call, nil, :obj).line(1),
+           s(:call, nil, :obj),
            s(:in, s(:array_pat, s(:const, :Object).line(2)).line(2),
              s(:true).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4942,9 +4956,9 @@ module TestPatternMatching
       RUBY
     pt = s(:case,
            s(:array,
-             s(:lit, 0).line(1),
-             s(:lit, 1).line(1),
-             s(:lit, 2).line(1)).line(1),
+             s(:lit, 0),
+             s(:lit, 1),
+             s(:lit, 2)),
            s(:in,
              s(:array_pat,
                nil,
@@ -4952,7 +4966,7 @@ module TestPatternMatching
                s(:lit, 1).line(2),
                :*).line(666),
              s(:true).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4966,15 +4980,15 @@ module TestPatternMatching
       RUBY
     pt = s(:case,
            s(:hash,
-             s(:lit, :a).line(1),
-             s(:lit, 0).line(1)).line(1),
+             s(:lit, :a),
+             s(:lit, 0)),
            s(:in,
              s(:hash_pat, nil, s(:lit, :a).line(2), nil,
                s(:kwrest, :"**rest").line(2)).line(2),
              s(:array,
                s(:lvar, :a).line(3),
                s(:lvar, :rest).line(3)).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -4988,14 +5002,14 @@ module TestPatternMatching
       RUBY
     pt = s(:case,
            s(:hash,
-             s(:lit, :a).line(1),
-             s(:lit, 0).line(1)).line(1),
+             s(:lit, :a),
+             s(:lit, 0)),
            s(:in,
              s(:hash_pat, nil, s(:lit, :a).line(2), nil,
                s(:kwrest, :"**").line(2)).line(2),
              s(:array,
                s(:lvar, :a).line(3)).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -5008,12 +5022,12 @@ module TestPatternMatching
         end
       RUBY
     pt = s(:case,
-           s(:lit, :a).line(1),
+           s(:lit, :a),
            s(:in,
              s(:hash_pat, s(:const, :Object).line(2),
                s(:lit, :b).line(2), s(:lit, 1).line(2)).line(2),
              s(:lit, 1).line(3)).line(2),
-           nil).line(1)
+           nil)
 
 
     assert_parse rb, pt
@@ -5027,24 +5041,24 @@ module TestPatternMatching
         end
       RUBY
     pt = s(:case,
-           s(:hash, s(:lit, :a).line(1), s(:lit, 1).line(1)).line(1),
+           s(:hash, s(:lit, :a), s(:lit, 1)),
            s(:in,
              s(:hash_pat, nil,
                s(:lit, :a).line(2), s(:lit, 1).line(2),
                s(:kwrest, :"**nil").line(2)).line(2),
              s(:true).line(3)).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
 
   # def test_case_in_TEMPLATE
   #   rb = "case :a\nin XXX then\n  YYY\nend\n"
-  #   pt = s(:case, s(:lit, :a).line(1),
+  #   pt = s(:case, s(:lit, :a),
   #          s(:in,
   #            ZZZ,
   #            WWW).line(2),
-  #          nil).line(1)
+  #          nil)
   #
   #   assert_parse rb, pt
   # end
@@ -5089,7 +5103,7 @@ module TestRubyParserShared27Plus
            s(:call, nil, :f),
            s(:args, :"**nil"))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_defn_forward_args
@@ -5097,7 +5111,7 @@ module TestRubyParserShared27Plus
     pt = s(:defn, :a, s(:args, s(:forward_args)),
           s(:call, nil, :b, s(:forward_args)))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_defn_arg_forward_args
@@ -5105,7 +5119,7 @@ module TestRubyParserShared27Plus
     pt = s(:defn, :a, s(:args, :x, s(:forward_args)),
            s(:call, nil, :b, s(:lvar, :x), s(:forward_args)))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_defn_args_forward_args
@@ -5114,7 +5128,7 @@ module TestRubyParserShared27Plus
            s(:call, nil, :b, s(:lit, :get), s(:lvar, :z),
              s(:forward_args)))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_defn_no_kwargs
@@ -5132,10 +5146,10 @@ module TestRubyParserShared27Plus
     # z arg: 42 # $!: wrong number of arguments (given 1, expected 0) (ArgumentError)
 
     rb = "def x(**nil); end"
-    pt = s(:defn, :x, s(:args, :"**nil").line(1),
-           s(:nil).line(1)).line(1)
+    pt = s(:defn, :x, s(:args, :"**nil"),
+           s(:nil))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_call_forward_args_outside_method_definition
@@ -5179,8 +5193,8 @@ module TestRubyParserShared30Plus
   def test_rhs_asgn
     rb = "42 => n"
     pt = s(:case,
-           s(:lit, 42).line(1),
-           s(:in, s(:lvar, :n).line(1), nil).line(1), nil).line(1)
+           s(:lit, 42),
+           s(:in, s(:lvar, :n), nil), nil)
 
     assert_parse rb, pt
   end
@@ -5188,14 +5202,14 @@ module TestRubyParserShared30Plus
   def test_case_in_find
     rb = "case :a\n  in *a, :+, *b\nend"
     pt = s(:case,
-           s(:lit, :a).line(1),
+           s(:lit, :a),
            s(:in,
              s(:find_pat, nil,
                :"*a",
                s(:array_pat, s(:lit, :+).line(2)).line(2),
                :"*b").line(2),
              nil).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
@@ -5203,38 +5217,38 @@ module TestRubyParserShared30Plus
   def test_case_in_find_array
     rb = "case :a\nin [*, :b, c, *]\nend"
     pt = s(:case,
-           s(:lit, :a).line(1),
+           s(:lit, :a),
            s(:in,
              s(:find_pat, nil,
                :*,
                s(:array_pat, s(:lit, :b).line(2), s(:lvar, :c).line(2)).line(2),
                :*).line(2),
              nil).line(2),
-           nil).line(1)
+           nil)
 
     assert_parse rb, pt
   end
 
   def test_defn_oneliner
     rb = "def exec(cmd) = system(cmd)"
-    pt = s(:defn, :exec, s(:args, :cmd).line(1),
-           s(:call, nil, :system, s(:lvar, :cmd).line(1)).line(1)).line(1)
+    pt = s(:defn, :exec, s(:args, :cmd),
+           s(:call, nil, :system, s(:lvar, :cmd)))
 
     assert_parse rb, pt
   end
 
   def test_defn_oneliner_noargs_parentheses
     rb = "def exec() = system"
-    pt = s(:defn, :exec, s(:args).line(1),
-            s(:call, nil, :system).line(1))
+    pt = s(:defn, :exec, s(:args),
+            s(:call, nil, :system))
 
     assert_parse rb, pt
   end
 
   def test_defn_oneliner_noargs
     rb = "def exec = system"
-    pt = s(:defn, :exec, s(:args).line(1),
-            s(:call, nil, :system).line(1))
+    pt = s(:defn, :exec, s(:args),
+            s(:call, nil, :system))
 
     assert_parse rb, pt
   end
@@ -5243,24 +5257,23 @@ module TestRubyParserShared30Plus
     rb = "def exec(cmd)\n  system(cmd)\nrescue\n  nil\nend\n"
     pt = s(:defn, :exec, s(:args, :cmd),
            s(:rescue,
-             s(:call, nil, :system, s(:lvar, :cmd)),
-            s(:resbody, s(:array), s(:nil))))
+             s(:call, nil, :system, s(:lvar, :cmd).line(2)).line(2),
+             s(:resbody, s(:array).line(3),
+               s(:nil).line(4)).line(3)).line(2))
+
     assert_parse rb, pt
 
     rb = "def exec(cmd)\n  system(cmd) rescue nil\nend\n"
-    assert_parse rb, pt
+    assert_parse rb, pt.deep_each { |s| s.line = 2 if s.line && s.line > 1 }
 
     rb = "def exec(cmd) = system(cmd) rescue nil"
-    assert_parse rb, pt
+    assert_parse rb, pt.deep_each { |s| s.line = 1 }
   end
 
   def test_defs_oneliner
     rb = "def self.exec(cmd) = system(cmd)"
-    pt = s(:defs,
-           s(:self).line(1),
-           :exec,
-           s(:args, :cmd).line(1),
-           s(:call, nil, :system, s(:lvar, :cmd).line(1)).line(1)).line(1)
+    pt = s(:defs, s(:self), :exec, s(:args, :cmd),
+           s(:call, nil, :system, s(:lvar, :cmd)))
 
     assert_parse rb, pt
   end
@@ -5269,15 +5282,15 @@ module TestRubyParserShared30Plus
     rb = "def self.exec(cmd)\n  system(cmd)\nrescue\n  nil\nend\n"
     pt = s(:defs, s(:self), :exec, s(:args, :cmd),
            s(:rescue,
-             s(:call, nil, :system, s(:lvar, :cmd)),
-            s(:resbody, s(:array), s(:nil))))
+             s(:call, nil, :system, s(:lvar, :cmd).line(2)).line(2),
+            s(:resbody, s(:array).line(3), s(:nil).line(4)).line(3)).line(2))
     assert_parse rb, pt
 
     rb = "def self.exec(cmd)\n  system(cmd) rescue nil\nend\n"
-    assert_parse rb, pt
+    assert_parse rb, pt.deep_each { |s| s.line = 2 if s.line && s.line > 1 }
 
     rb = "def self.exec(cmd) = system(cmd) rescue nil"
-    assert_parse rb, pt
+    assert_parse rb, pt.deep_each { |s| s.line = 1 }
   end
 
   def test_defn_oneliner_setter
@@ -5365,10 +5378,8 @@ class RubyParserTestCase < ParseTreeTestCase
 
     timeout = (ENV["RP_TIMEOUT"] || 10).to_i
 
-    if ENV["RP_LINES"] then # TODO: make default once tests cleaned up
-      pt.deep_each { |s| s.line ||= 1 }
-      pt.line ||= 1
-    end
+    pt.deep_each { |s| s.line ||= 1 }
+    pt.line ||= 1
 
     self.result = processor.parse rb, "(string)", timeout
     assert_equal pt, result
@@ -5387,16 +5398,6 @@ class RubyParserTestCase < ParseTreeTestCase
     else
       assert_equal emsg, e.message
     end
-  end
-
-  def assert_parse_line rb, pt, line
-    old_env = ENV["VERBOSE"]
-    ENV["VERBOSE"] = "1"
-
-    assert_parse rb, pt
-    assert_equal line, result.line,   "call should have line number"
-  ensure
-    ENV["VERBOSE"] = old_env
   end
 
   def assert_syntax_error rb, emsg, klass = RubyParser::SyntaxError
@@ -5504,11 +5505,10 @@ class TestRubyParserV25 < RubyParserTestCase
     rb = "proc do\n  :begin\nensure\n  :ensure\nend.call"
     pt = s(:call,
            s(:iter,
-             s(:call, nil, :proc),
-             0,
+             s(:call, nil, :proc), 0,
              s(:ensure,
-               s(:lit, :begin),
-               s(:lit, :ensure))),
+               s(:lit, :begin).line(2),
+               s(:lit, :ensure).line(4)).line(2)),
            :call)
 
     assert_parse rb, pt
@@ -5517,16 +5517,14 @@ class TestRubyParserV25 < RubyParserTestCase
   def test_rescue_do_end_no_raise
     rb = "tap do\n  :begin\nrescue\n  :rescue\nelse\n  :else\nensure\n  :ensure\nend"
     pt = s(:iter,
-           s(:call, nil, :tap),
-           0,
+           s(:call, nil, :tap), 0,
            s(:ensure,
              s(:rescue,
-               s(:lit, :begin),
-               s(:resbody,
-                 s(:array),
-                 s(:lit, :rescue)),
-               s(:lit, :else)),
-             s(:lit, :ensure)))
+               s(:lit, :begin).line(2),
+               s(:resbody, s(:array).line(3),
+                 s(:lit, :rescue).line(4)).line(3),
+               s(:lit, :else).line(6)).line(2),
+             s(:lit, :ensure).line(8)).line(2))
 
     assert_parse rb, pt
   end
@@ -5534,11 +5532,10 @@ class TestRubyParserV25 < RubyParserTestCase
   def test_rescue_do_end_raised
     rb = "tap do\n  raise\nensure\n  :ensure\nend"
     pt = s(:iter,
-           s(:call, nil, :tap),
-           0,
+           s(:call, nil, :tap), 0,
            s(:ensure,
-             s(:call, nil, :raise),
-             s(:lit, :ensure)))
+             s(:call, nil, :raise).line(2),
+             s(:lit, :ensure).line(4)).line(2))
 
     assert_parse rb, pt
   end
@@ -5550,12 +5547,12 @@ class TestRubyParserV25 < RubyParserTestCase
            0,
            s(:ensure,
              s(:rescue,
-               s(:call, nil, :raise),
+               s(:call, nil, :raise).line(2),
                s(:resbody,
-                 s(:array),
-                 s(:lit, :rescue)),
-               s(:lit, :else)),
-             s(:lit, :ensure)))
+                 s(:array).line(3),
+                 s(:lit, :rescue).line(4)).line(3),
+               s(:lit, :else).line(6)).line(2),
+             s(:lit, :ensure).line(8)).line(2))
 
     assert_parse rb, pt
   end
@@ -5563,9 +5560,11 @@ class TestRubyParserV25 < RubyParserTestCase
   def test_rescue_in_block
     rb = "blah do\nrescue\n  stuff\nend"
     pt = s(:iter,
-           s(:call, nil, :blah),
-           0,
-           s(:rescue, s(:resbody, s(:array), s(:call, nil, :stuff))))
+           s(:call, nil, :blah), 0,
+           s(:rescue,
+             s(:resbody, s(:array).line(2),
+               s(:call, nil, :stuff).line(3)).line(2)).line(2))
+
     assert_parse rb, pt
   end
 end
@@ -5582,21 +5581,21 @@ class TestRubyParserV26 < RubyParserTestCase
   def test_parse_line_dot2_open
     rb = "0..\n; a..\n; c"
     pt = s(:block,
-           s(:dot2, s(:lit, 0).line(1), nil).line(1),
+           s(:dot2, s(:lit, 0), nil),
            s(:dot2, s(:call, nil, :a).line(2), nil).line(2),
-           s(:call, nil, :c).line(3)).line(1)
+           s(:call, nil, :c).line(3))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_parse_line_dot3_open
     rb = "0...\n; a...\n; c"
     pt = s(:block,
-           s(:dot3, s(:lit, 0).line(1), nil).line(1),
+           s(:dot3, s(:lit, 0), nil),
            s(:dot3, s(:call, nil, :a).line(2), nil).line(2),
-           s(:call, nil, :c).line(3)).line(1)
+           s(:call, nil, :c).line(3))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 end
 
@@ -5614,21 +5613,21 @@ class TestRubyParserV27 < RubyParserTestCase
   def test_bdot2
     rb = "..10\n; ..a\n; c"
     pt = s(:block,
-           s(:dot2, nil, s(:lit, 10).line(1)).line(1),
+           s(:dot2, nil, s(:lit, 10)),
            s(:dot2, nil, s(:call, nil, :a).line(2)).line(2),
-           s(:call, nil, :c).line(3)).line(1)
+           s(:call, nil, :c).line(3))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 
   def test_bdot3
     rb = "...10\n; ...a\n; c"
     pt = s(:block,
-           s(:dot3, nil, s(:lit, 10).line(1)).line(1),
+           s(:dot3, nil, s(:lit, 10)),
            s(:dot3, nil, s(:call, nil, :a).line(2)).line(2),
-           s(:call, nil, :c).line(3)).line(1)
+           s(:call, nil, :c).line(3))
 
-    assert_parse_line rb, pt, 1
+    assert_parse rb, pt
   end
 end
 

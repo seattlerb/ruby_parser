@@ -1362,15 +1362,21 @@ rule
                     }
                 | kYIELD tLPAREN2 call_args rparen
                     {
-                      result = new_yield val[2]
+                      (_, line), _, args, _ = val
+
+                      result = new_yield(args).line line
                     }
                 | kYIELD tLPAREN2 rparen
                     {
-                      result = new_yield
+                      (_, line), _, _ = val
+
+                      result = new_yield.line line
                     }
                 | kYIELD
                     {
-                      result = new_yield
+                      (_, line), = val
+
+                      result = new_yield.line line
                     }
                 | kDEFINED opt_nl tLPAREN2 expr rparen
                     {
