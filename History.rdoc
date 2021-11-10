@@ -1,3 +1,15 @@
+=== 3.18.1 / 2021-11-10
+
+* 1 minor enhancement:
+
+  * All parser tests are now explicitly testing line numbers at every level.
+
+* 3 bug fixes:
+
+  * Fixed endless method with noargs. (mitsuru)
+  * Fixed line numbers on some yield forms.
+  * Handle and clearly report if unifdef is missing.
+
 === 3.18.0 / 2021-10-27
 
 Holy crap... 58 commits! 2.7 and 3.0 are feature complete. Strings
