@@ -3541,6 +3541,8 @@ module TestRubyParserShared20Plus
   end
 
   def test_regexp_esc_C_slash
+    skip "https://bugs.ruby-lang.org/issues/18449" if RUBY_VERSION == "3.1.0"
+
     rb = "/\\cC\\d/"
     pt = s(:lit, /\cC\d/)
 
@@ -5306,6 +5308,10 @@ module TestRubyParserShared30Plus
   end
 end
 
+module TestRubyParserShared31Plus
+  include TestRubyParserShared30Plus
+end
+
 class Minitest::Test
   def skip s = "blah"
     warn "ignoring skip for %s: %s" % [name, s]
@@ -5638,6 +5644,16 @@ class TestRubyParserV30 < RubyParserTestCase
     super
 
     self.processor = RubyParser::V30.new
+  end
+end
+
+class TestRubyParserV31 < RubyParserTestCase
+  include TestRubyParserShared31Plus
+
+  def setup
+    super
+
+    self.processor = RubyParser::V31.new
   end
 end
 

@@ -19,10 +19,10 @@ an external disk. Here is the config:
 And I update using rake:
 
 ```
-% cd ~/Work/git/rubygems/rubygems-mirror
+% cd GIT/rubygems/rubygems-mirror
 % git down
 % rake mirror:latest
-% /Volumes/StuffA/gauntlet/bin/cleanup.rb
+% /Volumes/StuffA/gauntlet/bin/cleanup.rb -y -v
 ```
 
 This rather quickly updates my mirror to the latest versions of
@@ -34,22 +34,24 @@ bit, but it is pretty minimal (currently ~20 bad gems).
 ## Curating an Archive of Ruby Files
 
 Next, I process the gem mirror into a much more digestable structure
-using `hash.rb` (TODO: needs a better name):
+using `unpack_gems.rb`.
 
 ```
-% cd RP
-% /Volumes/StuffA/gauntlet/bin/unpack_gems.rb
+% cd RP/gauntlet
+% time caffeinate /Volumes/StuffA/gauntlet/bin/unpack_gems.rb -v [-a] ; say done
 ... waaaait ...
-% mv hashed.noindex gauntlet.$(today).noindex
-% lrztar gauntlet.$(today).noindex
-% mv gauntlet.$(today).noindex.lrz /Volumes/StuffA/gauntlet/
+% DIR=gauntlet.$(today).(all|new).noindex
+% mv hashed.noindex $DIR
+% tar c $DIR | zstd -5 -T0 --long > archives/$DIR.tar.zst
+% tar vc -T <(fd . $DIR | sort) | zstd -5 -T0 --long > archives/$DIR.tar.zst
+% ./bin/sync.sh
 ```
 
-This script filters all the newer gems (TODO: WHY?), unpacks them,
-finds all the files that look like they're valid ruby, ensures they're
-valid ruby (using the current version of ruby to compile them), and
-then moves them into a SHA dir structure that looks something like
-this:
+This script filters all the newer (< 1 year old) gems (unless `-a` is
+used), unpacks them, finds all the files that look like they're valid
+ruby, ensures they're valid ruby (using the current version of ruby to
+compile them), and then moves them into a SHA dir structure that looks
+something like this:
 
 ```
 hashed.noindex/a/b/c/<full_file_sha>.rb

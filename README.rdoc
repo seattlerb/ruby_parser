@@ -33,6 +33,9 @@ Tested against 801,039 files from the latest of all rubygems (as of 2013-05):
 * 1.9 parser is at 99.9940% accuracy, 4.013 sigma
 * 2.0 parser is at 99.9939% accuracy, 4.008 sigma
 * 2.6 parser is at 99.9972% accuracy, 4.191 sigma
+* 3.0 parser has a 100% parse rate.
+  * Tested against 2,672,412 unique ruby files across 167k gems.
+  * As do all the others now, basically.
 
 == FEATURES/PROBLEMS:
 
@@ -62,15 +65,14 @@ You can also use Ruby19Parser, Ruby18Parser, or RubyParser.for_current_ruby:
 
 To add a new version:
 
-* New parser should be generated from lib/ruby_parser.yy.
-* Extend lib/ruby_parser.yy with new class name.
-* Add new version number to V2 in Rakefile for rule creation.
+* New parser should be generated from lib/ruby[3]_parser.yy.
+* Extend lib/ruby[3]_parser.yy with new class name.
+* Add new version number to V2/V3 in Rakefile for rule creation.
+* Add new (full) version to `ruby_parse` section of Rakefile for rake compare
 * Require generated parser in lib/ruby_parser.rb.
 * Add empty TestRubyParserShared##Plus module and TestRubyParserV## to test/test_ruby_parser.rb.
 * Extend Manifest.txt with generated file names.
-* Extend sexp_processor's pt_testcase.rb to match version
-  * add_19tests needs to have the version added
-  * VER_RE needs to have the regexp expanded
+* Add new version number to sexp_processor's pt_testcase.rb in all_versions
 
 Until all of these are done, you won't have a clean test run.
 

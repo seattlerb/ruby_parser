@@ -14,7 +14,7 @@ Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
 
 V2   = %w[20 21 22 23 24 25 26 27]
-V3   = %w[30]
+V3   = %w[30 31]
 
 VERS = V2 + V3
 
@@ -184,8 +184,8 @@ def ruby_parse version
 
   file c_parse_y => c_tarball do
     in_compare do
-      extract_glob = case version
-                     when /2\.7|3\.0/
+      extract_glob = case
+                     when version > "2.7" then
                        "{id.h,parse.y,tool/{id2token.rb,lib/vpath.rb}}"
                      else
                        "{id.h,parse.y,tool/{id2token.rb,vpath.rb}}"
@@ -258,7 +258,7 @@ task :versions do
   require "net/http" # avoid require issues in threads
   require "net/https"
 
-  versions = %w[ 2.0 2.1 2.2 2.3 2.4 2.5 2.6 2.7 3.0 ]
+  versions = VERS.map { |s| s.split(//).join "." }
 
   base_url = "https://cache.ruby-lang.org/pub/ruby"
 
@@ -291,9 +291,10 @@ ruby_parse "2.2.10"
 ruby_parse "2.3.8"
 ruby_parse "2.4.10"
 ruby_parse "2.5.9"
-ruby_parse "2.6.8"
-ruby_parse "2.7.4"
-ruby_parse "3.0.2"
+ruby_parse "2.6.9"
+ruby_parse "2.7.5"
+ruby_parse "3.0.3"
+ruby_parse "3.1.0"
 
 task :debug => :isolate do
   ENV["V"] ||= VERS.last
