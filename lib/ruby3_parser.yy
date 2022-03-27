@@ -1055,46 +1055,19 @@ rule
                     }
                 | defn_head f_opt_paren_args tEQL arg
                     {
-                      (name, line, in_def), args, _, body = val
-
-                      result = s(:defn, name, args, body).line line
-
-                      local_pop in_def
-                      endless_method_name result
+                      result = new_endless_defn val
                     }
                 | defn_head f_opt_paren_args tEQL arg kRESCUE_MOD arg
                     {
-                      (name, line, in_def), args, _, body, _, resbody = val
-
-                      result = s(:defn, name, args,
-                                 new_rescue(body,
-                                            new_resbody(s(:array).line(line),
-                                                        resbody))).line line
-
-                      local_pop in_def
-                      endless_method_name result
+                      result = new_endless_defn val
                     }
                 | defs_head f_opt_paren_args tEQL arg
                     {
-                      (recv, (name, line, in_def)), args, _, body = val
-
-                      result = s(:defs, recv, name, args, body).line(line)
-
-                      self.in_single -= 1
-                      local_pop in_def
-                      endless_method_name result
+                      result = new_endless_defs val
                     }
                 | defs_head f_opt_paren_args tEQL arg kRESCUE_MOD arg
                     {
-                      (recv, (name, line, in_def)), args, _, body, _, resbody = val
-
-                      result = s(:defs, recv, name, args,
-                                 new_rescue(body,
-                                            new_resbody(s(:array).line(line),
-                                                        resbody))).line line
-
-                      local_pop in_def
-                      endless_method_name result
+                      result = new_endless_defs val
                     }
                 | primary
 

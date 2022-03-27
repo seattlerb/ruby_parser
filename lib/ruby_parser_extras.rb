@@ -978,6 +978,45 @@ module RubyParserStuff
     [result, in_def]
   end
 
+  def new_endless_defn val
+    (name, line, in_def), args, _, body, _, resbody = val
+
+    result =
+      if resbody then
+        s(:defn, name, args,
+          new_rescue(body,
+                     new_resbody(s(:array).line(line),
+                                 resbody))).line line
+      else
+        s(:defn, name, args, body).line line
+      end
+
+    local_pop in_def
+    endless_method_name result
+
+    result
+  end
+
+  def new_endless_defs val
+    (recv, (name, line, in_def)), args, _, body, _, resbody = val
+
+    result =
+      if resbody then
+        s(:defs, recv, name, args,
+          new_rescue(body,
+                     new_resbody(s(:array).line(line),
+                                 resbody))).line line
+      else
+        s(:defs, recv, name, args, body).line(line)
+      end
+
+    self.in_single -= 1
+    local_pop in_def
+    endless_method_name result
+
+    result
+  end
+
   def new_defs val
     _, recv, (name, line), in_def, args, body, _ = val
 
