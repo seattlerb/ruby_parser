@@ -767,8 +767,7 @@ rule
 
            cpath: tCOLON3 cname
                     {
-                      _, (name, line) = val
-                      result = s(:colon3, name.to_sym).line line
+                      result = wrap :colon3, val[1]
                     }
                 | cname
                     {
@@ -793,9 +792,7 @@ rule
 
            fitem: fname
                     {
-                      (id, line), = val
-
-                      result = s(:lit, id.to_sym).line line
+                      result = wrap :lit, val[0]
                     }
                 | symbol
 
@@ -864,9 +861,9 @@ rule
                     }
                 | tCOLON3 tCONSTANT tOP_ASGN arg_rhs
                     {
-                      _, (lhs, line), op, rhs = val
+                      _, lhs, op, rhs = val
 
-                      lhs = s(:colon3, lhs.to_sym).line line
+                      lhs = wrap :colon3, lhs
                       result = new_const_op_asgn [lhs, op, rhs]
                     }
                 | backref tOP_ASGN arg_rhs
@@ -1336,9 +1333,7 @@ rule
                     }
                 | tCOLON3 tCONSTANT
                     {
-                      _, (id, line) = val
-
-                      result = s(:colon3, id.to_sym).line line
+                      result = wrap :colon3, val[1]
                     }
                 | tLBRACK { result = lexer.lineno } aref_args tRBRACK
                     {
@@ -1846,8 +1841,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
             bvar: tIDENTIFIER
                     {
-                      (id, line), = val
-                      result = s(:shadow, id.to_sym).line line
+                      result = wrap :shadow, val[0]
                     }
                 | f_bad_arg
 
@@ -2458,9 +2452,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
       p_kw_label: tLABEL
                     {
-                      (id, line), = val
-
-                      result = s(:lit, id.to_sym).line line
+                      result = wrap :lit, val[0]
                     }
 
         p_kwrest: kwrest_mark tIDENTIFIER
@@ -2552,26 +2544,20 @@ opt_block_args_tail: tCOMMA block_args_tail
 
       p_variable: tIDENTIFIER
                     {
-                      (id, line), = val
-
                       # TODO: error_duplicate_pattern_variable(p, $1, &@1);
                       # TODO: assignable(p, $1, 0, &@$);
-                      result = s(:lvar, id.to_sym).line line
+                      result = wrap :lvar, val[0]
                     }
 
        p_var_ref: tCARET tIDENTIFIER
                     {
-                      _, (id, line) = val
-
                       # TODO: check id against env for lvar or dvar
-
-                      result = s(:lvar, id.to_sym).line line
+                      result = wrap :lvar, val[1]
                     }
 
          p_const: tCOLON3 cname
                     {
-                      _, (id, line) = val
-                      result = s(:colon3, id.to_sym).line line
+                      result = wrap :colon3, val[1]
                     }
                 | p_const tCOLON2 cname
                     {
@@ -2583,8 +2569,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                 | tCONSTANT
                     {
                       # TODO $$ = gettable(p, $1, &@$);
-                      (id, line), = val
-                      result = s(:const, id.to_sym).line line
+                      result = wrap :const, val[0]
                     }
 ######################################################################
 #endif
@@ -2871,18 +2856,15 @@ regexp_contents: none
 
      string_dvar: tGVAR
                     {
-                      (id, line), = val
-                      result = s(:gvar, id.to_sym).line line
+                      result = wrap :gvar, val[0]
                     }
                 | tIVAR
                     {
-                      (id, line), = val
-                      result = s(:ivar, id.to_sym).line line
+                      result = wrap :ivar, val[0]
                     }
                 | tCVAR
                     {
-                      (id, line), = val
-                      result = s(:cvar, id.to_sym).line line
+                      result = wrap :cvar, val[0]
                     }
                 | backref
 
@@ -2891,17 +2873,13 @@ regexp_contents: none
 
             ssym: tSYMBEG sym
                     {
-                      _, (id, line) = val
-
                       lexer.lex_state = EXPR_END
-                      result = s(:lit, id.to_sym).line line
+                      result = wrap :lit, val[1]
                     }
                 | tSYMBOL
                     {
-                      (id, line), = val
-
                       lexer.lex_state = EXPR_END
-                      result = s(:lit, id.to_sym).line line
+                      result = wrap :lit, val[0]
                     }
 
              sym: fname | tIVAR | tGVAR | tCVAR
@@ -3422,10 +3400,10 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                     }
                 | tLABEL arg_value
                     {
-                      (label, line), arg = val
+                      label, arg = val
 
-                      lit = s(:lit, label.to_sym).line line
-                      result = s(:array, lit, arg).line line
+                      lit = wrap :lit, label
+                      result = s(:array, lit, arg).line lit.line
                     }
 #if V >= 22
                 | tSTRING_BEG string_contents tLABEL_END arg_value

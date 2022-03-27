@@ -1613,6 +1613,12 @@ module RubyParserStuff
 
   alias remove_whitespace_width whitespace_width
 
+  def wrap type, node
+    value, line = node
+    value = value.to_sym if value.respond_to? :to_sym
+    s(type, value).line line
+  end
+
   class Keyword
     include RubyLexer::State::Values
 
