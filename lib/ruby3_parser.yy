@@ -288,6 +288,24 @@ rule
 
                       result = s(:op_asgn, lhs1, rhs, lhs2.to_sym, id.to_sym).line line
                     }
+#if V > 30
+                | defn_head f_opt_paren_args tEQL command
+                    {
+                      result = new_endless_defn val
+                    }
+                | defn_head f_opt_paren_args tEQL command kRESCUE_MOD arg
+                    {
+                      result = new_endless_defn val
+                    }
+                | defs_head f_opt_paren_args tEQL command
+                    {
+                      result = new_endless_defs val
+                    }
+                | defs_head f_opt_paren_args tEQL command kRESCUE_MOD arg
+                    {
+                      result = new_endless_defs val
+                    }
+#endif
                 | backref tOP_ASGN command_rhs
                     {
                       self.backref_assign_error val[0]
@@ -341,7 +359,11 @@ rule
                       self.in_kwarg = true
                       self.env.extend
                     }
+#if V == 30
                     p_expr
+#else
+                    p_top_expr_body
+#endif
                     {
                       lhs, _, in_kwarg, rhs = val
 
@@ -361,7 +383,11 @@ rule
                       self.in_kwarg = true
                       self.env.extend
                     }
+#if V == 30
                     p_expr
+#else
+                    p_top_expr_body
+#endif
                     {
                       self.env.unextend
 
@@ -1223,6 +1249,13 @@ rule
                       _, arg = val
                       result = s(:block_pass, arg).line arg.line
                     }
+#if V > 30
+                | tAMPER
+                    {
+                      (_, line), = val
+                      result = s(:block_pass).line line
+                    }
+#endif
 
    opt_block_arg: tCOMMA block_arg
                     {
@@ -1705,6 +1738,10 @@ rule
     f_any_kwrest: f_kwrest
                 | f_no_kwarg
 
+#if V > 30
+            f_eq: tEQL # TODO: self.in_argdef = false
+#endif
+
  block_args_tail: f_block_kwarg tCOMMA f_kwrest opt_f_block_arg
                     {
                       result = call_args val
@@ -2174,6 +2211,9 @@ opt_block_args_tail: tCOMMA block_args_tail
       p_lbracket: tLBRACK2 { push_pktbl }
 
     p_expr_basic: p_value
+#if V > 30
+                | p_variable
+#endif
                 | p_const p_lparen p_args tRPAREN
                     {
                       lhs, _, args, _ = val
@@ -2460,6 +2500,13 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       result = wrap :lit, val[0]
                     }
+#if V > 30
+                | tSTRING_BEG string_contents tLABEL_END
+                    {
+                      # you can't actually get here the way I lex labels
+                      debug 8
+                    }
+#endif
 
         p_kwrest: kwrest_mark tIDENTIFIER
                     {
@@ -2518,8 +2565,13 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = s(:dot3, v1, nil).line v1.line
                     }
+#if V == 30
                 | p_variable
+#endif
                 | p_var_ref
+#if V > 30
+                | p_expr_ref
+#endif
                 | p_const
                 | tBDOT2 p_primitive
                     {
@@ -2563,6 +2615,21 @@ opt_block_args_tail: tCOMMA block_args_tail
                       # TODO: check id against env for lvar or dvar
                       result = wrap :lvar, val[1]
                     }
+#if V > 30
+                | tCARET nonlocal_var
+                    {
+                      _, var = val
+                      result = var
+                    }
+#endif
+
+#if V > 30
+      p_expr_ref: tCARET tLPAREN expr_value rparen
+                    {
+                      _, _, expr, _ = val
+                      result = expr # TODO? s(:begin, expr).line expr.line
+                    }
+#endif
 
          p_const: tCOLON3 cname
                     {
@@ -2924,6 +2991,12 @@ regexp_contents: none
                 | tRATIONAL
                 | tIMAGINARY
 
+#if V > 30
+    nonlocal_var: tIVAR { result = wrap :ivar, val[0] }
+                | tGVAR { result = wrap :gvar, val[0] }
+                | tCVAR { result = wrap :cvar, val[0] }
+#endif
+
    user_variable: tIDENTIFIER
                 | tIVAR
                 | tGVAR
@@ -3006,6 +3079,7 @@ f_opt_paren_args: f_paren_args
                     {
                       result = end_args val
                     }
+#if V == 30
                 | tLPAREN2 f_arg tCOMMA args_forward rparen
                     {
                       result = end_args val
@@ -3014,6 +3088,7 @@ f_opt_paren_args: f_paren_args
                     {
                       result = end_args val
                     }
+#endif
 
        f_arglist: f_paren_args
                 |   {
@@ -3039,6 +3114,9 @@ f_opt_paren_args: f_paren_args
                       result = args val
                     }
                 | f_block_arg
+#if V > 30
+                | args_forward
+#endif
 
    opt_args_tail: tCOMMA args_tail
                     {
@@ -3249,17 +3327,33 @@ f_opt_paren_args: f_paren_args
                       result = [id, lexer.lineno] # TODO: tPOW/tDSTAR include lineno
                     }
 
-           f_opt: f_arg_asgn tEQL arg_value
+           f_opt: f_arg_asgn
+#if V > 30
+                    f_eq
+#else
+                    tEQL
+#endif
+                    arg_value
                     {
                       lhs, _, rhs = val
                       result = self.assignable lhs, rhs
                       # TODO: detect duplicate names
+                      # TODO? p->cur_arg = 0;
+                      # TODO? p->ctxt.in_argdef = 1;
                     }
 
-     f_block_opt: f_arg_asgn tEQL primary_value
+     f_block_opt: f_arg_asgn
+#if V > 30
+                    f_eq
+#else
+                    tEQL
+#endif
+                    primary_value
                     {
                       lhs, _, rhs = val
                       result = self.assignable lhs, rhs
+                      # TODO? p->cur_arg = 0;
+                      # TODO? p->ctxt.in_argdef = 1;
                     }
 
   f_block_optarg: f_block_opt
@@ -3311,6 +3405,12 @@ f_opt_paren_args: f_paren_args
                       self.env[identifier] = :lvar
                       result = ["&#{identifier}".to_sym, line]
                     }
+                | blkarg_mark
+                    {
+                      (_, line), = val
+
+                      result = [:&, line]
+                    }
 
  opt_f_block_arg: tCOMMA f_block_arg
                     {
@@ -3360,6 +3460,13 @@ f_opt_paren_args: f_paren_args
                       label, arg = val
 
                       lit = wrap :lit, label
+                      result = s(:array, lit, arg).line lit.line
+                    }
+                | tLABEL
+                    {
+                      lit = wrap :lit, val[0]
+                      arg = nil
+
                       result = s(:array, lit, arg).line lit.line
                     }
                 | tSTRING_BEG string_contents tLABEL_END arg_value

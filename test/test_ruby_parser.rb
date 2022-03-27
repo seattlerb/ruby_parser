@@ -5310,6 +5310,106 @@ end
 
 module TestRubyParserShared31Plus
   include TestRubyParserShared30Plus
+
+  def test_assoc__bare
+    rb = "{ y: }"
+    pt = s(:hash, s(:lit, :y), nil)
+
+    assert_parse rb, pt
+  end
+
+  def test_block_arg__bare
+    rb = "def x(&); end"
+    pt = s(:defn, :x, s(:args, :&).line(1),
+           s(:nil).line(1)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_case_in_carat_parens
+    processor.env[:a] = :lvar
+
+    rb = "[^(a)]"
+    pt = s(:array_pat, nil,
+           s(:lvar, :a).line(2)).line(2)
+
+    assert_case_in rb, pt
+  end
+
+  def test_case_in_carat_nonlocal_vars
+    processor.env[:a] = :lvar
+
+    rb = "[^@a, ^$b, ^@@c]"
+    pt = s(:array_pat,
+           nil,
+           s(:ivar, :@a).line(2),
+           s(:gvar, :$b).line(2),
+           s(:cvar, :@@c).line(2)).line(2)
+
+    assert_case_in rb, pt
+  end
+
+  def test_case_in_quoted_label
+    rb = " \"b\": "
+    pt = s(:hash_pat, nil, s(:lit, :b).line(2), nil).line(2)
+
+    assert_case_in rb, pt
+  end
+
+  def test_call_block_arg_named
+    processor.env[:blk] = :lvar
+    rb = "x(&blk)"
+    pt = s(:call, nil, :x,
+           s(:block_pass, s(:lvar, :blk).line(1)).line(1)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_call_block_arg_unnamed
+    rb = "x(&)"
+    pt = s(:call, nil, :x,
+           s(:block_pass).line(1)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_endless_command
+    rb = "def some_method = other_method 42"
+    pt = s(:defn, :some_method, s(:args).line(1),
+           s(:call, nil, :other_method, s(:lit, 42).line(1)).line(1)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_defn_endless_command_rescue
+    rb = "def some_method = other_method 42 rescue 24"
+    pt = s(:defn, :some_method, s(:args).line(1),
+           s(:rescue,
+             s(:call, nil, :other_method, s(:lit, 42).line(1)).line(1),
+             s(:resbody, s(:array).line(1),
+               s(:lit, 24).line(1)).line(1)).line(1)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_defs_endless_command
+    rb = "def x.some_method = other_method 42"
+    pt = s(:defs, s(:call, nil, :x).line(1), :some_method, s(:args).line(1),
+           s(:call, nil, :other_method, s(:lit, 42).line(1)).line(1)).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_defs_endless_command_rescue
+    rb = "def x.some_method = other_method 42 rescue 24"
+    pt = s(:defs, s(:call, nil, :x).line(1), :some_method, s(:args).line(1),
+           s(:rescue,
+             s(:call, nil, :other_method, s(:lit, 42).line(1)).line(1),
+             s(:resbody, s(:array).line(1),
+               s(:lit, 24).line(1)).line(1)).line(1)).line(1)
+
+    assert_parse rb, pt
+  end
 end
 
 class Minitest::Test
