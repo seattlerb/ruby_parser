@@ -86,7 +86,7 @@ rule
                 | klBEGIN
                     {
                       if (self.in_def || self.in_single > 0) then
-                        debug 11
+                        debug 1
                         yyerror "BEGIN in method"
                       end
                       self.env.extend
@@ -141,7 +141,7 @@ rule
                 | error stmt
                     {
                       result = val[1]
-                      debug 12
+                      debug 2
                     }
 
    stmt_or_begin: stmt
@@ -213,7 +213,7 @@ rule
                       (_, line), _, stmt, _ = val
 
                       if (self.in_def || self.in_single > 0) then
-                        debug 13
+                        debug 3
                         yyerror "END in method; use at_exit"
                       end
 
@@ -707,7 +707,7 @@ rule
                 | primary_value tCOLON2 tCONSTANT
                     {
                       if (self.in_def || self.in_single > 0) then
-                        debug 14
+                        debug 4
                         yyerror "dynamic constant assignment"
                       end
 
@@ -719,7 +719,7 @@ rule
                 | tCOLON3 tCONSTANT
                     {
                       if (self.in_def || self.in_single > 0) then
-                        debug 15
+                        debug 5
                         yyerror "dynamic constant assignment"
                       end
 
@@ -746,7 +746,7 @@ rule
 
                       result = self.assignable var
 
-                      debug 16
+                      debug 6
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket
                     {
@@ -777,7 +777,7 @@ rule
                       expr, _, (id, _line) = val
 
                       if (self.in_def || self.in_single > 0) then
-                        debug 17
+                        debug 7
                         yyerror "dynamic constant assignment"
                       end
 
@@ -789,7 +789,7 @@ rule
                       _, (id, l) = val
 
                       if (self.in_def || self.in_single > 0) then
-                        debug 18
+                        debug 8
                         yyerror "dynamic constant assignment"
                       end
 
@@ -1428,7 +1428,7 @@ rule
                     }
                 | kNOT tLPAREN2 rparen
                     {
-                      debug 19
+                      debug 9
                     }
                 | fcall brace_block
                     {
@@ -2489,7 +2489,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                         assignable [lhs.value, lhs.line]
                       else
                         # TODO or done?
-                        debug 666
+                        debug 10
                       end
 
                       # TODO PAIR -> LIST ?
@@ -2504,7 +2504,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                 | tSTRING_BEG string_contents tLABEL_END
                     {
                       # you can't actually get here the way I lex labels
-                      debug 8
+                      debug 11
                     }
 #endif
 
@@ -2703,7 +2703,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
           string: tCHAR
                     {
-                      debug 36
+                      debug 12
                     }
                 | string1
                 | string string1
@@ -2924,7 +2924,7 @@ regexp_contents: none
                       when nil then
                         result = s(:evstr).line line
                       else
-                        debug 37
+                        debug 13
                         raise "unknown string body: #{stmt.inspect}"
                       end
                     }
@@ -2975,7 +2975,7 @@ regexp_contents: none
                       when :evstr then
                         result = s(:dsym, "", result).line result.line
                       else
-                        debug 38
+                        debug 14
                       end
                     }
 
@@ -3041,7 +3041,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                 | keyword_variable
                     {
                       result = self.assignable val[0]
-                      debug 39
+                      debug 15
                     }
 
          backref: tNTH_REF
