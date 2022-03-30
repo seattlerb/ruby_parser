@@ -1,3 +1,24 @@
+=== 3.19.0 / 2022-03-29
+
+* 1 major enhancement:
+
+  * Added tentative 3.1 support.
+
+* 7 minor enhancements:
+
+  * 3.1: bare RHS assoc: { y: } => s(:hash, s(:lit, :y), nil)
+  * 3.1: calls w/ unnamed block args (bare &)
+  * 3.1: endless defn/defs w/ paren-less calls (aka commands)
+  * 3.1: pattern capture to nonlocal vars, eg: ^@a, ^$b, ^@@c
+  * 3.1: pattern: ^(expr) => expr
+  * Improved steps for adding new versions.
+  * Improved steps for running gauntlets.
+
+* 2 bug fixes:
+
+  * Bumped 2.6+ cached versions for rake compare.
+  * Skip test_regexp_esc_C_slash on ruby 3.1.0 because of MRI bug.
+
 === 3.18.1 / 2021-11-10
 
 * 1 minor enhancement:
