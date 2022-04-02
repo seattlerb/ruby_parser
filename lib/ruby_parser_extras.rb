@@ -994,6 +994,8 @@ module RubyParserStuff
     local_pop in_def
     endless_method_name result
 
+    result.comments = self.comments.pop
+
     result
   end
 
@@ -1013,6 +1015,8 @@ module RubyParserStuff
     self.in_single -= 1
     local_pop in_def
     endless_method_name result
+
+    result.comments = self.comments.pop
 
     result
   end
