@@ -42,8 +42,7 @@ using `unpack_gems.rb`.
 ... waaaait ...
 % DIR=gauntlet.$(today).(all|new).noindex
 % mv hashed.noindex $DIR
-% tar c $DIR | zstd -5 -T0 --long > archives/$DIR.tar.zst
-% tar vc -T <(fd . $DIR | sort) | zstd -5 -T0 --long > archives/$DIR.tar.zst
+% tar vc -T <(fd -tf . $DIR | sort) | zstd -5 -T0 --long > archives/$DIR.tar.zst ; say done
 % ./bin/sync.sh
 ```
 
@@ -66,8 +65,8 @@ Unpacking, validating, SHA'ing everything is disk and CPU intensive.
 The `.noindex` extension stops spotlight from indexing the continous
 churn of files being unpacked and moved and saves time.
 
-Finally, I rename and archive it all up (currently using lrztar, but
-I'm not in love with it).
+Finally, I rename and archive it all up (currently using zstd to
+compress).
 
 ### Stats
 
@@ -75,7 +74,7 @@ I'm not in love with it).
 9696 % find gauntlet.$(today).noindex -type f | lc
   561270
 3.5G gauntlet.2021-08-06.noindex
-239M gauntlet.2021-08-06.noindex.tar.lrz
+239M gauntlet.2021-08-06.noindex.tar.zst
 ```
 
 So I wind up with a little over half a million unique ruby files to
@@ -86,7 +85,7 @@ parse. It's about 3.5g but compresses very nicely down to 240m
 Assuming you're starting from scratch, unpack the archive once:
 
 ```
-% lrzuntar gauntlet.$(today).noindex.lrz
+% zstdcat gauntlet.$(today).noindex.tar.zst | tar x
 ```
 
 Then, either run a single process (easier to read):
@@ -98,7 +97,7 @@ Then, either run a single process (easier to read):
 Or max out your machine using xargs (note the `-P 16` and choose accordingly):
 
 ```
-% ls -d gauntlet/*.noindex/?/? | xargs -n 1 -P 16 ./gauntlet/bin/gauntlet.rb
+% ls -d gauntlet/*.noindex/?/? | time xargs -n 1 -P 16 ./gauntlet/bin/gauntlet.rb
 ```
 
 In another terminal I usually monitor the progress like so:
