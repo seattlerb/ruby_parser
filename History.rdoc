@@ -1,3 +1,10 @@
+=== 3.19.1 / 2022-04-05
+
+* 2 bug fixes:
+
+  * Added comments to endless defn and defs. (mvz)
+  * Fixed endless method bug handling attrset names.
+
 === 3.19.0 / 2022-03-29
 
 * 1 major enhancement:
