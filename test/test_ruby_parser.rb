@@ -5272,6 +5272,15 @@ module TestRubyParserShared30Plus
     assert_parse rb, pt.deep_each { |s| s.line = 1 }
   end
 
+  def test_defn_oneliner_comment
+    p = RubyParser.new
+    rb = "# blah\ndef exec(cmd) = system(cmd)"
+    sexp = p.parse rb
+
+    assert_equal :defn, sexp.sexp_type
+    assert_equal "# blah\n", sexp.comments
+  end
+
   def test_defs_oneliner
     rb = "def self.exec(cmd) = system(cmd)"
     pt = s(:defs, s(:self), :exec, s(:args, :cmd),
@@ -5293,6 +5302,15 @@ module TestRubyParserShared30Plus
 
     rb = "def self.exec(cmd) = system(cmd) rescue nil"
     assert_parse rb, pt.deep_each { |s| s.line = 1 }
+  end
+
+  def test_defs_oneliner_comment
+    p = RubyParser.new
+    rb = "# blah\ndef self.exec(cmd) = system(cmd)"
+    sexp = p.parse rb
+
+    assert_equal :defs, sexp.sexp_type
+    assert_equal "# blah\n", sexp.comments
   end
 
   def test_defn_oneliner_setter
