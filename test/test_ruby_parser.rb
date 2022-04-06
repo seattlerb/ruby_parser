@@ -5317,12 +5317,40 @@ module TestRubyParserShared30Plus
     rb = "class X\n  def x=(o) = 42\nend"
 
     assert_syntax_error rb, /setter method cannot be defined/
+
+    rb = "class X\n  def []=(k, v) = 42\nend"
+
+    assert_syntax_error rb, /setter method cannot be defined/
   end
 
   def test_defs_oneliner_setter
-    rb = "class X\n  def self.x= = 42\nend"
+    rb = "class X\n  def self.x=(o) = 42\nend"
 
     assert_syntax_error rb, /setter method cannot be defined/
+
+    rb = "class X\n  def self.[]=(k, v) = 42\nend"
+
+    assert_syntax_error rb, /setter method cannot be defined/
+  end
+
+  def test_defn_oneliner_eq2
+    rb = "class X\n  def ==(o) = 42\nend"
+    pt = s(:class, :X, nil,
+           s(:defn, :==, s(:args, :o).line(2),
+             s(:lit, 42).line(2)).line(2)
+          ).line(1)
+
+    assert_parse rb, pt
+  end
+
+  def test_defs_oneliner_eq2
+    rb = "class X\n  def self.==(o) = 42\nend"
+    pt = s(:class, :X, nil,
+           s(:defs, s(:self).line(2), :==, s(:args, :o).line(2),
+             s(:lit, 42).line(2)).line(2)
+          ).line(1)
+
+    assert_parse rb, pt
   end
 end
 

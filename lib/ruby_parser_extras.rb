@@ -218,11 +218,15 @@ module RubyParserStuff
     self.args args
   end
 
+  def attrset_id? id
+    id =~ /^\[\]=$|^\w+=$/
+  end
+
   def endless_method_name defn_or_defs
     name = defn_or_defs[1]
     name = defn_or_defs[2] unless Symbol === name
 
-    if name.end_with? "=" then
+    if attrset_id? name then
       yyerror "setter method cannot be defined in an endless method definition"
     end
 
