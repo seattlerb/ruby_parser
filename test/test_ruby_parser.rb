@@ -4270,6 +4270,21 @@ module TestRubyParserShared23Plus
     assert_parse rb, pt
   end
 
+  def test_heredoc_squiggly_blank_line_plus_interpolation
+    rb = "a = foo(<<~EOF.chop)\n\n    #\{bar}baz\n  EOF"
+    pt = s(:lasgn, :a,
+           s(:call,
+             nil,
+             :foo,
+             s(:call,
+               s(:dstr, "\n",
+                 s(:evstr, s(:call, nil, :bar).line(3)).line(3),
+                 s(:str, "baz\n").line(3)).line(1),
+               :chop).line(1)).line(1)).line(1)
+
+    assert_parse rb, pt
+  end
+
   def test_integer_with_if_modifier
     rb = "1_234if true"
     pt = s(:if, s(:true), s(:lit, 1234), nil)
