@@ -3541,10 +3541,8 @@ module TestRubyParserShared20Plus
   end
 
   def test_regexp_esc_C_slash
-    skip "https://bugs.ruby-lang.org/issues/18449" if RUBY_VERSION == "3.1.0"
-
     rb = "/\\cC\\d/"
-    pt = s(:lit, /\cC\d/)
+    pt = s(:lit, Regexp.new('\cC\d')) # https://bugs.ruby-lang.org/issues/18449
 
     assert_parse rb, pt
   end
