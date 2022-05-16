@@ -12,6 +12,7 @@ Hoe.add_include_dirs "lib"
 Hoe.add_include_dirs "../../sexp_processor/dev/lib"
 Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
+Hoe.add_include_dirs "../../ruby2ruby/dev/lib"
 
 V2   = %w[20 21 22 23 24 25 26 27]
 V3   = %w[30 31]

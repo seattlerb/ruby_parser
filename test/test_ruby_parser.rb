@@ -4553,8 +4553,8 @@ module TestPatternMatching
     pt = s(:array_pat,
            nil,
            s(:lit, :a).line(2),
-           s(:lvar, :b).line(2),
-           s(:lvar, :c).line(2),
+           s(:lasgn, :b).line(2),
+           s(:lasgn, :c).line(2),
            s(:array_pat,
              nil,
              s(:lit, :d).line(2),
@@ -4667,7 +4667,7 @@ module TestPatternMatching
     pt = s(:array_pat, nil,
            s(:iter, s(:lambda).line(2), s(:args, :b).line(2),
              s(:true).line(2)).line(2),
-           s(:lvar, :c).line(2)).line(2)
+           s(:lasgn, :c).line(2)).line(2)
 
     assert_case_in rb, pt
   end
@@ -4677,7 +4677,7 @@ module TestPatternMatching
     pt = s(:array_pat, nil,
            s(:array_pat, nil,
              s(:lit, :b).line(2),
-             s(:lvar, :c).line(2)).line(2),
+             s(:lasgn, :c).line(2)).line(2),
            s(:array_pat,
              nil,
              s(:lit, :d).line(2),
@@ -4723,7 +4723,7 @@ module TestPatternMatching
            s(:in,
              s(:array_pat,
                s(:const, :B).line(2),
-               s(:lvar, :c).line(2)).line(2),
+               s(:lasgn, :c).line(2)).line(2),
              s(:lit, :d).line(3)).line(2),
            nil)
 
@@ -4736,7 +4736,7 @@ module TestPatternMatching
            s(:in,
              s(:array_pat,
                s(:const, s(:colon2, s(:const, :B).line(2), :C).line(2)).line(2),
-               s(:lvar, :d).line(2)).line(2),
+               s(:lasgn, :d).line(2)).line(2),
              s(:lit, :e).line(3)).line(2),
           nil)
 
@@ -4841,7 +4841,7 @@ module TestPatternMatching
              s(:hash_pat,
                nil,
                s(:lit, :b).line(2),
-               s(:lvar, :c).line(2),
+               s(:lasgn, :c).line(2),
                s(:kwrest, :"**rest").line(2)).line(2),
              s(:lit, :d).line(2)).line(2),
            nil)
@@ -4934,12 +4934,12 @@ module TestPatternMatching
   end
 
   def test_parse_pattern_044
-      rb = <<~RUBY
-        case obj
-        in Object[]
-          true
-        end
-      RUBY
+    rb = <<~RUBY
+      case obj
+      in Object[]
+        true
+      end
+    RUBY
     pt = s(:case,
            s(:call, nil, :obj),
            s(:in, s(:array_pat, s(:const, :Object).line(2)).line(2),
@@ -5072,7 +5072,7 @@ module TestPatternMatching30
                    s(:find_pat,
                      s(:const, :Symbol).line(2),
                      :"*lhs",
-                     s(:array_pat, s(:lvar, :x).line(2)).line(2),
+                     s(:array_pat, s(:lasgn, :x).line(2)).line(2),
                      :"*rhs").line(2))
   end
 
@@ -5080,7 +5080,7 @@ module TestPatternMatching30
     assert_case_in("Symbol[*lhs, x, *rhs]",
                    s(:find_pat, s(:const, :Symbol).line(2),
                      :"*lhs",
-                     s(:array_pat, s(:lvar, :x).line(2)).line(2),
+                     s(:array_pat, s(:lasgn, :x).line(2)).line(2),
                      :"*rhs").line(2))
   end
 end
@@ -5196,7 +5196,7 @@ module TestRubyParserShared30Plus
     rb = "42 => n"
     pt = s(:case,
            s(:lit, 42),
-           s(:in, s(:lvar, :n), nil), nil)
+           s(:in, s(:lasgn, :n), nil), nil)
 
     assert_parse rb, pt
   end
@@ -5223,7 +5223,7 @@ module TestRubyParserShared30Plus
            s(:in,
              s(:find_pat, nil,
                :*,
-               s(:array_pat, s(:lit, :b).line(2), s(:lvar, :c).line(2)).line(2),
+               s(:array_pat, s(:lit, :b).line(2), s(:lasgn, :c).line(2)).line(2),
                :*).line(2),
              nil).line(2),
            nil)
@@ -5524,6 +5524,8 @@ class RubyParserTestCase < ParseTreeTestCase
 
   attr_accessor :assert_parse_ran
 
+  require "ruby2ruby" if ENV["R2R"]
+
   def assert_parse rb, pt
     self.processor.reset if assert_parse_ran # allows multiple calls
     self.assert_parse_ran = true
@@ -5534,6 +5536,10 @@ class RubyParserTestCase < ParseTreeTestCase
     pt.line ||= 1
 
     self.result = processor.parse rb, "(string)", timeout
+
+    # just try it for now:
+    Ruby2Ruby.new.process(result.deep_clone) if ENV["R2R"]
+
     assert_equal pt, result
   end
 

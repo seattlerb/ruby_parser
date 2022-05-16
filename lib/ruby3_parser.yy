@@ -2607,7 +2607,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       # TODO: error_duplicate_pattern_variable(p, $1, &@1);
                       # TODO: assignable(p, $1, 0, &@$);
-                      result = wrap :lvar, val[0]
+                      result = wrap :lasgn, val[0]
                     }
 
        p_var_ref: tCARET tIDENTIFIER
