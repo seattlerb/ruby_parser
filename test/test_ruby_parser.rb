@@ -4660,19 +4660,19 @@ module TestPatternMatching
   end
 
   def test_case_in_78
-    assert_case_in "%W[a b]", s(:array, s(:str, "a").line(2), s(:str, "b").line(2)).line(2)
+    assert_case_in "%W[a b]", s(:array_pat, nil, s(:str, "a").line(2), s(:str, "b").line(2)).line(2)
   end
 
   def test_case_in_79
-    assert_case_in "%w[a b]", s(:array, s(:str, "a").line(2), s(:str, "b").line(2)).line(2)
+    assert_case_in "%w[a b]", s(:array_pat, nil, s(:str, "a").line(2), s(:str, "b").line(2)).line(2)
   end
 
   def test_case_in_80
-    assert_case_in "%I[a b]", s(:array, s(:lit, :a).line(2), s(:lit, :b).line(2)).line(2)
+    assert_case_in "%I[a b]", s(:array_pat, nil, s(:lit, :a).line(2), s(:lit, :b).line(2)).line(2)
   end
 
   def test_case_in_81
-    assert_case_in "%i[a b]", s(:array, s(:lit, :a).line(2), s(:lit, :b).line(2)).line(2)
+    assert_case_in "%i[a b]", s(:array_pat, nil, s(:lit, :a).line(2), s(:lit, :b).line(2)).line(2)
   end
 
   def test_case_in_83

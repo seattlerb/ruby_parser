@@ -731,6 +731,13 @@ module RubyParserStuff
     result
   end
 
+  def ary_to_pat ary
+    pat = ary.dup
+    pat.sexp_type = :array_TAIL
+
+    new_array_pattern nil, nil, pat, ary.line
+  end
+
   def new_array_pattern const, pre_arg, arypat, loc
     result = s(:array_pat, const).line loc
     result << pre_arg if pre_arg

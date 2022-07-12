@@ -2591,9 +2591,21 @@ opt_block_args_tail: tCOMMA block_args_tail
                 | xstring
                 | regexp
                 | words
+                    {
+                      result = ary_to_pat val[0]
+                    }
                 | qwords
+                    {
+                      result = ary_to_pat val[0]
+                    }
                 | symbols
+                    {
+                      result = ary_to_pat val[0]
+                    }
                 | qsymbols
+                    {
+                      result = ary_to_pat val[0]
+                    }
                 | keyword_variable
                     {
                       # TODO? if (!($$ = gettable(p, $1, &@$))) $$ = NEW_BEGIN(0, &@$);
