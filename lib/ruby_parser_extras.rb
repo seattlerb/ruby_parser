@@ -1073,9 +1073,9 @@ module RubyParserStuff
     lhs_id = "*#{lhs_id}".to_sym
     rhs_id = "*#{rhs_id}".to_sym
 
-    mid.sexp_type = :array_pat # HACK?
+    raise "BAD?" unless mid.sexp_type == :array_TAIL
 
-    s(:find_pat_TAIL, lhs_id, mid, rhs_id).line line
+    s(:find_pat_TAIL, lhs_id, *mid.sexp_body, rhs_id).line line
   end
 
   def new_for expr, var, body

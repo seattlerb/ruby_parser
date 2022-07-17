@@ -5085,7 +5085,7 @@ module TestPatternMatching30
                    s(:find_pat,
                      s(:const, :Symbol).line(2),
                      :"*lhs",
-                     s(:array_pat, s(:lasgn, :x).line(2)).line(2),
+                     s(:lasgn, :x).line(2),
                      :"*rhs").line(2))
   end
 
@@ -5093,7 +5093,7 @@ module TestPatternMatching30
     assert_case_in("Symbol[*lhs, x, *rhs]",
                    s(:find_pat, s(:const, :Symbol).line(2),
                      :"*lhs",
-                     s(:array_pat, s(:lasgn, :x).line(2)).line(2),
+                     s(:lasgn, :x).line(2),
                      :"*rhs").line(2))
   end
 end
@@ -5221,7 +5221,7 @@ module TestRubyParserShared30Plus
            s(:in,
              s(:find_pat, nil,
                :"*a",
-               s(:array_pat, s(:lit, :+).line(2)).line(2),
+               s(:lit, :+).line(2),
                :"*b").line(2),
              nil).line(2),
            nil)
@@ -5236,7 +5236,7 @@ module TestRubyParserShared30Plus
            s(:in,
              s(:find_pat, nil,
                :*,
-               s(:array_pat, s(:lit, :b).line(2), s(:lasgn, :c).line(2)).line(2),
+               s(:lit, :b).line(2), s(:lasgn, :c).line(2),
                :*).line(2),
              nil).line(2),
            nil)
