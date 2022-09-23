@@ -3010,10 +3010,7 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_symbol_double_escape_octal
-    assert_lex3(":\"Variet\\303\\240\"", nil, :tSYMBOL, "Varietà", EXPR_LIT)
-
-    input = ":\"Variet\\303\\240\""
-    setup_lexer input
+    setup_lexer ":\"Variet\\303\\240\""
 
     adv = @lex.next_token
     act_token, act_value = adv

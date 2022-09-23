@@ -232,7 +232,12 @@ class RubyLexer
     content = match[1]
 
     if text =~ check then
-      content.gsub(ESC) { unescape $1 }
+      str = content.gsub(ESC) { unescape($1).b.force_encoding Encoding::UTF_8 }
+      if str.valid_encoding?
+        str
+      else
+        str.b
+      end
     else
       content.gsub(/\\\\/, "\\").gsub(/\\\'/, "'")
     end
