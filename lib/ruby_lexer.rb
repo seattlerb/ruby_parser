@@ -232,12 +232,7 @@ class RubyLexer
     content = match[1]
 
     if text =~ check then
-      str = content.gsub(ESC) { unescape($1).b.force_encoding Encoding::UTF_8 }
-      if str.valid_encoding?
-        str
-      else
-        str.b
-      end
+      unescape_string content
     else
       content.gsub(/\\\\/, "\\").gsub(/\\\'/, "'")
     end
@@ -595,9 +590,7 @@ class RubyLexer
     orig_line = lineno
     self.lineno += text.count("\n")
 
-    str = text[1..-2]
-      .gsub(ESC) { unescape($1).b.force_encoding Encoding::UTF_8 }
-    str = str.b unless str.valid_encoding?
+    str = unescape_string text[1..-2]
 
     result EXPR_END, :tSTRING, str, orig_line
   end
@@ -819,6 +812,15 @@ class RubyLexer
     else
       # TODO: warn_balanced("**", "argument prefix");
       fallback
+    end
+  end
+
+  def unescape_string str
+    str = str.gsub(ESC) { unescape($1).b.force_encoding Encoding::UTF_8 }
+    if str.valid_encoding?
+      str
+    else
+      str.b
     end
   end
 
