@@ -3009,6 +3009,19 @@ class TestRubyLexer < Minitest::Test
                 :tSTRING_END,     "\"",     EXPR_LIT)
   end
 
+  def test_yylex_symbol_double_escape_octal
+    setup_lexer ":\"Variet\\303\\240\""
+
+    adv = @lex.next_token
+    act_token, act_value = adv
+    act_value = act_value.first
+
+    assert_equal :tSYMBOL, act_token
+    assert_match EXPR_LIT, @lex.lex_state
+    # Force comparison of encodings
+    assert_equal "Varietà", act_value
+  end
+
   def test_yylex_symbol_single
     assert_lex3(":'symbol'",
                 nil,

@@ -826,6 +826,13 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_dsym_esc_to_sym
+    rb = ':"Variet\303\240"'
+    pt = s(:lit, :Varietà)
+
+    assert_parse rb, pt
+  end
+
   def test_empty
     refute_parse ""
   end
