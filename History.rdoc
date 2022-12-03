@@ -1,3 +1,13 @@
+=== 3.19.2 / 2022-12-03
+
+* 5 bug fixes:
+
+  * Fixed bug parsing array patterns using %w, %i, etc.
+  * Fixed dedenting when heredoc has only empty line and interpolation. (mvz)
+  * Fixed dsym unescaping. (mvz)
+  * Fixed vars in pattern matching that should be lasgn, not lvar.
+  * find_pat mid-patterns are now splatted inline, not wrapped in an array_pat.
+
 === 3.19.1 / 2022-04-05
 
 * 2 bug fixes:
