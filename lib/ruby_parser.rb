@@ -81,10 +81,12 @@ require "ruby26_parser"
 require "ruby27_parser"
 require "ruby30_parser"
 require "ruby31_parser"
+require "ruby32_parser"
 
 class RubyParser # HACK
   VERSIONS.clear # also a HACK caused by racc namespace issues
 
+  class V32 < ::Ruby32Parser; end
   class V31 < ::Ruby31Parser; end
   class V30 < ::Ruby30Parser; end
   class V27 < ::Ruby27Parser; end
