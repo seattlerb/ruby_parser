@@ -38,7 +38,7 @@ Hoe.spec "ruby_parser" do
 
   dependency "racc", "~> 1.5", :developer
 
-  require_ruby_version [">= 2.1", "< 4"]
+  require_ruby_version [">= 2.6", "< 4"]
 
   if plugin? :perforce then     # generated files
     VERS.each do |n|
