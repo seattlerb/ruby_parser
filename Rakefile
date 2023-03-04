@@ -186,6 +186,9 @@ def ruby_parse version
   file c_parse_y => c_tarball do
     in_compare do
       extract_glob = case
+                     # defs/id.def
+                     when version > "3.2" then
+                       "{id.h,parse.y,tool/{id2token.rb,lib/vpath.rb},defs/id.def}"
                      when version > "2.7" then
                        "{id.h,parse.y,tool/{id2token.rb,lib/vpath.rb}}"
                      else
@@ -195,7 +198,8 @@ def ruby_parse version
 
       Dir.chdir ruby_dir do
         if File.exist? "tool/id2token.rb" then
-          sh "ruby tool/id2token.rb --path-separator=.:./ id.h parse.y | expand > ../#{parse_y}"
+          args = version < "3.2" ? "--path-separator=.:./ id.h" : ""
+          sh "ruby tool/id2token.rb #{args} parse.y | expand > ../#{parse_y}"
         else
           sh "expand parse.y > ../#{parse_y}"
         end
