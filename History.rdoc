@@ -1,3 +1,17 @@
+=== 3.20.0 / 2023-03-04
+
+* 1 major enhancement:
+
+  * Added tentative 3.2 support.
+
+* 1 minor enhancement:
+
+  * Change minimum ruby version to 2.6. (want higher)
+
+* 1 bug fix:
+
+  * Fix up compare tasks for ruby 3.2 differences.
+
 === 3.19.2 / 2022-12-03
 
 * 5 bug fixes:
