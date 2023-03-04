@@ -296,11 +296,11 @@ ruby_parse "2.2.10"
 ruby_parse "2.3.8"
 ruby_parse "2.4.10"
 ruby_parse "2.5.9"
-ruby_parse "2.6.9"
-ruby_parse "2.7.5"
-ruby_parse "3.0.3"
-ruby_parse "3.1.1"
-ruby_parse "3.2.0"
+ruby_parse "2.6.10"
+ruby_parse "2.7.7"
+ruby_parse "3.0.5"
+ruby_parse "3.1.3"
+ruby_parse "3.2.1"
 
 task :debug => :isolate do
   ENV["V"] ||= VERS.last
