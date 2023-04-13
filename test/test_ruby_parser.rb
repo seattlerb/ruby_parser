@@ -15,9 +15,24 @@ class Sexp
   def == other # :nodoc:
     if other.class == self.class then
       super and
-        (line.nil? or other.line.nil? or line == other.line)
+        (line.nil?     or other.line.nil?     or line == other.line) and
+        (!defined(@line_max) or @line_max.nil? or line_max == other.line_max)
+        # (line_max.nil? or other.line_max.nil? or line_max == other.line_max)
     else
       false
+    end
+  end
+
+  # convenience function just for testing
+  alias dead line_max
+  def line_max n = UNASSIGNED
+    if n != UNASSIGNED then
+      raise ArgumentError, "setting %p.line_max %p" % [self, n] unless Integer === n
+      @line_max = n
+      self
+    else
+      # raise "Accessing before @line_max defined" unless defined?(@line_max)
+      @line_max ||= self.deep_each.map(&:line).compact.max
     end
   end
 end
@@ -965,7 +980,12 @@ module TestRubyParserShared
   end
 
   def test_heredoc_with_extra_carriage_horrible_mix?
-    rb = "<<'eot'\r\nbody\r\neot\n"
+    rb = <<~RUBY
+      <<'eot'\r
+      body\r
+      eot
+    RUBY
+
     pt = s(:str, "body\r\n")
 
     assert_parse rb, pt
@@ -1051,9 +1071,9 @@ module TestRubyParserShared
   end
 
   def test_i_fucking_hate_line_numbers2
-    rb = <<-EOM.gsub(/^ {6}/, "")
+    rb = <<~EOM
       if true then
-        p('a')
+        p("a")
         b = 1
         p b
         c =1
@@ -1072,6 +1092,138 @@ module TestRubyParserShared
            s(:call, nil, :a).line(7))
 
     assert_parse rb, pt
+  end
+
+  line_max_array = s(:array,
+                     s(:lit, :line2).line(2),
+                     s(:lit, :line3).line(3)).line(1).line_max(4)
+  line_max_array_empty = s(:array).line(1).line_max(4)
+  [
+    [:plain_array,
+     "[\n:line2,\n:line3\n]",
+     line_max_array,
+    ],
+    [:pct_i,
+     "%i[\nline2\nline3\n]",
+     line_max_array,
+    ],
+    [:pct_i_empty,
+     "%i[\n\n\n]",
+     line_max_array_empty,
+    ],
+    [:pct_I,
+     "%I[\nline2\nline3\n]",
+     line_max_array,
+    ],
+    [:pct_I_empty,
+     "%I[\n\n\n]",
+     line_max_array_empty,
+    ],
+    [:call_parens,
+     "x(\n:line2,\n:line3\n)",
+     s(:call, nil, :x, *line_max_array.sexp_body).line(1).line_max(4),
+    ],
+    [:pct_w,
+     "%w[\nline2\nline3\n]",
+     s(:array,
+       s(:str, "line2").line(2),
+       s(:str, "line3").line(3)).line(1).line_max(4),
+    ],
+    [:pct_w_empty,
+     "%w[\n\n\n]",
+     line_max_array_empty,
+    ],
+    [:pct_W,
+     "%W[\nline2\nline3\n]",
+     s(:array,
+       s(:str, "line2").line(2),
+       s(:str, "line3").line(3)).line(1).line_max(4),
+    ],
+    [:pct_W_empty,
+     "%W[\n\n\n]",
+     line_max_array_empty,
+    ],
+    [:regexp,
+     "%r[\n\n\n]", # double-quotes to have the \n counted as lines on input
+     s(:lit, %r[#{"\n\n\n"}]).line(1).line_max(4),
+    ],
+    [:module,
+     <<~"RUBY",
+       module X   # line 1
+         module Y # line 2
+           Z = 42 # line 3
+         end      # line 4
+       end        # line 5
+     RUBY
+     s(:module, :X,
+       s(:module, :Y,
+         s(:cdecl, :Z, s(:lit, 42).line(3)).line(3).line_max(3)
+        ).line(2).line_max(4)
+      ).line(1).line_max(5)],
+    [:class,
+     <<~"RUBY",
+       class X    # line 1
+         class Y  # line 2
+           Z = 42 # line 3
+         end      # line 4
+       end        # line 5
+     RUBY
+     s(:class, :X, nil,
+       s(:class, :Y, nil,
+         s(:cdecl, :Z, s(:lit, 42).line(3)).line(3).line_max(3)
+        ).line(2).line_max(4)
+      ).line(1).line_max(5)],
+    [:cdecl,
+     <<~"RUBY",
+       module X
+         X = [
+           :line3,
+           :line4,
+         ]
+       end
+     RUBY
+     s(:module, :X,
+       s(:cdecl, :X,
+         s(:array,
+           s(:lit, :line3).line(3),
+           s(:lit, :line4).line(4)).line(2).line_max(5),
+        ).line(2).line_max(5),
+      ).line(1).line_max(6)
+    ],
+    [:defn,
+     <<~"RUBY",
+       class X    # line 1
+         def y(a, # line 2
+               b) # line 3
+           a + b  # line 4
+         end      # line 5
+       end        # line 6
+     RUBY
+     s(:class, :X, nil,
+       s(:defn, :y, s(:args, :a, :b).line(2).line_max(3),
+         s(:call, s(:lvar, :a).line(4), :+, s(:lvar, :b).line(4)).line(4)
+        ).line(2).line_max(5),
+      ).line(1).line_max(6),
+    ],
+    [:defs,
+     <<~"RUBY",
+       class X         # line 1
+         def self.y(a, # line 2
+               b)      # line 3
+           a + b       # line 4
+         end           # line 5
+       end             # line 6
+     RUBY
+     s(:class, :X, nil,
+       s(:defs, s(:self).line(2), :y, s(:args, :a, :b).line(2).line_max(3),
+         s(:call, s(:lvar, :a).line(4), :+, s(:lvar, :b).line(4)).line(4)
+        ).line(2).line_max(5),
+      ).line(1).line_max(6),
+    ],
+  ].each do |(name, rb, pt)|
+    define_method "test_line_numbers__max_line__#{name}" do
+      assert_parse rb, pt
+    end
   end
 
   def test_if_elsif
@@ -5782,8 +5934,6 @@ class TestRubyParserV26 < RubyParserTestCase
 end
 
 class TestRubyParserV27 < RubyParserTestCase
-  make_my_diffs_pretty!
-
   include TestRubyParserShared27Plus
 
   def setup

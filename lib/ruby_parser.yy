@@ -253,6 +253,7 @@ rule
                 | lhs tEQL mrhs
                     {
                       lhs, _, rhs = val
+
                       result = new_assign lhs, s(:svalue, rhs).line(rhs.line)
                     }
 #if V == 20
@@ -1107,8 +1108,10 @@ rule
 
       paren_args: tLPAREN2 opt_call_args rparen
                     {
-                      _, args, _ = val
+                      _, args, (_, line_max) = val
+
                       result = args
+                      result.line_max = line_max if args
                     }
 #if V >= 27
                 | tLPAREN2 args tCOMMA args_forward rparen
@@ -1335,12 +1338,14 @@ rule
                     {
                       result = wrap :colon3, val[1]
                     }
-                | tLBRACK { result = lexer.lineno } aref_args tRBRACK
+                | tLBRACK { result = lexer.lineno } aref_args rbracket
                     {
-                      _, line, args, _ = val
+                      _, line, args, (_, line_max) = val
+
                       result = args || s(:array)
                       result.sexp_type = :array # aref_args is :args
                       result.line line
+                      result.line_max = line_max
                     }
                 | tLBRACE
                     {
@@ -1942,13 +1947,19 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       call, args = val
 
-                      result = call.concat args.sexp_body if args
+                      result = call
+
+                      if args then
+                        call.concat args.sexp_body
+                        result.line_max = args.line_max
+                      end
                     }
                 | primary_value call_op operation2 opt_paren_args
                     {
-                      recv, call_op, (op, _line), args = val
+                      recv, call_op, (op, op_line), args = val
 
                       result = new_call recv, op.to_sym, args, call_op
+                      result.line_max = op_line unless args
                     }
                 | primary_value tCOLON2 operation2 paren_args
                     {
@@ -2674,15 +2685,17 @@ opt_block_args_tail: tCOMMA block_args_tail
 
            words: tWORDS_BEG tSPACE tSTRING_END
                     {
-                      (_, line), _, _ = val
+                      (_, line), _, (_, line_max) = val
 
                       result = s(:array).line line
+                      result.line_max = line_max
                     }
                 | tWORDS_BEG word_list tSTRING_END
                     {
-                      (_, line), list, _ = val
+                      (_, line), list, (_, line_max) = val
 
                       result = list.line line
+                      result.line_max = line_max
                     }
 
        word_list: none
@@ -2702,15 +2715,17 @@ opt_block_args_tail: tCOMMA block_args_tail
 
          symbols: tSYMBOLS_BEG tSPACE tSTRING_END
                     {
-                      (_, line), _, _ = val
+                      (_, line), _, (_, line_max) = val
 
                       result = s(:array).line line
+                      result.line_max = line_max
                     }
                 | tSYMBOLS_BEG symbol_list tSTRING_END
                     {
-                      (_, line), list, _, = val
-                      list.line line
-                      result = list
+                      (_, line), list, (_, line_max), = val
+
+                      result = list.line line
+                      result.line_max = line_max
                     }
 
      symbol_list: none
@@ -2725,28 +2740,32 @@ opt_block_args_tail: tCOMMA block_args_tail
 
           qwords: tQWORDS_BEG tSPACE tSTRING_END
                     {
-                      (_, line), _, _ = val
+                      (_, line), _, (_, line_max) = val
 
                       result = s(:array).line line
+                      result.line_max = line_max
                     }
                 | tQWORDS_BEG qword_list tSTRING_END
                     {
-                      (_, line), list, _ = val
+                      (_, line), list, (_, line_max) = val
 
                       result = list.line line
+                      result.line_max = line_max
                     }
 
         qsymbols: tQSYMBOLS_BEG tSPACE tSTRING_END
                     {
-                      (_, line), _, _ = val
+                      (_, line), _, (_, line_max) = val
 
                       result = s(:array).line line
+                      result.line_max = line_max
                     }
                 | tQSYMBOLS_BEG qsym_list tSTRING_END
                     {
-                      (_, line), list, _ = val
+                      (_, line), list, (_, line_max) = val
 
                       result = list.line line
+                      result.line_max = line_max
                     }
 
       qword_list: none
@@ -3197,7 +3216,14 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                         result = s(:args, list).line list.line
                       end
 
-                      result << (Sexp === item ? item : item.first)
+                      if Sexp === item then
+                        line_max = item.line_max
+                      else
+                        item, line_max = item
+                      end
+
+                      result << item
+                      result.line_max = line_max
                     }
 
 #if V == 20
@@ -3449,7 +3475,15 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
        opt_terms:  | terms
           opt_nl:  | tNL
           rparen: opt_nl tRPAREN
+                    {
+                      _, close = val
+                      result = [close, lexer.lineno]
+                    }
         rbracket: opt_nl tRBRACK
+                    {
+                      _, close = val
+                      result = [close, lexer.lineno]
+                    }
 #if V >= 27
           rbrace: opt_nl tRCURLY
 #endif

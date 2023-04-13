@@ -18,7 +18,7 @@ class Sexp
   end
 
   ##
-  # Returns the maximum line number of the children of self.
+  # Returns the minimum line number of the children of self.
 
   def line_min
     @line_min ||= [self.deep_each.map(&:line).min, self.line].compact.min
@@ -153,6 +153,7 @@ module RubyParserStuff
       result.line lexer.lineno
     else
       result.line ss.first.line
+      result.line_max = ss.first.line_max
     end
 
     args.each do |arg|
@@ -330,9 +331,7 @@ module RubyParserStuff
     end
 
     args.each do |arg|
-      if arg.instance_of? Array and arg.size == 2 and arg.last.is_a? Numeric then
-        arg = arg.first
-      end
+      next if arg in [String, Integer] # eg ["(", 1]
 
       case arg
       when Sexp then
@@ -794,6 +793,7 @@ module RubyParserStuff
     case lhs.sexp_type
     when :lasgn, :iasgn, :cdecl, :cvdecl, :gasgn, :cvasgn, :attrasgn, :safe_attrasgn then
       lhs << rhs
+      lhs.line_max = rhs.line_max
     when :const then
       lhs.sexp_type = :cdecl
       lhs << rhs
@@ -885,12 +885,13 @@ module RubyParserStuff
     # TODO: need a test with f(&b) to produce block_pass
     # TODO: need a test with f(&b) { } to produce warning
 
-    if args
+    if args then
       if ARG_TYPES[args.sexp_type] then
         result.concat args.sexp_body
       else
         result << args
       end
+      result.line_max = args.line_max
     end
 
     # line = result.grep(Sexp).map(&:line).compact.min
@@ -927,7 +928,7 @@ module RubyParserStuff
 
   def new_class val
     # TODO: get line from class keyword
-    line, path, superclass, body = val[1], val[2], val[3], val[5]
+    _, line, path, superclass, _, body, (_, line_max) = val
 
     path = path.first if path.instance_of? Array
 
@@ -942,6 +943,7 @@ module RubyParserStuff
     end
 
     result.line = line
+    result.line_max = line_max
     result.comments = self.comments.pop
     result
   end
@@ -970,13 +972,14 @@ module RubyParserStuff
   end
 
   def new_defn val
-    _, (name, line), in_def, args, body, _ = val
+    _, (name, line), in_def, args, body, (_, line_max) = val
 
     body ||= s(:nil).line line
 
     args.line line
 
     result = s(:defn, name.to_sym, args).line line
+    result.line_max = line_max
 
     if body.sexp_type == :block then
       result.push(*body.sexp_body)
@@ -1033,13 +1036,14 @@ module RubyParserStuff
   end
 
   def new_defs val
-    _, recv, (name, line), in_def, args, body, _ = val
+    _, recv, (name, line), in_def, args, body, (_, line_max) = val
 
     body ||= s(:nil).line line
 
     args.line line
 
     result = s(:defs, recv, name.to_sym, args).line line
+    result.line_max = line_max
 
     # TODO: remove_begin
     # TODO: reduce_nodes
@@ -1204,12 +1208,12 @@ module RubyParserStuff
   end
 
   def new_module val
-    # TODO: get line from module keyword
-    line, path, body = val[1], val[2], val[4]
+    (_, line_min), _, path, _, body, (_, line_max) = val
 
     path = path.first if path.instance_of? Array
 
-    result = s(:module, path).line line
+    result = s(:module, path).line line_min
+    result.line_max = line_max
 
     if body then # REFACTOR?
       if body.sexp_type == :block then
@@ -1291,9 +1295,10 @@ module RubyParserStuff
   end
 
   def new_regexp val
-    (_, line), node, (options, _) = val
+    (_, line), node, (options, line_max) = val
 
     node ||= s(:str, "").line line
+    node.line_max = line_max
 
     o, k = 0, nil
     options.split(//).uniq.each do |c| # FIX: this has a better home
