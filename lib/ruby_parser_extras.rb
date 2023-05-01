@@ -331,7 +331,8 @@ module RubyParserStuff
     end
 
     args.each do |arg|
-      next if arg in [String, Integer] # eg ["(", 1]
+      # ruby 3.0+ TODO: next if arg in [String, Integer] # eg ["(", 1]
+      next if arg.class == Array && arg.map(&:class) == [String, Integer]
 
       case arg
       when Sexp then

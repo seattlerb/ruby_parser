@@ -16,7 +16,7 @@ class Sexp
     if other.class == self.class then
       super and
         (line.nil?     or other.line.nil?     or line == other.line) and
-        (!defined(@line_max) or @line_max.nil? or line_max == other.line_max)
+        (!defined?(@line_max) or @line_max.nil? or line_max == other.line_max)
         # (line_max.nil? or other.line_max.nil? or line_max == other.line_max)
     else
       false
