@@ -271,6 +271,8 @@ class RubyLexer
     nil # TODO
   end
 
+  # TODO: make all tXXXX terminals include lexer.lineno ... enforce it somehow?
+
   def process_brace_close text
     case matched
     when "}" then

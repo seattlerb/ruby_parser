@@ -56,7 +56,7 @@ class RubyLexer
         return :tSTRING_DVAR, matched
       when scan(/#[{]/) then
         self.command_start = true
-        return :tSTRING_DBEG, matched
+        return :tSTRING_DBEG, [matched, lineno]
       when scan(/#/) then
         string_buffer << "#"
       end
@@ -415,7 +415,7 @@ class RubyLexer
       return :tSTRING_DVAR, matched
     when scan(/#[{]/) then
       self.command_start = true
-      return :tSTRING_DBEG, matched
+      return :tSTRING_DBEG, [matched, lineno]
     when scan(/#/) then
       # do nothing but swallow
     end

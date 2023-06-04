@@ -132,11 +132,13 @@ module TestRubyParserShared
     # for the array. Luckily, the arary elements all seemt to get the correct
     # line number.
     rb = "[\n'a',\n'b']\n1"
+
     pt = s(:block,
            s(:array,
              s(:str, "a").line(2),
-             s(:str, "b").line(3)),
+             s(:str, "b").line(3)).line(1),
            s(:lit, 1).line(4)).line 1
+
     assert_parse rb, pt
   end
 

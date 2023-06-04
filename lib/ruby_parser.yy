@@ -1458,9 +1458,6 @@ rule
                       result = new_for iter, var, body
                     }
                 | k_class
-                    {
-                      result = self.lexer.lineno
-                    }
                     cpath superclass
                     {
                       if (self.in_def || self.in_single > 0) then
@@ -1475,9 +1472,6 @@ rule
                       self.lexer.ignore_body_comments
                     }
                 | k_class tLSHFT
-                    {
-                      result = self.lexer.lineno
-                    }
                     expr
                     {
                       result = self.in_def
@@ -1496,9 +1490,6 @@ rule
                       self.lexer.ignore_body_comments
                     }
                 | k_module
-                    {
-                      result = self.lexer.lineno
-                    }
                     cpath
                     {
                       yyerror "module definition in method body" if

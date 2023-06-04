@@ -104,9 +104,9 @@ rule
                       result = iter
                     }
 
-     begin_block: tLCURLY { result = lexer.lineno } top_compstmt tRCURLY
+     begin_block: tLCURLY top_compstmt tRCURLY
                     {
-                      _, line, stmt, _ = val
+                      (_, line), stmt, _ = val
                       result = new_iter s(:preexe).line(line), 0, stmt
                     }
 
@@ -639,7 +639,7 @@ rule
                     }
                 | tSTAR
                     {
-                      l = lexer.lineno
+                      (_, l), = val
                       result = s(:masgn, s(:array, s(:splat).line(l)).line(l)).line l
                     }
                 | tSTAR tCOMMA mlhs_post
@@ -1271,7 +1271,7 @@ rule
             args: arg_value
                     {
                       arg, = val
-                      lineno = arg.line || lexer.lineno # HACK
+                      lineno = arg.line
 
                       result = s(:array, arg).line lineno
                     }
@@ -1320,7 +1320,6 @@ rule
                     }
                 | args tCOMMA tSTAR arg_value
                     {
-                      # TODO: make all tXXXX terminals include lexer.lineno
                       arg, _, _, splat = val
                       result = self.arg_concat arg, splat
                     }
@@ -1349,7 +1348,6 @@ rule
                 | k_begin
                     {
                       lexer.cmdarg.push false
-                      result = self.lexer.lineno
                     }
                     bodystmt k_end
                     {
@@ -1359,11 +1357,10 @@ rule
                 | tLPAREN_ARG
                     {
                       lexer.lex_state = EXPR_ENDARG
-                      result = lexer.lineno
                     }
                     rparen
                     {
-                      _, line, _ = val
+                      (_, line), _, _ = val
                       result = s(:begin).line line
                     }
                 | tLPAREN_ARG
@@ -1379,9 +1376,8 @@ rule
                     }
                 | tLPAREN compstmt tRPAREN
                     {
-                      _, stmt, _ = val
-                      result = stmt
-                      result ||= s(:nil).line lexer.lineno
+                      (_, line), stmt, _ = val
+                      result = stmt || s(:nil).line(line)
                       result.paren = true
                     }
                 | primary_value tCOLON2 tCONSTANT
@@ -1394,9 +1390,9 @@ rule
                     {
                       result = wrap :colon3, val[1]
                     }
-                | tLBRACK { result = lexer.lineno } aref_args rbracket
+                | tLBRACK aref_args rbracket
                     {
-                      _, line, args, (_, line_max) = val
+                      (_, line), args, (_, line_max) = val
 
                       result = args || s(:array)
                       result.sexp_type = :array # aref_args is :args
@@ -1512,9 +1508,6 @@ rule
                       result = new_for iter, var, body
                     }
                 | k_class
-                    {
-                      result = self.lexer.lineno
-                    }
                     cpath superclass
                     {
                       if (self.in_def || self.in_single > 0) then
@@ -1529,9 +1522,6 @@ rule
                       self.lexer.ignore_body_comments
                     }
                 | k_class tLSHFT
-                    {
-                      result = self.lexer.lineno
-                    }
                     expr
                     {
                       result = self.in_def
@@ -1543,16 +1533,14 @@ rule
                       self.in_single = 0
                       self.env.extend
                     }
-                    bodystmt k_end
+                    bodystmt
+                    k_end
                     {
                       result = new_sclass val
                       self.env.unextend
                       self.lexer.ignore_body_comments
                     }
                 | k_module
-                    {
-                      result = self.lexer.lineno
-                    }
                     cpath
                     {
                       yyerror "module definition in method body" if
@@ -1694,20 +1682,33 @@ rule
                     }
 
           f_marg: f_norm_arg
+                    {
+                      (sym, line), = val
+
+                      result = s(:dummy, sym).line line
+                    }
                 | tLPAREN f_margs rparen
                     {
-                      result = val[1]
+                      _, args, _ = val
+                      result = args
                     }
 
      f_marg_list: f_marg
                     {
-                      sym, = val
+                      arg, = val
+                      line = arg.line
 
-                      result = s(:array, sym).line lexer.lineno
+                      arg = arg.last if arg.sexp_type == :dummy
+
+                      result = s(:array, arg).line line
                     }
                 | f_marg_list tCOMMA f_marg
                     {
-                      result = list_append val[0], val[2]
+                      args, _, arg = val
+
+                      arg = arg.last if arg.sexp_type == :dummy
+
+                      result = list_append args, arg
                     }
 
          f_margs: f_marg_list
@@ -1750,8 +1751,8 @@ rule
                     }
                 | tSTAR
                     {
-                      result = args [:*]
-                      result.line lexer.lineno # FIX: tSTAR -> line
+                      (_, line), = val
+                      result = args([:*]).line line
                     }
 
     f_any_kwrest: f_kwrest
@@ -1866,7 +1867,9 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | tOROP
                     {
-                      result = s(:args).line lexer.lineno
+                      (_, line), = val
+
+                      result = s(:args).line line
                     }
                 | tPIPE block_param opt_bv_decl tPIPE
                     {
@@ -1898,7 +1901,7 @@ opt_block_args_tail: tCOMMA block_args_tail
           lambda: tLAMBDA
                     {
                       self.env.extend :dynamic
-                      result = [lexer.lineno, lexer.lpar_beg]
+                      result = lexer.lpar_beg
                       lexer.paren_nest += 1
                       lexer.lpar_beg = lexer.paren_nest
                     }
@@ -1908,7 +1911,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                     lambda_body
                     {
-                      _, (line, lpar), args, _cmdarg, body = val
+                      (_, line), lpar, args, _cmdarg, body = val
                       lexer.lpar_beg = lpar
 
                       lexer.cmdarg.pop
@@ -2032,7 +2035,8 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | kSUPER
                     {
-                      result = s(:zsuper).line lexer.lineno
+                      (_, line), = val
+                      result = s(:zsuper).line line
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket
                     {
@@ -2042,11 +2046,11 @@ opt_block_args_tail: tCOMMA block_args_tail
      brace_block: tLCURLY
                     {
                       self.env.extend :dynamic
-                      result = self.lexer.lineno
                     }
-                    brace_body tRCURLY
+                    brace_body
+                    tRCURLY
                     {
-                      _, line, body, _ = val
+                      (_, line), _, body, _ = val
 
                       result = body
                       result.line line
@@ -2056,11 +2060,11 @@ opt_block_args_tail: tCOMMA block_args_tail
                 | k_do
                     {
                       self.env.extend :dynamic
-                      result = self.lexer.lineno
                     }
-                    do_body kEND
+                    do_body
+                    kEND
                     {
-                      _, line, body, _ = val
+                      (_, line), _, body, _ = val
 
                       result = body
                       result.line line
@@ -2118,14 +2122,13 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
 
        case_body: k_when
-                    {
-                      result = self.lexer.lineno
-                    }
                     case_args then compstmt cases
                     {
-                      result = new_when(val[2], val[4])
-                      result.line val[1]
-                      result << val[5] if val[5]
+                      (_, line), case_args, _then, body, cases = val
+
+                      result = new_when case_args, body
+                      result.line line
+                      result << cases if cases
                     }
 
            cases: opt_else | case_body
@@ -2944,7 +2947,6 @@ regexp_contents: none
                                 lexer.brace_nest,
                                 lexer.string_nest, # TODO: remove
                                 lexer.lex_state,
-                                lexer.lineno,
                                ]
 
                       lexer.cmdarg.push false
@@ -2959,9 +2961,9 @@ regexp_contents: none
                     compstmt
                     tSTRING_DEND
                     {
-                      _, memo, stmt, _ = val
+                      (_, line), memo, stmt, _ = val
 
-                      lex_strterm, brace_nest, string_nest, oldlex_state, line = memo
+                      lex_strterm, brace_nest, string_nest, oldlex_state = memo
                       # TODO: heredoc_indent
 
                       lexer.lex_strterm = lex_strterm
@@ -3021,11 +3023,11 @@ regexp_contents: none
 
             dsym: tSYMBEG string_contents tSTRING_END
                     {
-                      _, result, _ = val
+                      (_, line), result, _ = val
 
                       lexer.lex_state = EXPR_END
 
-                      result ||= s(:str, "").line lexer.lineno
+                      result ||= s(:str, "").line line
 
                       case result.sexp_type
                       when :dstr then
@@ -3063,15 +3065,15 @@ regexp_contents: none
                 | tCONSTANT
                 | tCVAR
 
-keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
-                | kSELF     { result = s(:self).line lexer.lineno }
-                | kTRUE     { result = s(:true).line lexer.lineno }
-                | kFALSE    { result = s(:false).line lexer.lineno }
-                | k__FILE__ { result = s(:str, self.file).line lexer.lineno }
-                | k__LINE__ { result = s(:lit, lexer.lineno).line lexer.lineno }
+keyword_variable: kNIL      { (_, line), = val; result = s(:nil).line line }
+                | kSELF     { (_, line), = val; result = s(:self).line line }
+                | kTRUE     { (_, line), = val; result = s(:true).line line }
+                | kFALSE    { (_, line), = val; result = s(:false).line line }
+                | k__FILE__ { (_, line), = val; result = s(:str, self.file).line line }
+                | k__LINE__ { (_, line), = val; result = s(:lit, line).line line }
                 | k__ENCODING__
                     {
-                      l = lexer.lineno
+                      (_, l), = val
                       result =
                         if defined? Encoding then
                           s(:colon2, s(:const, :Encoding).line(l), :UTF_8).line l
@@ -3246,12 +3248,12 @@ f_opt_paren_args: f_paren_args
                 |
                     {
                       result = args val
-                      # result.line lexer.lineno
                     }
 
     args_forward: tBDOT3
                     {
-                      result = s(:forward_args).line lexer.lineno
+                      (_, line), = val
+                      result = s(:forward_args).line line
                     }
 
        f_bad_arg: tCONSTANT
@@ -3389,9 +3391,10 @@ f_opt_paren_args: f_paren_args
                     }
                 | kwrest_mark
                     {
+                      (_, line), = val
                       id = :"**"
-                      self.env[id] = :lvar # TODO: needed?!?
-                      result = [id, lexer.lineno] # TODO: tPOW/tDSTAR include lineno
+                      self.env[id] = :lvar
+                      result = [id, line]
                     }
 
            f_opt: f_arg_asgn
@@ -3457,9 +3460,10 @@ f_opt_paren_args: f_paren_args
                     }
                 | restarg_mark
                     {
+                      (_, line), = val
                       name = :"*"
                       self.env[name] = :lvar
-                      result = [name, lexer.lineno] # FIX: tSTAR to include lineno
+                      result = [name, line]
                     }
 
      blkarg_mark: tAMPER2 | tAMPER
@@ -3571,11 +3575,10 @@ f_opt_paren_args: f_paren_args
        opt_terms:  | terms
           opt_nl:  | tNL
           rparen: opt_nl tRPAREN
-                    # TODO:
-                    # {
-                    #   _, close = val
-                    #   result = [close, lexer.lineno]
-                    # }
+                    {
+                      _, close = val # TODO: include lineno in close?
+                      result = [close, lexer.lineno]
+                    }
         rbracket: opt_nl tRBRACK
                     {
                       _, close = val

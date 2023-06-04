@@ -824,10 +824,10 @@ module RubyParserStuff
   end
 
   def new_begin val
-    _, lineno, body, _ = val
+    (_, line), _, body, _ = val
 
     result = body ? s(:begin, body) : s(:nil)
-    result.line lineno
+    result.line line
 
     result
   end
@@ -928,8 +928,7 @@ module RubyParserStuff
   end
 
   def new_class val
-    # TODO: get line from class keyword
-    _, line, path, superclass, _, body, (_, line_max) = val
+    (_, line), path, superclass, _, body, (_, line_max) = val
 
     path = path.first if path.instance_of? Array
 
@@ -1209,7 +1208,7 @@ module RubyParserStuff
   end
 
   def new_module val
-    (_, line_min), _, path, _, body, (_, line_max) = val
+    (_, line_min), path, _, body, (_, line_max) = val
 
     path = path.first if path.instance_of? Array
 
@@ -1367,7 +1366,7 @@ module RubyParserStuff
   end
 
   def new_sclass val
-    recv, in_def, in_single, body = val[3], val[4], val[6], val[7]
+    (_, line), _, recv, in_def, _, in_single, body, _ = val
 
     result = s(:sclass, recv)
 
@@ -1379,7 +1378,7 @@ module RubyParserStuff
       end
     end
 
-    result.line = val[2]
+    result.line = line
     self.in_def = in_def
     self.in_single = in_single
     result
