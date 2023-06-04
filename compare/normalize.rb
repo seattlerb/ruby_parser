@@ -84,6 +84,7 @@ def munge s
 
              "' '",             "tSPACE", # needs to be later to avoid bad hits
 
+             "ε",               "none", # bison 3+
              "%empty",          "none", # newer bison
              "/* empty */",     "none",
              /^\s*$/,           "none",

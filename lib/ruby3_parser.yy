@@ -1280,6 +1280,13 @@ rule
                       _, arg = val
                       result = s(:array, s(:splat, arg).line(arg.line)).line arg.line
                     }
+#if V >= 32
+                | tSTAR
+                    {
+                      (_, line), = val
+                      result = s(:array, s(:splat).line(line)).line line
+                    }
+#endif
                 | args tCOMMA arg_value
                     {
                       args, _, id = val
@@ -1287,11 +1294,16 @@ rule
                     }
                 | args tCOMMA tSTAR arg_value
                     {
-                      # TODO: the line number from tSTAR has been dropped
-                      args, _, _, id = val
-                      line = lexer.lineno
+                      args, _, (_, line), id = val
                       result = self.list_append args, s(:splat, id).line(line)
                     }
+#if V >= 32
+                | args tCOMMA tSTAR
+                    {
+                      args, _, (_, line) = val
+                      result = self.list_append args, s(:splat).line(line)
+                    }
+#endif
 
         mrhs_arg: mrhs
                     {
@@ -2352,6 +2364,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result = new_array_pattern_tail both, nil, nil, nil
                       result.line head.line
                     }
+#if V < 32
                 | p_args_head tSTAR tIDENTIFIER
                     {
                       head, _, (id, _line) = val
@@ -2378,6 +2391,20 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = new_array_pattern_tail(head, true, nil, post).line head.line
                     }
+#else
+                | p_args_head p_rest
+                    {
+                      head, (rest, _) = val
+
+                      result = new_array_pattern_tail(head, true, rest, nil).line head.line
+                    }
+                | p_args_head p_rest tCOMMA p_args_post
+                    {
+                      head, (rest, _), _, post = val
+
+                      result = new_array_pattern_tail(head, true, rest, post).line head.line
+                    }
+#endif
                 | p_args_tail
 
      p_args_head: p_arg tCOMMA
@@ -3523,6 +3550,13 @@ f_opt_paren_args: f_paren_args
                       line = arg.line
                       result = s(:array, s(:kwsplat, arg).line(line)).line line
                     }
+#if V >= 32
+                | tDSTAR
+                    {
+                      (_, line), = val
+                      result = s(:array, s(:kwsplat).line(line)).line line
+                    }
+#endif
 
        operation: tIDENTIFIER | tCONSTANT | tFID
       operation2: tIDENTIFIER | tCONSTANT | tFID | op

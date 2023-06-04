@@ -5632,6 +5632,34 @@ end
 
 module TestRubyParserShared32Plus
   include TestRubyParserShared31Plus
+
+  def test_args_star__anon_solo
+    rb = "f(*)"
+    pt = s(:call, nil, :f, s(:splat))
+
+    assert_parse rb, pt
+  end
+
+  def test_args_star__anon_trailing
+    rb = "f(x, *)"
+    pt = s(:call, nil, :f, s(:call, nil, :x), s(:splat))
+
+    assert_parse rb, pt
+  end
+
+  def test_args_dstar__anon_solo
+    rb = "f(**)"
+    pt = s(:call, nil, :f, s(:hash, s(:kwsplat))) # TODO double check this
+
+    assert_parse rb, pt
+  end
+
+  def test_args_dstar__anon_trailing
+    rb = "f(x, **)"
+    pt = s(:call, nil, :f, s(:call, nil, :x), s(:hash, s(:kwsplat))) # TODO double check this
+
+    assert_parse rb, pt
+  end
 end
 
 class Minitest::Test
