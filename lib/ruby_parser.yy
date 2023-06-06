@@ -1293,7 +1293,6 @@ rule
                 | k_begin
                     {
                       lexer.cmdarg.push false
-                      result = self.lexer.lineno
                     }
                     bodystmt k_end
                     {
