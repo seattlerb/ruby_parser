@@ -21,18 +21,20 @@ end
 ARGV.each do |path|
   src = path == "-" ? $stdin.read : File.read(path)
 
-  sexp = if $b then
-           Ripper.sexp src
-         else
-           rip = MySexpBuilder.new src
-           rip.yydebug = $d
-           rip.parse
+  sexp = nil
 
-           if rip.error? then
-             warn "skipping"
-             next
-           end
-         end
+  if $b then
+    sexp = Ripper.sexp src
+  else
+    rip = MySexpBuilder.new src
+    rip.yydebug = $d
+    sexp = rip.parse
+
+    if rip.error? then
+      warn "skipping"
+      next
+    end
+  end
 
   puts "accept"
 
