@@ -32,7 +32,7 @@ end
 module RubyParserStuff
   VERSION = "3.20.2"
 
-  attr_accessor :lexer, :in_def, :in_single, :file
+  attr_accessor :lexer, :in_def, :in_single, :file, :in_argdef
   attr_accessor :in_kwarg
   attr_reader :env, :comments
 
@@ -122,6 +122,7 @@ module RubyParserStuff
     self.lexer = RubyLexer.new v && v.to_i
     self.lexer.parser = self
     self.in_kwarg = false
+    self.in_argdef = false
 
     @env = RubyParserStuff::Environment.new
     @comments = []

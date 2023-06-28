@@ -426,6 +426,7 @@ rule
        defs_head: k_def singleton dot_or_colon
                     {
                       lexer.lex_state = EXPR_FNAME
+                      self.in_argdef = true
                     }
                     def_name
                     {
@@ -1643,6 +1644,7 @@ rule
            k_def: kDEF
                     {
                       self.comments.push self.lexer.comments
+                      self.in_argdef = true
                     }
             k_do: kDO
       k_do_block: kDO_BLOCK
@@ -1759,7 +1761,7 @@ rule
                 | f_no_kwarg
 
 #if V > 30
-            f_eq: tEQL # TODO: self.in_argdef = false
+            f_eq: { self.in_argdef = false } tEQL
 #endif
 
  block_args_tail: f_block_kwarg tCOMMA f_kwrest opt_f_block_arg
@@ -1864,6 +1866,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       # TODO: current_arg = 0
                       result = args val
+                      self.in_argdef = false
                     }
                 | tOROP
                     {
@@ -1875,6 +1878,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       # TODO: current_arg = 0
                       result = args val
+                      self.in_argdef = false
                     }
 
      opt_bv_decl: opt_nl
@@ -1924,10 +1928,12 @@ opt_block_args_tail: tCOMMA block_args_tail
 
      f_larglist: tLPAREN2 f_args opt_bv_decl rparen
                     {
+                      self.in_argdef = false
                       result = args val
                     }
                 | f_args
                     {
+                      self.in_argdef = false
                       result = val[0]
                       result = 0 if result == s(:args)
                     }
@@ -3134,11 +3140,13 @@ keyword_variable: kNIL      { (_, line), = val; result = s(:nil).line line }
 f_opt_paren_args: f_paren_args
                 | none
                     {
+                      self.in_argdef = false
                       result = end_args val
                     }
 
     f_paren_args: tLPAREN2 f_args rparen
                     {
+                      self.in_argdef = false
                       result = end_args val
                     }
 #if V == 30
@@ -3156,10 +3164,12 @@ f_opt_paren_args: f_paren_args
                 |   {
                       result = self.in_kwarg
                       self.in_kwarg = true
+                      self.in_argdef = true
                       self.lexer.lex_state |= EXPR_LABEL
                     }
                     f_args term
                     {
+                      self.in_argdef = false
                       result = end_args val
                     }
 
@@ -3318,6 +3328,14 @@ f_opt_paren_args: f_paren_args
                     }
 
          f_label: tLABEL
+                    {
+                      label, = val
+                      # arg_var(p, formal_argument(p, $1));
+                      # p->cur_arg = get_id($1);
+                      # p->max_numparam = ORDINAL_PARAM;
+                      self.in_argdef = false
+                      result = label
+                    }
 
             f_kw: f_label arg_value
                     {
@@ -3326,6 +3344,7 @@ f_opt_paren_args: f_paren_args
 
                       identifier = label.to_sym
                       self.env[identifier] = :lvar
+                      self.in_argdef = true
 
                       kwarg  = s(:kwarg, identifier, arg).line line
                       result = s(:array, kwarg).line line
@@ -3336,6 +3355,7 @@ f_opt_paren_args: f_paren_args
 
                       id = label.to_sym
                       self.env[id] = :lvar
+                      self.in_argdef = true
 
                       result = s(:array, s(:kwarg, id).line(line)).line line
                     }
@@ -3346,6 +3366,7 @@ f_opt_paren_args: f_paren_args
                       (label, line), expr = val
                       id = label.to_sym
                       self.env[id] = :lvar
+                      self.in_argdef = true
 
                       result = s(:array, s(:kwarg, id, expr).line(line)).line line
                     }
@@ -3355,6 +3376,7 @@ f_opt_paren_args: f_paren_args
                       (label, line), = val
                       id = label.to_sym
                       self.env[id] = :lvar
+                      self.in_argdef = true
 
                       result = s(:array, s(:kwarg, id).line(line)).line line
                     }
@@ -3406,10 +3428,10 @@ f_opt_paren_args: f_paren_args
                     arg_value
                     {
                       lhs, _, rhs = val
+                      self.in_argdef = true
                       result = self.assignable lhs, rhs
                       # TODO: detect duplicate names
                       # TODO? p->cur_arg = 0;
-                      # TODO? p->ctxt.in_argdef = 1;
                     }
 
      f_block_opt: f_arg_asgn
@@ -3421,9 +3443,9 @@ f_opt_paren_args: f_paren_args
                     primary_value
                     {
                       lhs, _, rhs = val
+                      self.in_argdef = true
                       result = self.assignable lhs, rhs
                       # TODO? p->cur_arg = 0;
-                      # TODO? p->ctxt.in_argdef = 1;
                     }
 
   f_block_optarg: f_block_opt

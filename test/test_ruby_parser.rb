@@ -5556,6 +5556,14 @@ module TestRubyParserShared31Plus
     assert_case_in rb, pt
   end
 
+  def test_defn_forward_args__no_parens
+    rb = "def f ...\n  m(...)\nend"
+    pt = s(:defn, :f, s(:args, s(:forward_args)),
+          s(:call, nil, :m, s(:forward_args).line(2)).line(2))
+
+    assert_parse rb, pt
+  end
+
   def test_case_in_carat_nonlocal_vars
     processor.env[:a] = :lvar
 

@@ -117,7 +117,7 @@ class RubyLexer
 
   def initialize _ = nil
     @lex_state = nil # remove one warning under $DEBUG
-    self.lex_state = EXPR_NONE
+    @lex_state = EXPR_NONE
 
     self.cond   = RubyParserStuff::StackState.new(:cond, $DEBUG)
     self.cmdarg = RubyParserStuff::StackState.new(:cmdarg, $DEBUG)
@@ -355,8 +355,14 @@ class RubyLexer
     end
   end
 
-  def process_dots text
-    tokens = ruby27plus? && is_beg? ? BTOKENS : TOKENS
+  def process_dots text # parse32.y:10216
+    is_beg = self.is_beg?
+    self.lex_state = EXPR_BEG
+
+    return result EXPR_ENDARG, :tBDOT3, text if
+      parser.in_argdef && text == "..." # TODO: version check?
+
+    tokens = ruby27plus? && is_beg ? BTOKENS : TOKENS
 
     result EXPR_BEG, tokens[text], text
   end
@@ -689,7 +695,7 @@ class RubyLexer
       return process_token_keyword keyword if keyword
     end
 
-    # matching: compare/parse30.y:9039
+    # matching: compare/parse32.y:9031
     state = if lex_state =~ EXPR_BEG_ANY|EXPR_ARG_ANY|EXPR_DOT then
               cmd_state ? EXPR_CMDARG : EXPR_ARG
             elsif lex_state =~ EXPR_FNAME then
@@ -711,7 +717,7 @@ class RubyLexer
   end
 
   def process_token_keyword keyword
-    # matching MIDDLE of parse_ident in compare/parse23.y:8046
+    # matching MIDDLE of parse_ident in compare/parse32.y:9695
     state = lex_state
 
     return result(EXPR_ENDFN, keyword.id0, token) if lex_state =~ EXPR_FNAME
@@ -720,7 +726,7 @@ class RubyLexer
     self.command_start = true if lex_state =~ EXPR_BEG
 
     case
-    when keyword.id0 == :kDO then # parse26.y line 7591
+    when keyword.id0 == :kDO then # parse32.y line 9712
       case
       when lambda_beginning? then
         self.lpar_beg = nil # lambda_beginning? == FALSE in the body of "-> do ... end"
@@ -892,7 +898,7 @@ class RubyLexer
     end
 
     def inspect
-      return "Value(0)" if n.zero? # HACK?
+      return "EXPR_NONE" if n.zero? # HACK?
 
       names.map { |v, k| k if self =~ v }.
         compact.
