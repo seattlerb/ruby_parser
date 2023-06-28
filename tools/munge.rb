@@ -174,6 +174,10 @@ ARGF.each_line do |line|
     last_token = token
   when /^Reading a token: / then
     next # skip
+  when /^Reading a token$/ then # wtf?
+    next # skip
+  when /^(?:add_delayed_token|parser_dispatch)/ then # dunno what this is yet
+    next # skip
   when /^read\s+:(\w+)/ then # read    :tNL(tNL) nil
     token = munge $1
     next if last_token == token
@@ -212,7 +216,9 @@ ARGF.each_line do |line|
     reduce_line = nil
     stack.clear
   when /^reduce/ then # ruby_parser side
-    puts munge line.chomp
+    s = munge line.chomp
+    next if s =~ /reduce\s+(\w+) --> \1/
+    puts s
     puts
   when /^(\w+_stack)\.(\w+)/ then
     # TODO: make pretty, but still informative w/ line numbers etc
@@ -223,7 +229,7 @@ ARGF.each_line do |line|
     # puts line
     # TODO: make pretty, but still informative w/ line numbers etc
     puts line.gsub("true", "1").gsub("false", "0")
-  when /^lex_state: :?([\w|]+) -> :?([\w|]+)(?: (?:at|from) (.*))?/ then
+  when /^lex_state: :?([\w|()]+) -> :?([\w|]+)(?: (?:at|from) (.*))?/ then
     a, b, c = $1.upcase, $2.upcase, $3
     a.gsub!(/EXPR_/, "")
     b.gsub!(/EXPR_/, "")
