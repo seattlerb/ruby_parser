@@ -1,3 +1,15 @@
+=== 3.20.3 / 2023-07-11
+
+* 2 minor enhancements:
+
+  * Added Parser#in_argdef and integrated into 3.x parsers.
+  * Improved tools/munge.rb to handler MRI 3.2 output
+
+* 2 bug fixes:
+
+  * Fixed process_dots to properly deal with paren-less forward_args. (eric1234)
+  * Fixed tools/ripper.rb to properly print ripper sexp at the end
+
 === 3.20.2 / 2023-06-06
 
 * 1 bug fix:
