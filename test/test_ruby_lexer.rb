@@ -584,7 +584,7 @@ class TestRubyLexer < Minitest::Test
                 :tNL,      nil, EXPR_BEG,
                 :tINTEGER, 2,   EXPR_NUM)
 
-    assert_equal "# one\n# two\n", @lex.comments
+    assert_equal "# one\n# two\n", @lex.comment
   end
 
   def test_yylex_comment_begin
@@ -592,13 +592,13 @@ class TestRubyLexer < Minitest::Test
                 nil,
                 :tINTEGER, 42, EXPR_NUM)
 
-    assert_equal "=begin\nblah\nblah\n=end\n", @lex.comments
+    assert_equal "=begin\nblah\nblah\n=end\n", @lex.comment
   end
 
   def test_yylex_comment_begin_bad
     refute_lex("=begin\nblah\nblah\n")
 
-    assert_equal "", @lex.comments
+    assert_nil @lex.comment
   end
 
   def test_yylex_comment_begin_not_comment
@@ -617,13 +617,13 @@ class TestRubyLexer < Minitest::Test
   def test_yylex_comment_begin_space
     assert_lex3("=begin blah\nblah\n=end\n", nil)
 
-    assert_equal "=begin blah\nblah\n=end\n", @lex.comments
+    assert_equal "=begin blah\nblah\n=end\n", @lex.comment
   end
 
   def test_yylex_comment_end_space_and_text
     assert_lex3("=begin blah\nblah\n=end blab\n", nil)
 
-    assert_equal "=begin blah\nblah\n=end blab\n", @lex.comments
+    assert_equal "=begin blah\nblah\n=end blab\n", @lex.comment
   end
 
   def test_yylex_comment_eos

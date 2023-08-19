@@ -1468,7 +1468,6 @@ rule
                     {
                       result = new_class val
                       self.env.unextend
-                      self.lexer.ignore_body_comments
                     }
                 | k_class tLSHFT
                     expr
@@ -1486,7 +1485,6 @@ rule
                     {
                       result = new_sclass val
                       self.env.unextend
-                      self.lexer.ignore_body_comments
                     }
                 | k_module
                     cpath
@@ -1500,7 +1498,6 @@ rule
                     {
                       result = new_module val
                       self.env.unextend
-                      self.lexer.ignore_body_comments
                     }
                 | k_def fname
                     {
@@ -1519,8 +1516,6 @@ rule
                       lexer.cmdarg.pop
                       self.env.unextend
                       self.in_def = in_def
-
-                      self.lexer.ignore_body_comments
                     }
                 | k_def singleton dot_or_colon
                     {
@@ -1559,8 +1554,6 @@ rule
                       self.in_single -= 1
 
                       # TODO: restore cur_arg ? what's cur_arg?
-
-                      self.lexer.ignore_body_comments
                     }
                 | kBREAK
                     {
@@ -1598,15 +1591,15 @@ rule
            k_for: kFOR
          k_class: kCLASS
                     {
-                      self.comments.push self.lexer.comments
+                      result << self.lexer.comment
                     }
         k_module: kMODULE
                     {
-                      self.comments.push self.lexer.comments
+                      result << self.lexer.comment
                     }
            k_def: kDEF
                     {
-                      self.comments.push self.lexer.comments
+                      result << self.lexer.comment
                     }
             k_do: kDO
       k_do_block: kDO_BLOCK

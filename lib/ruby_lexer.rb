@@ -113,7 +113,8 @@ class RubyLexer
   # Last token read via next_token.
   attr_accessor :token
 
-  attr_writer :comments
+  # Last comment lexed, or nil
+  attr_accessor :comment
 
   def initialize _ = nil
     @lex_state = nil # remove one warning under $DEBUG
@@ -132,16 +133,6 @@ class RubyLexer
 
   def arg_state
     is_after_operator? ? EXPR_ARG : EXPR_BEG
-  end
-
-  def ignore_body_comments
-    @comments.clear
-  end
-
-  def comments # TODO: remove this... maybe comment_string + attr_accessor
-    c = @comments.join
-    @comments.clear
-    c
   end
 
   def debug n
@@ -258,14 +249,15 @@ class RubyLexer
   end
 
   def process_begin text
-    @comments << matched
+    self.comment ||= +""
+    self.comment << matched
 
     unless scan(/.*?\n=end( |\t|\f)*[^\n]*(\n|\z)/m) then
-      @comments.clear
+      self.comment = nil
       rb_compile_error("embedded document meets end of file")
     end
 
-    @comments << matched
+    self.comment << matched
     self.lineno += matched.count("\n") # HACK?
 
     nil # TODO
@@ -447,7 +439,8 @@ class RubyLexer
 
       while scan(/\s*\#.*(\n+|\z)/) do
         self.lineno += matched.count "\n"
-        @comments << matched.gsub(/^ +#/, "#").gsub(/^ +$/, "")
+        self.comment ||= +""
+        self.comment << matched.gsub(/^ +#/, "#").gsub(/^ +$/, "")
       end
 
       return nil if end_of_stream?
@@ -768,7 +761,7 @@ class RubyLexer
     self.lineno        = 1
     self.brace_nest    = 0
     self.command_start = true
-    self.comments      = []
+    self.comment       = nil
     self.lex_state     = EXPR_NONE
     self.lex_strterm   = nil
     self.lpar_beg      = nil

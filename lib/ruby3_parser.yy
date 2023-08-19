@@ -420,8 +420,7 @@ rule
                     }
        defn_head: k_def def_name
                     {
-                      _, name = val
-                      result = name
+                      result = val
                     }
        defs_head: k_def singleton dot_or_colon
                     {
@@ -438,9 +437,7 @@ rule
                       # lexer.cmdarg.push false
                       # lexer.cond.push false
 
-                      _, recv, _, _, name = val
-
-                      result = [recv, name]
+                      result = val
                     }
 
       expr_value: expr
@@ -1520,7 +1517,6 @@ rule
                     {
                       result = new_class val
                       self.env.unextend
-                      self.lexer.ignore_body_comments
                     }
                 | k_class tLSHFT
                     expr
@@ -1539,7 +1535,6 @@ rule
                     {
                       result = new_sclass val
                       self.env.unextend
-                      self.lexer.ignore_body_comments
                     }
                 | k_module
                     cpath
@@ -1553,39 +1548,18 @@ rule
                     {
                       result = new_module val
                       self.env.unextend
-                      self.lexer.ignore_body_comments
                     }
                 | defn_head f_arglist bodystmt k_end
                     {
-                      # [               [:f, 1, false], s(:args)...]
-                      # =>
-                      # [[:k_def, 666], [:f, 1], false, s(:args)...]
-                      val.insert 1, val.first.pop
-                      val.insert 0, [:k_def, 666]
-
                       result, in_def = new_defn val
 
                       lexer.cond.pop # group = local_pop
                       lexer.cmdarg.pop
                       self.env.unextend
                       self.in_def = in_def
-
-                      self.lexer.ignore_body_comments
                     }
                 | defs_head f_arglist bodystmt k_end
                     {
-                      # [        [recv, [:name, 1, false]], s(:args...]
-                      # =>
-                      # [         recv, [:name, 1, false],  s(:args...]
-                      # =>
-                      # [         recv, [:name, 1], false,  s(:args...]
-                      # =>
-                      # [ :k_def, recv, [:name, 1], false,  s(:args...]
-
-                      val.prepend(*val.shift)
-                      val.insert 2, val[1].pop
-                      val.insert 0, [:k_def, 666]
-
                       result, in_def = new_defs val
 
                       lexer.cond.pop # group = local_pop
@@ -1596,8 +1570,6 @@ rule
                       self.in_single -= 1
 
                       # TODO: restore cur_arg ? what's cur_arg?
-
-                      self.lexer.ignore_body_comments
                     }
                 | kBREAK
                     {
@@ -1635,16 +1607,16 @@ rule
            k_for: kFOR
          k_class: kCLASS
                     {
-                      self.comments.push self.lexer.comments
+                      result << self.lexer.comment
                     }
         k_module: kMODULE
                     {
-                      self.comments.push self.lexer.comments
+                      result << self.lexer.comment
                     }
            k_def: kDEF
                     {
-                      self.comments.push self.lexer.comments
                       self.in_argdef = true
+                      result << self.lexer.comment
                     }
             k_do: kDO
       k_do_block: kDO_BLOCK

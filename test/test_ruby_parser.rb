@@ -500,7 +500,7 @@ module TestRubyParserShared
     exp = rb.strip + "\n"
 
     refute_parse rb
-    assert_equal exp, processor.lexer.comments
+    assert_equal exp, processor.lexer.comment
   end
 
   def test_bug_cond_pct
@@ -1722,11 +1722,10 @@ module TestRubyParserShared
 
     assert_equal "# class comment\n", sexp.comments
     act = sexp.find_nodes(:defn).map(&:comments)
-    exp = ["", "# Returns a list of things\n"]
+    exp = [nil, "# Returns a list of things\n"]
 
     assert_equal exp, act
-    assert_equal [], processor.comments
-    assert_equal "", processor.lexer.comments
+    assert_nil processor.lexer.comment
   end
 
   def test_parse_if_not_canonical

@@ -34,7 +34,7 @@ module RubyParserStuff
 
   attr_accessor :lexer, :in_def, :in_single, :file, :in_argdef
   attr_accessor :in_kwarg
-  attr_reader :env, :comments
+  attr_reader :env
 
   ##
   # Canonicalize conditionals. Eg:
@@ -92,6 +92,7 @@ module RubyParserStuff
     [k, true]
   }.to_h
 
+  # TODO: remove
   has_enc = "".respond_to? :encoding
 
   # This is in sorted order of occurrence according to
@@ -125,7 +126,6 @@ module RubyParserStuff
     self.in_argdef = false
 
     @env = RubyParserStuff::Environment.new
-    @comments = []
 
     @canonicalize_conditions = true
 
@@ -567,7 +567,7 @@ module RubyParserStuff
 
   def handle_encoding str
     str = str.dup
-    has_enc = str.respond_to? :encoding
+    has_enc = str.respond_to? :encoding # TODO: remove
     encoding = nil
 
     header = str.each_line.first(2)
@@ -929,7 +929,7 @@ module RubyParserStuff
   end
 
   def new_class val
-    (_, line), path, superclass, _, body, (_, line_max) = val
+    (_, line, comment), path, superclass, _, body, (_, line_max) = val
 
     path = path.first if path.instance_of? Array
 
@@ -945,7 +945,7 @@ module RubyParserStuff
 
     result.line = line
     result.line_max = line_max
-    result.comments = self.comments.pop
+    result.comments = comment if comment
     result
   end
 
@@ -973,7 +973,11 @@ module RubyParserStuff
   end
 
   def new_defn val
-    _, (name, line), in_def, args, body, (_, line_max) = val
+    if val.size == 4 then
+      ((_, line, comment), (name, _line, in_def)), args, body, (_, line_max) = val
+    else
+      (_, line, comment), (name, line), in_def, args, body, (_, line_max) = val
+    end
 
     body ||= s(:nil).line line
 
@@ -988,13 +992,14 @@ module RubyParserStuff
       result.push body
     end
 
-    result.comments = self.comments.pop
+    result.comments = comment if comment
 
     [result, in_def]
   end
 
   def new_endless_defn val
-    (name, line, in_def), args, _, body, _, resbody = val
+    # not available in 2.x so we don't need to check size
+    ((_, line, comment), (name, _, in_def)), args, _, body, _, resbody = val
 
     result =
       if resbody then
@@ -1009,13 +1014,15 @@ module RubyParserStuff
     local_pop in_def
     endless_method_name result
 
-    result.comments = self.comments.pop
+    result.comments = comment if comment
 
     result
   end
 
   def new_endless_defs val
-    (recv, (name, line, in_def)), args, _, body, _, resbody = val
+    # not available in 2.x so we don't need to check size
+    ((_, line, comment), recv, _, _, (name, line, in_def)), \
+      args, _, body, _, resbody = val
 
     result =
       if resbody then
@@ -1031,13 +1038,19 @@ module RubyParserStuff
     local_pop in_def
     endless_method_name result
 
-    result.comments = self.comments.pop
+    result.comments = comment if comment
 
     result
   end
 
   def new_defs val
-    _, recv, (name, line), in_def, args, body, (_, line_max) = val
+    if val.size == 4 then
+      ((_, line, comment), recv, _, _, (name, line, in_def)), \
+        args, body, (_, line_max) = val
+    else
+      (_, line, comment), recv, (name, _), in_def, \
+        args, body, (_, line_max) = val
+    end
 
     body ||= s(:nil).line line
 
@@ -1055,7 +1068,7 @@ module RubyParserStuff
       result.push body
     end
 
-    result.comments = self.comments.pop
+    result.comments = comment if comment
 
     [result, in_def]
   end
@@ -1209,7 +1222,7 @@ module RubyParserStuff
   end
 
   def new_module val
-    (_, line_min), path, _, body, (_, line_max) = val
+    (_, line_min, comment), path, _, body, (_, line_max) = val
 
     path = path.first if path.instance_of? Array
 
@@ -1224,7 +1237,7 @@ module RubyParserStuff
       end
     end
 
-    result.comments = self.comments.pop
+    result.comments = comment if comment
     result
   end
 
@@ -1518,11 +1531,16 @@ module RubyParserStuff
     end
   end
 
+  KEEP_COMMENT_TOKENS = [:kCLASS, :kMODULE, :kDEF, :tNL]
+
   def next_token
     token = self.lexer.next_token
 
     if token and token.first != RubyLexer::EOF then
       self.last_token_type = token
+
+      self.lexer.comment = nil unless KEEP_COMMENT_TOKENS.include? token.first
+
       return token
     elsif !token
       return self.lexer.next_token
@@ -1582,7 +1600,6 @@ module RubyParserStuff
     self.in_def = false
     self.in_single = 0
     self.env.reset
-    self.comments.clear
     self.last_token_type = nil
   end
 
