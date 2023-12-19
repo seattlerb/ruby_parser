@@ -36,7 +36,7 @@ Hoe.spec "ruby_parser" do
   # install racc` and move on. Revisit this ONLY once racc-compiler
   # gets split out.
 
-  dependency "racc", "~> 1.5", :developer
+  dependency "racc", "~> 1.5"
 
   require_ruby_version [">= 2.6", "< 4"]
 
