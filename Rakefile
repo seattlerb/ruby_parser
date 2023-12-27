@@ -14,7 +14,7 @@ Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
 Hoe.add_include_dirs "../../ruby2ruby/dev/lib"
 
 V2   = %w[20 21 22 23 24 25 26 27]
-V3   = %w[30 31 32]
+V3   = %w[30 31 32 33]
 
 VERS = V2 + V3
 
@@ -292,6 +292,7 @@ ruby_parse "2.7.7"
 ruby_parse "3.0.5"
 ruby_parse "3.1.3"
 ruby_parse "3.2.1"
+ruby_parse "3.3.0"
 
 task :debug => :isolate do
   ENV["V"] ||= VERS.last
