@@ -1,6 +1,5 @@
 # -*- ruby -*-
 
-require "rubygems"
 require "hoe"
 
 Hoe.plugin :seattlerb
@@ -55,7 +54,6 @@ Hoe.spec "ruby_parser" do
   if plugin?(:racc)
     self.racc_flags << " -t" if ENV["DEBUG"]
     self.racc_flags << " --superclass RubyParser::Parser"
-    # self.racc_flags << " --runtime ruby_parser" # TODO: broken in racc
   end
 end
 
@@ -119,8 +117,8 @@ task :clean do
         Dir["diff.diff"] + # not all diffs. bit me too many times
         Dir["coverage.info"] +
         Dir["coverage"] +
-        Dir["lib/ruby2*_parser.y"] +
-        Dir["lib/ruby3*_parser.y"] +
+        Dir["lib/ruby_parser2*.y"] +
+        Dir["lib/ruby_parser3*.y"] +
         Dir["lib/*.output"])
 end
 
