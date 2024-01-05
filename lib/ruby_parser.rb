@@ -69,19 +69,19 @@ end
 ##
 # Unfortunately a problem with racc is that it won't let me namespace
 # properly, so instead of RubyParser::V25, I still have to generate
-# the old Ruby25Parser and shove it in as V25.
+# the old RubyParser25 and shove it in as V25.
 
-require "ruby20_parser"
-require "ruby21_parser"
-require "ruby22_parser"
-require "ruby23_parser"
-require "ruby24_parser"
-require "ruby25_parser"
-require "ruby26_parser"
-require "ruby27_parser"
-require "ruby30_parser"
-require "ruby31_parser"
-require "ruby32_parser"
+require "ruby_parser20"
+require "ruby_parser21"
+require "ruby_parser22"
+require "ruby_parser23"
+require "ruby_parser24"
+require "ruby_parser25"
+require "ruby_parser26"
+require "ruby_parser27"
+require "ruby_parser30"
+require "ruby_parser31"
+require "ruby_parser32"
 
 class RubyParser # HACK
   VERSIONS.clear # also a HACK caused by racc namespace issues

@@ -42,11 +42,11 @@ Hoe.spec "ruby_parser" do
 
   if plugin? :perforce then     # generated files
     VERS.each do |n|
-      self.perforce_ignore << "lib/ruby#{n}_parser.rb"
+      self.perforce_ignore << "lib/ruby_parser#{n}.rb"
     end
 
     VERS.each do |n|
-      self.perforce_ignore << "lib/ruby#{n}_parser.y"
+      self.perforce_ignore << "lib/ruby_parser#{n}.y"
     end
 
     self.perforce_ignore << "lib/ruby_lexer.rex.rb"
@@ -85,23 +85,23 @@ def unifdef?
 end
 
 V2.each do |n|
-  file "lib/ruby#{n}_parser.y" => "lib/ruby_parser.yy" do |t|
+  file "lib/ruby_parser#{n}.y" => "lib/ruby_parser2.yy" do |t|
     unifdef?
     cmd = 'unifdef -tk -DV=%s -UDEAD %s > %s || true' % [n, t.source, t.name]
     sh cmd
   end
 
-  file "lib/ruby#{n}_parser.rb" => "lib/ruby#{n}_parser.y"
+  file "lib/ruby_parser#{n}.rb" => "lib/ruby_parser#{n}.y"
 end
 
 V3.each do |n|
-  file "lib/ruby#{n}_parser.y" => "lib/ruby3_parser.yy" do |t|
+  file "lib/ruby_parser#{n}.y" => "lib/ruby_parser3.yy" do |t|
     unifdef?
     cmd = 'unifdef -tk -DV=%s -UDEAD %s > %s || true' % [n, t.source, t.name]
     sh cmd
   end
 
-  file "lib/ruby#{n}_parser.rb" => "lib/ruby#{n}_parser.y"
+  file "lib/ruby_parser#{n}.rb" => "lib/ruby_parser#{n}.y"
 end
 
 file "lib/ruby_lexer.rex.rb" => "lib/ruby_lexer.rex"
@@ -163,9 +163,9 @@ def ruby_parse version
   tarball   = "ruby-#{version}.tar.xz"
   ruby_dir  = "ruby-#{version}"
   diff      = "diff#{v}.diff"
-  rp_out    = "lib/ruby#{v}_parser.output"
-  _rp_y     = "lib/ruby#{v}_parser.y"
-  rp_y_rb   = "lib/ruby#{v}_parser.rb"
+  rp_out    = "lib/ruby_parser#{v}.output"
+  _rp_y     = "lib/ruby_parser#{v}.y"
+  rp_y_rb   = "lib/ruby_parser#{v}.rb"
 
   c_diff    = "compare/#{diff}"
   c_rp_txt  = "compare/#{rp_txt}"
