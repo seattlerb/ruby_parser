@@ -21,21 +21,17 @@ VERS = V2 + V3
 ENV["FAST"] = VERS.last if ENV["FAST"] && !VERS.include?(ENV["FAST"])
 VERS.replace [ENV["FAST"]] if ENV["FAST"]
 
+racc_flags = nil
+
 Hoe.spec "ruby_parser" do
   developer "Ryan Davis", "ryand-ruby@zenspider.com"
 
   license "MIT"
 
-  dependency "sexp_processor", "~> 4.16"
-  dependency "rake", [">= 10", "< 15"], :developer
-  dependency "oedipus_lex", "~> 2.6", :developer
-
-  # NOTE: Ryan!!! Stop trying to fix this dependency! Isolate just
-  # can't handle having a faux-gem half-installed! Stop! Just `gem
-  # install racc` and move on. Revisit this ONLY once racc-compiler
-  # gets split out.
-
-  dependency "racc", "~> 1.5"
+  dependency "sexp_processor", "~>  4.16"
+  dependency "racc",           "~>  1.5"
+  dependency "rake",           [">= 10",  "< 15"], :developer
+  dependency "oedipus_lex",    "~>  2.6", :developer
 
   require_ruby_version [">= 2.6", "< 4"]
 
@@ -54,6 +50,7 @@ Hoe.spec "ruby_parser" do
   if plugin?(:racc)
     self.racc_flags << " -t" if ENV["DEBUG"]
     self.racc_flags << " --superclass RubyParser::Parser"
+    racc_flags = self.racc_flags
   end
 end
 
@@ -82,33 +79,29 @@ def unifdef?
   EOM
 end
 
-V2.each do |n|
-  file "lib/ruby_parser#{n}.y" => "lib/ruby_parser2.yy" do |t|
-    unifdef?
-    cmd = 'unifdef -tk -DV=%s -UDEAD %s > %s || true' % [n, t.source, t.name]
-    sh cmd
-  end
+def racc?
+  @racc ||= system("which racc") or abort <<~EOM
+    racc not found! `gem install racc`
+  EOM
+end
 
-  file "lib/ruby_parser#{n}.rb" => "lib/ruby_parser#{n}.y"
+generate_parser = proc do |t|
+  unifdef?
+  racc?
+  n = t.name[/\d+/]
+  sh "unifdef -tk -DV=%s %s | racc %s /dev/stdin -o %s" % [n, t.source, racc_flags, t.name]
+  maybe_add_to_top t.name, "# frozen_string_literal: true"
+end
+
+V2.each do |n|
+  file "lib/ruby_parser#{n}.rb" => "lib/ruby_parser2.yy", &generate_parser
 end
 
 V3.each do |n|
-  file "lib/ruby_parser#{n}.y" => "lib/ruby_parser3.yy" do |t|
-    unifdef?
-    cmd = 'unifdef -tk -DV=%s -UDEAD %s > %s || true' % [n, t.source, t.name]
-    sh cmd
-  end
-
-  file "lib/ruby_parser#{n}.rb" => "lib/ruby_parser#{n}.y"
+  file "lib/ruby_parser#{n}.rb" => "lib/ruby_parser3.yy", &generate_parser
 end
 
 file "lib/ruby_lexer.rex.rb" => "lib/ruby_lexer.rex"
-
-task :parser do |t|
-  t.prerequisite_tasks.grep(Rake::FileTask).select(&:already_invoked).each do |f|
-    maybe_add_to_top f.name, "# frozen_string_literal: true"
-  end
-end
 
 task :generate => [:lexer, :parser]
 
