@@ -202,6 +202,8 @@ ARGF.each_line do |line|
     break
   when /^Terminals/ then               # yacc
     break
+  when /^State \d/ then                # lrama
+    break
   when /^\cL/ then                     # byacc
     break
   else

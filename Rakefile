@@ -14,7 +14,7 @@ Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
 Hoe.add_include_dirs "../../ruby2ruby/dev/lib"
 
 V2   = %w[20 21 22 23 24 25 26 27]
-V3   = %w[30 31 32]
+V3   = %w[30 31 32 33]
 
 VERS = V2 + V3
 
@@ -177,25 +177,42 @@ def ruby_parse version
   file c_parse_y => c_tarball do
     in_compare do
       extract_glob = case
-                     # defs/id.def
+                     when version > "3.3" then
+                       "{id.h,parse.y,tool/{id2token.rb,lrama},defs/id.def}"
                      when version > "3.2" then
-                       "{id.h,parse.y,tool/{id2token.rb,lib/vpath.rb},defs/id.def}"
+                       "{id.h,parse.y,tool/id2token.rb,defs/id.def}"
                      when version > "2.7" then
                        "{id.h,parse.y,tool/{id2token.rb,lib/vpath.rb}}"
                      else
                        "{id.h,parse.y,tool/{id2token.rb,vpath.rb}}"
                      end
-      system "tar Jxf #{tarball} #{ruby_dir}/#{extract_glob}"
+      system "tar xf #{tarball} #{ruby_dir}/#{extract_glob}"
+
+      # Debugging a new parse build system:
+      #
+      # Unpack the ruby tarball in question, configure, and run the following:
+      #
+      # % touch parse.y; make -n parse.c
+      # ...
+      # echo generating parse.c
+      # /Users/ryan/.rubies.current/bin/ruby --disable=gems ./tool/id2token.rb parse.y | \
+      #       ruby ./tool/lrama/exe/lrama -oparse.c -Hparse.h - parse.y
+      #
+      # Then integrate these commands into the mess below:
 
       Dir.chdir ruby_dir do
-        if File.exist? "tool/id2token.rb" then
-          args = version < "3.2" ? "--path-separator=.:./ id.h" : ""
-          sh "ruby tool/id2token.rb #{args} parse.y | expand > ../#{parse_y}"
-        else
-          sh "expand parse.y > ../#{parse_y}"
-        end
+        cmd = if version > "3.2" then
+                "ruby tool/id2token.rb parse.y | expand > ../#{parse_y}"
+              else
+                "ruby tool/id2token.rb --path-separator=.:./ id.h parse.y | expand | ruby -pe 'gsub(/^%pure-parser/, \"%define api.pure\")'  > ../#{parse_y}"
+              end
 
-        ruby "-pi", "-e", 'gsub(/^%pure-parser/, "%define api.pure")', "../#{parse_y}"
+        sh cmd
+
+        if File.exist? "tool/lrama" then # UGH: this is dumb
+          rm_rf "../lrama"
+          sh "mv tool/lrama .."
+        end
       end
       sh "rm -rf #{ruby_dir}"
     end
@@ -208,7 +225,12 @@ def ruby_parse version
 
   file c_mri_txt => [c_parse_y, normalize] do
     in_compare do
-      sh "#{bison} -r all #{parse_y}"
+      if version > "3.3" then
+        sh "./lrama/exe/lrama -r all -oparse#{v}.tab.c #{parse_y}"
+      else
+        sh "#{bison} -r all #{parse_y}"
+      end
+
       sh "./normalize.rb parse#{v}.output > #{mri_txt}"
       rm ["parse#{v}.output", "parse#{v}.tab.c"]
     end
@@ -288,10 +310,11 @@ ruby_parse "2.3.8"
 ruby_parse "2.4.10"
 ruby_parse "2.5.9"
 ruby_parse "2.6.10"
-ruby_parse "2.7.7"
-ruby_parse "3.0.5"
-ruby_parse "3.1.3"
-ruby_parse "3.2.1"
+ruby_parse "2.7.8"
+ruby_parse "3.0.6"
+ruby_parse "3.1.4"
+ruby_parse "3.2.2"
+ruby_parse "3.3.0"
 
 task :debug => :isolate do
   ENV["V"] ||= VERS.last

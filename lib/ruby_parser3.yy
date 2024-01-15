@@ -6,6 +6,8 @@ class Ruby30Parser
 class Ruby31Parser
 #elif V == 32
 class Ruby32Parser
+#elif V == 33
+class Ruby33Parser
 #else
 fail "version not specified or supported on code generation"
 #endif

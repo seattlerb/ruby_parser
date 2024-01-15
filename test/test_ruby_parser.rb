@@ -5671,6 +5671,10 @@ module TestRubyParserShared32Plus
   end
 end
 
+module TestRubyParserShared33Plus
+  include TestRubyParserShared32Plus
+end
+
 class Minitest::Test
   def skip s = "blah"
     warn "ignoring skip for %s: %s" % [name, s]
@@ -5692,28 +5696,17 @@ class TestRubyParser < Minitest::Test
     pt = s(:call, s(:call, nil, :a), :call)
 
     assert_equal pt, processor.parse(rb)
+  end
+
+  def test_parse_error
+    processor = RubyParser.new
 
     # bad syntax
     e = assert_raises Racc::ParseError do
-      capture_io do
-        processor.parse "a.("
-      end
+      processor.parse "a.("
     end
 
-    assert_includes e.message, 'parse error on value "$" ($end)'
-  end
-
-  def test_parse_error_from_first
-    processor = RubyParser.new
-
-    e = assert_raises Racc::ParseError do
-      capture_io do
-        processor.parse "a -> () {"
-      end
-    end
-
-    # This is a 2.x error, will fail on 1.8/1.9.
-    assert_includes e.message, 'parse error on value "$" ($end)'
+    assert_match(/parse error on value \S+ ..end./, e.message)
   end
 end
 
@@ -6027,6 +6020,16 @@ class TestRubyParserV32 < RubyParserTestCase
     super
 
     self.processor = RubyParser::V32.new
+  end
+end
+
+class TestRubyParserV33 < RubyParserTestCase
+  include TestRubyParserShared33Plus
+
+  def setup
+    super
+
+    self.processor = RubyParser::V33.new
   end
 end
 
