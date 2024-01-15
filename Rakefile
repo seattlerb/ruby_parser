@@ -131,91 +131,78 @@ end
 
 task :isolate => :phony
 
-def in_compare
-  Dir.chdir "compare" do
-    yield
-  end
-end
-
-def dl v
+def dl v, f
   dir = v[/^\d+\.\d+/]
   url = "https://cache.ruby-lang.org/pub/ruby/#{dir}/ruby-#{v}.tar.xz"
-  path = File.basename url
-  unless File.exist? path then
-    system "curl -O #{url}"
-  end
+
+  warn "Downloading ruby #{v}"
+  system "curl -s -o #{f} #{url}"
 end
+
+task :parser => :isolate
+
+multitask :compare_build
+task :compare_build => :generate
+task :compare => :compare_build
 
 def ruby_parse version
   v         = version[/^\d+\.\d+/].delete "."
-  rp_txt    = "rp#{v}.txt"
-  mri_txt   = "mri#{v}.txt"
-  parse_y   = "parse#{v}.y"
-  tarball   = "ruby-#{version}.tar.xz"
-  ruby_dir  = "ruby-#{version}"
-  diff      = "diff#{v}.diff"
+  diff      = "compare/diff#{v}.diff"
+  rp_txt    = "compare/rp#{v}.txt"
+  mri_txt   = "compare/mri#{v}.txt"
+  parse_y   = "compare/parse#{v}.y"
+  tarball   = "compare/ruby-#{version}.tar.xz"
+  ruby_dir  = "compare/ruby-#{version}"
   rp_out    = "lib/ruby_parser#{v}.output"
-  _rp_y     = "lib/ruby_parser#{v}.y"
   rp_y_rb   = "lib/ruby_parser#{v}.rb"
-
-  c_diff    = "compare/#{diff}"
-  c_rp_txt  = "compare/#{rp_txt}"
-  c_mri_txt = "compare/#{mri_txt}"
-  c_parse_y = "compare/#{parse_y}"
-  c_tarball = "compare/#{tarball}"
   normalize = "compare/normalize.rb"
 
-  file c_tarball do
-    in_compare do
-      dl version
-    end
+  file tarball do
+    dl version, tarball
   end
 
   desc "fetch all tarballs"
-  task :fetch => c_tarball
+  task :fetch => tarball
 
-  file c_parse_y => c_tarball do
-    in_compare do
-      extract_glob = case
-                     when version > "3.3" then
-                       "{id.h,parse.y,tool/{id2token.rb,lrama},defs/id.def}"
-                     when version > "3.2" then
-                       "{id.h,parse.y,tool/id2token.rb,defs/id.def}"
-                     when version > "2.7" then
-                       "{id.h,parse.y,tool/{id2token.rb,lib/vpath.rb}}"
-                     else
-                       "{id.h,parse.y,tool/{id2token.rb,vpath.rb}}"
-                     end
-      system "tar xf #{tarball} #{ruby_dir}/#{extract_glob}"
+  file parse_y => tarball do
+    extract_glob = case
+                   when version > "3.3" then
+                     "{id.h,parse.y,tool/{id2token.rb,lrama},defs/id.def}"
+                   when version > "3.2" then
+                     "{id.h,parse.y,tool/id2token.rb,defs/id.def}"
+                   when version > "2.7" then
+                     "{id.h,parse.y,tool/{id2token.rb,lib/vpath.rb}}"
+                   else
+                     "{id.h,parse.y,tool/{id2token.rb,vpath.rb}}"
+                   end
+    system "tar xf #{tarball} -C compare #{File.basename ruby_dir}/#{extract_glob}"
 
-      # Debugging a new parse build system:
-      #
-      # Unpack the ruby tarball in question, configure, and run the following:
-      #
-      # % touch parse.y; make -n parse.c
-      # ...
-      # echo generating parse.c
-      # /Users/ryan/.rubies.current/bin/ruby --disable=gems ./tool/id2token.rb parse.y | \
-      #       ruby ./tool/lrama/exe/lrama -oparse.c -Hparse.h - parse.y
-      #
-      # Then integrate these commands into the mess below:
+    # Debugging a new parse build system:
+    #
+    # Unpack the ruby tarball in question, configure, and run the following:
+    #
+    # % touch parse.y; make -n parse.c
+    # ...
+    # echo generating parse.c
+    # /Users/ryan/.rubies.current/bin/ruby --disable=gems ./tool/id2token.rb parse.y | \
+    #       ruby ./tool/lrama/exe/lrama -oparse.c -Hparse.h - parse.y
+    #
+    # Then integrate these commands into the mess below:
 
-      Dir.chdir ruby_dir do
-        cmd = if version > "3.2" then
-                "ruby tool/id2token.rb parse.y | expand > ../#{parse_y}"
-              else
-                "ruby tool/id2token.rb --path-separator=.:./ id.h parse.y | expand | ruby -pe 'gsub(/^%pure-parser/, \"%define api.pure\")'  > ../#{parse_y}"
-              end
+    d = ruby_dir
+    cmd = if version > "3.2" then
+            "ruby #{d}/tool/id2token.rb #{d}/parse.y | expand > #{parse_y}"
+          else
+            "ruby #{d}/tool/id2token.rb --path-separator=.:./ #{d}/id.h #{d}/parse.y | expand | ruby -pe 'gsub(/^%pure-parser/, \"%define api.pure\")'  > #{parse_y}"
+          end
 
-        sh cmd
+    sh cmd
 
-        if File.exist? "tool/lrama" then # UGH: this is dumb
-          rm_rf "../lrama"
-          sh "mv tool/lrama .."
-        end
-      end
-      sh "rm -rf #{ruby_dir}"
+    if File.exist? "#{d}/tool/lrama" then # UGH: this is dumb
+      rm_rf "compare/lrama"
+      sh "mv #{d}/tool/lrama compare"
     end
+    sh "rm -rf #{d}"
   end
 
   bison = Dir["/opt/homebrew/opt/bison/bin/bison",
@@ -223,51 +210,48 @@ def ruby_parse version
               `which bison`.chomp,
              ].first
 
-  file c_mri_txt => [c_parse_y, normalize] do
-    in_compare do
-      if version > "3.3" then
-        sh "./lrama/exe/lrama -r all -oparse#{v}.tab.c #{parse_y}"
-      else
-        sh "#{bison} -r all #{parse_y}"
-      end
-
-      sh "./normalize.rb parse#{v}.output > #{mri_txt}"
-      rm ["parse#{v}.output", "parse#{v}.tab.c"]
+  file mri_txt => [parse_y, normalize] do
+    if version > "3.3" then
+      sh "./compare/lrama/exe/lrama -r all -ocompare/parse#{v}.tab.c #{parse_y}"
+    else
+      sh "#{bison} -r all #{parse_y}"
+      mv Dir["parse#{v}.*"], "compare"
     end
+
+    sh "#{normalize} compare/parse#{v}.output > #{mri_txt}"
+    rm ["compare/parse#{v}.output", "compare/parse#{v}.tab.c"]
   end
 
   file rp_out => rp_y_rb
 
-  file c_rp_txt => [rp_out, normalize] do
-    in_compare do
-      sh "./normalize.rb ../#{rp_out} > #{rp_txt}"
-    end
+  file rp_txt => [rp_out, normalize] do
+    sh "#{normalize} #{rp_out} > #{rp_txt}"
   end
 
   compare = "compare#{v}"
+  compare_build = "compare_build#{v}"
 
   desc "Compare all grammars to MRI"
   task :compare => compare
+  task :compare_build => compare_build
 
-  file c_diff => [c_mri_txt, c_rp_txt] do
-    in_compare do
-      sh "diff -du #{mri_txt} #{rp_txt} > #{diff}; true"
-    end
+  task compare_build => diff
+
+  file diff => [mri_txt, rp_txt] do
+    sh "diff -du #{mri_txt} #{rp_txt} > #{diff}; true"
   end
 
   desc "Compare #{v} grammar to MRI #{version}"
-  task compare => c_diff do
-    in_compare do
-      system "wc -l #{diff}"
-    end
+  task compare => diff do
+    system "wc -l #{diff}"
   end
 
   task :clean do
-    rm_f Dir[c_mri_txt, c_rp_txt]
+    rm_f Dir[mri_txt, rp_txt]
   end
 
   task :realclean do
-    rm_f Dir[c_parse_y, c_tarball]
+    rm_f Dir[parse_y, tarball]
   end
 end
 
