@@ -1,3 +1,35 @@
+=== 3.21.0 / 2024-01-15
+
+* 18 minor enhancements:
+
+  * (internal) Added simple RubyLexer#comment.
+  * (internal) Removed RubyLexer#comments and #ignore_body_comments.
+  * (internal) Removed RubyParser#comments.
+  * (internal) Renamed files from lib/ruby##_parser.* to lib/ruby_parser##.*
+  * (internal) Renamed lib/ruby3_parser.yy to lib/ruby_parser3.yy
+  * (internal) Renamed lib/ruby_parser.yy to lib/ruby_parser2.yy
+  * Added tentative 3.2 support. (torrocus)
+  * Made `rake compare` a multitask (28s -> 10s!!).
+  * Made `rake compare` depend on `generate` (from clean: 28s -> 18s).
+  * No longer package versioned .y files.
+  * Overhaul of parser/lexer comment processing.
+  * Parser productions for k_class/k_module/k_def carry their comment with them.
+  * Restructured build tasks to utilize Hoe's .yy support! 8.5s -> 1.2s!!!
+  * RubyParser new_(class|module|defn|defs) handle comment processing via sexp.
+  * RubyParser new_(class|module|defn|defs) handle normalizing production sexps.
+  * RubyParser#next_token clears out lexer's comment when applicable.
+  * Simplified parser productions for defn_head, defs_head. No more normalizing.
+  * Updated `rake compare` steps for lrama in ruby 3.3+.
+
+* 6 bug fixes:
+
+  * Cleaned out cruft from `rake compare` code.
+  * Fixed compare/normalize.rb for lrama differences.
+  * Made `parser` task depend on `isolate` task to pick up racc generator.
+  * Made racc a runtime dependency (was dev only) now that ruby 3.3 doesn't ship with the racc runtime. (wildmaples)
+  * Updated README.rdoc updating instructions to match current filenames.
+  * Updated compare versions and added 3.3.
+
 === 3.20.3 / 2023-07-11
 
 * 2 minor enhancements:
