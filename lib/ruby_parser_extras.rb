@@ -664,6 +664,7 @@ module RubyParserStuff
       end
 
       if head.size == 2 and tail.size > 1 and tail[1].sexp_type == :str then
+        head[-1] = head[-1].dup if head[-1].frozen?
         head.last << tail[1].last
         head.sexp_type = :str if head.size == 2 # HACK ?
       else

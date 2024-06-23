@@ -1496,7 +1496,7 @@ module TestRubyParserShared
   end
 
   def test_magic_encoding_comment
-    rb = "# encoding: utf-8\nclass ExampleUTF8ClassNameVarietà; def self.è; così = :però; end\nend\n"
+    rb = +"# encoding: utf-8\nclass ExampleUTF8ClassNameVarietà; def self.è; così = :però; end\nend\n"
 
     rb.force_encoding "ASCII-8BIT" if rb.respond_to? :force_encoding
 
