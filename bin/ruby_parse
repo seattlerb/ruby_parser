@@ -17,14 +17,6 @@ times = {}
 locs = {}
 kbytes = {}
 
-class File
-  RUBY19 = "<3".respond_to? :encoding
-
-  class << self
-    alias :binread :read unless RUBY19
-  end
-end
-
 begin
   time = (ENV["RP_TIMEOUT"] || 10).to_i
 

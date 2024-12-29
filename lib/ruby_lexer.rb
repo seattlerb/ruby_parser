@@ -23,8 +23,6 @@ class RubyLexer
     "c\?"  => 127.chr,
   }
 
-  HAS_ENC = "".respond_to? :encoding
-
   BTOKENS = {
     ".."  => :tBDOT2,
     "..." => :tBDOT3,

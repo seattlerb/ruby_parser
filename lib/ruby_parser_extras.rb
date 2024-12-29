@@ -1,6 +1,4 @@
-# encoding: ASCII-8BIT
 # frozen_string_literal: true
-# TODO: remove encoding comment
 
 require "sexp"
 require "ruby_lexer"
@@ -92,9 +90,6 @@ module RubyParserStuff
     [k, true]
   }.to_h
 
-  # TODO: remove
-  has_enc = "".respond_to? :encoding
-
   # This is in sorted order of occurrence according to
   # charlock_holmes against 500k files, with UTF_8 forced
   # to the top.
@@ -108,7 +103,7 @@ module RubyParserStuff
     Encoding::SHIFT_JIS,
     Encoding::WINDOWS_1252,
     Encoding::EUC_JP
-  ] if has_enc
+  ]
 
   JUMP_TYPE = [:return, :next, :break, :yield].map { |k| [k, true] }.to_h
 
@@ -225,8 +220,8 @@ module RubyParserStuff
   end
 
   def endless_method_name defn_or_defs
-    name = defn_or_defs[1]
-    name = defn_or_defs[2] unless Symbol === name
+    _, name, maybe_name, * = defn_or_defs
+    name = maybe_name unless Symbol === name
 
     if attrset_id? name then
       yyerror "setter method cannot be defined in an endless method definition"
@@ -567,14 +562,13 @@ module RubyParserStuff
 
   def handle_encoding str
     str = str.dup
-    has_enc = str.respond_to? :encoding # TODO: remove
     encoding = nil
 
     header = str.each_line.first(2)
-    header.map! { |s| s.force_encoding "ASCII-8BIT" } if has_enc
+    header.map! { |s| s.force_encoding "ASCII-8BIT" }
 
     first = header.first || ""
-    encoding, str = +"utf-8", str.b[3..-1] if first =~ /\A\xEF\xBB\xBF/
+    encoding, str = +"utf-8", str.b[3..-1] if first =~ /\A\xEF\xBB\xBF/n
 
     encoding = $1.strip if header.find { |s|
       s[/^#.*?-\*-.*?coding:\s*([^ ;]+).*?-\*-/, 1] ||
@@ -582,15 +576,11 @@ module RubyParserStuff
     }
 
     if encoding then
-      if has_enc then
-        encoding.sub!(/utf-8-.+$/, "utf-8") # HACK for stupid emacs formats
-        hack_encoding str, encoding
-      else
-        warn "Skipping magic encoding comment"
-      end
+      encoding.sub!(/utf-8-.+$/, "utf-8") # HACK for stupid emacs formats
+      hack_encoding str, encoding
     else
       # nothing specified... ugh. try to encode as utf-8
-      hack_encoding str if has_enc
+      hack_encoding str
     end
 
     str
@@ -664,7 +654,7 @@ module RubyParserStuff
       end
 
       if head.size == 2 and tail.size > 1 and tail[1].sexp_type == :str then
-        head[-1] = head[-1].dup if head[-1].frozen?
+        head[-1] = head.last.dup if head.last.frozen?
         head.last << tail[1].last
         head.sexp_type = :str if head.size == 2 # HACK ?
       else
@@ -1572,7 +1562,7 @@ module RubyParserStuff
 
       self.lexer.string = handle_encoding str
 
-      self.file = file.dup
+      self.file = file
 
       @yydebug = ENV.has_key? "DEBUG"
 

@@ -1498,7 +1498,7 @@ module TestRubyParserShared
   def test_magic_encoding_comment
     rb = +"# encoding: utf-8\nclass ExampleUTF8ClassNameVarietà; def self.è; così = :però; end\nend\n"
 
-    rb.force_encoding "ASCII-8BIT" if rb.respond_to? :force_encoding
+    rb.force_encoding "ASCII-8BIT"
 
     # TODO: class vars
     # TODO: odd-ternary: a ?bb : c
@@ -1508,9 +1508,7 @@ module TestRubyParserShared
            s(:defs, s(:self).line(2), :"\303\250", s(:args).line(2),
              s(:lasgn, :"cos\303\254", s(:lit, :"per\303\262").line(2)).line(2)).line(2)).line(2)
 
-    err = RUBY_VERSION =~ /^1\.8/ ? "Skipping magic encoding comment\n" : ""
-
-    assert_output "", err do
+    assert_output "", "" do
       assert_parse rb, pt
     end
   end

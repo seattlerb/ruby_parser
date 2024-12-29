@@ -176,8 +176,6 @@ class TestRubyLexer < Minitest::Test
 
   def test_pct_w_backslashes
     ["\t", "\n", "\r", "\v", "\f"].each do |char|
-      next if !RubyLexer::HAS_ENC and char == "\v"
-
       assert_lex("%w[foo#{char}bar]",
                  s(:array, s(:str, "foo"), s(:str, "bar")),
 
