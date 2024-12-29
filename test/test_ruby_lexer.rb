@@ -2174,6 +2174,8 @@ class TestRubyLexer < Minitest::Test
   end
 
   def test_yylex_question_control_escape
+    skip "bug in prism parser. Use --parser=parse.y" if ?\C-\] != "\u001D"
+
     assert_lex3('?\C-\]', nil, :tSTRING, ?\C-\], EXPR_END)
   end
 
