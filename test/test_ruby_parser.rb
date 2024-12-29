@@ -695,8 +695,10 @@ module TestRubyParserShared
 
     assert_parse rb, pt
 
+    _, _, _, defn = result
+
     assert_equal "# blah 1\n# blah 2\n\n", result.comments
-    assert_equal "# blah 3\n", result.defn.comments
+    assert_equal "# blah 3\n", defn.comments
   end
 
   def test_cond_unary_minus
@@ -1406,7 +1408,7 @@ module TestRubyParserShared
   end
 
   def test_literal_concat_str_evstr
-    lhs = s(:str, "").line 1
+    lhs = s(:str, +"").line 1
     rhs = s(:evstr, s(:str, "blah").line(2)).line 2
 
     assert_equal s(:str, "blah"), processor.literal_concat(lhs, rhs)
@@ -1618,9 +1620,12 @@ module TestRubyParserShared
     pt = s(:module, :X,
            s(:defn, :blah, s(:args).line(7), s(:nil).line(7)).line(7)).line(5)
 
+
     assert_parse rb, pt
+
+    _, _name, defn = result
     assert_equal "# blah 1\n\n# blah 2\n\n", result.comments
-    assert_equal "# blah 3\n", result.defn.comments
+    assert_equal "# blah 3\n", defn.comments
   end
 
   def test_non_interpolated_word_array_line_breaks
@@ -1756,9 +1761,10 @@ module TestRubyParserShared
 
     assert_parse rb, pt
 
+    _, lasgn, call = result
     assert_equal "(string)", result.file
-    assert_same result.file, result.lasgn.file
-    assert_same result.file, result.call.file
+    assert_same result.file, lasgn.file
+    assert_same result.file, call.file
   end
 
   def test_parse_line_block_inline_comment
@@ -1838,10 +1844,10 @@ module TestRubyParserShared
 
     assert_parse rb, pt
 
-    body = result
-    assert_equal 2, body.call.line,   "call should have line number"
-    assert_equal 3, body.lasgn.line,  "lasgn should have line number"
-    assert_equal 4, body.return.line, "return should have line number"
+    _, _name, _args, call, lasgn, ret = result
+    assert_equal 2, call.line,   "call should have line number"
+    assert_equal 3, lasgn.line,  "lasgn should have line number"
+    assert_equal 4, ret.line,    "return should have line number"
   end
 
   def test_parse_line_defn_no_parens
@@ -2082,8 +2088,10 @@ module TestRubyParserShared
 
     assert_parse rb, pt
 
-    assert_equal 3, result.if.return.line
-    assert_equal 3, result.if.return.lit.line
+    _, _, _, (_, _cond, t, _f) = result
+    (_, lit) = t
+    assert_equal 3, t.line
+    assert_equal 3, lit.line
   end
 
   def test_parse_line_str_with_newline_escape

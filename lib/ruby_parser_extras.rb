@@ -334,7 +334,7 @@ module RubyParserStuff
       when Sexp then
         case arg.sexp_type
         when :array, :args, :call_args then # HACK? remove array at some point
-          result.concat arg.sexp_body
+          result.sexp_body += arg.sexp_body
         else
           result << arg
         end
@@ -635,13 +635,20 @@ module RubyParserStuff
     when :dstr then
       if htype == :str then
         lineno = head.line
-        tail[1] = head.last + tail[1]
+        _, h1 = head
+        _, t1, *rest = tail
+        tail.sexp_body = [h1 + t1, *rest]
+
         head = tail
         head.line = lineno
       else
         tail.sexp_type = :array
-        tail[1] = s(:str, tail[1]).line tail.line
-        tail.delete_at 1 if tail[1] == s(:str, "")
+        _, tail_s, *tail_r = tail
+        if tail_s == "" then
+          tail.sexp_body = tail_r
+        else
+          tail.sexp_body = [s(:str, tail_s).line(tail.line), *tail_r]
+        end
 
         head.push(*tail.sexp_body)
       end
@@ -653,9 +660,11 @@ module RubyParserStuff
         head.line = l
       end
 
-      if head.size == 2 and tail.size > 1 and tail[1].sexp_type == :str then
-        head[-1] = head.last.dup if head.last.frozen?
-        head.last << tail[1].last
+      _, t1, * = tail
+      if head.size == 2 and tail.size > 1 and t1.sexp_type == :str then
+        _, h1 = head
+        head.sexp_body = [h1.dup] if h1.frozen? # this is dumb
+        head.last << t1.last
         head.sexp_type = :str if head.size == 2 # HACK ?
       else
         head.push(tail)
@@ -837,7 +846,7 @@ module RubyParserStuff
 
       while res do
         result << res
-        res = res.resbody(true)
+        res = res.find_node :resbody, :delete
       end
 
       result << elsebody if elsebody
@@ -906,8 +915,9 @@ module RubyParserStuff
       body = body.delete_at 3
     end
 
-    result[2..-1].each do |node|
-      block = node.block(:delete)
+    _, _expr, *cases = result
+    cases.each do |node|
+      block = node.find_node :block, :delete
       node.concat block.sexp_body if block
     end
 
@@ -1323,23 +1333,25 @@ module RubyParserStuff
 
     case node.sexp_type
     when :str then
+      _, str = node
       node.sexp_type = :lit
-      node[1] = if k then
-                  Regexp.new(node[1], o, k)
-                else
-                  begin
-                    Regexp.new(node[1], o)
-                  rescue RegexpError => e
-                    warn "WARNING: #{e.message} for #{node[1].inspect} #{options.inspect}"
-                    begin
-                      warn "WARNING: trying to recover with ENC_UTF8"
-                      Regexp.new(node[1], Regexp::ENC_UTF8)
-                    rescue RegexpError => e
-                      warn "WARNING: trying to recover with ENC_NONE"
-                      Regexp.new(node[1], Regexp::ENC_NONE)
-                    end
-                  end
+      val = if k then
+              Regexp.new(str, o, k)
+            else
+              begin
+                Regexp.new(str, o)
+              rescue RegexpError => e
+                warn "WARNING: #{e.message} for #{str.inspect} #{options.inspect}"
+                begin
+                  warn "WARNING: trying to recover with ENC_UTF8"
+                  Regexp.new(str, Regexp::ENC_UTF8)
+                rescue RegexpError => e
+                  warn "WARNING: trying to recover with ENC_NONE"
+                  Regexp.new(str, Regexp::ENC_NONE)
                 end
+              end
+            end
+      node.sexp_body = [val]
     when :dstr then
       if options =~ /o/ then
         node.sexp_type = :dregx_once
