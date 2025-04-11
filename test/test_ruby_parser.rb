@@ -5681,6 +5681,10 @@ module TestRubyParserShared33Plus
   include TestRubyParserShared32Plus
 end
 
+module TestRubyParserShared34Plus
+  include TestRubyParserShared33Plus
+end
+
 class Minitest::Test
   def skip s = "blah"
     warn "ignoring skip for %s: %s" % [name, s]
@@ -6036,6 +6040,16 @@ class TestRubyParserV33 < RubyParserTestCase
     super
 
     self.processor = RubyParser::V33.new
+  end
+end
+
+class TestRubyParserV34 < RubyParserTestCase
+  include TestRubyParserShared34Plus
+
+  def setup
+    super
+
+    self.processor = RubyParser::V34.new
   end
 end
 

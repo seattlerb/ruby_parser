@@ -30,6 +30,7 @@ lib/ruby_parser30.rb
 lib/ruby_parser31.rb
 lib/ruby_parser32.rb
 lib/ruby_parser33.rb
+lib/ruby_parser34.rb
 lib/ruby_parser_extras.rb
 test/test_ruby_lexer.rb
 test/test_ruby_parser.rb

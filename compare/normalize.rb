@@ -153,12 +153,20 @@ def munge s
 
              '"do (for condition)"', "kDO_COND",
              '"do (for lambda)"',    "kDO_LAMBDA",
-             '"do (for block)"',     "kDO_BLOCK",
+             %("'do' for block"),    "kDO_BLOCK",    # 3.4
+             %("'do' for lambda"),   "kDO_LAMBDA",   # 3.4
+             %("'do' for condition"),"kDO_COND",     # 3.4
+             %q("#{"),               "tSTRING_DBEG", # 3.4
+             '"do (for block)"',     "kDO_BLOCK",    # 3.4
 
+             /\"'(\w+)' \(?modifier\)?\"/, proc { |x| "k#{$1.upcase}_MOD" }, # 3.4
              /\"(\w+) \(?modifier\)?\"/, proc { |x| "k#{$1.upcase}_MOD" },
-             /\"(\w+)\"/,                proc { |x| "k#{$1.upcase}" },
+             /\"((?!k)\w+)\"/,             proc { |x| "k#{$1.upcase}" },
 
              /\$?@(\d+)(\s+|$)/,    "", # newer bison
+
+             # 3.4(ish?) changes:
+             "option_tNL",              "opt_nl", # ruby 3.4
 
              # TODO: remove for 3.0 work:
              "lex_ctxt ", "" # 3.0 production that's mostly noise right now
@@ -178,12 +186,16 @@ end
 ARGF.each_line do |line|
   next unless good or line =~ /^-* ?Grammar|\$accept : /
 
-  case line.strip
+  case line.strip # TODO: .delete %q["'()]
   when /^$/ then
   when /^(\d+) (\$?[@\w]+): (.*)/ then    # yacc
     rule = $2
     order << rule unless rules.has_key? rule
     rules[rule] << munge($3)
+  when /^(\d+) (\$?[@\w]+'(?: |\\n)'): (.*)/ then # munges both sides
+    rule = $2
+    order << rule unless rules.has_key? rule
+    rules[munge(rule)] << munge($3)
   when /^(\d+) \s+\| (.*)/ then        # yacc
     rules[rule] << munge($2)
   when /^(\d+) (@\d+): (.*)/ then      # yacc

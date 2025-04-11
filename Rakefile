@@ -14,7 +14,7 @@ Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
 Hoe.add_include_dirs "../../ruby2ruby/dev/lib"
 
 V2   = %w[20 21 22 23 24 25 26 27]
-V3   = %w[30 31 32 33]
+V3   = %w[30 31 32 33 34]
 
 VERS = V2 + V3
 
@@ -164,7 +164,7 @@ def ruby_parse version
   desc "fetch all tarballs"
   task :fetch => tarball
 
-  file parse_y => tarball do
+  file ruby_dir => tarball do
     extract_glob = case
                    when version > "3.3" then
                      "{id.h,parse.y,tool/{id2token.rb,lrama},defs/id.def}"
@@ -176,15 +176,20 @@ def ruby_parse version
                      "{id.h,parse.y,tool/{id2token.rb,vpath.rb}}"
                    end
     system "tar xf #{tarball} -C compare #{File.basename ruby_dir}/#{extract_glob}"
+  end
+
+  file parse_y => ruby_dir do
+    # env -u RUBYOPT rake compare/parse33.y
+    warn "Warning: RUBYOPT is set! Use 'env -u RUBYOPT rake'" if ENV["RUBYOPT"]
 
     # Debugging a new parse build system:
     #
     # Unpack the ruby tarball in question, configure, and run the following:
     #
-    # % touch parse.y; make -n parse.c
+    # % [ -e Makefile ] || ./configure ; make -n -W parse.y parse.c
     # ...
     # echo generating parse.c
-    # /Users/ryan/.rubies.current/bin/ruby --disable=gems ./tool/id2token.rb parse.y | \
+    # ruby --disable=gems ./tool/id2token.rb parse.y | \
     #       ruby ./tool/lrama/exe/lrama -oparse.c -Hparse.h - parse.y
     #
     # Then integrate these commands into the mess below:
@@ -197,12 +202,6 @@ def ruby_parse version
           end
 
     sh cmd
-
-    if File.exist? "#{d}/tool/lrama" then # UGH: this is dumb
-      rm_rf "compare/lrama"
-      sh "mv #{d}/tool/lrama compare"
-    end
-    sh "rm -rf #{d}"
   end
 
   bison = Dir["/opt/homebrew/opt/bison/bin/bison",
@@ -211,8 +210,9 @@ def ruby_parse version
              ].first
 
   file mri_txt => [parse_y, normalize] do
+    d = ruby_dir
     if version > "3.3" then
-      sh "./compare/lrama/exe/lrama -r all -ocompare/parse#{v}.tab.c #{parse_y}"
+      sh "./#{d}/tool/lrama/exe/lrama -r states --report-file=compare/parse#{v}.output -ocompare/parse#{v}.tab.c #{parse_y}"
     else
       sh "#{bison} -r all #{parse_y}"
       mv Dir["parse#{v}.*"], "compare"
@@ -247,7 +247,7 @@ def ruby_parse version
   end
 
   task :clean do
-    rm_f Dir[mri_txt, rp_txt]
+    rm_f Dir[mri_txt, rp_txt, ruby_dir]
   end
 
   task :realclean do
@@ -296,9 +296,10 @@ ruby_parse "2.5.9"
 ruby_parse "2.6.10"
 ruby_parse "2.7.8"
 ruby_parse "3.0.6"
-ruby_parse "3.1.4"
-ruby_parse "3.2.2"
-ruby_parse "3.3.0"
+ruby_parse "3.1.7"
+ruby_parse "3.2.8"
+ruby_parse "3.3.7"
+ruby_parse "3.4.2"
 
 task :debug => :isolate do
   ENV["V"] ||= VERS.last
