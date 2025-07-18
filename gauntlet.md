@@ -85,8 +85,11 @@ parse. It's about 3.5g but compresses very nicely down to 240m
 Assuming you're starting from scratch, unpack the archive once:
 
 ```
-% zstdcat gauntlet.$(today).noindex.tar.zst | tar x
+% tar xf gauntlet.$(today).noindex.tar.zst
 ```
+
+(BSD tar (and apparently newer gnu tars) can detect and uncompress
+most compression formats)
 
 Then, either run a single process (easier to read):
 
