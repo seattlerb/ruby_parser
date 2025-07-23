@@ -143,7 +143,16 @@ task :parser => :isolate
 
 multitask :compare_build
 task :compare_build => :generate
-task :compare => :compare_build
+task :compare => :compare_build do
+  if ENV["V"] then
+    versions    = task(:compare_build).prerequisites
+    latest_diff = task(versions.last).prerequisites.last
+    file = File.read latest_diff
+
+    puts
+    puts file
+  end
+end
 
 def ruby_parse version
   v         = version[/^\d+\.\d+/].delete "."

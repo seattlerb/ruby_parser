@@ -86,7 +86,9 @@ rule
                     {
                       result = self.block_append val[0], val[2]
                     }
+#if V < 32
                 | error top_stmt
+#endif
 
         top_stmt: stmt
                 | klBEGIN
@@ -144,11 +146,13 @@ rule
                     {
                       result = self.block_append val[0], val[2]
                     }
+#if V < 32
                 | error stmt
                     {
                       result = val[1]
                       debug 2
                     }
+#endif
 
    stmt_or_begin: stmt
                 | klBEGIN
@@ -250,6 +254,9 @@ rule
                       result = new_masgn val[0], val[2]
                     }
                 | expr
+#if V >= 32
+                | error
+#endif
 
     command_asgn: lhs tEQL command_rhs
                     {
@@ -448,6 +455,9 @@ rule
                     {
                       result = value_expr(val[0])
                     }
+#if V >= 32
+                | error
+#endif
 
    expr_value_do:   {
                       lexer.cond.push true
@@ -1392,10 +1402,11 @@ rule
                     {
                       result = wrap :colon3, val[1]
                     }
-                | tLBRACK aref_args rbracket
+                | tLBRACK aref_args tRBRACK
                     {
-                      (_, line), args, (_, line_max) = val
+                      (_, line), args, _ = val
 
+                      line_max = lexer.lineno
                       result = args || s(:array)
                       result.sexp_type = :array # aref_args is :args
                       result.line line
@@ -3001,7 +3012,11 @@ regexp_contents: none
                       result = wrap :lit, val[0]
                     }
 
+#if V > 30
+             sym: fname | nonlocal_var
+#else
              sym: fname | tIVAR | tGVAR | tCVAR
+#endif
 
             dsym: tSYMBEG string_contents tSTRING_END
                     {
@@ -3041,11 +3056,17 @@ regexp_contents: none
                 | tCVAR { result = wrap :cvar, val[0] }
 #endif
 
+#if V > 31
+   user_variable: tIDENTIFIER
+                | tCONSTANT
+                | nonlocal_var { v = val[0]; result = [v[-1], v.line] } /* HACK! */
+#else
    user_variable: tIDENTIFIER
                 | tIVAR
                 | tGVAR
                 | tCONSTANT
                 | tCVAR
+#endif
 
 keyword_variable: kNIL      { (_, line), = val; result = s(:nil).line line }
                 | kSELF     { (_, line), = val; result = s(:self).line line }
@@ -3373,10 +3394,10 @@ f_opt_paren_args: f_paren_args
      kwrest_mark: tPOW
                 | tDSTAR
 
-      f_no_kwarg: kwrest_mark kNIL
+      f_no_kwarg: p_kwnorest
                     {
-                      (_, line), _ = val
-                      result = [:"**nil", line]
+                      sexp, _ = val
+                      result = [:"**nil", sexp.line] # HACK!
                     }
 
         f_kwrest: kwrest_mark tIDENTIFIER
@@ -3561,7 +3582,7 @@ f_opt_paren_args: f_paren_args
 #endif
 
        operation: tIDENTIFIER | tCONSTANT | tFID
-      operation2: tIDENTIFIER | tCONSTANT | tFID | op
+      operation2: operation | op
       operation3: tIDENTIFIER | tFID | op
     dot_or_colon: tDOT | tCOLON2
          call_op: tDOT
@@ -3587,7 +3608,7 @@ f_opt_paren_args: f_paren_args
                       _, close = val
                       result = [close, lexer.lineno]
                     }
-         trailer:  | tNL | tCOMMA
+         trailer: opt_nl | tCOMMA
 
             term: tSEMI { yyerrok }
                 | tNL
