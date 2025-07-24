@@ -5725,6 +5725,17 @@ class RubyParserTestCase < ParseTreeTestCase
 
   make_my_diffs_pretty!
 
+  def parser_class
+    v = self.class.name[/V\d\d$/]
+    RubyParser.const_get(v)
+  end
+
+  def setup
+    super
+
+    self.processor = parser_class.new
+  end
+
   def self.previous key
     "Ruby"
   end
@@ -5798,42 +5809,18 @@ end
 
 class TestRubyParserV20 < RubyParserTestCase
   include TestRubyParserShared20Plus
-
-  def setup
-    super
-
-    self.processor = RubyParser::V20.new
-  end
 end
 
 class TestRubyParserV21 < RubyParserTestCase
   include TestRubyParserShared21Plus
-
-  def setup
-    super
-
-    self.processor = RubyParser::V21.new
-  end
 end
 
 class TestRubyParserV22 < RubyParserTestCase
   include TestRubyParserShared22Plus
-
-  def setup
-    super
-
-    self.processor = RubyParser::V22.new
-  end
 end
 
 class TestRubyParserV23 < RubyParserTestCase
   include TestRubyParserShared23Plus
-
-  def setup
-    super
-
-    self.processor = RubyParser::V23.new
-  end
 
   def test_lasgn_call_nobracket_rescue_arg
     rb = "a = b 1 rescue 2"
@@ -5847,12 +5834,6 @@ end
 
 class TestRubyParserV24 < RubyParserTestCase
   include TestRubyParserShared24Plus
-
-  def setup
-    super
-
-    self.processor = RubyParser::V24.new
-  end
 
   def test_rescue_parens
     rb = "a (b rescue c)"
@@ -5868,12 +5849,6 @@ end
 
 class TestRubyParserV25 < RubyParserTestCase
   include TestRubyParserShared25Plus
-
-  def setup
-    super
-
-    self.processor = RubyParser::V25.new
-  end
 
   def test_rescue_do_end_ensure_result
     rb = "proc do\n  :begin\nensure\n  :ensure\nend.call"
@@ -5946,12 +5921,6 @@ end
 class TestRubyParserV26 < RubyParserTestCase
   include TestRubyParserShared26Plus
 
-  def setup
-    super
-
-    self.processor = RubyParser::V26.new
-  end
-
   def test_parse_line_dot2_open
     rb = "0..\n; a..\n; c"
     pt = s(:block,
@@ -5976,12 +5945,6 @@ end
 class TestRubyParserV27 < RubyParserTestCase
   include TestRubyParserShared27Plus
 
-  def setup
-    super
-
-    self.processor = RubyParser::V27.new
-  end
-
   def test_bdot2
     rb = "..10\n; ..a\n; c"
     pt = s(:block,
@@ -6005,52 +5968,22 @@ end
 
 class TestRubyParserV30 < RubyParserTestCase
   include TestRubyParserShared30Plus
-
-  def setup
-    super
-
-    self.processor = RubyParser::V30.new
-  end
 end
 
 class TestRubyParserV31 < RubyParserTestCase
   include TestRubyParserShared31Plus
-
-  def setup
-    super
-
-    self.processor = RubyParser::V31.new
-  end
 end
 
 class TestRubyParserV32 < RubyParserTestCase
   include TestRubyParserShared32Plus
-
-  def setup
-    super
-
-    self.processor = RubyParser::V32.new
-  end
 end
 
 class TestRubyParserV33 < RubyParserTestCase
   include TestRubyParserShared33Plus
-
-  def setup
-    super
-
-    self.processor = RubyParser::V33.new
-  end
 end
 
 class TestRubyParserV34 < RubyParserTestCase
   include TestRubyParserShared34Plus
-
-  def setup
-    super
-
-    self.processor = RubyParser::V34.new
-  end
 end
 
 RubyParser::VERSIONS.each do |klass|
