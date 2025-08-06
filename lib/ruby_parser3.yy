@@ -3053,7 +3053,12 @@ regexp_contents: none
             ssym: tSYMBEG sym
                     {
                       lexer.lex_state = EXPR_END
-                      result = wrap :lit, val[1]
+                      _, sym = val
+                      if sym.is_a? Sexp then
+                        result = wrap :lit, [sym.last, sym.line]
+                      else
+                        result = wrap :lit, sym
+                      end
                     }
                 | tSYMBOL
                     {

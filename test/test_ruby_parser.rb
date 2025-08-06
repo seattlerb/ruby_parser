@@ -835,6 +835,13 @@ module TestRubyParserShared
     assert_parse rb, pt
   end
 
+  def test_symbol__at
+    rb = ":@diff"
+    pt = s(:lit, :@diff)
+
+    assert_parse rb, pt
+  end
+
   def test_dsym_to_sym
     pt = s(:alias, s(:lit, :<<), s(:lit, :>>))
 
