@@ -167,7 +167,8 @@ def munge s
              /\$?@(\d+)(\s+|$)/,    "", # newer bison
 
              # 3.4(ish?) changes:
-             "option_tNL",              "opt_nl", # ruby 3.4
+             "option_tNL",              "opt_nl",
+             "option_terms",            "opt_terms",
 
              # TODO: remove for 3.0 work:
              "lex_ctxt ", "" # 3.0 production that's mostly noise right now

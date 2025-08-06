@@ -1632,9 +1632,18 @@ rule
             k_if: kIF
         k_unless: kUNLESS
          k_while: kWHILE
+#if V > 32
+                    allow_exits
+#endif
          k_until: kUNTIL
+#if V > 32
+                    allow_exits
+#endif
           k_case: kCASE
            k_for: kFOR
+#if V > 32
+                    allow_exits
+#endif
          k_class: kCLASS
                     {
                       result << self.lexer.comment
@@ -1657,6 +1666,10 @@ rule
          k_elsif: kELSIF
            k_end: kEND
         k_return: kRETURN
+
+#if V > 32
+         k_yield: kYIELD
+#endif
 
             then: term
                 | kTHEN
@@ -3054,11 +3067,13 @@ regexp_contents: none
                     {
                       lexer.lex_state = EXPR_END
                       _, sym = val
-                      if sym.is_a? Sexp then
-                        result = wrap :lit, [sym.last, sym.line]
-                      else
-                        result = wrap :lit, sym
-                      end
+                      result =
+                        if sym.is_a? Sexp then
+                          sym.sexp_type = :lit
+                          sym
+                        else
+                          wrap :lit, sym
+                        end
                     }
                 | tSYMBOL
                     {
