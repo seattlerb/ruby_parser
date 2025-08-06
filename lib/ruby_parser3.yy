@@ -110,7 +110,12 @@ rule
                       result = iter
                     }
 
+#if V < 33
      begin_block: tLCURLY top_compstmt tRCURLY
+#else
+      block_open: tLCURLY
+     begin_block: block_open top_compstmt tRCURLY
+#endif
                     {
                       (_, line), stmt, _ = val
                       result = new_iter s(:preexe).line(line), 0, stmt
@@ -163,6 +168,10 @@ rule
                     {
                       result = val[2] # wtf?
                     }
+
+#if V >= 33
+     allow_exits: none
+#endif
 
             stmt: kALIAS fitem
                     {
@@ -218,9 +227,15 @@ rule
                       resbody = new_resbody s(:array).line(resbody.line), resbody
                       result = new_rescue body, resbody
                     }
+#if V < 33
                 | klEND tLCURLY compstmt tRCURLY
                     {
                       (_, line), _, stmt, _ = val
+#else
+                | klEND allow_exits tLCURLY compstmt tRCURLY
+                    {
+                      (_, line), _, _, stmt, _ = val
+#endif
 
                       if (self.in_def || self.in_single > 0) then
                         debug 3
@@ -373,7 +388,7 @@ rule
                       self.in_kwarg = true
                       self.env.extend
                     }
-#if V == 30
+#if V < 31
                     p_expr
 #else
                     p_top_expr_body
@@ -397,7 +412,7 @@ rule
                       self.in_kwarg = true
                       self.env.extend
                     }
-#if V == 30
+#if V < 31
                     p_expr
 #else
                     p_top_expr_body
@@ -2601,11 +2616,11 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       result = s(:dot3, v1, nil).line v1.line
                     }
-#if V == 30
+#if V < 31
                 | p_variable
 #endif
                 | p_var_ref
-#if V > 30
+#if V >= 31
                 | p_expr_ref
 #endif
                 | p_const
@@ -2783,6 +2798,10 @@ opt_block_args_tail: tCOMMA block_args_tail
                       result = new_regexp val
                     }
 
+#if V > 32
+       words_sep: tSPACE
+                | words_sep tSPACE
+#endif
            words: tWORDS_BEG tSPACE tSTRING_END
                     {
                       (_, line), _, (_, line_max) = val
@@ -2802,7 +2821,11 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       result = new_word_list
                     }
+#if V < 33
                 | word_list word tSPACE
+#else
+                | word_list word words_sep
+#endif
                     {
                       result = val[0].dup << new_word_list_entry(val)
                     }
@@ -2832,7 +2855,11 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       result = new_symbol_list
                     }
+#if V < 33
                 | symbol_list word tSPACE
+#else
+                | symbol_list word words_sep
+#endif
                     {
                       list, * = val
                       result = list.dup << new_symbol_list_entry(val)
@@ -2872,7 +2899,11 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       result = new_qword_list
                     }
+#if V < 33
                 | qword_list tSTRING_CONTENT tSPACE
+#else
+                | qword_list tSTRING_CONTENT words_sep
+#endif
                     {
                       result = val[0].dup << new_qword_list_entry(val)
                     }
@@ -2881,7 +2912,11 @@ opt_block_args_tail: tCOMMA block_args_tail
                     {
                       result = new_qsym_list
                     }
+#if V < 33
                 | qsym_list tSTRING_CONTENT tSPACE
+#else
+                | qsym_list tSTRING_CONTENT words_sep
+#endif
                     {
                       result = val[0].dup << new_qsym_list_entry(val)
                     }
@@ -2952,7 +2987,11 @@ regexp_contents: none
                       lexer.lex_state   = EXPR_BEG
                     }
                     compstmt
+#if V > 32
+                    string_dend
+#else
                     tSTRING_DEND
+#endif
                     {
                       (_, line), memo, stmt, _ = val
 
@@ -2984,6 +3023,12 @@ regexp_contents: none
                       end
                     }
 
+#if V > 32
+     string_dend: tSTRING_DEND
+                | "end-of-input" /* wtf? */
+#endif
+
+#if V < 33
      string_dvar: tGVAR
                     {
                       result = wrap :gvar, val[0]
@@ -2997,6 +3042,10 @@ regexp_contents: none
                       result = wrap :cvar, val[0]
                     }
                 | backref
+#else
+     string_dvar: nonlocal_var
+                | backref
+#endif
 
           symbol: ssym
                 | dsym
@@ -3012,10 +3061,10 @@ regexp_contents: none
                       result = wrap :lit, val[0]
                     }
 
-#if V > 30
-             sym: fname | nonlocal_var
-#else
+#if V < 31
              sym: fname | tIVAR | tGVAR | tCVAR
+#else
+             sym: fname | nonlocal_var
 #endif
 
             dsym: tSYMBEG string_contents tSTRING_END
@@ -3056,16 +3105,16 @@ regexp_contents: none
                 | tCVAR { result = wrap :cvar, val[0] }
 #endif
 
-#if V > 31
-   user_variable: tIDENTIFIER
-                | tCONSTANT
-                | nonlocal_var { v = val[0]; result = [v[-1], v.line] } /* HACK! */
-#else
+#if V < 32
    user_variable: tIDENTIFIER
                 | tIVAR
                 | tGVAR
                 | tCONSTANT
                 | tCVAR
+#else
+   user_variable: tIDENTIFIER
+                | tCONSTANT
+                | nonlocal_var { v = val[0]; result = [v[-1], v.line] } /* HACK! */
 #endif
 
 keyword_variable: kNIL      { (_, line), = val; result = s(:nil).line line }
@@ -3146,7 +3195,7 @@ f_opt_paren_args: f_paren_args
                       self.in_argdef = false
                       result = end_args val
                     }
-#if V == 30
+#if V < 31
                 | tLPAREN2 f_arg tCOMMA args_forward rparen
                     {
                       result = end_args val
@@ -3417,10 +3466,10 @@ f_opt_paren_args: f_paren_args
                     }
 
            f_opt: f_arg_asgn
-#if V > 30
-                    f_eq
-#else
+#if V < 31
                     tEQL
+#else
+                    f_eq
 #endif
                     arg_value
                     {
@@ -3432,10 +3481,10 @@ f_opt_paren_args: f_paren_args
                     }
 
      f_block_opt: f_arg_asgn
-#if V > 30
-                    f_eq
-#else
+#if V < 31
                     tEQL
+#else
+                    f_eq
 #endif
                     primary_value
                     {

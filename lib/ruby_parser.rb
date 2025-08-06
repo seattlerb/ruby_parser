@@ -38,7 +38,7 @@ class RubyParser
         e ||= exc
       end
     end
-    raise e
+    raise RubyParser::SyntaxError, e.message
   end
 
   alias :parse :process
@@ -88,7 +88,7 @@ require "ruby_parser34"
 class RubyParser # HACK
   VERSIONS.clear # also a HACK caused by racc namespace issues
 
-  class V34 < ::Ruby33Parser; end
+  class V34 < ::Ruby34Parser; end
   class V33 < ::Ruby33Parser; end
   class V32 < ::Ruby32Parser; end
   class V31 < ::Ruby31Parser; end

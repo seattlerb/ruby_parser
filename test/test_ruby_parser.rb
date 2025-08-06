@@ -1708,8 +1708,7 @@ module TestRubyParserShared
   end
 
   def test_parse_comments
-    p = RubyParser.new
-    sexp = p.parse <<-CODE
+    sexp = processor.parse <<-CODE
       # class comment
       class Inline
         def show
@@ -5452,9 +5451,8 @@ module TestRubyParserShared30Plus
   end
 
   def test_defn_oneliner_comment
-    p = RubyParser.new
     rb = "# blah\ndef exec(cmd) = system(cmd)"
-    sexp = p.parse rb
+    sexp = processor.parse rb
 
     assert_equal :defn, sexp.sexp_type
     assert_equal "# blah\n", sexp.comments
@@ -5484,9 +5482,8 @@ module TestRubyParserShared30Plus
   end
 
   def test_defs_oneliner_comment
-    p = RubyParser.new
     rb = "# blah\ndef self.exec(cmd) = system(cmd)"
-    sexp = p.parse rb
+    sexp = processor.parse rb
 
     assert_equal :defs, sexp.sexp_type
     assert_equal "# blah\n", sexp.comments
@@ -5712,7 +5709,7 @@ class TestRubyParser < Minitest::Test
     processor = RubyParser.new
 
     # bad syntax
-    e = assert_raises Racc::ParseError do
+    e = assert_raises RubyParser::SyntaxError do
       processor.parse "a.("
     end
 

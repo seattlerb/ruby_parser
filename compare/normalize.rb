@@ -91,6 +91,7 @@ def munge s
 
              "keyword_BEGIN",   "klBEGIN",
              "keyword_END",     "klEND",
+             "k_END",           "klEND",
              /keyword_(\w+)/,   proc { "k#{$1.upcase}" },
              /\bk_([a-z_]+)/,   proc { "k#{$1.upcase}" },
              /modifier_(\w+)/,  proc { "k#{$1.upcase}_MOD" },
