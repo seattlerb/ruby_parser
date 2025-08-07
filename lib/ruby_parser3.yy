@@ -220,9 +220,17 @@ rule
                       e, _, c = val
                       result = new_until e, c, true
                     }
-                | stmt kRESCUE_MOD stmt
+                | stmt kRESCUE_MOD
+#if V > 32
+                    after_rescue
+#endif
+                    stmt
                     {
+#if V > 32
+                      body, _, _, resbody = val
+#else
                       body, _, resbody = val
+#endif
 
                       resbody = new_resbody s(:array).line(resbody.line), resbody
                       result = new_rescue body, resbody
@@ -255,10 +263,18 @@ rule
 
                       result = new_assign lhs, s(:svalue, rhs).line(rhs.line)
                     }
+#if V > 32
+                | mlhs tEQL mrhs_arg kRESCUE_MOD after_rescue stmt
+#else
                 | mlhs tEQL mrhs_arg kRESCUE_MOD stmt
+#endif
                     {
                       # unwraps s(:to_ary, rhs)
+#if V > 32
+                      lhs, _, (_, rhs), _, _, resbody = val
+#else
                       lhs, _, (_, rhs), _, resbody = val
+#endif
 
                       resbody = new_resbody s(:array).line(resbody.line), resbody
 
@@ -345,9 +361,17 @@ rule
                       expr, = val
                       result = value_expr expr
                     }
+#if V > 32
+                | command_call kRESCUE_MOD after_rescue stmt
+#else
                 | command_call kRESCUE_MOD stmt
+#endif
                     {
+#if V > 32
+                      expr, (_, line), _, resbody = val
+#else
                       expr, (_, line), resbody = val
+#endif
 
                       expr = value_expr expr
                       ary  = s(:array).line line
@@ -1144,6 +1168,12 @@ rule
                       result = new_call lhs, op.to_sym, argl(rhs)
                     }
 
+#if V > 32
+        lex_ctxt: none
+   begin_defined: lex_ctxt
+    after_rescue: lex_ctxt
+#endif
+
        arg_value: arg
                     {
                       result = value_expr(val[0])
@@ -1164,9 +1194,17 @@ rule
                     }
 
          arg_rhs: arg                   =tOP_ASGN
-                | arg kRESCUE_MOD arg
+                | arg kRESCUE_MOD
+#if V > 32
+                    after_rescue
+#endif
+                    arg
                     {
+#if V > 32
+                      body, (_, line), _, resbody = val
+#else
                       body, (_, line), resbody = val
+#endif
                       body    = value_expr body
                       resbody = remove_begin resbody
 
@@ -1549,7 +1587,11 @@ rule
                       self.env.unextend
                     }
                 | k_class tLSHFT
+#if V > 32
+                    expr_value
+#else
                     expr
+#endif
                     {
                       result = self.in_def
                       self.in_def = false
@@ -1917,6 +1959,11 @@ opt_block_args_tail: tCOMMA block_args_tail
                     }
                 | f_bad_arg
 
+#if V > 32
+    max_numparam: none
+        numparam: none
+#endif
+
           lambda: tLAMBDA
                     {
                       self.env.extend :dynamic
@@ -1924,13 +1971,20 @@ opt_block_args_tail: tCOMMA block_args_tail
                       lexer.paren_nest += 1
                       lexer.lpar_beg = lexer.paren_nest
                     }
+#if V > 32
+                    max_numparam numparam allow_exits
+#endif
                     f_larglist
                     {
                       lexer.cmdarg.push false
                     }
                     lambda_body
                     {
+#if V > 32
+                      (_, line), _, _, _, lpar, args, _cmdarg, body = val
+#else
                       (_, line), lpar, args, _cmdarg, body = val
+#endif
                       lexer.lpar_beg = lpar
 
                       lexer.cmdarg.pop
@@ -2093,11 +2147,20 @@ opt_block_args_tail: tCOMMA block_args_tail
                       self.env.unextend
                     }
 
-      brace_body:   { self.env.extend :dynamic; result = self.lexer.lineno }
+      brace_body:
+#if V > 32
+                    max_numparam numparam allow_exits
+#endif
+
+                    { self.env.extend :dynamic; result = self.lexer.lineno }
                     { result = lexer.cmdarg.store(false) }
                     opt_block_param compstmt
                     {
+#if V > 32
+                      _, _, _, line, cmdarg, param, cmpstmt = val
+#else
                       line, cmdarg, param, cmpstmt = val
+#endif
 
                       result = new_brace_body param, cmpstmt, line
                       self.env.unextend
@@ -2105,12 +2168,20 @@ opt_block_args_tail: tCOMMA block_args_tail
                       lexer.cmdarg.pop # because of: cmdarg_stack >> 1 ?
                     }
 
-         do_body:   { self.env.extend :dynamic; result = self.lexer.lineno }
+         do_body:
+#if V > 32
+                    max_numparam numparam allow_exits
+#endif
+                    { self.env.extend :dynamic; result = self.lexer.lineno }
                     { lexer.cmdarg.push false }
                     opt_block_param
                     bodystmt
                     {
+#if V > 32
+                      _, _, _, line, _cmdarg, param, cmpstmt = val
+#else
                       line, _cmdarg, param, cmpstmt = val
+#endif
 
                       result = new_do_body param, cmpstmt, line
                       lexer.cmdarg.pop
