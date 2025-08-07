@@ -2550,7 +2550,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       case lhs.sexp_type
                       when :lit then
-                        assignable [lhs.value, lhs.line]
+                        assignable lhs # [lhs.value, lhs.line]
                       else
                         # TODO or done?
                         debug 10
@@ -2577,7 +2577,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       _, (id, line) = val
 
                       name = id.to_sym
-                      self.assignable [name, line]
+                      self.assignable s(:bogus, name).line line # [name, line]
                       result = s(:kwrest, :"**#{name}").line line
                     }
                 | kwrest_mark
@@ -3126,15 +3126,15 @@ regexp_contents: none
 #endif
 
 #if V < 32
-   user_variable: tIDENTIFIER
-                | tIVAR
-                | tGVAR
-                | tCONSTANT
-                | tCVAR
+   user_variable: tIDENTIFIER { (var, line), = val; result = gettable(var).line line }
+                | tIVAR { result = wrap :ivar, val[0] }
+                | tGVAR { result = wrap :gvar, val[0] }
+                | tCONSTANT { (var, line), = val; result = gettable(var).line line }
+                | tCVAR { result = wrap :cvar, val[0] }
 #else
-   user_variable: tIDENTIFIER
-                | tCONSTANT
-                | nonlocal_var { v = val[0]; result = [v[-1], v.line] } /* HACK! */
+   user_variable: tIDENTIFIER { (var, line), = val; result = gettable(var).line line }
+                | tCONSTANT { (var, line), = val; result = gettable(var).line line }
+                | nonlocal_var
 #endif
 
 keyword_variable: kNIL      { (_, line), = val; result = s(:nil).line line }
@@ -3155,18 +3155,7 @@ keyword_variable: kNIL      { (_, line), = val; result = s(:nil).line line }
                     }
 
          var_ref: user_variable
-                    {
-                      raise "NO: #{val.inspect}" if Sexp === val.first
-                      (var, line), = val
-                      result = Sexp === var ? var : self.gettable(var)
-
-                      result.line line
-                    }
                 | keyword_variable
-                    {
-                      var = val[0]
-                      result = Sexp === var ? var : self.gettable(var)
-                    }
 
          var_lhs: user_variable
                     {
@@ -3356,6 +3345,7 @@ f_opt_paren_args: f_paren_args
                       identifier = id.to_sym
                       self.env[identifier] = :lvar
 
+                      # TODO: result = s(:args, identifier).line line
                       result = [identifier, line]
                     }
 
@@ -3474,7 +3464,7 @@ f_opt_paren_args: f_paren_args
                       _, (id, line) = val
 
                       name = id.to_sym
-                      self.assignable [name, line]
+                      self.assignable s(:bogus, name).line line # [name, line]
                       result = [:"**#{name}", line]
                     }
                 | kwrest_mark
@@ -3495,7 +3485,7 @@ f_opt_paren_args: f_paren_args
                     {
                       lhs, _, rhs = val
                       self.in_argdef = true
-                      result = self.assignable lhs, rhs
+                      result = self.old_assignable lhs, rhs
                       # TODO: detect duplicate names
                       # TODO? p->cur_arg = 0;
                     }
@@ -3510,7 +3500,7 @@ f_opt_paren_args: f_paren_args
                     {
                       lhs, _, rhs = val
                       self.in_argdef = true
-                      result = self.assignable lhs, rhs
+                      result = self.old_assignable lhs, rhs
                       # TODO? p->cur_arg = 0;
                     }
 
@@ -3543,7 +3533,7 @@ f_opt_paren_args: f_paren_args
                       # TODO: differs from parse.y - needs tests
                       _, (id, line) = val
                       name = id.to_sym
-                      self.assignable [name, line]
+                      self.assignable s(:lvar, name).line(line)
                       result = [:"*#{name}", line]
                     }
                 | restarg_mark

@@ -637,11 +637,11 @@ rule
 
        mlhs_node: user_variable
                     {
-                      result = self.assignable val[0]
+                      result = self.old_assignable val[0]
                     }
                 | keyword_variable
                     {
-                      result = self.assignable val[0]
+                      result = self.old_assignable val[0]
                     }
                 | primary_value tLBRACK2 opt_call_args rbracket
                     {
@@ -698,13 +698,13 @@ rule
                     {
                       var, = val
 
-                      result = self.assignable var
+                      result = self.old_assignable var
                     }
                 | keyword_variable
                     {
                       var, = val
 
-                      result = self.assignable var
+                      result = self.old_assignable var
 
                       debug 16
                     }
@@ -2434,7 +2434,7 @@ opt_block_args_tail: tCOMMA block_args_tail
 
                       case lhs.sexp_type
                       when :lit then
-                        assignable [lhs.value, lhs.line]
+                        old_assignable [lhs.value, lhs.line]
                       else
                         # TODO or done?
                         debug 666
@@ -2454,7 +2454,7 @@ opt_block_args_tail: tCOMMA block_args_tail
                       _, (id, line) = val
 
                       name = id.to_sym
-                      self.assignable [name, line]
+                      self.old_assignable [name, line]
                       result = s(:kwrest, :"**#{name}").line line
                     }
                 | kwrest_mark
@@ -2983,11 +2983,11 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
 
          var_lhs: user_variable
                     {
-                      result = self.assignable val[0]
+                      result = self.old_assignable val[0]
                     }
                 | keyword_variable
                     {
-                      result = self.assignable val[0]
+                      result = self.old_assignable val[0]
                       debug 40
                     }
 
@@ -3291,7 +3291,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       _, (id, line) = val
 
                       name = id.to_sym
-                      self.assignable [name, line]
+                      self.old_assignable [name, line]
                       result = [:"**#{name}", line]
                     }
                 | kwrest_mark
@@ -3310,7 +3310,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
 #endif
                     {
                       lhs, _, rhs = val
-                      result = self.assignable lhs, rhs
+                      result = self.old_assignable lhs, rhs
                       # TODO: detect duplicate names
                     }
 
@@ -3323,7 +3323,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
 #endif
                     {
                       lhs, _, rhs = val
-                      result = self.assignable lhs, rhs
+                      result = self.old_assignable lhs, rhs
                     }
 
   f_block_optarg: f_block_opt
@@ -3355,7 +3355,7 @@ keyword_variable: kNIL      { result = s(:nil).line lexer.lineno }
                       # TODO: differs from parse.y - needs tests
                       _, (id, line) = val
                       name = id.to_sym
-                      self.assignable [name, line]
+                      self.old_assignable [name, line]
                       result = [:"*#{name}", line]
                     }
                 | restarg_mark

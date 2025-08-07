@@ -249,6 +249,36 @@ module RubyParserStuff
   end
 
   def assignable(lhs, value = nil)
+    id, line = lhs.last, lhs.line
+
+    result =
+      case lhs.sexp_type
+      when :const then
+        s(:cdecl, id)
+      when :cvar then
+        asgn = in_def || in_single > 0
+        s((asgn ? :cvasgn : :cvdecl), id)
+      when :gvar then
+        s(:gasgn, id)
+      when :ivar then
+        s(:iasgn, id)
+      else
+        case self.env[id]
+        when :lvar, :dvar, nil then
+          self.env[id] ||= :lvar
+          s(:lasgn, id)
+        else
+          raise "wtf? unknown type: #{self.env[id]}"
+        end
+      end
+
+    result << value if value
+    result.line line
+
+    result
+  end
+
+  def old_assignable(lhs, value = nil)
     id, line = lhs
     id = id.to_sym
 
@@ -1129,8 +1159,7 @@ module RubyParserStuff
 
     if kw_rest_arg then
       name = kw_rest_arg.value
-      # TODO: I _hate_ this:
-      assignable [name, kw_rest_arg.line] if name != :**
+      assignable kw_rest_arg if name != :**
       result << kw_rest_arg
     end
 
