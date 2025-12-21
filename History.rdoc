@@ -1,3 +1,32 @@
+=== 3.22.0 / 2025-12-20
+
+* 1 major enhancement:
+
+  * Announced the EOL of ruby_parser! YAY!
+
+* 6 minor enhancements:
+
+  * 3.3: working down the grammar structural differences.
+  * Added tentative 3.4 support.
+  * Renamed assignable to old_assignable and added newer cleaner assignable
+  * Restructured comparison rake tasks and normalization to deal with lrama changes.
+  * Updated compare versions and added 3.4.
+  * Updated grammars to fit most closely to ruby 3.2. Working it down the line.
+
+* 11 bug fixes:
+
+  * Always raise RubyParser::SyntaxError (wrap and raise).
+  * Bumped ruby version to 3.2+.
+  * Cleaned up user_variable productions to always return sexps.
+  * Corrections and enhancements for gauntlet.md instructions.
+  * Fixed rake compare's clean subtask to nuke the unpacked ruby dirs entirely.
+  * Fixed superclass of V34.
+  * Fixed up a couple errors created by using STRICT_SEXP=2. 3 will be neigh impossible.
+  * I am nothing if not stubborn: fixed errors caused by STRICT_SEXP=3.
+  * Minor fixes for 3.2+ grammars on "defined?" expressions.
+  * Removed a lot of ancient compatibility checks and patches. (eg encodings)
+  * This in turn cleaned up var_ref and a bunch of other productions.
+
 === 3.21.1 / 2024-07-09
 
 * 1 bug fix:
