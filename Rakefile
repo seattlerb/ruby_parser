@@ -9,7 +9,6 @@ Hoe.plugin :rdoc
 
 Hoe.add_include_dirs "lib"
 Hoe.add_include_dirs "../../sexp_processor/dev/lib"
-Hoe.add_include_dirs "../../minitest/dev/lib"
 Hoe.add_include_dirs "../../oedipus_lex/dev/lib"
 Hoe.add_include_dirs "../../ruby2ruby/dev/lib"
 
@@ -33,7 +32,7 @@ Hoe.spec "ruby_parser" do
   dependency "rake",           [">= 10",  "< 15"], :developer
   dependency "oedipus_lex",    "~>  2.6", :developer
 
-  require_ruby_version [">= 2.6", "< 4"]
+  require_ruby_version ">= 3.2"
 
   if plugin? :perforce then     # generated files
     VERS.each do |n|
@@ -256,7 +255,7 @@ def ruby_parse version
   end
 
   task :clean do
-    rm_f Dir[mri_txt, rp_txt, ruby_dir]
+    rm_rf Dir[mri_txt, rp_txt, ruby_dir]
   end
 
   task :realclean do
