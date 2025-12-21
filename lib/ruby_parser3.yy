@@ -1123,9 +1123,17 @@ rule
                     {
                       result = logical_op :or, val[0], val[2]
                     }
-                | kDEFINED opt_nl arg
+                | kDEFINED opt_nl
+#if V > 32
+                    begin_defined
+#endif
+                    arg
                     {
+#if V > 32
+                      (_, line), _, _, arg = val
+#else
                       (_, line), _, arg = val
+#endif
                       result = s(:defined, arg).line line
                     }
                 | arg tEH arg opt_nl tCOLON arg
