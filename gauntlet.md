@@ -38,11 +38,11 @@ using `unpack_gems.rb`.
 
 ```
 % cd RP/gauntlet
-% time caffeinate /Volumes/StuffA/gauntlet/bin/unpack_gems.rb -v [-a] ; say done
+% time caffeinate ./bin/unpack_gems.rb -v [-a] ; say done
 ... waaaait ...
 % DIR=gauntlet.$(today).(all|new).noindex
 % mv hashed.noindex $DIR
-% tar vc -T <(fd -tf . $DIR | sort) | zstd -5 -T0 --long > archives/$DIR.tar.zst ; say done
+% tar vc -T <(fd -tf . $DIR | sort) | zstdmt -12 --long > archives/$DIR.tar.zst ; say done
 % ./bin/sync.sh
 ```
 
@@ -71,7 +71,7 @@ compress).
 ### Stats
 
 ```
-9696 % find gauntlet.$(today).noindex -type f | lc
+9696 % fd -tf . gauntlet.$(today).noindex | wc -l
   561270
 3.5G gauntlet.2021-08-06.noindex
 239M gauntlet.2021-08-06.noindex.tar.zst
@@ -106,5 +106,32 @@ Or max out your machine using xargs (note the `-P 16` and choose accordingly):
 In another terminal I usually monitor the progress like so:
 
 ```
-% while true ; do clear; fd . -t d -t e gauntlet/*.noindex -X rmdir -p 2> /dev/null ; for D in gauntlet/*.noindex/? ; do echo -n "$D: "; fd .rb $D | wc -l ; done ; echo ; sleep 30 ; done
+% while true ; do clear; fd . -td -te gauntlet/*.noindex -X rmdir -p 2> /dev/null ; for D in gauntlet/*.noindex/? ; do echo -n "$D: "; fd .rb $D | wc -l ; done ; echo ; sleep 30 ; done
 ```
+
+After this is run and done, there will be files left over that
+couldn't be parsed. There will also be a directory with a name like
+`gauntlet.slow.1` of files that timed out. What I generally do is wait
+for the first run to end and then start increasing the timeout and run
+again on the timeout dir:
+
+```
+$ ls -d gauntlet.slow.1/*.noindex/?/? | RP_TIMEOUT=30 time xargs -n 1 -P 16 ./gauntlet/bin/gauntlet.rb
+# or:
+$ RP_TIMEOUT=30 time ./gauntlet/bin/gauntlet.rb gauntlet.slow.*
+$ RP_TIMEOUT=60 time ./gauntlet/bin/gauntlet.rb gauntlet.slow.*
+$ fd -tf . gauntlet.slow.60/
+gauntlet.slow.60/gauntlet.2025-10-22.new.noindex/2/f/f/2ff00bbd2ee63b2145d247570c130823dce2b9fe.rb
+gauntlet.slow.60/gauntlet.2025-10-22.new.noindex/a/a/4/aa44d5a214217036425bf8fce5a7ab5b0e04fd92.rb
+```
+
+for the most part, you wind up with absurdly large generated ruby files:
+
+```
+10022 $ wc -l gauntlet.slow.60/*/?/?/?/*.rb
+  412444 gauntlet.slow.60/gauntlet.2025-10-22.new.noindex/2/f/f/2ff00bbd2ee63b2145d247570c130823dce2b9fe.rb
+  295249 gauntlet.slow.60/gauntlet.2025-10-22.new.noindex/a/a/4/aa44d5a214217036425bf8fce5a7ab5b0e04fd92.rb
+  707693 total
+```
+
+and I don't care so much about these.
